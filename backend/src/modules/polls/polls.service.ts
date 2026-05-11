@@ -1,6 +1,7 @@
 import { PollModel } from './polls.model';
 import type { CreatePollInput, UpdatePollInput } from './polls.schema';
 import { ApiError } from '../../common/utils/ApiError';
+import { AnalyticsModel } from '../responses/analytics.model';
 
 export class PollService {
   static async createPoll(payload: CreatePollInput, creatorId: string) {
@@ -9,6 +10,16 @@ export class PollService {
       expiresAt: new Date(payload.expiresAt),
       creatorId,
     });
+
+    await AnalyticsModel.create({
+      pollId: newPoll._id,
+      totalResponses: 0,
+      questionSummaries: newPoll.questions.map((question) => ({
+        questionId: question._id,
+        counts: question.options.map(() => 0),
+      })),
+    });
+
     return newPoll;
   }
 
@@ -49,6 +60,7 @@ export class PollService {
     }
 
     poll.isClosed = true;
+    poll.expiresAt = new Date();
     poll.closedAt = new Date();
     await poll.save();
     return poll;

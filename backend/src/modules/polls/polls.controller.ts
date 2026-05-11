@@ -19,7 +19,7 @@ export class PollController {
 
   static async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const { pollId } = req.params;
+      const pollId = req.params.pollId || req.params.id;
       if (!pollId) throw ApiError.badRequest('pollId is required');
       const poll = await PollService.getPollById(String(pollId));
       return ApiResponse.ok(res, 'Poll fetched successfully', poll);
@@ -51,7 +51,7 @@ export class PollController {
 
   static async close(req: Request, res: Response, next: NextFunction) {
     try {
-      const { pollId } = req.params;
+      const pollId = req.params.pollId || req.params.id;
       if (!pollId) throw ApiError.badRequest('pollId is required');
       const poll = await PollService.closePoll(String(pollId));
       return ApiResponse.ok(res, 'Poll closed successfully', poll);

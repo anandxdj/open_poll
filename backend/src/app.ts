@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
+import { Server } from 'socket.io';
 import { connectDB } from './common/config/db';
 import { connectRedis } from './common/config/redis';
 import pollsRouter from './modules/polls/polls.route';
@@ -9,16 +10,21 @@ import aiRouter from './modules/ai/ai.route';
 import { errorHandler } from './common/middlewares/errorHandler';
 import mongoose from 'mongoose';
 import { redisClient } from './common/config/redis';
-import { initSocketGateway } from './common/realtime/socket.gateway';
+import { setupSocketAndPubSub } from './common/realtime/socket';
+import { startAnalyticsWorker } from './modules/responses/analytics.worker';
 
 const app = express();
 const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST'],
+  },
+});
 
 // Global Middlewares
 app.use(cors());
 app.use(express.json());
-
-initSocketGateway(httpServer);
 
 // Healthcheck Route
 app.get('/health', (req, res) => {
@@ -49,9 +55,15 @@ app.use(errorHandler);
 
 // Boot Server & Connect Services
 const PORT = process.env.PORT || 5000;
-
-httpServer.listen(PORT, async () => {
+const bootstrap = async () => {
   await connectDB();
   await connectRedis();
-  console.log(`[Server] Running on port ${PORT}`);
-});
+  await setupSocketAndPubSub(io);
+  startAnalyticsWorker();
+
+  httpServer.listen(PORT, () => {
+    console.log(`[Server] Running on port ${PORT}`);
+  });
+};
+
+void bootstrap();

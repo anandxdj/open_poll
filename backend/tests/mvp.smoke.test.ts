@@ -5,11 +5,14 @@ import { ResponseService } from '../src/modules/responses/responses.service';
 import { PollModel } from '../src/modules/polls/polls.model';
 import { ResponseModel } from '../src/modules/responses/responses.model';
 import { redisClient } from '../src/common/config/redis';
+import { AnalyticsModel } from '../src/modules/responses/analytics.model';
 
 describe('backend mvp smoke tests', () => {
   it('creates a poll through PollService', async () => {
     const originalCreate = PollModel.create;
+    const originalAnalyticsCreate = AnalyticsModel.create;
     (PollModel as any).create = async (data: unknown) => data;
+    (AnalyticsModel as any).create = async (data: unknown) => data;
 
     const created = await PollService.createPoll(
       {
@@ -30,6 +33,7 @@ describe('backend mvp smoke tests', () => {
 
     expect((created as any).creatorId).toBe('mock-creator-id-123');
     (PollModel as any).create = originalCreate;
+    (AnalyticsModel as any).create = originalAnalyticsCreate;
   });
 
   it('submits response and publishes analytics event', async () => {
@@ -40,6 +44,9 @@ describe('backend mvp smoke tests', () => {
     const originalResponseCreate = ResponseModel.create;
     const originalResponseFind = ResponseModel.find;
     const originalPublish = redisClient.publish;
+    const originalGet = redisClient.get;
+    const originalSetEx = redisClient.setEx;
+    const originalMulti = redisClient.multi;
 
     (PollModel as any).findById = async () => ({
       _id: pollId,
@@ -62,18 +69,30 @@ describe('backend mvp smoke tests', () => {
         answers: [{ questionId, selectedOptionIndex: 0 }],
       },
     ];
+    (redisClient as any).get = async () => null;
+    (redisClient as any).setEx = async () => 'OK';
+    (redisClient as any).multi = () => ({
+      sAdd: () => undefined,
+      incr: () => undefined,
+      hIncrBy: () => undefined,
+      exec: async () => [],
+    });
     (redisClient as any).publish = async () => 1;
 
     const result = await ResponseService.submitResponse({
       pollId: String(pollId),
+      deviceId: 'test-device-uuid',
       answers: [{ questionId: String(questionId), selectedOptionIndex: 0 }],
     });
 
-    expect((result as any).answers.length).toBe(1);
+    expect((result as any).message).toBe('Response recorded successfully');
 
     (PollModel as any).findById = originalPollFindById;
     (ResponseModel as any).create = originalResponseCreate;
     (ResponseModel as any).find = originalResponseFind;
     (redisClient as any).publish = originalPublish;
+    (redisClient as any).get = originalGet;
+    (redisClient as any).setEx = originalSetEx;
+    (redisClient as any).multi = originalMulti;
   });
 });

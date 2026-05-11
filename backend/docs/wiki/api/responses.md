@@ -13,5 +13,6 @@ Base path: `/api/responses`
 
 Submission payload shape:
 - `pollId: string`
+- `deviceId: string` (frontend UUID used for 24-hour anti-spam guard)
 - `respondentId?: string`
 - `answers: [{ questionId: string, selectedOptionIndex: number }]`

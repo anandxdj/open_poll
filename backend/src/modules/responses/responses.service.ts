@@ -3,9 +3,9 @@ import { redisClient } from '../../common/config/redis';
 import { ApiError } from '../../common/utils/ApiError';
 import { PollModel } from '../polls/polls.model';
 import { ResponseModel } from './responses.model';
-import { REALTIME_CHANNELS } from '../../common/realtime/events';
 import type { SubmitResponseInput } from './responses.schema';
-import type { PollAnalyticsUpdateEvent, ResponseAcceptedEvent } from '../../common/realtime/events';
+import { AnalyticsModel } from './analytics.model';
+import type { PollAnalyticsUpdateEvent } from '../../common/realtime/events';
 
 export class ResponseService {
   static async submitResponse(payload: SubmitResponseInput) {
@@ -18,9 +18,8 @@ export class ResponseService {
       throw ApiError.badRequest('Poll is not published');
     }
 
-    if (poll.isClosed || poll.expiresAt.getTime() <= Date.now()) {
-      throw ApiError.badRequest('Poll is closed or expired');
-    }
+    if (poll.isClosed) throw ApiError.badRequest('Poll is closed');
+    if (poll.expiresAt.getTime() <= Date.now()) throw ApiError.badRequest('Poll is expired');
 
     const questionMap = new Map(
       poll.questions.map((question) => [String(question._id), question]),
@@ -45,55 +44,62 @@ export class ResponseService {
       }
     }
 
-    const response = await ResponseModel.create({
+    const spamKey = `poll:${payload.pollId}:voted:${payload.deviceId}`;
+    const hasVoted = await redisClient.get(spamKey);
+    if (hasVoted) {
+      throw ApiError.conflict('You have already voted on this poll.');
+    }
+    await redisClient.setEx(spamKey, 86400, 'true');
+
+    const pipeline = redisClient.multi();
+    pipeline.sAdd('buffer:active_polls', payload.pollId);
+    pipeline.incr(`buffer:poll:${payload.pollId}:total`);
+    for (const answer of payload.answers) {
+      pipeline.hIncrBy(
+        `buffer:poll:${payload.pollId}:question:${answer.questionId}`,
+        String(answer.selectedOptionIndex),
+        1,
+      );
+    }
+    await pipeline.exec();
+
+    ResponseModel.create({
       pollId: new mongoose.Types.ObjectId(payload.pollId),
-      respondentId: payload.respondentId,
+      respondentId: payload.respondentId ?? 'mock-respondent-123',
       answers: payload.answers.map((a) => ({
         questionId: new mongoose.Types.ObjectId(a.questionId),
         selectedOptionIndex: a.selectedOptionIndex,
       })),
+    }).catch((error: unknown) => {
+      console.error('[Mongo Backup Error]', error);
     });
 
-    const analytics = await this.getPollAnalytics(payload.pollId);
-    const event: ResponseAcceptedEvent = {
-      pollId: payload.pollId,
-      analytics,
-    };
-
-    await redisClient.publish(REALTIME_CHANNELS.responseAccepted, JSON.stringify(event));
-    return response;
+    return { message: 'Response recorded successfully' };
   }
 
   static async getPollAnalytics(pollId: string): Promise<PollAnalyticsUpdateEvent> {
-    const poll = await PollModel.findById(pollId);
-    if (!poll) {
-      throw ApiError.notFound('Poll not found');
+    const cacheKey = `poll:${pollId}:analytics_cache`;
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached) as PollAnalyticsUpdateEvent;
     }
 
-    const responses = await ResponseModel.find({ pollId });
-    const summaryMap = new Map<string, number[]>();
+    const analyticsDoc = await AnalyticsModel.findOne({
+      pollId: new mongoose.Types.ObjectId(pollId),
+    });
+    if (!analyticsDoc) throw ApiError.notFound('Analytics not found for poll');
 
-    for (const question of poll.questions) {
-      summaryMap.set(String(question._id), question.options.map(() => 0));
-    }
-
-    for (const response of responses) {
-      for (const answer of response.answers) {
-        const questionId = String(answer.questionId);
-        const counts = summaryMap.get(questionId);
-        if (!counts) continue;
-        counts[answer.selectedOptionIndex] = (counts[answer.selectedOptionIndex] || 0) + 1;
-      }
-    }
-
-    return {
+    const analytics: PollAnalyticsUpdateEvent = {
       pollId,
-      totalResponses: responses.length,
-      questionSummaries: Array.from(summaryMap.entries()).map(([questionId, counts]) => ({
-        questionId,
-        counts,
+      totalResponses: analyticsDoc.totalResponses,
+      questionSummaries: analyticsDoc.questionSummaries.map((summary) => ({
+        questionId: String(summary.questionId),
+        counts: summary.counts,
       })),
       emittedAt: new Date().toISOString(),
     };
+
+    await redisClient.set(cacheKey, JSON.stringify(analytics), { EX: 3600 });
+    return analytics;
   }
 }

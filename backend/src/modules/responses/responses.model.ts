@@ -7,7 +7,7 @@ export interface IResponseAnswer {
 
 export interface IResponse extends Document {
   pollId: mongoose.Types.ObjectId;
-  respondentId?: string;
+  respondentId: string;
   answers: IResponseAnswer[];
 }
 
@@ -22,7 +22,7 @@ const ResponseAnswerSchema = new Schema<IResponseAnswer>(
 const ResponseSchema = new Schema<IResponse>(
   {
     pollId: { type: Schema.Types.ObjectId, required: true, index: true, ref: 'Poll' },
-    respondentId: { type: String, required: false },
+    respondentId: { type: String, required: true },
     answers: { type: [ResponseAnswerSchema], required: true },
   },
   {

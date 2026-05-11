@@ -14,4 +14,4 @@ last_updated: 2026-05-11
 
 ## Guarantees
 - Structured output validated by Zod schema aligned with poll create contract.
-- Missing or invalid Gemini key fails via `ApiError.badRequest`.
+- Missing Gemini key or model failure falls back to a deterministic mock draft matching `CreatePollInput` shape for frontend testing.

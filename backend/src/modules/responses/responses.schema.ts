@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const submitResponseSchema = z.object({
   pollId: z.string().min(1, 'pollId is required'),
+  deviceId: z.string().min(1, 'deviceId is required'),
   respondentId: z.string().optional(),
   answers: z.array(
     z.object({

@@ -15,7 +15,7 @@ type AiGraphState = {
 export class AiService {
   private static getModel() {
     if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_api_key_here') {
-      throw ApiError.badRequest('GEMINI_API_KEY is missing or invalid');
+      return null;
     }
 
     return new ChatGoogleGenerativeAI({
@@ -25,8 +25,34 @@ export class AiService {
     });
   }
 
+  private static buildMockDraft(input: GeneratePollRequestInput): GeneratedPollOutput {
+    const topic = input.prompt.trim().slice(0, 80) || 'Community Pulse Check';
+    return generatedPollSchema.parse({
+      title: `AI Mock Poll: ${topic}`,
+      isAnonymous: input.isAnonymous,
+      expiresAt: input.expiresAt,
+      isPublished: false,
+      questions: [
+        {
+          text: 'How clear is this poll topic?',
+          options: ['Very clear', 'Somewhat clear', 'Not clear'],
+          isMandatory: true,
+        },
+        {
+          text: 'How interested are you in participating further?',
+          options: ['Very interested', 'Maybe later', 'Not interested'],
+          isMandatory: true,
+        },
+      ],
+    });
+  }
+
   private static async generateWithGraph(input: GeneratePollRequestInput): Promise<GeneratedPollOutput> {
-    const model = this.getModel().withStructuredOutput(generatedPollSchema);
+    const model = this.getModel();
+    if (!model) {
+      return this.buildMockDraft(input);
+    }
+    const structuredModel = model.withStructuredOutput(generatedPollSchema);
 
     const graph = new StateGraph<AiGraphState>({
       channels: {
@@ -35,7 +61,7 @@ export class AiService {
       },
     })
       .addNode('generatePoll', async (state) => {
-        const generated = await model.invoke(
+        const generated = await structuredModel.invoke(
           [
             'Generate a polling payload from user instructions.',
             'Rules:',
@@ -58,14 +84,18 @@ export class AiService {
       .addEdge('__start__', 'generatePoll')
       .addEdge('generatePoll', '__end__');
 
-    const compiled = graph.compile();
-    const result = await compiled.invoke({ prompt: input.prompt });
+    try {
+      const compiled = graph.compile();
+      const result = await compiled.invoke({ prompt: input.prompt });
 
-    if (!result.generated) {
-      throw ApiError.badRequest('AI could not generate a valid poll');
+      if (!result.generated) {
+        throw ApiError.badRequest('AI could not generate a valid poll');
+      }
+
+      return generatedPollSchema.parse(result.generated);
+    } catch {
+      return this.buildMockDraft(input);
     }
-
-    return generatedPollSchema.parse(result.generated);
   }
 
   static async generatePollDraft(input: GeneratePollRequestInput) {

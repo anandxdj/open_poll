@@ -7,9 +7,10 @@ last_updated: 2026-05-11
 # Redis Channels
 
 Current channels:
-- `responses.accepted`: published after response persistence with latest poll analytics snapshot.
+- `analytics:update`: published by analytics worker after Mongo aggregate sync and cache refresh.
 
 Processing path:
-1. Responses service publishes event JSON to `responses.accepted`.
-2. Redis subscriber receives event.
-3. Socket gateway emits `analytics:update` to `pollId` room.
+1. Responses service writes buffered counters to Redis keys and adds poll id to `buffer:active_polls`.
+2. 2-second analytics worker applies one Mongo `bulkWrite` to analytics docs and clears buffer keys.
+3. Worker deletes analytics cache and publishes event JSON to `analytics:update`.
+4. Socket subscriber receives event and emits `analytics:update` to room `poll_{pollId}`.

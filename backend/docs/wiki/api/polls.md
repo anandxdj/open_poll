@@ -10,8 +10,8 @@ Base path: `/api/polls`
 
 - `POST /` create poll
 - `GET /` list polls by `creatorId` query (defaults to mock creator)
-- `GET /:pollId` fetch single poll
+- `GET /:id` fetch single poll
 - `PATCH /:pollId` update poll
-- `POST /:pollId/close` close poll
+- `POST /:id/close` close poll
 
 All write endpoints use Zod schemas and standardized `ApiResponse`.

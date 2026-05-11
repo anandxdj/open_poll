@@ -1,5 +1,11 @@
 export const REALTIME_CHANNELS = {
-  responseAccepted: 'responses.accepted',
+  analyticsUpdate: 'analytics:update',
+} as const;
+
+export const SOCKET_EVENTS = {
+  pollJoin: 'poll:join',
+  pollLeave: 'poll:leave',
+  analyticsUpdate: 'analytics:update',
 } as const;
 
 export interface PollAnalyticsUpdateEvent {
