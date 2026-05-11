@@ -9,8 +9,8 @@ last_updated: 2026-05-11
 The AI path uses `ChatGoogleGenerativeAI` with structured output and a LangGraph state flow.
 
 Graph steps:
-1. Start with request prompt.
-2. `generatePoll` node asks model to produce a single-option multiple-choice poll payload.
+1. Start with request fields: `topic`, `tone`, `questionCount` (and pass-through `isAnonymous`, `expiresAt`).
+2. `generatePoll` node uses a persona system prompt so the model produces exactly `questionCount` single-option multiple-choice questions in the requested tone.
 3. Output is normalized with request-level `isAnonymous` and `expiresAt`.
 4. Zod parse enforces final contract.
 

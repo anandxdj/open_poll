@@ -6,7 +6,7 @@ last_updated: 2026-05-11
 
 # AI Module
 
-`modules/ai` converts natural-language instructions into poll payloads.
+`modules/ai` converts a structured request (`topic`, `tone`, `questionCount`, plus `isAnonymous` / `expiresAt`) into poll payloads.
 
 ## Endpoints
 - `POST /api/ai/generate`: generate validated draft payload.

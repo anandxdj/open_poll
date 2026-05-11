@@ -13,3 +13,5 @@ Format:
 - 2026-05-11T09:40:11.195Z | Task type: ai update schema only | ai
 - 2026-05-11T10:50:00.000Z | CQRS write-behind redis buffer + analytics worker/socket sync | ai
 - 2026-05-11T11:54:00.000Z | Backend finalization: deviceId anti-spam, socket event standardization, poll id routes, AI mock fallback | polls+responses+realtime+ai
+- 2026-05-11T12:00:00.000Z | AI generate request: topic/tone/questionCount schema + structured persona prompt + error logging | ai
+- 2026-05-11T22:05:00.000Z | AI System Audit: How it works, evaluation, and model name fix (gemini-1.5-flash) | ai

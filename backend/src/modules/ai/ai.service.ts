@@ -8,7 +8,9 @@ import {
 import type { GeneratedPollOutput, GenerateAndSavePollRequestInput, GeneratePollRequestInput } from './ai.schema';
 
 type AiGraphState = {
-  prompt: string;
+  topic: string;
+  tone: GeneratePollRequestInput['tone'];
+  questionCount: number;
   generated?: GeneratedPollOutput;
 };
 
@@ -19,16 +21,15 @@ export class AiService {
     }
 
     return new ChatGoogleGenerativeAI({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-flash-latest',
       temperature: 0.3,
       apiKey: process.env.GEMINI_API_KEY,
     });
   }
 
   private static buildMockDraft(input: GeneratePollRequestInput): GeneratedPollOutput {
-    const topic = input.prompt.trim().slice(0, 80) || 'Community Pulse Check';
     return generatedPollSchema.parse({
-      title: `AI Mock Poll: ${topic}`,
+      title: `AI Mock Poll: ${input.topic.trim().slice(0, 50)}`,
       isAnonymous: input.isAnonymous,
       expiresAt: input.expiresAt,
       isPublished: false,
@@ -56,21 +57,27 @@ export class AiService {
 
     const graph = new StateGraph<AiGraphState>({
       channels: {
-        prompt: { value: (left) => left, default: () => input.prompt },
+        topic: { value: (left) => left, default: () => input.topic },
+        tone: { value: (left) => left, default: () => input.tone },
+        questionCount: { value: (left) => left, default: () => input.questionCount },
         generated: { value: (left) => left, default: () => undefined },
       },
     })
-      .addNode('generatePoll', async (state) => {
-        const generated = await structuredModel.invoke(
-          [
-            'Generate a polling payload from user instructions.',
-            'Rules:',
-            '- Only single-option multiple choice questions.',
-            '- Each question must have at least 2 options.',
-            '- Keep language concise and production-ready.',
-            `Prompt: ${state.prompt}`,
-          ].join('\n'),
-        );
+      .addNode('generatePoll', async () => {
+        const systemPrompt = [
+          `You are an expert UX Researcher and Survey Designer.`,
+          `Create a highly engaging, ${input.tone} polling payload based on the following topic or context:`,
+          `"${input.topic}"`,
+          ``,
+          `CRITICAL RULES:`,
+          `- You MUST generate EXACTLY ${input.questionCount} questions. No more, no less.`,
+          `- All questions must be single-option multiple choice.`,
+          `- Each question must have between 2 and 4 engaging options.`,
+          `- Maintain a ${input.tone} tone strictly throughout the questions and options.`,
+          `- Ensure JSON keys match our strict Zod schema perfectly.`,
+        ].join('\n');
+
+        const generated = await structuredModel.invoke(systemPrompt);
 
         return {
           generated: {
@@ -86,14 +93,19 @@ export class AiService {
 
     try {
       const compiled = graph.compile();
-      const result = await compiled.invoke({ prompt: input.prompt });
+      const result = await compiled.invoke({
+        topic: input.topic,
+        tone: input.tone,
+        questionCount: input.questionCount,
+      });
 
       if (!result.generated) {
         throw ApiError.badRequest('AI could not generate a valid poll');
       }
 
       return generatedPollSchema.parse(result.generated);
-    } catch {
+    } catch (error) {
+      console.error('[AI Generation Error]', error);
       return this.buildMockDraft(input);
     }
   }
