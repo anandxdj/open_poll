@@ -1,0 +1,25 @@
+---
+description: Enforce minimal wiki context loading per task
+alwaysApply: true
+---
+
+# LLM Context Router Rule
+
+Use controlled context from `backend/docs/wiki/` only.
+
+## Mandatory read order
+1. Read `backend/docs/wiki/context-router.md`.
+2. Read only the core docs listed for the matched task type.
+3. Read one module/API doc only if required by the current task.
+4. Do not read unrelated docs.
+
+## Task routing
+- Poll CRUD or lifecycle -> polls core set.
+- Voting rules or aggregation -> responses core set.
+- Socket/Redis live analytics -> realtime core set.
+- AI generation -> ai core set.
+- Infra/setup/test -> setup and checklist docs.
+
+## Update policy
+- If behavior or API contracts change, update only impacted wiki pages.
+- Append one concise entry to `backend/docs/wiki/chat-log.md` per completed chat task.

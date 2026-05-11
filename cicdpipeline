@@ -1,0 +1,55 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/chadhava-foundation:latest .
+
+      - name: Push Docker Image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/chadhava-foundation:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+
+            docker pull imohit1o1/chadhava-foundation:latest
+
+            docker rm -f app || true
+
+            docker run -d \
+              --name app \
+              --restart unless-stopped \
+              --network traefik \
+              -l traefik.enable=true \
+              -l 'traefik.http.routers.chadhava.rule=Host(`chadhavafoundation.in`)' \
+              -l traefik.http.routers.chadhava.entrypoints=websecure \
+              -l traefik.http.routers.chadhava.tls.certresolver=letsencrypt \
+              -l traefik.http.services.chadhava.loadbalancer.server.port=3000 \
+              imohit1o1/chadhava-foundation:latest
