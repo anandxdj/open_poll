@@ -15,3 +15,4 @@ Format:
 - 2026-05-11T11:54:00.000Z | Backend finalization: deviceId anti-spam, socket event standardization, poll id routes, AI mock fallback | polls+responses+realtime+ai
 - 2026-05-11T12:00:00.000Z | AI generate request: topic/tone/questionCount schema + structured persona prompt + error logging | ai
 - 2026-05-11T22:05:00.000Z | AI System Audit: How it works, evaluation, and model name fix (gemini-1.5-flash) | ai
+- 2026-05-12T10:12:00.000Z | Frontend rule update: created persistent frontend wiki and completed Step 1 dashboard UI shell/sidebar/polls page | frontend
