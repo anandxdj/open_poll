@@ -7,7 +7,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+
+  
+  /* --font-sans: var(--font-sans); */
+  --font-sans: var(--font-amethysta);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -52,6 +55,7 @@
   --color-sandy-light:     #e8c9a8;
   --color-sandy-dark:      #b8885f;
   --color-sandy-muted:     color-mix(in srgb, #d8ad87 15%, transparent);
+  --font-amethysta: var(--font-amethysta);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

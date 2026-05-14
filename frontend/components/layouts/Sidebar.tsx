@@ -12,23 +12,52 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Zap,
+  User,
+  LogOut,
+  Moon,
+  Sun,
+  ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCreatePollModal } from "@/features/polls/components/CreatePollModalProvider";
+import { useTheme } from "next-themes";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const ease = [0.32, 0.72, 0, 1] as const;
+
+// View Transition logic for cinematic theme switching
+function applyWithTransition(apply: () => void) {
+  if (!document.startViewTransition) {
+    apply();
+    return;
+  }
+  document.startViewTransition(apply);
+}
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(true);
   const { open: openCreatePollModal } = useCreatePollModal();
+  const { setTheme, resolvedTheme } = useTheme();
 
   const navItems = [
     { href: "/polls", label: "Dashboard", Icon: LayoutDashboard },
     { href: "/create", label: "Create Poll", Icon: ListPlus },
     { href: "/analytics", label: "Analytics", Icon: BarChart2 },
-    { href: "/settings", label: "Settings", Icon: Settings },
   ];
+
+  const toggleTheme = () => {
+    applyWithTransition(() => {
+      setTheme(resolvedTheme === "dark" ? "light" : "dark");
+    });
+  };
 
   return (
     <motion.aside
@@ -126,6 +155,83 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      {/* User profile dropdown at bottom */}
+      <div className="mt-auto p-2 border-t border-sidebar-border">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn(
+                "flex w-full items-center gap-2 rounded-xl p-2 transition-colors duration-200 hover:bg-sidebar-accent text-sidebar-foreground/70 hover:text-sidebar-foreground",
+                !navOpen && "justify-center px-0"
+              )}
+            >
+              <div className="size-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                JD
+              </div>
+              {navOpen && (
+                <div className="flex flex-1 items-center justify-between min-w-0">
+                  <div className="text-left min-w-0">
+                    <p className="text-[11px] font-bold leading-none truncate">John Doe</p>
+                    <p className="text-[9px] text-sidebar-foreground/40 leading-none mt-1 truncate">Free Plan</p>
+                  </div>
+                  <ChevronUp className="size-3 opacity-30" />
+                </div>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            side="right"
+            align="end"
+            sideOffset={navOpen ? 4 : 12}
+            className="w-56 rounded-2xl border-sidebar-border bg-sidebar p-1 shadow-2xl"
+          >
+            <DropdownMenuLabel className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/40">
+              Account
+            </DropdownMenuLabel>
+            <DropdownMenuItem asChild>
+              <Link
+                href="/settings#profile"
+                className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-sidebar-foreground/70 transition-colors focus:bg-primary/10 focus:text-primary"
+              >
+                <User className="size-4" />
+                Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link
+                href="/settings"
+                className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-sidebar-foreground/70 transition-colors focus:bg-primary/10 focus:text-primary"
+              >
+                <Settings className="size-4" />
+                Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="my-1 bg-sidebar-border" />
+            <DropdownMenuLabel className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/40">
+              Preferences
+            </DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={toggleTheme}
+              className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-sidebar-foreground/70 transition-colors focus:bg-primary/10 focus:text-primary group/theme"
+            >
+              <div className="relative size-4">
+                <Sun className="size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute inset-0 size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              </div>
+              <span>Theme</span>
+              <span className="ml-auto text-[10px] font-bold uppercase text-primary/40 group-hover/theme:text-primary transition-colors">
+                {resolvedTheme === "dark" ? "Dark" : "Light"}
+              </span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="my-1 bg-sidebar-border" />
+            <DropdownMenuItem className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-red-500 transition-colors focus:bg-red-500/10 focus:text-red-500">
+              <LogOut className="size-4" />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </motion.aside>
   );
 }
