@@ -1,7 +1,7 @@
 ---
 summary: Per-chat audit log for controlled context usage and wiki updates.
 status: active
-last_updated: 2026-05-11
+last_updated: 2026-05-13
 ---
 
 # Chat Log
@@ -18,4 +18,8 @@ Format:
 - 2026-05-12T10:12:00.000Z | Frontend rule update: created persistent frontend wiki and completed Step 1 dashboard UI shell/sidebar/polls page | frontend
 - 2026-05-12T12:55:00.000Z | Frontend Step 1: next-themes provider, dashboard Sidebar/Navbar, polls dashboard with stat cards and PollCard grid; placeholder routes for empty pages | frontend
 - 2026-05-12T13:30:00.000Z | Frontend: rounder UI, deduped nav copy, icon theme toggle; PollBuilder+AI modal, analytics socket+Recharts, public StepByStepForm+deviceId | frontend
-- 2026-05-12T18:00:00.000Z | Create poll (/create): modular card layout, split Basics vs Question stack, per-question expand/collapse cards, sticky footer | frontend
+- 2026-05-13T00:00:00.000Z | Frontend: /create unified into global Sidebar+main; PollBuilder refactor; theme tokens + card contrast; removed create segment layout | frontend
+- 2026-05-13T12:00:00.000Z | Frontend: orange-accent PollCard, CreatePollModalProvider + sidebar create opens modal, AiPromptModal initialTopic from builder title | frontend
+- 2026-05-13T16:00:00.000Z | Frontend redesign skill: landing unified amber palette, min-dvh + smooth scroll + noise overlay, shadcn Button motion/easing, /privacy /terms stubs, #pricing anchor | frontend
+- 2026-05-13T18:30:00.000Z | Frontend lint: fixed react-hooks/set-state-in-effect, ref-during-render, purity Date.now, explicit any, react/no-unescaped-entities; removed dead vote-aggregate effect on polls page | frontend
+- 2026-05-13T20:00:00.000Z | Cursor rule use-bun (always apply); analytics/[id] page refactor: dark shell alignment, /analytics back nav, emptyPollAnalytics in types | frontend

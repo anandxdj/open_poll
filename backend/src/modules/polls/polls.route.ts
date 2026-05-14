@@ -11,5 +11,7 @@ router.get('/', PollController.listByCreator);
 router.get('/:id', PollController.getById);
 router.patch('/:pollId', validate(updatePollSchema), PollController.update);
 router.post('/:id/close', PollController.close);
+router.post('/:id/publish-results', PollController.publishResults);
+router.delete('/:id', PollController.delete);
 
 export default router;

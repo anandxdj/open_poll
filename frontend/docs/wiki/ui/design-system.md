@@ -62,10 +62,13 @@ All transitions must use: `cubic-bezier(0.32, 0.72, 0, 1)`.
 
 ## Poll Builder UI Patterns
 
+### Layout shell
+`/create` uses the **global app shell** (`Sidebar` + `main` from `GlobalClientLayout`). The poll builder content fills `main` with nested scroll (question rail + editor), not a separate full-viewport studio chrome.
+
 ### Two-Panel Layout
-The `/create` page uses a side-by-side layout at `xl` breakpoint:
-- **Left panel** (`xl:w-80`): Vertical question list. Each item is a compact pill/row showing question number + truncated text. Selected item has yellow ring. "Add question" button at bottom.
-- **Right panel** (`flex-1`): The active question editor (expanded) + live preview toggle.
+Inside `main`, the builder uses a side-by-side layout (question rail `w-40`–`xl:w-52` + editor `flex-1`):
+- **Left panel**: Vertical question list. Each item is a compact row showing question number + truncated text. Selected item has amber ring. "Add question" at bottom and a small progress strip.
+- **Right panel** (`flex-1`): Sticky route header (title + AI / done / publish) and scrollable question editor (`PollQuestionCard` stack).
 
 ### Phone-Frame Preview
 The `LivePreview` component renders a phone-frame mockup:
@@ -76,12 +79,7 @@ Screen: rounded-[2rem] bg-[#0a0a0a] overflow-hidden
 Shows the current question as it will appear to respondents: question text, radio options, Submit button (disabled in preview).
 
 ### Settings Panel
-Poll settings live in a sticky sidebar card (left on desktop, top on mobile):
-- Title input (rounded-2xl)
-- Expiry datetime picker (rounded-2xl)
-- Response Mode toggle: Anonymous ↔ Authenticated (Switch component)
-- Published toggle (Switch component)
-- "Publish Results" toggle visible after poll is closed/expired
+Poll publish settings (title sync, expiry, anonymous, published) live in **`PublishSettingsModal`** when the user confirms publish. Optional in-page settings patterns may reuse `PollSettingsPanel` from `PollBasicsCard.tsx`.
 
 ### Response Mode Chip (PollCard)
 ```tsx

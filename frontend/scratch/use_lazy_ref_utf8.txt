@@ -1,0 +1,21 @@
+﻿Γöî shadcn add @diceui/time-picker (dry run)
+Γöé
+Γö£ hooks\use-lazy-ref.ts (create) 14 lines
+Γöé ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+Γöé Γöé import * as React from "react";
+Γöé Γöé 
+Γöé Γöé function useLazyRef<T>(fn: () => T) {
+Γöé Γöé   const ref = React.useRef<T | null>(null);
+Γöé Γöé 
+Γöé Γöé   if (ref.current === null) {
+Γöé Γöé     ref.current = fn();
+Γöé Γöé   }
+Γöé Γöé 
+Γöé Γöé   return ref as React.RefObject<T>;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé export { useLazyRef };
+Γöé Γöé 
+Γöé ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+Γöé
+Γöö Run without --dry-run to apply.

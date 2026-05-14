@@ -16,6 +16,8 @@ export interface IPoll extends Document {
   isPublished: boolean;
   isClosed: boolean;
   closedAt?: Date | null;
+  isResultsPublished: boolean;
+  resultsPublishedAt?: Date | null;
   questions: IQuestion[];
 }
 
@@ -42,6 +44,8 @@ const PollSchema = new Schema<IPoll>({
   isPublished: { type: Boolean, default: false },
   isClosed: { type: Boolean, default: false },
   closedAt: { type: Date, default: null },
+  isResultsPublished: { type: Boolean, default: false },
+  resultsPublishedAt: { type: Date, default: null },
   questions: { 
     type: [QuestionSchema], 
     required: true, 

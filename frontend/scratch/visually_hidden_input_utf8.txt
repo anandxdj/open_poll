@@ -1,0 +1,168 @@
+﻿Γöî shadcn add @diceui/time-picker (dry run)
+Γöé
+Γö£ components\visually-hidden-input.tsx (create) 161 lines
+Γöé ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+Γöé Γöé "use client";
+Γöé Γöé 
+Γöé Γöé import * as React from "react";
+Γöé Γöé 
+Γöé Γöé type InputValue = string[] | string;
+Γöé Γöé 
+Γöé Γöé interface VisuallyHiddenInputProps<T = InputValue>
+Γöé Γöé   extends Omit<
+Γöé Γöé     React.InputHTMLAttributes<HTMLInputElement>,
+Γöé Γöé     "value" | "checked" | "onReset"
+Γöé Γöé   > {
+Γöé Γöé   value?: T;
+Γöé Γöé   checked?: boolean;
+Γöé Γöé   control: HTMLElement | null;
+Γöé Γöé   bubbles?: boolean;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function VisuallyHiddenInput<T = InputValue>(
+Γöé Γöé   props: VisuallyHiddenInputProps<T>,
+Γöé Γöé ) {
+Γöé Γöé   const {
+Γöé Γöé     control,
+Γöé Γöé     value,
+Γöé Γöé     checked,
+Γöé Γöé     bubbles = true,
+Γöé Γöé     type = "hidden",
+Γöé Γöé     style,
+Γöé Γöé     ...inputProps
+Γöé Γöé   } = props;
+Γöé Γöé 
+Γöé Γöé   const isCheckInput = React.useMemo(
+Γöé Γöé     () => type === "checkbox" || type === "radio" || type === "switch",
+Γöé Γöé     [type],
+Γöé Γöé   );
+Γöé Γöé   const inputRef = React.useRef<HTMLInputElement>(null);
+Γöé Γöé 
+Γöé Γöé   const prevValueRef = React.useRef<{
+Γöé Γöé     value: T | boolean | undefined;
+Γöé Γöé     previous: T | boolean | undefined;
+Γöé Γöé   }>({
+Γöé Γöé     value: isCheckInput ? checked : value,
+Γöé Γöé     previous: isCheckInput ? checked : value,
+Γöé Γöé   });
+Γöé Γöé 
+Γöé Γöé   const prevValue = React.useMemo(() => {
+Γöé Γöé     const currentValue = isCheckInput ? checked : value;
+Γöé Γöé     if (prevValueRef.current.value !== currentValue) {
+Γöé Γöé       prevValueRef.current.previous = prevValueRef.current.value;
+Γöé Γöé       prevValueRef.current.value = currentValue;
+Γöé Γöé     }
+Γöé Γöé     return prevValueRef.current.previous;
+Γöé Γöé   }, [isCheckInput, value, checked]);
+Γöé Γöé 
+Γöé Γöé   const [controlSize, setControlSize] = React.useState<{
+Γöé Γöé     width?: number;
+Γöé Γöé     height?: number;
+Γöé Γöé   }>({});
+Γöé Γöé 
+Γöé Γöé   React.useLayoutEffect(() => {
+Γöé Γöé     if (!control) {
+Γöé Γöé       setControlSize({});
+Γöé Γöé       return;
+Γöé Γöé     }
+Γöé Γöé 
+Γöé Γöé     setControlSize({
+Γöé Γöé       width: control.offsetWidth,
+Γöé Γöé       height: control.offsetHeight,
+Γöé Γöé     });
+Γöé Γöé 
+Γöé Γöé     if (typeof window === "undefined") return;
+Γöé Γöé 
+Γöé Γöé     const resizeObserver = new ResizeObserver((entries) => {
+Γöé Γöé       if (!Array.isArray(entries) || !entries.length) return;
+Γöé Γöé 
+Γöé Γöé       const entry = entries[0];
+Γöé Γöé       if (!entry) return;
+Γöé Γöé 
+Γöé Γöé       let width: number;
+Γöé Γöé       let height: number;
+Γöé Γöé 
+Γöé Γöé       if ("borderBoxSize" in entry) {
+Γöé Γöé         const borderSizeEntry = entry.borderBoxSize;
+Γöé Γöé         const borderSize = Array.isArray(borderSizeEntry)
+Γöé Γöé           ? borderSizeEntry[0]
+Γöé Γöé           : borderSizeEntry;
+Γöé Γöé         width = borderSize.inlineSize;
+Γöé Γöé         height = borderSize.blockSize;
+Γöé Γöé       } else {
+Γöé Γöé         width = control.offsetWidth;
+Γöé Γöé         height = control.offsetHeight;
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       setControlSize({ width, height });
+Γöé Γöé     });
+Γöé Γöé 
+Γöé Γöé     resizeObserver.observe(control, { box: "border-box" });
+Γöé Γöé     return () => {
+Γöé Γöé       resizeObserver.disconnect();
+Γöé Γöé     };
+Γöé Γöé   }, [control]);
+Γöé Γöé 
+Γöé Γöé   React.useEffect(() => {
+Γöé Γöé     const input = inputRef.current;
+Γöé Γöé     if (!input) return;
+Γöé Γöé 
+Γöé Γöé     const inputProto = window.HTMLInputElement.prototype;
+Γöé Γöé     const propertyKey = isCheckInput ? "checked" : "value";
+Γöé Γöé     const eventType = isCheckInput ? "click" : "input";
+Γöé Γöé     const currentValue = isCheckInput ? checked : value;
+Γöé Γöé 
+Γöé Γöé     const serializedCurrentValue = isCheckInput
+Γöé Γöé       ? checked
+Γöé Γöé       : typeof value === "object" && value !== null
+Γöé Γöé         ? JSON.stringify(value)
+Γöé Γöé         : value;
+Γöé Γöé 
+Γöé Γöé     const descriptor = Object.getOwnPropertyDescriptor(inputProto, propertyKey);
+Γöé Γöé 
+Γöé Γöé     const setter = descriptor?.set;
+Γöé Γöé 
+Γöé Γöé     if (prevValue !== currentValue && setter) {
+Γöé Γöé       const event = new Event(eventType, { bubbles });
+Γöé Γöé       setter.call(input, serializedCurrentValue);
+Γöé Γöé       input.dispatchEvent(event);
+Γöé Γöé     }
+Γöé Γöé   }, [prevValue, value, checked, bubbles, isCheckInput]);
+Γöé Γöé 
+Γöé Γöé   const composedStyle = React.useMemo<React.CSSProperties>(() => {
+Γöé Γöé     return {
+Γöé Γöé       ...style,
+Γöé Γöé       ...(controlSize.width !== undefined && controlSize.height !== undefined
+Γöé Γöé         ? controlSize
+Γöé Γöé         : {}),
+Γöé Γöé       border: 0,
+Γöé Γöé       clip: "rect(0 0 0 0)",
+Γöé Γöé       clipPath: "inset(50%)",
+Γöé Γöé       height: "1px",
+Γöé Γöé       margin: "-1px",
+Γöé Γöé       overflow: "hidden",
+Γöé Γöé       padding: 0,
+Γöé Γöé       position: "absolute",
+Γöé Γöé       whiteSpace: "nowrap",
+Γöé Γöé       width: "1px",
+Γöé Γöé     };
+Γöé Γöé   }, [style, controlSize]);
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <input
+Γöé Γöé       type={type}
+Γöé Γöé       {...inputProps}
+Γöé Γöé       ref={inputRef}
+Γöé Γöé       aria-hidden={isCheckInput}
+Γöé Γöé       tabIndex={-1}
+Γöé Γöé       defaultChecked={isCheckInput ? checked : undefined}
+Γöé Γöé       style={composedStyle}
+Γöé Γöé     />
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé export { VisuallyHiddenInput };
+Γöé Γöé 
+Γöé ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+Γöé
+Γöö Run without --dry-run to apply.

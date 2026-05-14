@@ -1,0 +1,10 @@
+---
+description: Use Bun for package management and scripts in this repo
+alwaysApply: true
+---
+
+# Use Bun
+
+- Use **Bun** instead of Node, npm, yarn, or pnpm for installs, scripts, and CLI tasks in this workspace.
+- Prefer: `bun install`, `bun run <script>`, `bun test`, `bunx <tool>`.
+- Do not default to `npm install`, `npm run`, or `npx` unless a task is documented as incompatible with Bun.

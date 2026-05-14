@@ -65,4 +65,29 @@ export class PollService {
     await poll.save();
     return poll;
   }
+
+  static async deletePoll(pollId: string) {
+    const poll = await PollModel.findByIdAndDelete(pollId);
+    if (!poll) {
+      throw ApiError.notFound('Poll not found');
+    }
+    // Delete associated analytics
+    await AnalyticsModel.findOneAndDelete({ pollId });
+    return poll;
+  }
+
+  static async publishResults(pollId: string) {
+    const poll = await this.getPollById(pollId);
+
+    // Results can only be published if the poll is closed or expired
+    const isExpired = poll.expiresAt.getTime() <= Date.now();
+    if (!poll.isClosed && !isExpired) {
+      throw ApiError.badRequest('Results can only be published after the poll is closed or expired');
+    }
+
+    poll.isResultsPublished = true;
+    poll.resultsPublishedAt = new Date();
+    await poll.save();
+    return poll;
+  }
 }

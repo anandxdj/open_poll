@@ -59,4 +59,26 @@ export class PollController {
       next(error); // Sends error to your global errorHandler
     }
   }
+
+  static async delete(req: Request, res: Response, next: NextFunction) {
+    try {
+      const pollId = req.params.pollId || req.params.id;
+      if (!pollId) throw ApiError.badRequest('pollId is required');
+      await PollService.deletePoll(String(pollId));
+      return ApiResponse.ok(res, 'Poll deleted successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async publishResults(req: Request, res: Response, next: NextFunction) {
+    try {
+      const pollId = req.params.pollId || req.params.id;
+      if (!pollId) throw ApiError.badRequest('pollId is required');
+      const poll = await PollService.publishResults(String(pollId));
+      return ApiResponse.ok(res, 'Poll results published successfully', poll);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

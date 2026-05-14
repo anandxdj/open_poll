@@ -1,0 +1,23 @@
+﻿Γöî shadcn add @diceui/time-picker (dry run)
+Γöé
+Γö£ hooks\use-as-ref.ts (create) 16 lines
+Γöé ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+Γöé Γöé import * as React from "react";
+Γöé Γöé 
+Γöé Γöé import { useIsomorphicLayoutEffect } from "@/hooks/use-isomorphic-layout-effect";
+Γöé Γöé 
+Γöé Γöé function useAsRef<T>(props: T) {
+Γöé Γöé   const ref = React.useRef<T>(props);
+Γöé Γöé 
+Γöé Γöé   useIsomorphicLayoutEffect(() => {
+Γöé Γöé     ref.current = props;
+Γöé Γöé   });
+Γöé Γöé 
+Γöé Γöé   return ref;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé export { useAsRef };
+Γöé Γöé 
+Γöé ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+Γöé
+Γöö Run without --dry-run to apply.

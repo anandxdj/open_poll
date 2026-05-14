@@ -1,0 +1,2222 @@
+﻿Γöî shadcn add @diceui/time-picker (dry run)
+Γöé
+Γö£ components\ui\time-picker.tsx (create) 2215 lines
+Γöé ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+Γöé Γöé "use client";
+Γöé Γöé 
+Γöé Γöé import { Clock } from "lucide-react";
+Γöé Γöé import { Slot as SlotPrimitive } from "radix-ui";
+Γöé Γöé import * as React from "react";
+Γöé Γöé import { useComposedRefs } from "@/lib/compose-refs";
+Γöé Γöé import { cn } from "@/lib/utils";
+Γöé Γöé import { VisuallyHiddenInput } from "@/components/visually-hidden-input";
+Γöé Γöé import { useAsRef } from "@/hooks/use-as-ref";
+Γöé Γöé import { useIsomorphicLayoutEffect } from "@/hooks/use-isomorphic-layout-effect";
+Γöé Γöé import { useLazyRef } from "@/hooks/use-lazy-ref";
+Γöé Γöé import {
+Γöé Γöé   Popover,
+Γöé Γöé   PopoverAnchor,
+Γöé Γöé   PopoverContent,
+Γöé Γöé   PopoverTrigger,
+Γöé Γöé } from "@/components/ui/popover";
+Γöé Γöé 
+Γöé Γöé const ROOT_NAME = "TimePicker";
+Γöé Γöé const LABEL_NAME = "TimePickerLabel";
+Γöé Γöé const INPUT_GROUP_NAME = "TimePickerInputGroup";
+Γöé Γöé const INPUT_NAME = "TimePickerInput";
+Γöé Γöé const TRIGGER_NAME = "TimePickerTrigger";
+Γöé Γöé const CONTENT_NAME = "TimePickerContent";
+Γöé Γöé const COLUMN_NAME = "TimePickerColumn";
+Γöé Γöé const COLUMN_ITEM_NAME = "TimePickerColumnItem";
+Γöé Γöé const HOUR_NAME = "TimePickerHour";
+Γöé Γöé const MINUTE_NAME = "TimePickerMinute";
+Γöé Γöé const SECOND_NAME = "TimePickerSecond";
+Γöé Γöé const PERIOD_NAME = "TimePickerPeriod";
+Γöé Γöé const CLEAR_NAME = "TimePickerClear";
+Γöé Γöé 
+Γöé Γöé const DEFAULT_STEP = 1;
+Γöé Γöé const DEFAULT_SEGMENT_PLACEHOLDER = "--";
+Γöé Γöé const DEFAULT_LOCALE = undefined;
+Γöé Γöé const SEGMENTS: Segment[] = ["hour", "minute", "second", "period"];
+Γöé Γöé const PERIODS = ["AM", "PM"] as const;
+Γöé Γöé 
+Γöé Γöé type Segment = "hour" | "minute" | "second" | "period";
+Γöé Γöé type SegmentFormat = "numeric" | "2-digit";
+Γöé Γöé type Period = (typeof PERIODS)[number];
+Γöé Γöé 
+Γöé Γöé interface DivProps extends React.ComponentProps<"div"> {
+Γöé Γöé   asChild?: boolean;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface ButtonProps extends React.ComponentProps<"button"> {
+Γöé Γöé   asChild?: boolean;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé type PopoverContentProps = React.ComponentProps<typeof PopoverContent>;
+Γöé Γöé 
+Γöé Γöé type InputGroupElement = React.ComponentRef<typeof TimePickerInputGroup>;
+Γöé Γöé type InputElement = React.ComponentRef<typeof TimePickerInput>;
+Γöé Γöé type TriggerElement = React.ComponentRef<typeof TimePickerTrigger>;
+Γöé Γöé type ColumnElement = React.ComponentRef<typeof TimePickerColumn>;
+Γöé Γöé type ColumnItemElement = React.ComponentRef<typeof TimePickerColumnItem>;
+Γöé Γöé 
+Γöé Γöé interface TimeValue {
+Γöé Γöé   hour?: number;
+Γöé Γöé   minute?: number;
+Γöé Γöé   second?: number;
+Γöé Γöé   period?: Period;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface ItemData {
+Γöé Γöé   value: number | string;
+Γöé Γöé   ref: React.RefObject<ColumnItemElement | null>;
+Γöé Γöé   selected: boolean;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface ColumnData {
+Γöé Γöé   id: string;
+Γöé Γöé   ref: React.RefObject<ColumnElement | null>;
+Γöé Γöé   getSelectedItemRef: () => React.RefObject<ColumnItemElement | null> | null;
+Γöé Γöé   getItems: () => ItemData[];
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function focusFirst(
+Γöé Γöé   candidates: React.RefObject<ColumnItemElement | null>[],
+Γöé Γöé   preventScroll = false,
+Γöé Γöé ) {
+Γöé Γöé   const PREVIOUSLY_FOCUSED_ELEMENT = document.activeElement;
+Γöé Γöé   for (const candidateRef of candidates) {
+Γöé Γöé     const candidate = candidateRef.current;
+Γöé Γöé     if (!candidate) continue;
+Γöé Γöé     if (candidate === PREVIOUSLY_FOCUSED_ELEMENT) return;
+Γöé Γöé     candidate.focus({ preventScroll });
+Γöé Γöé     if (document.activeElement !== PREVIOUSLY_FOCUSED_ELEMENT) return;
+Γöé Γöé   }
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function sortNodes<T extends { ref: React.RefObject<Element | null> }>(
+Γöé Γöé   items: T[],
+Γöé Γöé ): T[] {
+Γöé Γöé   return items.sort((a, b) => {
+Γöé Γöé     const elementA = a.ref.current;
+Γöé Γöé     const elementB = b.ref.current;
+Γöé Γöé     if (!elementA || !elementB) return 0;
+Γöé Γöé     const position = elementA.compareDocumentPosition(elementB);
+Γöé Γöé     if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
+Γöé Γöé       return -1;
+Γöé Γöé     }
+Γöé Γöé     if (position & Node.DOCUMENT_POSITION_PRECEDING) {
+Γöé Γöé       return 1;
+Γöé Γöé     }
+Γöé Γöé     return 0;
+Γöé Γöé   });
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function getIs12Hour(locale?: string): boolean {
+Γöé Γöé   const testDate = new Date(2000, 0, 1, 13, 0, 0);
+Γöé Γöé   const formatted = new Intl.DateTimeFormat(locale, {
+Γöé Γöé     hour: "numeric",
+Γöé Γöé   }).format(testDate);
+Γöé Γöé 
+Γöé Γöé   return /am|pm/i.test(formatted) || !formatted.includes("13");
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function parseTimeString(timeString: string | undefined): TimeValue | null {
+Γöé Γöé   if (!timeString) return null;
+Γöé Γöé 
+Γöé Γöé   const parts = timeString.split(":");
+Γöé Γöé   if (parts.length < 2) return null;
+Γöé Γöé 
+Γöé Γöé   const result: TimeValue = {};
+Γöé Γöé 
+Γöé Γöé   if (parts[0] && parts[0] !== DEFAULT_SEGMENT_PLACEHOLDER) {
+Γöé Γöé     const hour = Number.parseInt(parts[0], 10);
+Γöé Γöé     if (!Number.isNaN(hour) && hour >= 0 && hour <= 23) {
+Γöé Γöé       result.hour = hour;
+Γöé Γöé     }
+Γöé Γöé   }
+Γöé Γöé 
+Γöé Γöé   if (parts[1] && parts[1] !== DEFAULT_SEGMENT_PLACEHOLDER) {
+Γöé Γöé     const minute = Number.parseInt(parts[1], 10);
+Γöé Γöé     if (!Number.isNaN(minute) && minute >= 0 && minute <= 59) {
+Γöé Γöé       result.minute = minute;
+Γöé Γöé     }
+Γöé Γöé   }
+Γöé Γöé 
+Γöé Γöé   if (parts[2] && parts[2] !== DEFAULT_SEGMENT_PLACEHOLDER) {
+Γöé Γöé     const second = Number.parseInt(parts[2], 10);
+Γöé Γöé     if (!Number.isNaN(second) && second >= 0 && second <= 59) {
+Γöé Γöé       result.second = second;
+Γöé Γöé     }
+Γöé Γöé   }
+Γöé Γöé   if (
+Γöé Γöé     result.hour === undefined &&
+Γöé Γöé     result.minute === undefined &&
+Γöé Γöé     result.second === undefined
+Γöé Γöé   ) {
+Γöé Γöé     return null;
+Γöé Γöé   }
+Γöé Γöé 
+Γöé Γöé   return result;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function formatTimeValue(value: TimeValue, showSeconds: boolean): string {
+Γöé Γöé   const hourStr =
+Γöé Γöé     value.hour !== undefined
+Γöé Γöé       ? value.hour.toString().padStart(2, "0")
+Γöé Γöé       : DEFAULT_SEGMENT_PLACEHOLDER;
+Γöé Γöé   const minuteStr =
+Γöé Γöé     value.minute !== undefined
+Γöé Γöé       ? value.minute.toString().padStart(2, "0")
+Γöé Γöé       : DEFAULT_SEGMENT_PLACEHOLDER;
+Γöé Γöé   const secondStr =
+Γöé Γöé     value.second !== undefined
+Γöé Γöé       ? value.second.toString().padStart(2, "0")
+Γöé Γöé       : DEFAULT_SEGMENT_PLACEHOLDER;
+Γöé Γöé 
+Γöé Γöé   if (showSeconds) {
+Γöé Γöé     return `${hourStr}:${minuteStr}:${secondStr}`;
+Γöé Γöé   }
+Γöé Γöé   return `${hourStr}:${minuteStr}`;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function to12Hour(hour24: number): { hour: number; period: Period } {
+Γöé Γöé   const period: Period = hour24 >= 12 ? "PM" : "AM";
+Γöé Γöé   const hour = hour24 % 12 || 12;
+Γöé Γöé   return { hour, period };
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function to24Hour(hour12: number, period: Period): number {
+Γöé Γöé   if (hour12 === 12) {
+Γöé Γöé     return period === "PM" ? 12 : 0;
+Γöé Γöé   }
+Γöé Γöé   return period === "PM" ? hour12 + 12 : hour12;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function clamp(value: number, min: number, max: number) {
+Γöé Γöé   return Math.min(Math.max(value, min), max);
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface StoreState {
+Γöé Γöé   value: string;
+Γöé Γöé   open: boolean;
+Γöé Γöé   openedViaFocus: boolean;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface Store {
+Γöé Γöé   subscribe: (callback: () => void) => () => void;
+Γöé Γöé   getState: () => StoreState;
+Γöé Γöé   setState: <K extends keyof StoreState>(key: K, value: StoreState[K]) => void;
+Γöé Γöé   notify: () => void;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé const StoreContext = React.createContext<Store | null>(null);
+Γöé Γöé 
+Γöé Γöé function useStoreContext(consumerName: string) {
+Γöé Γöé   const context = React.useContext(StoreContext);
+Γöé Γöé   if (!context) {
+Γöé Γöé     throw new Error(`\`${consumerName}\` must be used within \`${ROOT_NAME}\``);
+Γöé Γöé   }
+Γöé Γöé   return context;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function useStore<T>(
+Γöé Γöé   selector: (state: StoreState) => T,
+Γöé Γöé   ogStore?: Store | null,
+Γöé Γöé ): T {
+Γöé Γöé   const contextStore = React.useContext(StoreContext);
+Γöé Γöé 
+Γöé Γöé   const store = ogStore ?? contextStore;
+Γöé Γöé 
+Γöé Γöé   if (!store) {
+Γöé Γöé     throw new Error(`\`useStore\` must be used within \`${ROOT_NAME}\``);
+Γöé Γöé   }
+Γöé Γöé 
+Γöé Γöé   const getSnapshot = React.useCallback(
+Γöé Γöé     () => selector(store.getState()),
+Γöé Γöé     [store, selector],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   return React.useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot);
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé type SegmentPlaceholder =
+Γöé Γöé   | string
+Γöé Γöé   | {
+Γöé Γöé       hour?: string;
+Γöé Γöé       minute?: string;
+Γöé Γöé       second?: string;
+Γöé Γöé       period?: string;
+Γöé Γöé     };
+Γöé Γöé 
+Γöé Γöé interface TimePickerContextValue {
+Γöé Γöé   id: string;
+Γöé Γöé   inputGroupId: string;
+Γöé Γöé   labelId: string;
+Γöé Γöé   triggerId: string;
+Γöé Γöé   inputGroupRef: React.RefObject<InputGroupElement | null>;
+Γöé Γöé   triggerRef: React.RefObject<TriggerElement | null>;
+Γöé Γöé   openOnFocus: boolean;
+Γöé Γöé   inputGroupClickAction: "focus" | "open";
+Γöé Γöé   onInputGroupChange: (inputGroup: InputGroupElement | null) => void;
+Γöé Γöé   disabled: boolean;
+Γöé Γöé   readOnly: boolean;
+Γöé Γöé   required: boolean;
+Γöé Γöé   invalid: boolean;
+Γöé Γöé   showSeconds: boolean;
+Γöé Γöé   is12Hour: boolean;
+Γöé Γöé   minuteStep: number;
+Γöé Γöé   secondStep: number;
+Γöé Γöé   hourStep: number;
+Γöé Γöé   segmentPlaceholder: {
+Γöé Γöé     hour: string;
+Γöé Γöé     minute: string;
+Γöé Γöé     second: string;
+Γöé Γöé     period: string;
+Γöé Γöé   };
+Γöé Γöé   min?: string;
+Γöé Γöé   max?: string;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé const TimePickerContext = React.createContext<TimePickerContextValue | null>(
+Γöé Γöé   null,
+Γöé Γöé );
+Γöé Γöé 
+Γöé Γöé function useTimePickerContext(consumerName: string) {
+Γöé Γöé   const context = React.useContext(TimePickerContext);
+Γöé Γöé   if (!context) {
+Γöé Γöé     throw new Error(`\`${consumerName}\` must be used within \`${ROOT_NAME}\``);
+Γöé Γöé   }
+Γöé Γöé   return context;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface TimePickerProps extends DivProps {
+Γöé Γöé   value?: string;
+Γöé Γöé   defaultValue?: string;
+Γöé Γöé   onValueChange?: (value: string) => void;
+Γöé Γöé   open?: boolean;
+Γöé Γöé   defaultOpen?: boolean;
+Γöé Γöé   onOpenChange?: (open: boolean) => void;
+Γöé Γöé   openOnFocus?: boolean;
+Γöé Γöé   inputGroupClickAction?: "focus" | "open";
+Γöé Γöé   min?: string;
+Γöé Γöé   max?: string;
+Γöé Γöé   hourStep?: number;
+Γöé Γöé   minuteStep?: number;
+Γöé Γöé   secondStep?: number;
+Γöé Γöé   segmentPlaceholder?: SegmentPlaceholder;
+Γöé Γöé   locale?: string;
+Γöé Γöé   name?: string;
+Γöé Γöé   disabled?: boolean;
+Γöé Γöé   invalid?: boolean;
+Γöé Γöé   readOnly?: boolean;
+Γöé Γöé   required?: boolean;
+Γöé Γöé   showSeconds?: boolean;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function TimePicker(props: TimePickerProps) {
+Γöé Γöé   const {
+Γöé Γöé     value: valueProp,
+Γöé Γöé     defaultValue,
+Γöé Γöé     onValueChange,
+Γöé Γöé     open,
+Γöé Γöé     defaultOpen,
+Γöé Γöé     onOpenChange,
+Γöé Γöé     openOnFocus = false,
+Γöé Γöé     inputGroupClickAction = "focus",
+Γöé Γöé     min,
+Γöé Γöé     max,
+Γöé Γöé     hourStep = DEFAULT_STEP,
+Γöé Γöé     minuteStep = DEFAULT_STEP,
+Γöé Γöé     secondStep = DEFAULT_STEP,
+Γöé Γöé     segmentPlaceholder = DEFAULT_SEGMENT_PLACEHOLDER,
+Γöé Γöé     locale = DEFAULT_LOCALE,
+Γöé Γöé     name,
+Γöé Γöé     asChild,
+Γöé Γöé     disabled = false,
+Γöé Γöé     invalid = false,
+Γöé Γöé     readOnly = false,
+Γöé Γöé     required = false,
+Γöé Γöé     showSeconds = false,
+Γöé Γöé     className,
+Γöé Γöé     children,
+Γöé Γöé     id,
+Γöé Γöé     ...rootProps
+Γöé Γöé   } = props;
+Γöé Γöé 
+Γöé Γöé   const instanceId = React.useId();
+Γöé Γöé   const rootId = id ?? instanceId;
+Γöé Γöé   const inputGroupId = React.useId();
+Γöé Γöé   const labelId = React.useId();
+Γöé Γöé   const triggerId = React.useId();
+Γöé Γöé 
+Γöé Γöé   const inputGroupRef = React.useRef<InputGroupElement>(null);
+Γöé Γöé   const triggerRef = React.useRef<TriggerElement>(null);
+Γöé Γöé 
+Γöé Γöé   const [inputGroup, setInputGroup] = React.useState<InputGroupElement | null>(
+Γöé Γöé     null,
+Γöé Γöé   );
+Γöé Γöé   const isFormControl = inputGroup ? !!inputGroup.closest("form") : true;
+Γöé Γöé 
+Γöé Γöé   const listenersRef = useLazyRef(() => new Set<() => void>());
+Γöé Γöé   const stateRef = useLazyRef<StoreState>(() => ({
+Γöé Γöé     value: valueProp ?? defaultValue ?? "",
+Γöé Γöé     open: open ?? defaultOpen ?? false,
+Γöé Γöé     openedViaFocus: false,
+Γöé Γöé   }));
+Γöé Γöé 
+Γöé Γöé   const propsRef = useAsRef({ onValueChange, onOpenChange });
+Γöé Γöé 
+Γöé Γöé   const store: Store = React.useMemo(() => {
+Γöé Γöé     return {
+Γöé Γöé       subscribe: (cb) => {
+Γöé Γöé         listenersRef.current.add(cb);
+Γöé Γöé         return () => listenersRef.current.delete(cb);
+Γöé Γöé       },
+Γöé Γöé       getState: () => stateRef.current,
+Γöé Γöé       setState: (key, value) => {
+Γöé Γöé         if (Object.is(stateRef.current[key], value)) return;
+Γöé Γöé 
+Γöé Γöé         if (key === "value" && typeof value === "string") {
+Γöé Γöé           stateRef.current.value = value;
+Γöé Γöé           propsRef.current.onValueChange?.(value);
+Γöé Γöé         } else if (key === "open" && typeof value === "boolean") {
+Γöé Γöé           stateRef.current.open = value;
+Γöé Γöé           propsRef.current.onOpenChange?.(value);
+Γöé Γöé           if (!value) {
+Γöé Γöé             stateRef.current.openedViaFocus = false;
+Γöé Γöé           }
+Γöé Γöé         } else {
+Γöé Γöé           stateRef.current[key] = value;
+Γöé Γöé         }
+Γöé Γöé 
+Γöé Γöé         store.notify();
+Γöé Γöé       },
+Γöé Γöé       notify: () => {
+Γöé Γöé         for (const cb of listenersRef.current) {
+Γöé Γöé           cb();
+Γöé Γöé         }
+Γöé Γöé       },
+Γöé Γöé     };
+Γöé Γöé   }, [listenersRef, stateRef, propsRef]);
+Γöé Γöé 
+Γöé Γöé   const value = useStore((state) => state.value, store);
+Γöé Γöé 
+Γöé Γöé   useIsomorphicLayoutEffect(() => {
+Γöé Γöé     if (valueProp !== undefined) {
+Γöé Γöé       store.setState("value", valueProp);
+Γöé Γöé     }
+Γöé Γöé   }, [valueProp]);
+Γöé Γöé 
+Γöé Γöé   useIsomorphicLayoutEffect(() => {
+Γöé Γöé     if (open !== undefined) {
+Γöé Γöé       store.setState("open", open);
+Γöé Γöé     }
+Γöé Γöé   }, [open]);
+Γöé Γöé 
+Γöé Γöé   const storeOpen = useStore((state) => state.open, store);
+Γöé Γöé 
+Γöé Γöé   const onPopoverOpenChange = React.useCallback(
+Γöé Γöé     (newOpen: boolean) => store.setState("open", newOpen),
+Γöé Γöé     [store],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const is12Hour = React.useMemo(() => getIs12Hour(locale), [locale]);
+Γöé Γöé 
+Γöé Γöé   const normalizedPlaceholder = React.useMemo(() => {
+Γöé Γöé     if (typeof segmentPlaceholder === "string") {
+Γöé Γöé       return {
+Γöé Γöé         hour: segmentPlaceholder,
+Γöé Γöé         minute: segmentPlaceholder,
+Γöé Γöé         second: segmentPlaceholder,
+Γöé Γöé         period: segmentPlaceholder,
+Γöé Γöé       };
+Γöé Γöé     }
+Γöé Γöé     return {
+Γöé Γöé       hour: segmentPlaceholder.hour ?? DEFAULT_SEGMENT_PLACEHOLDER,
+Γöé Γöé       minute: segmentPlaceholder.minute ?? DEFAULT_SEGMENT_PLACEHOLDER,
+Γöé Γöé       second: segmentPlaceholder.second ?? DEFAULT_SEGMENT_PLACEHOLDER,
+Γöé Γöé       period: segmentPlaceholder.period ?? DEFAULT_SEGMENT_PLACEHOLDER,
+Γöé Γöé     };
+Γöé Γöé   }, [segmentPlaceholder]);
+Γöé Γöé 
+Γöé Γöé   const rootContext = React.useMemo<TimePickerContextValue>(
+Γöé Γöé     () => ({
+Γöé Γöé       id: rootId,
+Γöé Γöé       inputGroupId,
+Γöé Γöé       labelId,
+Γöé Γöé       triggerId,
+Γöé Γöé       inputGroupRef,
+Γöé Γöé       triggerRef,
+Γöé Γöé       openOnFocus,
+Γöé Γöé       inputGroupClickAction,
+Γöé Γöé       onInputGroupChange: setInputGroup,
+Γöé Γöé       disabled,
+Γöé Γöé       readOnly,
+Γöé Γöé       required,
+Γöé Γöé       invalid,
+Γöé Γöé       showSeconds,
+Γöé Γöé       is12Hour,
+Γöé Γöé       minuteStep,
+Γöé Γöé       secondStep,
+Γöé Γöé       hourStep,
+Γöé Γöé       segmentPlaceholder: normalizedPlaceholder,
+Γöé Γöé       min,
+Γöé Γöé       max,
+Γöé Γöé     }),
+Γöé Γöé     [
+Γöé Γöé       rootId,
+Γöé Γöé       inputGroupId,
+Γöé Γöé       labelId,
+Γöé Γöé       triggerId,
+Γöé Γöé       openOnFocus,
+Γöé Γöé       inputGroupClickAction,
+Γöé Γöé       disabled,
+Γöé Γöé       readOnly,
+Γöé Γöé       required,
+Γöé Γöé       invalid,
+Γöé Γöé       showSeconds,
+Γöé Γöé       is12Hour,
+Γöé Γöé       minuteStep,
+Γöé Γöé       secondStep,
+Γöé Γöé       hourStep,
+Γöé Γöé       normalizedPlaceholder,
+Γöé Γöé       min,
+Γöé Γöé       max,
+Γöé Γöé     ],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const RootPrimitive = asChild ? SlotPrimitive.Slot : "div";
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <>
+Γöé Γöé       <StoreContext.Provider value={store}>
+Γöé Γöé         <TimePickerContext.Provider value={rootContext}>
+Γöé Γöé           <Popover open={storeOpen} onOpenChange={onPopoverOpenChange}>
+Γöé Γöé             <RootPrimitive
+Γöé Γöé               data-slot="time-picker"
+Γöé Γöé               data-disabled={disabled ? "" : undefined}
+Γöé Γöé               data-invalid={invalid ? "" : undefined}
+Γöé Γöé               {...rootProps}
+Γöé Γöé               className={cn("relative", className)}
+Γöé Γöé             >
+Γöé Γöé               {children}
+Γöé Γöé             </RootPrimitive>
+Γöé Γöé           </Popover>
+Γöé Γöé         </TimePickerContext.Provider>
+Γöé Γöé       </StoreContext.Provider>
+Γöé Γöé       {isFormControl && (
+Γöé Γöé         <VisuallyHiddenInput
+Γöé Γöé           type="hidden"
+Γöé Γöé           control={inputGroup}
+Γöé Γöé           name={name}
+Γöé Γöé           value={value}
+Γöé Γöé           disabled={disabled}
+Γöé Γöé           readOnly={readOnly}
+Γöé Γöé           required={required}
+Γöé Γöé         />
+Γöé Γöé       )}
+Γöé Γöé     </>
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface TimePickerLabelProps extends React.ComponentProps<"label"> {
+Γöé Γöé   asChild?: boolean;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function TimePickerLabel(props: TimePickerLabelProps) {
+Γöé Γöé   const { asChild, className, ...labelProps } = props;
+Γöé Γöé 
+Γöé Γöé   const { labelId } = useTimePickerContext(LABEL_NAME);
+Γöé Γöé 
+Γöé Γöé   const LabelPrimitive = asChild ? SlotPrimitive.Slot : "label";
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <LabelPrimitive
+Γöé Γöé       data-slot="time-picker-label"
+Γöé Γöé       {...labelProps}
+Γöé Γöé       htmlFor={labelId}
+Γöé Γöé       className={cn(
+Γöé Γöé         "font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
+Γöé Γöé         className,
+Γöé Γöé       )}
+Γöé Γöé     />
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface TimePickerInputGroupContextValue {
+Γöé Γöé   onInputRegister: (
+Γöé Γöé     segment: Segment,
+Γöé Γöé     ref: React.RefObject<InputElement | null>,
+Γöé Γöé   ) => void;
+Γöé Γöé   onInputUnregister: (segment: Segment) => void;
+Γöé Γöé   getNextInput: (
+Γöé Γöé     currentSegment: Segment,
+Γöé Γöé   ) => React.RefObject<InputElement | null> | null;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé const TimePickerInputGroupContext =
+Γöé Γöé   React.createContext<TimePickerInputGroupContextValue | null>(null);
+Γöé Γöé 
+Γöé Γöé function useTimePickerInputGroupContext(consumerName: string) {
+Γöé Γöé   const context = React.useContext(TimePickerInputGroupContext);
+Γöé Γöé   if (!context) {
+Γöé Γöé     throw new Error(
+Γöé Γöé       `\`${consumerName}\` must be used within \`${INPUT_GROUP_NAME}\``,
+Γöé Γöé     );
+Γöé Γöé   }
+Γöé Γöé   return context;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function TimePickerInputGroup(props: DivProps) {
+Γöé Γöé   const {
+Γöé Γöé     onPointerDown: onPointerDownProp,
+Γöé Γöé     onClick: onClickProp,
+Γöé Γöé     asChild,
+Γöé Γöé     className,
+Γöé Γöé     style,
+Γöé Γöé     ref,
+Γöé Γöé     ...inputGroupProps
+Γöé Γöé   } = props;
+Γöé Γöé 
+Γöé Γöé   const {
+Γöé Γöé     inputGroupId,
+Γöé Γöé     labelId,
+Γöé Γöé     onInputGroupChange,
+Γöé Γöé     disabled,
+Γöé Γöé     readOnly,
+Γöé Γöé     invalid,
+Γöé Γöé     segmentPlaceholder,
+Γöé Γöé     inputGroupRef,
+Γöé Γöé     triggerRef,
+Γöé Γöé     inputGroupClickAction,
+Γöé Γöé   } = useTimePickerContext(INPUT_GROUP_NAME);
+Γöé Γöé 
+Γöé Γöé   const store = useStoreContext(INPUT_GROUP_NAME);
+Γöé Γöé 
+Γöé Γöé   const composedRef = useComposedRefs(ref, inputGroupRef, onInputGroupChange);
+Γöé Γöé 
+Γöé Γöé   const inputRefsMap = React.useRef<
+Γöé Γöé     Map<Segment, React.RefObject<InputElement | null>>
+Γöé Γöé   >(new Map());
+Γöé Γöé 
+Γöé Γöé   const onInputRegister = React.useCallback(
+Γöé Γöé     (segment: Segment, ref: React.RefObject<InputElement | null>) => {
+Γöé Γöé       inputRefsMap.current.set(segment, ref);
+Γöé Γöé     },
+Γöé Γöé     [],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onInputUnregister = React.useCallback((segment: Segment) => {
+Γöé Γöé     inputRefsMap.current.delete(segment);
+Γöé Γöé   }, []);
+Γöé Γöé 
+Γöé Γöé   const getNextInput = React.useCallback(
+Γöé Γöé     (currentSegment: Segment): React.RefObject<InputElement | null> | null => {
+Γöé Γöé       const segmentOrder: Segment[] = ["hour", "minute", "second", "period"];
+Γöé Γöé       const currentIndex = segmentOrder.indexOf(currentSegment);
+Γöé Γöé 
+Γöé Γöé       if (currentIndex === -1 || currentIndex === segmentOrder.length - 1) {
+Γöé Γöé         return null;
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       for (let i = currentIndex + 1; i < segmentOrder.length; i++) {
+Γöé Γöé         const nextSegment = segmentOrder[i];
+Γöé Γöé         if (nextSegment) {
+Γöé Γöé           const nextRef = inputRefsMap.current.get(nextSegment);
+Γöé Γöé           if (nextRef?.current) {
+Γöé Γöé             return nextRef;
+Γöé Γöé           }
+Γöé Γöé         }
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       return null;
+Γöé Γöé     },
+Γöé Γöé     [],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onPointerDown = React.useCallback(
+Γöé Γöé     (event: React.PointerEvent<InputGroupElement>) => {
+Γöé Γöé       onPointerDownProp?.(event);
+Γöé Γöé       if (disabled || readOnly || event.defaultPrevented) return;
+Γöé Γöé 
+Γöé Γöé       const target = event.target as HTMLElement;
+Γöé Γöé 
+Γöé Γöé       if (target.tagName === "INPUT" || target.closest("input")) {
+Γöé Γöé         return;
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (triggerRef.current?.contains(target)) {
+Γöé Γöé         return;
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       event.preventDefault();
+Γöé Γöé     },
+Γöé Γöé     [onPointerDownProp, disabled, readOnly, triggerRef],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onClick = React.useCallback(
+Γöé Γöé     (event: React.MouseEvent<InputGroupElement>) => {
+Γöé Γöé       onClickProp?.(event);
+Γöé Γöé       if (disabled || readOnly || event.defaultPrevented) return;
+Γöé Γöé 
+Γöé Γöé       const target = event.target as HTMLElement;
+Γöé Γöé 
+Γöé Γöé       if (target.tagName === "INPUT" || target.closest("input")) {
+Γöé Γöé         return;
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (triggerRef.current?.contains(target)) {
+Γöé Γöé         return;
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (inputGroupClickAction === "open") {
+Γöé Γöé         store.setState("open", true);
+Γöé Γöé       } else {
+Γöé Γöé         const activeElement = document.activeElement;
+Γöé Γöé         const isInputAlreadyFocused =
+Γöé Γöé           activeElement &&
+Γöé Γöé           activeElement.tagName === "INPUT" &&
+Γöé Γöé           inputGroupRef.current?.contains(activeElement);
+Γöé Γöé 
+Γöé Γöé         if (!isInputAlreadyFocused) {
+Γöé Γöé           for (const segment of SEGMENTS) {
+Γöé Γöé             const inputRef = inputRefsMap.current.get(segment);
+Γöé Γöé             if (inputRef?.current) {
+Γöé Γöé               inputRef.current.focus();
+Γöé Γöé               inputRef.current.select();
+Γöé Γöé               break;
+Γöé Γöé             }
+Γöé Γöé           }
+Γöé Γöé         }
+Γöé Γöé       }
+Γöé Γöé     },
+Γöé Γöé     [
+Γöé Γöé       onClickProp,
+Γöé Γöé       disabled,
+Γöé Γöé       readOnly,
+Γöé Γöé       inputGroupClickAction,
+Γöé Γöé       store,
+Γöé Γöé       triggerRef,
+Γöé Γöé       inputGroupRef,
+Γöé Γöé     ],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const inputGroupContextValue =
+Γöé Γöé     React.useMemo<TimePickerInputGroupContextValue>(
+Γöé Γöé       () => ({
+Γöé Γöé         onInputRegister,
+Γöé Γöé         onInputUnregister,
+Γöé Γöé         getNextInput,
+Γöé Γöé       }),
+Γöé Γöé       [onInputRegister, onInputUnregister, getNextInput],
+Γöé Γöé     );
+Γöé Γöé 
+Γöé Γöé   const InputGroupPrimitive = asChild ? SlotPrimitive.Slot : "div";
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <TimePickerInputGroupContext.Provider value={inputGroupContextValue}>
+Γöé Γöé       <PopoverAnchor asChild>
+Γöé Γöé         <InputGroupPrimitive
+Γöé Γöé           role="group"
+Γöé Γöé           id={inputGroupId}
+Γöé Γöé           aria-labelledby={labelId}
+Γöé Γöé           data-slot="time-picker-input-group"
+Γöé Γöé           data-disabled={disabled ? "" : undefined}
+Γöé Γöé           data-invalid={invalid ? "" : undefined}
+Γöé Γöé           {...inputGroupProps}
+Γöé Γöé           className={cn(
+Γöé Γöé             "flex h-10 w-full cursor-text items-center gap-0.5 rounded-md border border-input bg-background px-3 py-2 shadow-xs outline-none transition-shadow",
+Γöé Γöé             "has-[input:focus]:border-ring has-[input:focus]:ring-[3px] has-[input:focus]:ring-ring/50",
+Γöé Γöé             invalid && "border-destructive ring-destructive/20",
+Γöé Γöé             disabled && "cursor-not-allowed opacity-50",
+Γöé Γöé             className,
+Γöé Γöé           )}
+Γöé Γöé           style={
+Γöé Γöé             {
+Γöé Γöé               "--time-picker-hour-input-width": `${segmentPlaceholder.hour.length}ch`,
+Γöé Γöé               "--time-picker-minute-input-width": `${segmentPlaceholder.minute.length}ch`,
+Γöé Γöé               "--time-picker-second-input-width": `${segmentPlaceholder.second.length}ch`,
+Γöé Γöé               "--time-picker-period-input-width": `${Math.max(segmentPlaceholder.period.length, 2) + 0.5}ch`,
+Γöé Γöé               ...style,
+Γöé Γöé             } as React.CSSProperties
+Γöé Γöé           }
+Γöé Γöé           ref={composedRef}
+Γöé Γöé           onPointerDown={onPointerDown}
+Γöé Γöé           onClick={onClick}
+Γöé Γöé         />
+Γöé Γöé       </PopoverAnchor>
+Γöé Γöé     </TimePickerInputGroupContext.Provider>
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface TimePickerInputProps
+Γöé Γöé   extends Omit<React.ComponentProps<"input">, "type" | "value"> {
+Γöé Γöé   segment: Segment;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function TimePickerInput(props: TimePickerInputProps) {
+Γöé Γöé   const {
+Γöé Γöé     segment,
+Γöé Γöé     onBlur: onBlurProp,
+Γöé Γöé     onChange: onChangeProp,
+Γöé Γöé     onClick: onClickProp,
+Γöé Γöé     onFocus: onFocusProp,
+Γöé Γöé     onKeyDown: onKeyDownProp,
+Γöé Γöé     disabled: disabledProp,
+Γöé Γöé     readOnly: readOnlyProp,
+Γöé Γöé     className,
+Γöé Γöé     style,
+Γöé Γöé     ref,
+Γöé Γöé     ...inputProps
+Γöé Γöé   } = props;
+Γöé Γöé 
+Γöé Γöé   const {
+Γöé Γöé     is12Hour,
+Γöé Γöé     showSeconds,
+Γöé Γöé     disabled,
+Γöé Γöé     readOnly,
+Γöé Γöé     segmentPlaceholder,
+Γöé Γöé     openOnFocus,
+Γöé Γöé   } = useTimePickerContext(INPUT_NAME);
+Γöé Γöé   const store = useStoreContext(INPUT_NAME);
+Γöé Γöé   const inputGroupContext = useTimePickerInputGroupContext(INPUT_NAME);
+Γöé Γöé 
+Γöé Γöé   const isDisabled = disabledProp || disabled;
+Γöé Γöé   const isReadOnly = readOnlyProp || readOnly;
+Γöé Γöé 
+Γöé Γöé   const value = useStore((state) => state.value);
+Γöé Γöé   const timeValue = parseTimeString(value);
+Γöé Γöé 
+Γöé Γöé   const inputRef = React.useRef<HTMLInputElement>(null);
+Γöé Γöé   const composedRef = useComposedRefs(ref, inputRef);
+Γöé Γöé 
+Γöé Γöé   useIsomorphicLayoutEffect(() => {
+Γöé Γöé     if (segment) {
+Γöé Γöé       inputGroupContext.onInputRegister(segment as Segment, inputRef);
+Γöé Γöé       return () => inputGroupContext.onInputUnregister(segment as Segment);
+Γöé Γöé     }
+Γöé Γöé   }, [inputGroupContext, segment]);
+Γöé Γöé 
+Γöé Γöé   const getSegmentValue = React.useCallback(() => {
+Γöé Γöé     if (!timeValue) {
+Γöé Γöé       if (!segment) return "";
+Γöé Γöé       return segmentPlaceholder[segment];
+Γöé Γöé     }
+Γöé Γöé     switch (segment) {
+Γöé Γöé       case "hour": {
+Γöé Γöé         if (timeValue.hour === undefined) return segmentPlaceholder.hour;
+Γöé Γöé         if (is12Hour) {
+Γöé Γöé           return to12Hour(timeValue.hour).hour.toString().padStart(2, "0");
+Γöé Γöé         }
+Γöé Γöé         return timeValue.hour.toString().padStart(2, "0");
+Γöé Γöé       }
+Γöé Γöé       case "minute":
+Γöé Γöé         if (timeValue.minute === undefined) return segmentPlaceholder.minute;
+Γöé Γöé         return timeValue.minute.toString().padStart(2, "0");
+Γöé Γöé       case "second":
+Γöé Γöé         if (timeValue.second === undefined) return segmentPlaceholder.second;
+Γöé Γöé         return timeValue.second.toString().padStart(2, "0");
+Γöé Γöé       case "period": {
+Γöé Γöé         if (!timeValue || timeValue.hour === undefined)
+Γöé Γöé           return segmentPlaceholder.period;
+Γöé Γöé         return to12Hour(timeValue.hour).period;
+Γöé Γöé       }
+Γöé Γöé       default:
+Γöé Γöé         return "";
+Γöé Γöé     }
+Γöé Γöé   }, [timeValue, segment, is12Hour, segmentPlaceholder]);
+Γöé Γöé 
+Γöé Γöé   const [editValue, setEditValue] = React.useState(getSegmentValue());
+Γöé Γöé   const [isEditing, setIsEditing] = React.useState(false);
+Γöé Γöé   const [pendingDigit, setPendingDigit] = React.useState<string | null>(null);
+Γöé Γöé 
+Γöé Γöé   React.useEffect(() => {
+Γöé Γöé     if (!isEditing) {
+Γöé Γöé       setEditValue(getSegmentValue());
+Γöé Γöé       setPendingDigit(null);
+Γöé Γöé     }
+Γöé Γöé   }, [getSegmentValue, isEditing]);
+Γöé Γöé 
+Γöé Γöé   const updateTimeValue = React.useCallback(
+Γöé Γöé     (newSegmentValue: string | undefined, shouldCreateIfEmpty = false) => {
+Γöé Γöé       const placeholder = segment
+Γöé Γöé         ? segmentPlaceholder[segment]
+Γöé Γöé         : DEFAULT_SEGMENT_PLACEHOLDER;
+Γöé Γöé       if (!newSegmentValue || newSegmentValue === placeholder) return;
+Γöé Γöé       if (!timeValue && !shouldCreateIfEmpty) return;
+Γöé Γöé 
+Γöé Γöé       const currentTime = timeValue ?? {};
+Γöé Γöé       const newTime = { ...currentTime };
+Γöé Γöé 
+Γöé Γöé       switch (segment) {
+Γöé Γöé         case "hour": {
+Γöé Γöé           const displayHour = Number.parseInt(newSegmentValue, 10);
+Γöé Γöé           if (!Number.isNaN(displayHour)) {
+Γöé Γöé             if (is12Hour) {
+Γöé Γöé               const clampedHour = clamp(displayHour, 1, 12);
+Γöé Γöé               let currentPeriod: Period;
+Γöé Γöé               if (timeValue?.period !== undefined) {
+Γöé Γöé                 currentPeriod = timeValue.period;
+Γöé Γöé               } else if (timeValue?.hour !== undefined) {
+Γöé Γöé                 currentPeriod = to12Hour(timeValue.hour).period;
+Γöé Γöé               } else {
+Γöé Γöé                 const now = new Date();
+Γöé Γöé                 currentPeriod = to12Hour(now.getHours()).period;
+Γöé Γöé               }
+Γöé Γöé               const hour24 = to24Hour(clampedHour, currentPeriod);
+Γöé Γöé               newTime.hour = hour24;
+Γöé Γöé               if (timeValue?.period !== undefined) {
+Γöé Γöé                 newTime.period = timeValue.period;
+Γöé Γöé               }
+Γöé Γöé             } else {
+Γöé Γöé               newTime.hour = clamp(displayHour, 0, 23);
+Γöé Γöé             }
+Γöé Γöé           }
+Γöé Γöé           break;
+Γöé Γöé         }
+Γöé Γöé         case "minute": {
+Γöé Γöé           const minute = Number.parseInt(newSegmentValue, 10);
+Γöé Γöé           if (!Number.isNaN(minute)) {
+Γöé Γöé             newTime.minute = clamp(minute, 0, 59);
+Γöé Γöé           }
+Γöé Γöé           break;
+Γöé Γöé         }
+Γöé Γöé         case "second": {
+Γöé Γöé           const second = Number.parseInt(newSegmentValue, 10);
+Γöé Γöé           if (!Number.isNaN(second)) {
+Γöé Γöé             newTime.second = clamp(second, 0, 59);
+Γöé Γöé           }
+Γöé Γöé           break;
+Γöé Γöé         }
+Γöé Γöé         case "period": {
+Γöé Γöé           if (newSegmentValue === "AM" || newSegmentValue === "PM") {
+Γöé Γöé             newTime.period = newSegmentValue;
+Γöé Γöé             if (timeValue && timeValue.hour !== undefined) {
+Γöé Γöé               const currentDisplay = to12Hour(timeValue.hour);
+Γöé Γöé               newTime.hour = to24Hour(currentDisplay.hour, newSegmentValue);
+Γöé Γöé             }
+Γöé Γöé           }
+Γöé Γöé           break;
+Γöé Γöé         }
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       const newValue = formatTimeValue(newTime, showSeconds);
+Γöé Γöé       store.setState("value", newValue);
+Γöé Γöé     },
+Γöé Γöé     [timeValue, segment, is12Hour, showSeconds, store, segmentPlaceholder],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onBlur = React.useCallback(
+Γöé Γöé     (event: React.FocusEvent<InputElement>) => {
+Γöé Γöé       onBlurProp?.(event);
+Γöé Γöé       if (event.defaultPrevented) return;
+Γöé Γöé 
+Γöé Γöé       setIsEditing(false);
+Γöé Γöé 
+Γöé Γöé       const placeholder = segment
+Γöé Γöé         ? segmentPlaceholder[segment]
+Γöé Γöé         : DEFAULT_SEGMENT_PLACEHOLDER;
+Γöé Γöé       if (editValue && editValue !== placeholder && editValue.length > 0) {
+Γöé Γöé         let valueToUpdate = editValue;
+Γöé Γöé 
+Γöé Γöé         if (segment !== "period") {
+Γöé Γöé           if (editValue.length === 2) {
+Γöé Γöé             valueToUpdate = editValue;
+Γöé Γöé           } else if (editValue.length === 1) {
+Γöé Γöé             const numValue = Number.parseInt(editValue, 10);
+Γöé Γöé             if (!Number.isNaN(numValue)) {
+Γöé Γöé               valueToUpdate = numValue.toString().padStart(2, "0");
+Γöé Γöé             }
+Γöé Γöé           }
+Γöé Γöé         }
+Γöé Γöé 
+Γöé Γöé         updateTimeValue(valueToUpdate, true);
+Γöé Γöé 
+Γöé Γöé         queueMicrotask(() => {
+Γöé Γöé           const currentTimeValue = parseTimeString(store.getState().value);
+Γöé Γöé           if (currentTimeValue) {
+Γöé Γöé             const now = new Date();
+Γöé Γöé             const newTime = { ...currentTimeValue };
+Γöé Γöé             let needsUpdate = false;
+Γöé Γöé 
+Γöé Γöé             if (newTime.hour === undefined) {
+Γöé Γöé               newTime.hour = now.getHours();
+Γöé Γöé               needsUpdate = true;
+Γöé Γöé             }
+Γöé Γöé 
+Γöé Γöé             if (newTime.minute === undefined) {
+Γöé Γöé               newTime.minute = now.getMinutes();
+Γöé Γöé               needsUpdate = true;
+Γöé Γöé             }
+Γöé Γöé 
+Γöé Γöé             if (showSeconds && newTime.second === undefined) {
+Γöé Γöé               newTime.second = now.getSeconds();
+Γöé Γöé               needsUpdate = true;
+Γöé Γöé             }
+Γöé Γöé 
+Γöé Γöé             if (needsUpdate) {
+Γöé Γöé               const newValue = formatTimeValue(newTime, showSeconds);
+Γöé Γöé               store.setState("value", newValue);
+Γöé Γöé             }
+Γöé Γöé           }
+Γöé Γöé         });
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       setEditValue(getSegmentValue());
+Γöé Γöé       setPendingDigit(null);
+Γöé Γöé     },
+Γöé Γöé     [
+Γöé Γöé       onBlurProp,
+Γöé Γöé       editValue,
+Γöé Γöé       updateTimeValue,
+Γöé Γöé       getSegmentValue,
+Γöé Γöé       segment,
+Γöé Γöé       segmentPlaceholder,
+Γöé Γöé       showSeconds,
+Γöé Γöé       store,
+Γöé Γöé     ],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onChange = React.useCallback(
+Γöé Γöé     (event: React.ChangeEvent<InputElement>) => {
+Γöé Γöé       onChangeProp?.(event);
+Γöé Γöé       if (event.defaultPrevented) return;
+Γöé Γöé 
+Γöé Γöé       let newValue = event.target.value;
+Γöé Γöé 
+Γöé Γöé       const placeholder = segment
+Γöé Γöé         ? segmentPlaceholder[segment]
+Γöé Γöé         : DEFAULT_SEGMENT_PLACEHOLDER;
+Γöé Γöé       if (
+Γöé Γöé         editValue === placeholder &&
+Γöé Γöé         newValue.length > 0 &&
+Γöé Γöé         newValue !== placeholder
+Γöé Γöé       ) {
+Γöé Γöé         newValue = newValue.replace(new RegExp(`^${placeholder}`), "");
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (segment === "period") {
+Γöé Γöé         const firstChar = newValue.charAt(0).toUpperCase();
+Γöé Γöé         let newPeriod: Period | null = null;
+Γöé Γöé 
+Γöé Γöé         if (firstChar === "A" || firstChar === "1") {
+Γöé Γöé           newPeriod = "AM";
+Γöé Γöé         } else if (firstChar === "P" || firstChar === "2") {
+Γöé Γöé           newPeriod = "PM";
+Γöé Γöé         }
+Γöé Γöé 
+Γöé Γöé         if (newPeriod) {
+Γöé Γöé           setEditValue(newPeriod);
+Γöé Γöé           updateTimeValue(newPeriod, true);
+Γöé Γöé           queueMicrotask(() => {
+Γöé Γöé             inputRef.current?.select();
+Γöé Γöé           });
+Γöé Γöé         }
+Γöé Γöé         return;
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (segment === "hour" || segment === "minute" || segment === "second") {
+Γöé Γöé         newValue = newValue.replace(/\D/g, "");
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (newValue.length > 2) {
+Γöé Γöé         newValue = newValue.slice(0, 2);
+Γöé Γöé       }
+Γöé Γöé       if (segment === "hour" || segment === "minute" || segment === "second") {
+Γöé Γöé         const numValue = Number.parseInt(newValue, 10);
+Γöé Γöé 
+Γöé Γöé         if (!Number.isNaN(numValue) && newValue.length > 0) {
+Γöé Γöé           if (pendingDigit !== null && newValue.length === 1) {
+Γöé Γöé             const twoDigitValue = pendingDigit + newValue;
+Γöé Γöé             const combinedNum = Number.parseInt(twoDigitValue, 10);
+Γöé Γöé 
+Γöé Γöé             if (!Number.isNaN(combinedNum)) {
+Γöé Γöé               const paddedValue = combinedNum.toString().padStart(2, "0");
+Γöé Γöé               setEditValue(paddedValue);
+Γöé Γöé               updateTimeValue(paddedValue, true);
+Γöé Γöé               setPendingDigit(null);
+Γöé Γöé 
+Γöé Γöé               queueMicrotask(() => {
+Γöé Γöé                 if (segment) {
+Γöé Γöé                   const nextInputRef = inputGroupContext.getNextInput(segment);
+Γöé Γöé                   if (nextInputRef?.current) {
+Γöé Γöé                     nextInputRef.current.focus();
+Γöé Γöé                     nextInputRef.current.select();
+Γöé Γöé                   }
+Γöé Γöé                 }
+Γöé Γöé               });
+Γöé Γöé               return;
+Γöé Γöé             }
+Γöé Γöé           }
+Γöé Γöé 
+Γöé Γöé           const maxFirstDigit = segment === "hour" ? (is12Hour ? 1 : 2) : 5;
+Γöé Γöé 
+Γöé Γöé           const firstDigit = Number.parseInt(newValue[0] ?? "0", 10);
+Γöé Γöé           const shouldAutoAdvance = firstDigit > maxFirstDigit;
+Γöé Γöé 
+Γöé Γöé           if (newValue.length === 1) {
+Γöé Γöé             if (shouldAutoAdvance) {
+Γöé Γöé               const paddedValue = numValue.toString().padStart(2, "0");
+Γöé Γöé               setEditValue(paddedValue);
+Γöé Γöé               updateTimeValue(paddedValue, true);
+Γöé Γöé               setPendingDigit(null);
+Γöé Γöé 
+Γöé Γöé               queueMicrotask(() => {
+Γöé Γöé                 if (segment) {
+Γöé Γöé                   const nextInputRef = inputGroupContext.getNextInput(segment);
+Γöé Γöé                   if (nextInputRef?.current) {
+Γöé Γöé                     nextInputRef.current.focus();
+Γöé Γöé                     nextInputRef.current.select();
+Γöé Γöé                   }
+Γöé Γöé                 }
+Γöé Γöé               });
+Γöé Γöé             } else {
+Γöé Γöé               const paddedValue = numValue.toString().padStart(2, "0");
+Γöé Γöé               setEditValue(paddedValue);
+Γöé Γöé               setPendingDigit(newValue);
+Γöé Γöé               queueMicrotask(() => {
+Γöé Γöé                 inputRef.current?.select();
+Γöé Γöé               });
+Γöé Γöé             }
+Γöé Γöé           } else if (newValue.length === 2) {
+Γöé Γöé             const paddedValue = numValue.toString().padStart(2, "0");
+Γöé Γöé             setEditValue(paddedValue);
+Γöé Γöé             updateTimeValue(paddedValue, true);
+Γöé Γöé             setPendingDigit(null);
+Γöé Γöé 
+Γöé Γöé             queueMicrotask(() => {
+Γöé Γöé               if (segment) {
+Γöé Γöé                 const nextInputRef = inputGroupContext.getNextInput(segment);
+Γöé Γöé                 if (nextInputRef?.current) {
+Γöé Γöé                   nextInputRef.current.focus();
+Γöé Γöé                   nextInputRef.current.select();
+Γöé Γöé                 }
+Γöé Γöé               }
+Γöé Γöé             });
+Γöé Γöé           }
+Γöé Γöé         } else if (newValue.length === 0) {
+Γöé Γöé           setEditValue("");
+Γöé Γöé           setPendingDigit(null);
+Γöé Γöé         }
+Γöé Γöé       }
+Γöé Γöé     },
+Γöé Γöé     [
+Γöé Γöé       segment,
+Γöé Γöé       updateTimeValue,
+Γöé Γöé       onChangeProp,
+Γöé Γöé       editValue,
+Γöé Γöé       is12Hour,
+Γöé Γöé       inputGroupContext,
+Γöé Γöé       pendingDigit,
+Γöé Γöé       segmentPlaceholder,
+Γöé Γöé     ],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onClick = React.useCallback(
+Γöé Γöé     (event: React.MouseEvent<InputElement>) => {
+Γöé Γöé       onClickProp?.(event);
+Γöé Γöé       if (event.defaultPrevented) return;
+Γöé Γöé 
+Γöé Γöé       event.currentTarget.select();
+Γöé Γöé     },
+Γöé Γöé     [onClickProp],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onFocus = React.useCallback(
+Γöé Γöé     (event: React.FocusEvent<InputElement>) => {
+Γöé Γöé       onFocusProp?.(event);
+Γöé Γöé       if (event.defaultPrevented) return;
+Γöé Γöé 
+Γöé Γöé       setIsEditing(true);
+Γöé Γöé       setPendingDigit(null);
+Γöé Γöé 
+Γöé Γöé       if (openOnFocus && !store.getState().open) {
+Γöé Γöé         store.setState("openedViaFocus", true);
+Γöé Γöé         store.setState("open", true);
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       queueMicrotask(() => event.target.select());
+Γöé Γöé     },
+Γöé Γöé     [onFocusProp, openOnFocus, store],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onKeyDown = React.useCallback(
+Γöé Γöé     (event: React.KeyboardEvent<InputElement>) => {
+Γöé Γöé       onKeyDownProp?.(event);
+Γöé Γöé       if (event.defaultPrevented) return;
+Γöé Γöé 
+Γöé Γöé       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+Γöé Γöé         event.preventDefault();
+Γöé Γöé 
+Γöé Γöé         const goToPrevious = event.key === "ArrowLeft";
+Γöé Γöé         const inputGroup = inputRef.current?.closest(
+Γöé Γöé           '[data-slot="time-picker-input-group"]',
+Γöé Γöé         );
+Γöé Γöé 
+Γöé Γöé         if (inputGroup && inputRef.current) {
+Γöé Γöé           const allInputs = Array.from(
+Γöé Γöé             inputGroup.querySelectorAll('input[type="text"]'),
+Γöé Γöé           ) as HTMLInputElement[];
+Γöé Γöé           const currentIdx = allInputs.indexOf(inputRef.current);
+Γöé Γöé 
+Γöé Γöé           if (currentIdx !== -1) {
+Γöé Γöé             const targetIdx = goToPrevious
+Γöé Γöé               ? Math.max(0, currentIdx - 1)
+Γöé Γöé               : Math.min(allInputs.length - 1, currentIdx + 1);
+Γöé Γöé 
+Γöé Γöé             const targetInput = allInputs[targetIdx];
+Γöé Γöé             if (targetInput && targetInput !== inputRef.current) {
+Γöé Γöé               targetInput.focus();
+Γöé Γöé               targetInput.select();
+Γöé Γöé             }
+Γöé Γöé           }
+Γöé Γöé         }
+Γöé Γöé         return;
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (event.key === "Backspace" || event.key === "Delete") {
+Γöé Γöé         const input = inputRef.current;
+Γöé Γöé         if (
+Γöé Γöé           input &&
+Γöé Γöé           input.selectionStart === 0 &&
+Γöé Γöé           input.selectionEnd === input.value.length
+Γöé Γöé         ) {
+Γöé Γöé           event.preventDefault();
+Γöé Γöé           const placeholder = segment
+Γöé Γöé             ? segmentPlaceholder[segment]
+Γöé Γöé             : DEFAULT_SEGMENT_PLACEHOLDER;
+Γöé Γöé           setEditValue(placeholder);
+Γöé Γöé           setPendingDigit(null);
+Γöé Γöé 
+Γöé Γöé           if (timeValue) {
+Γöé Γöé             const newTime = { ...timeValue };
+Γöé Γöé             switch (segment) {
+Γöé Γöé               case "hour":
+Γöé Γöé                 delete newTime.hour;
+Γöé Γöé                 break;
+Γöé Γöé               case "minute":
+Γöé Γöé                 delete newTime.minute;
+Γöé Γöé                 break;
+Γöé Γöé               case "second":
+Γöé Γöé                 delete newTime.second;
+Γöé Γöé                 break;
+Γöé Γöé               case "period":
+Γöé Γöé                 delete newTime.period;
+Γöé Γöé                 break;
+Γöé Γöé             }
+Γöé Γöé 
+Γöé Γöé             if (
+Γöé Γöé               newTime.hour !== undefined ||
+Γöé Γöé               newTime.minute !== undefined ||
+Γöé Γöé               newTime.second !== undefined ||
+Γöé Γöé               newTime.period !== undefined
+Γöé Γöé             ) {
+Γöé Γöé               const newValue = formatTimeValue(newTime, showSeconds);
+Γöé Γöé               store.setState("value", newValue);
+Γöé Γöé             } else {
+Γöé Γöé               store.setState("value", "");
+Γöé Γöé             }
+Γöé Γöé           } else {
+Γöé Γöé             store.setState("value", "");
+Γöé Γöé           }
+Γöé Γöé 
+Γöé Γöé           queueMicrotask(() => {
+Γöé Γöé             inputRef.current?.select();
+Γöé Γöé           });
+Γöé Γöé           return;
+Γöé Γöé         }
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (segment === "period") {
+Γöé Γöé         const key = event.key.toLowerCase();
+Γöé Γöé         if (key === "a" || key === "p" || key === "1" || key === "2") {
+Γöé Γöé           event.preventDefault();
+Γöé Γöé           let newPeriod: Period;
+Γöé Γöé           if (key === "a" || key === "1") {
+Γöé Γöé             newPeriod = "AM";
+Γöé Γöé           } else {
+Γöé Γöé             newPeriod = "PM";
+Γöé Γöé           }
+Γöé Γöé           setEditValue(newPeriod);
+Γöé Γöé           updateTimeValue(newPeriod, true);
+Γöé Γöé           queueMicrotask(() => {
+Γöé Γöé             inputRef.current?.select();
+Γöé Γöé           });
+Γöé Γöé         } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+Γöé Γöé           event.preventDefault();
+Γöé Γöé           const placeholder = segmentPlaceholder.period;
+Γöé Γöé           const currentPeriod =
+Γöé Γöé             editValue === placeholder || editValue === "" ? "AM" : editValue;
+Γöé Γöé           const newPeriod =
+Γöé Γöé             currentPeriod === "AM" || currentPeriod === "A" ? "PM" : "AM";
+Γöé Γöé           setEditValue(newPeriod);
+Γöé Γöé           updateTimeValue(newPeriod, true);
+Γöé Γöé           queueMicrotask(() => {
+Γöé Γöé             inputRef.current?.select();
+Γöé Γöé           });
+Γöé Γöé         }
+Γöé Γöé         return;
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (event.key === "Tab") {
+Γöé Γöé         const placeholder = segment
+Γöé Γöé           ? segmentPlaceholder[segment]
+Γöé Γöé           : DEFAULT_SEGMENT_PLACEHOLDER;
+Γöé Γöé         if (editValue && editValue.length > 0 && editValue !== placeholder) {
+Γöé Γöé           if (editValue.length === 2) {
+Γöé Γöé             updateTimeValue(editValue, true);
+Γöé Γöé           } else if (editValue.length === 1) {
+Γöé Γöé             const numValue = Number.parseInt(editValue, 10);
+Γöé Γöé             if (!Number.isNaN(numValue)) {
+Γöé Γöé               const paddedValue = numValue.toString().padStart(2, "0");
+Γöé Γöé               updateTimeValue(paddedValue, true);
+Γöé Γöé             }
+Γöé Γöé           }
+Γöé Γöé         }
+Γöé Γöé         return;
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (event.key === "Enter") {
+Γöé Γöé         event.preventDefault();
+Γöé Γöé         const placeholder = segment
+Γöé Γöé           ? segmentPlaceholder[segment]
+Γöé Γöé           : DEFAULT_SEGMENT_PLACEHOLDER;
+Γöé Γöé         if (editValue && editValue.length > 0 && editValue !== placeholder) {
+Γöé Γöé           if (editValue.length === 2) {
+Γöé Γöé             updateTimeValue(editValue, true);
+Γöé Γöé           } else if (editValue.length === 1) {
+Γöé Γöé             const numValue = Number.parseInt(editValue, 10);
+Γöé Γöé             if (!Number.isNaN(numValue)) {
+Γöé Γöé               const paddedValue = numValue.toString().padStart(2, "0");
+Γöé Γöé               updateTimeValue(paddedValue, true);
+Γöé Γöé             }
+Γöé Γöé           }
+Γöé Γöé         }
+Γöé Γöé         queueMicrotask(() => {
+Γöé Γöé           inputRef.current?.select();
+Γöé Γöé         });
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (event.key === "Escape") {
+Γöé Γöé         event.preventDefault();
+Γöé Γöé         setEditValue(getSegmentValue());
+Γöé Γöé         inputRef.current?.blur();
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (event.key === "ArrowUp") {
+Γöé Γöé         event.preventDefault();
+Γöé Γöé         const placeholder = segment
+Γöé Γöé           ? segmentPlaceholder[segment]
+Γöé Γöé           : DEFAULT_SEGMENT_PLACEHOLDER;
+Γöé Γöé         if (editValue === placeholder || editValue === "") {
+Γöé Γöé           const defaultValue = segment === "hour" ? (is12Hour ? 12 : 0) : 0;
+Γöé Γöé           const formattedValue = defaultValue.toString().padStart(2, "0");
+Γöé Γöé           setEditValue(formattedValue);
+Γöé Γöé           updateTimeValue(formattedValue, true);
+Γöé Γöé           queueMicrotask(() => {
+Γöé Γöé             inputRef.current?.select();
+Γöé Γöé           });
+Γöé Γöé           return;
+Γöé Γöé         }
+Γöé Γöé         const currentValue = Number.parseInt(editValue, 10);
+Γöé Γöé         if (!Number.isNaN(currentValue)) {
+Γöé Γöé           let newValue: number;
+Γöé Γöé           switch (segment) {
+Γöé Γöé             case "hour":
+Γöé Γöé               if (is12Hour) {
+Γöé Γöé                 newValue = currentValue === 12 ? 1 : currentValue + 1;
+Γöé Γöé               } else {
+Γöé Γöé                 newValue = currentValue === 23 ? 0 : currentValue + 1;
+Γöé Γöé               }
+Γöé Γöé               break;
+Γöé Γöé             case "minute":
+Γöé Γöé             case "second":
+Γöé Γöé               newValue = currentValue === 59 ? 0 : currentValue + 1;
+Γöé Γöé               break;
+Γöé Γöé             default:
+Γöé Γöé               return;
+Γöé Γöé           }
+Γöé Γöé           const formattedValue = newValue.toString().padStart(2, "0");
+Γöé Γöé           setEditValue(formattedValue);
+Γöé Γöé           updateTimeValue(formattedValue, true);
+Γöé Γöé           queueMicrotask(() => {
+Γöé Γöé             inputRef.current?.select();
+Γöé Γöé           });
+Γöé Γöé         }
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (event.key === "ArrowDown") {
+Γöé Γöé         event.preventDefault();
+Γöé Γöé         const placeholder = segment
+Γöé Γöé           ? segmentPlaceholder[segment]
+Γöé Γöé           : DEFAULT_SEGMENT_PLACEHOLDER;
+Γöé Γöé         if (editValue === placeholder || editValue === "") {
+Γöé Γöé           const defaultValue = segment === "hour" ? (is12Hour ? 12 : 23) : 59;
+Γöé Γöé           const formattedValue = defaultValue.toString().padStart(2, "0");
+Γöé Γöé           setEditValue(formattedValue);
+Γöé Γöé           updateTimeValue(formattedValue, true);
+Γöé Γöé           queueMicrotask(() => {
+Γöé Γöé             inputRef.current?.select();
+Γöé Γöé           });
+Γöé Γöé           return;
+Γöé Γöé         }
+Γöé Γöé         const currentValue = Number.parseInt(editValue, 10);
+Γöé Γöé         if (!Number.isNaN(currentValue)) {
+Γöé Γöé           let newValue: number;
+Γöé Γöé           switch (segment) {
+Γöé Γöé             case "hour":
+Γöé Γöé               if (is12Hour) {
+Γöé Γöé                 newValue = currentValue === 1 ? 12 : currentValue - 1;
+Γöé Γöé               } else {
+Γöé Γöé                 newValue = currentValue === 0 ? 23 : currentValue - 1;
+Γöé Γöé               }
+Γöé Γöé               break;
+Γöé Γöé             case "minute":
+Γöé Γöé             case "second":
+Γöé Γöé               newValue = currentValue === 0 ? 59 : currentValue - 1;
+Γöé Γöé               break;
+Γöé Γöé             default:
+Γöé Γöé               return;
+Γöé Γöé           }
+Γöé Γöé           const formattedValue = newValue.toString().padStart(2, "0");
+Γöé Γöé           setEditValue(formattedValue);
+Γöé Γöé           updateTimeValue(formattedValue, true);
+Γöé Γöé           queueMicrotask(() => {
+Γöé Γöé             inputRef.current?.select();
+Γöé Γöé           });
+Γöé Γöé         }
+Γöé Γöé       }
+Γöé Γöé     },
+Γöé Γöé     [
+Γöé Γöé       onKeyDownProp,
+Γöé Γöé       editValue,
+Γöé Γöé       segment,
+Γöé Γöé       is12Hour,
+Γöé Γöé       getSegmentValue,
+Γöé Γöé       updateTimeValue,
+Γöé Γöé       showSeconds,
+Γöé Γöé       timeValue,
+Γöé Γöé       store,
+Γöé Γöé       segmentPlaceholder,
+Γöé Γöé     ],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const displayValue = isEditing ? editValue : getSegmentValue();
+Γöé Γöé 
+Γöé Γöé   const segmentWidth = segment
+Γöé Γöé     ? `var(--time-picker-${segment}-input-width)`
+Γöé Γöé     : "2ch";
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <input
+Γöé Γöé       type="text"
+Γöé Γöé       inputMode={segment === "period" ? "text" : "numeric"}
+Γöé Γöé       autoComplete="off"
+Γöé Γöé       autoCorrect="off"
+Γöé Γöé       autoCapitalize="off"
+Γöé Γöé       spellCheck={false}
+Γöé Γöé       translate="no"
+Γöé Γöé       {...inputProps}
+Γöé Γöé       disabled={isDisabled}
+Γöé Γöé       readOnly={isReadOnly}
+Γöé Γöé       className={cn(
+Γöé Γöé         "inline-flex h-full items-center justify-center border-0 bg-transparent text-center text-sm tabular-nums outline-none transition-colors focus:bg-transparent disabled:cursor-not-allowed disabled:opacity-50",
+Γöé Γöé         className,
+Γöé Γöé       )}
+Γöé Γöé       style={{ width: segmentWidth, ...style }}
+Γöé Γöé       ref={composedRef}
+Γöé Γöé       value={displayValue}
+Γöé Γöé       onBlur={onBlur}
+Γöé Γöé       onChange={onChange}
+Γöé Γöé       onClick={onClick}
+Γöé Γöé       onFocus={onFocus}
+Γöé Γöé       onKeyDown={onKeyDown}
+Γöé Γöé     />
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function TimePickerTrigger(props: ButtonProps) {
+Γöé Γöé   const {
+Γöé Γöé     className,
+Γöé Γöé     children,
+Γöé Γöé     disabled: disabledProp,
+Γöé Γöé     ref,
+Γöé Γöé     ...triggerProps
+Γöé Γöé   } = props;
+Γöé Γöé 
+Γöé Γöé   const { triggerId, disabled, triggerRef } =
+Γöé Γöé     useTimePickerContext(TRIGGER_NAME);
+Γöé Γöé 
+Γöé Γöé   const isDisabled = disabledProp || disabled;
+Γöé Γöé 
+Γöé Γöé   const composedRef = useComposedRefs(ref, triggerRef);
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <PopoverTrigger
+Γöé Γöé       type="button"
+Γöé Γöé       id={triggerId}
+Γöé Γöé       data-slot="time-picker-trigger"
+Γöé Γöé       disabled={isDisabled}
+Γöé Γöé       ref={composedRef}
+Γöé Γöé       {...triggerProps}
+Γöé Γöé       className={cn(
+Γöé Γöé         "ml-auto flex items-center text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none [&>svg:not([class*='size-'])]:size-4",
+Γöé Γöé         className,
+Γöé Γöé       )}
+Γöé Γöé     >
+Γöé Γöé       {children ?? <Clock />}
+Γöé Γöé     </PopoverTrigger>
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface TimePickerGroupContextValue {
+Γöé Γöé   getColumns: () => ColumnData[];
+Γöé Γöé   onColumnRegister: (column: ColumnData) => void;
+Γöé Γöé   onColumnUnregister: (id: string) => void;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé const TimePickerGroupContext =
+Γöé Γöé   React.createContext<TimePickerGroupContextValue | null>(null);
+Γöé Γöé 
+Γöé Γöé function useTimePickerGroupContext(consumerName: string) {
+Γöé Γöé   const context = React.useContext(TimePickerGroupContext);
+Γöé Γöé   if (!context) {
+Γöé Γöé     throw new Error(`\`${consumerName}\` must be used within \`${ROOT_NAME}\``);
+Γöé Γöé   }
+Γöé Γöé   return context;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface TimePickerContentProps
+Γöé Γöé   extends DivProps,
+Γöé Γöé     React.ComponentProps<typeof PopoverContent> {}
+Γöé Γöé 
+Γöé Γöé function TimePickerContent(props: TimePickerContentProps) {
+Γöé Γöé   const {
+Γöé Γöé     side = "bottom",
+Γöé Γöé     align = "start",
+Γöé Γöé     sideOffset = 6,
+Γöé Γöé     className,
+Γöé Γöé     onOpenAutoFocus: onOpenAutoFocusProp,
+Γöé Γöé     onInteractOutside: onInteractOutsideProp,
+Γöé Γöé     ...contentProps
+Γöé Γöé   } = props;
+Γöé Γöé 
+Γöé Γöé   const store = useStoreContext(CONTENT_NAME);
+Γöé Γöé   const { openOnFocus, inputGroupRef } = useTimePickerContext(CONTENT_NAME);
+Γöé Γöé   const columnsRef = React.useRef<Map<string, Omit<ColumnData, "id">>>(
+Γöé Γöé     new Map(),
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onColumnRegister = React.useCallback((column: ColumnData) => {
+Γöé Γöé     columnsRef.current.set(column.id, column);
+Γöé Γöé   }, []);
+Γöé Γöé 
+Γöé Γöé   const onColumnUnregister = React.useCallback((id: string) => {
+Γöé Γöé     columnsRef.current.delete(id);
+Γöé Γöé   }, []);
+Γöé Γöé 
+Γöé Γöé   const getColumns = React.useCallback(() => {
+Γöé Γöé     const columns = Array.from(columnsRef.current.entries())
+Γöé Γöé       .map(([id, { ref, getSelectedItemRef, getItems }]) => ({
+Γöé Γöé         id,
+Γöé Γöé         ref,
+Γöé Γöé         getSelectedItemRef,
+Γöé Γöé         getItems,
+Γöé Γöé       }))
+Γöé Γöé       .filter((c) => c.ref.current !== null);
+Γöé Γöé     return sortNodes(columns);
+Γöé Γöé   }, []);
+Γöé Γöé 
+Γöé Γöé   const groupContextValue = React.useMemo<TimePickerGroupContextValue>(
+Γöé Γöé     () => ({
+Γöé Γöé       getColumns,
+Γöé Γöé       onColumnRegister,
+Γöé Γöé       onColumnUnregister,
+Γöé Γöé     }),
+Γöé Γöé     [getColumns, onColumnRegister, onColumnUnregister],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onOpenAutoFocus: NonNullable<PopoverContentProps["onOpenAutoFocus"]> =
+Γöé Γöé     React.useCallback(
+Γöé Γöé       (event) => {
+Γöé Γöé         onOpenAutoFocusProp?.(event);
+Γöé Γöé         if (event.defaultPrevented) return;
+Γöé Γöé 
+Γöé Γöé         event.preventDefault();
+Γöé Γöé 
+Γöé Γöé         const { openedViaFocus } = store.getState();
+Γöé Γöé 
+Γöé Γöé         if (openedViaFocus) {
+Γöé Γöé           store.setState("openedViaFocus", false);
+Γöé Γöé           return;
+Γöé Γöé         }
+Γöé Γöé 
+Γöé Γöé         const columns = getColumns();
+Γöé Γöé         const firstColumn = columns[0];
+Γöé Γöé 
+Γöé Γöé         if (!firstColumn) return;
+Γöé Γöé 
+Γöé Γöé         const items = firstColumn.getItems();
+Γöé Γöé         const selectedItem = items.find((item) => item.selected);
+Γöé Γöé 
+Γöé Γöé         const candidateRefs = selectedItem
+Γöé Γöé           ? [selectedItem.ref, ...items.map((item) => item.ref)]
+Γöé Γöé           : items.map((item) => item.ref);
+Γöé Γöé 
+Γöé Γöé         focusFirst(candidateRefs, false);
+Γöé Γöé       },
+Γöé Γöé       [onOpenAutoFocusProp, getColumns, store],
+Γöé Γöé     );
+Γöé Γöé 
+Γöé Γöé   const onInteractOutside: NonNullable<
+Γöé Γöé     PopoverContentProps["onInteractOutside"]
+Γöé Γöé   > = React.useCallback(
+Γöé Γöé     (event) => {
+Γöé Γöé       onInteractOutsideProp?.(event);
+Γöé Γöé       if (event.defaultPrevented) return;
+Γöé Γöé 
+Γöé Γöé       if (openOnFocus && inputGroupRef.current) {
+Γöé Γöé         const target = event.target;
+Γöé Γöé         if (!(target instanceof Node)) return;
+Γöé Γöé         const isInsideInputGroup = inputGroupRef.current.contains(target);
+Γöé Γöé 
+Γöé Γöé         if (isInsideInputGroup) {
+Γöé Γöé           event.preventDefault();
+Γöé Γöé         }
+Γöé Γöé       }
+Γöé Γöé     },
+Γöé Γöé     [onInteractOutsideProp, openOnFocus, inputGroupRef],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <TimePickerGroupContext.Provider value={groupContextValue}>
+Γöé Γöé       <PopoverContent
+Γöé Γöé         data-slot="time-picker-content"
+Γöé Γöé         side={side}
+Γöé Γöé         align={align}
+Γöé Γöé         sideOffset={sideOffset}
+Γöé Γöé         {...contentProps}
+Γöé Γöé         className={cn(
+Γöé Γöé           "flex w-auto max-w-(--radix-popover-trigger-width) p-0",
+Γöé Γöé           className,
+Γöé Γöé         )}
+Γöé Γöé         onOpenAutoFocus={onOpenAutoFocus}
+Γöé Γöé         onInteractOutside={onInteractOutside}
+Γöé Γöé       />
+Γöé Γöé     </TimePickerGroupContext.Provider>
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface TimePickerColumnContextValue {
+Γöé Γöé   getItems: () => ItemData[];
+Γöé Γöé   onItemRegister: (
+Γöé Γöé     value: number | string,
+Γöé Γöé     ref: React.RefObject<ColumnItemElement | null>,
+Γöé Γöé     selected: boolean,
+Γöé Γöé   ) => void;
+Γöé Γöé   onItemUnregister: (value: number | string) => void;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé const TimePickerColumnContext =
+Γöé Γöé   React.createContext<TimePickerColumnContextValue | null>(null);
+Γöé Γöé 
+Γöé Γöé function useTimePickerColumnContext(consumerName: string) {
+Γöé Γöé   const context = React.useContext(TimePickerColumnContext);
+Γöé Γöé   if (!context) {
+Γöé Γöé     throw new Error(`\`${consumerName}\` must be used within a column`);
+Γöé Γöé   }
+Γöé Γöé   return context;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface TimePickerColumnProps extends DivProps {}
+Γöé Γöé 
+Γöé Γöé function TimePickerColumn(props: TimePickerColumnProps) {
+Γöé Γöé   const { children, className, ref, ...columnProps } = props;
+Γöé Γöé 
+Γöé Γöé   const columnId = React.useId();
+Γöé Γöé   const columnRef = React.useRef<ColumnElement | null>(null);
+Γöé Γöé   const composedRef = useComposedRefs(ref, columnRef);
+Γöé Γöé 
+Γöé Γöé   const itemsRef = React.useRef<
+Γöé Γöé     Map<
+Γöé Γöé       number | string,
+Γöé Γöé       {
+Γöé Γöé         ref: React.RefObject<ColumnItemElement | null>;
+Γöé Γöé         selected: boolean;
+Γöé Γöé       }
+Γöé Γöé     >
+Γöé Γöé   >(new Map());
+Γöé Γöé 
+Γöé Γöé   const groupContext = useTimePickerGroupContext(COLUMN_NAME);
+Γöé Γöé 
+Γöé Γöé   const onItemRegister = React.useCallback(
+Γöé Γöé     (
+Γöé Γöé       value: number | string,
+Γöé Γöé       ref: React.RefObject<HTMLButtonElement | null>,
+Γöé Γöé       selected: boolean,
+Γöé Γöé     ) => {
+Γöé Γöé       itemsRef.current.set(value, { ref, selected });
+Γöé Γöé     },
+Γöé Γöé     [],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onItemUnregister = React.useCallback((value: number | string) => {
+Γöé Γöé     itemsRef.current.delete(value);
+Γöé Γöé   }, []);
+Γöé Γöé 
+Γöé Γöé   const getItems = React.useCallback(() => {
+Γöé Γöé     const items = Array.from(itemsRef.current.entries())
+Γöé Γöé       .map(([value, { ref, selected }]) => ({
+Γöé Γöé         value,
+Γöé Γöé         ref,
+Γöé Γöé         selected,
+Γöé Γöé       }))
+Γöé Γöé       .filter((item) => item.ref.current);
+Γöé Γöé     return sortNodes(items);
+Γöé Γöé   }, []);
+Γöé Γöé 
+Γöé Γöé   const getSelectedItemRef = React.useCallback(() => {
+Γöé Γöé     const items = getItems();
+Γöé Γöé     return items.find((item) => item.selected)?.ref ?? null;
+Γöé Γöé   }, [getItems]);
+Γöé Γöé 
+Γöé Γöé   useIsomorphicLayoutEffect(() => {
+Γöé Γöé     groupContext.onColumnRegister({
+Γöé Γöé       id: columnId,
+Γöé Γöé       ref: columnRef,
+Γöé Γöé       getSelectedItemRef,
+Γöé Γöé       getItems,
+Γöé Γöé     });
+Γöé Γöé     return () => groupContext.onColumnUnregister(columnId);
+Γöé Γöé   }, [groupContext, columnId, getSelectedItemRef, getItems]);
+Γöé Γöé 
+Γöé Γöé   const columnContextValue = React.useMemo<TimePickerColumnContextValue>(
+Γöé Γöé     () => ({
+Γöé Γöé       getItems,
+Γöé Γöé       onItemRegister,
+Γöé Γöé       onItemUnregister,
+Γöé Γöé     }),
+Γöé Γöé     [getItems, onItemRegister, onItemUnregister],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <TimePickerColumnContext.Provider value={columnContextValue}>
+Γöé Γöé       <div
+Γöé Γöé         ref={composedRef}
+Γöé Γöé         data-slot="time-picker-column"
+Γöé Γöé         {...columnProps}
+Γöé Γöé         className={cn("flex flex-col gap-1 not-last:border-r p-1", className)}
+Γöé Γöé       >
+Γöé Γöé         {children}
+Γöé Γöé       </div>
+Γöé Γöé     </TimePickerColumnContext.Provider>
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface TimePickerColumnItemProps extends ButtonProps {
+Γöé Γöé   value: number | string;
+Γöé Γöé   selected?: boolean;
+Γöé Γöé   format?: SegmentFormat;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function TimePickerColumnItem(props: TimePickerColumnItemProps) {
+Γöé Γöé   const {
+Γöé Γöé     value,
+Γöé Γöé     selected = false,
+Γöé Γöé     format = "numeric",
+Γöé Γöé     className,
+Γöé Γöé     ref,
+Γöé Γöé     ...itemProps
+Γöé Γöé   } = props;
+Γöé Γöé 
+Γöé Γöé   const itemRef = React.useRef<ColumnItemElement | null>(null);
+Γöé Γöé   const composedRef = useComposedRefs(ref, itemRef);
+Γöé Γöé   const columnContext = useTimePickerColumnContext(COLUMN_ITEM_NAME);
+Γöé Γöé   const groupContext = useTimePickerGroupContext(COLUMN_ITEM_NAME);
+Γöé Γöé 
+Γöé Γöé   useIsomorphicLayoutEffect(() => {
+Γöé Γöé     columnContext.onItemRegister(value, itemRef, selected);
+Γöé Γöé     return () => columnContext.onItemUnregister(value);
+Γöé Γöé   }, [columnContext, value, selected]);
+Γöé Γöé 
+Γöé Γöé   useIsomorphicLayoutEffect(() => {
+Γöé Γöé     if (selected && itemRef.current) {
+Γöé Γöé       itemRef.current.scrollIntoView({ block: "nearest" });
+Γöé Γöé     }
+Γöé Γöé   }, [selected]);
+Γöé Γöé 
+Γöé Γöé   const onClick = React.useCallback(
+Γöé Γöé     (event: React.MouseEvent<ColumnItemElement>) => {
+Γöé Γöé       itemProps.onClick?.(event);
+Γöé Γöé       if (event.defaultPrevented) return;
+Γöé Γöé 
+Γöé Γöé       itemRef.current?.focus();
+Γöé Γöé     },
+Γöé Γöé     [itemProps.onClick],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onKeyDown = React.useCallback(
+Γöé Γöé     (event: React.KeyboardEvent<ColumnItemElement>) => {
+Γöé Γöé       itemProps.onKeyDown?.(event);
+Γöé Γöé       if (event.defaultPrevented) return;
+Γöé Γöé 
+Γöé Γöé       if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+Γöé Γöé         event.preventDefault();
+Γöé Γöé         const items = columnContext.getItems().sort((a, b) => {
+Γöé Γöé           if (typeof a.value === "number" && typeof b.value === "number") {
+Γöé Γöé             return a.value - b.value;
+Γöé Γöé           }
+Γöé Γöé           return 0;
+Γöé Γöé         });
+Γöé Γöé         const currentIndex = items.findIndex((item) => item.value === value);
+Γöé Γöé 
+Γöé Γöé         let nextIndex: number;
+Γöé Γöé         if (event.key === "ArrowUp") {
+Γöé Γöé           nextIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+Γöé Γöé         } else {
+Γöé Γöé           nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+Γöé Γöé         }
+Γöé Γöé 
+Γöé Γöé         const nextItem = items[nextIndex];
+Γöé Γöé         nextItem?.ref.current?.focus();
+Γöé Γöé         nextItem?.ref.current?.click();
+Γöé Γöé       } else if (
+Γöé Γöé         (event.key === "Tab" ||
+Γöé Γöé           event.key === "ArrowLeft" ||
+Γöé Γöé           event.key === "ArrowRight") &&
+Γöé Γöé         groupContext
+Γöé Γöé       ) {
+Γöé Γöé         event.preventDefault();
+Γöé Γöé 
+Γöé Γöé         queueMicrotask(() => {
+Γöé Γöé           const columns = groupContext.getColumns();
+Γöé Γöé 
+Γöé Γöé           if (columns.length === 0) return;
+Γöé Γöé 
+Γöé Γöé           const currentColumnIndex = columns.findIndex(
+Γöé Γöé             (c) => c.ref.current?.contains(itemRef.current) ?? false,
+Γöé Γöé           );
+Γöé Γöé 
+Γöé Γöé           if (currentColumnIndex === -1) return;
+Γöé Γöé 
+Γöé Γöé           const goToPrevious =
+Γöé Γöé             event.key === "ArrowLeft" ||
+Γöé Γöé             (event.key === "Tab" && event.shiftKey);
+Γöé Γöé 
+Γöé Γöé           const nextColumnIndex = goToPrevious
+Γöé Γöé             ? currentColumnIndex > 0
+Γöé Γöé               ? currentColumnIndex - 1
+Γöé Γöé               : columns.length - 1
+Γöé Γöé             : currentColumnIndex < columns.length - 1
+Γöé Γöé               ? currentColumnIndex + 1
+Γöé Γöé               : 0;
+Γöé Γöé 
+Γöé Γöé           const nextColumn = columns[nextColumnIndex];
+Γöé Γöé           if (nextColumn?.ref.current) {
+Γöé Γöé             const items = nextColumn.getItems();
+Γöé Γöé             const selectedItem = items.find((item) => item.selected);
+Γöé Γöé 
+Γöé Γöé             const candidateRefs = selectedItem
+Γöé Γöé               ? [selectedItem.ref, ...items.map((item) => item.ref)]
+Γöé Γöé               : items.map((item) => item.ref);
+Γöé Γöé 
+Γöé Γöé             focusFirst(candidateRefs, false);
+Γöé Γöé           }
+Γöé Γöé         });
+Γöé Γöé       }
+Γöé Γöé     },
+Γöé Γöé     [itemProps.onKeyDown, columnContext, groupContext, value],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const formattedValue =
+Γöé Γöé     typeof value === "number" && format === "2-digit"
+Γöé Γöé       ? value.toString().padStart(2, "0")
+Γöé Γöé       : value.toString();
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <button
+Γöé Γöé       type="button"
+Γöé Γöé       {...itemProps}
+Γöé Γöé       ref={composedRef}
+Γöé Γöé       data-selected={selected ? "" : undefined}
+Γöé Γöé       className={cn(
+Γöé Γöé         "w-full rounded px-3 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground focus:border-ring focus:outline-none focus:ring-[3px] focus:ring-ring/50",
+Γöé Γöé         "data-selected:bg-primary data-selected:text-primary-foreground data-selected:hover:bg-primary data-selected:hover:text-primary-foreground",
+Γöé Γöé         className,
+Γöé Γöé       )}
+Γöé Γöé       onClick={onClick}
+Γöé Γöé       onKeyDown={onKeyDown}
+Γöé Γöé     >
+Γöé Γöé       {formattedValue}
+Γöé Γöé     </button>
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface TimePickerHourProps extends DivProps {
+Γöé Γöé   format?: SegmentFormat;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function TimePickerHour(props: TimePickerHourProps) {
+Γöé Γöé   const { asChild, format = "numeric", className, ...hourProps } = props;
+Γöé Γöé 
+Γöé Γöé   const { is12Hour, hourStep, showSeconds } = useTimePickerContext(HOUR_NAME);
+Γöé Γöé   const store = useStoreContext(HOUR_NAME);
+Γöé Γöé 
+Γöé Γöé   const value = useStore((state) => state.value);
+Γöé Γöé   const timeValue = parseTimeString(value);
+Γöé Γöé 
+Γöé Γöé   const hours = Array.from(
+Γöé Γöé     {
+Γöé Γöé       length: is12Hour ? Math.ceil(12 / hourStep) : Math.ceil(24 / hourStep),
+Γöé Γöé     },
+Γöé Γöé     (_, i) => {
+Γöé Γöé       if (is12Hour) {
+Γöé Γöé         const hour = (i * hourStep) % 12;
+Γöé Γöé         return hour === 0 ? 12 : hour;
+Γöé Γöé       }
+Γöé Γöé       return i * hourStep;
+Γöé Γöé     },
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onHourSelect = React.useCallback(
+Γöé Γöé     (displayHour: number) => {
+Γöé Γöé       const now = new Date();
+Γöé Γöé       const currentTime = timeValue ?? {};
+Γöé Γöé 
+Γöé Γöé       let hour24 = displayHour;
+Γöé Γöé       if (is12Hour) {
+Γöé Γöé         let currentPeriod: Period;
+Γöé Γöé         if (timeValue?.period !== undefined) {
+Γöé Γöé           currentPeriod = timeValue.period;
+Γöé Γöé         } else if (timeValue?.hour !== undefined) {
+Γöé Γöé           currentPeriod = to12Hour(timeValue.hour).period;
+Γöé Γöé         } else {
+Γöé Γöé           currentPeriod = to12Hour(now.getHours()).period;
+Γöé Γöé         }
+Γöé Γöé         hour24 = to24Hour(displayHour, currentPeriod);
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       const newTime = { ...currentTime, hour: hour24 };
+Γöé Γöé       if (timeValue && timeValue.period !== undefined) {
+Γöé Γöé         newTime.period = timeValue.period;
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (newTime.minute === undefined) {
+Γöé Γöé         newTime.minute = now.getMinutes();
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (showSeconds && newTime.second === undefined) {
+Γöé Γöé         newTime.second = now.getSeconds();
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       const newValue = formatTimeValue(newTime, showSeconds);
+Γöé Γöé       store.setState("value", newValue);
+Γöé Γöé     },
+Γöé Γöé     [timeValue, showSeconds, is12Hour, store],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const now = new Date();
+Γöé Γöé   const referenceHour = timeValue?.hour ?? now.getHours();
+Γöé Γöé   const displayHour = is12Hour ? to12Hour(referenceHour).hour : referenceHour;
+Γöé Γöé 
+Γöé Γöé   const HourPrimitive = asChild ? SlotPrimitive.Slot : TimePickerColumn;
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <HourPrimitive
+Γöé Γöé       data-slot="time-picker-hour"
+Γöé Γöé       {...hourProps}
+Γöé Γöé       className={cn(
+Γöé Γöé         "scrollbar-none flex max-h-[200px] flex-col gap-1 overflow-y-auto p-1",
+Γöé Γöé         className,
+Γöé Γöé       )}
+Γöé Γöé     >
+Γöé Γöé       {hours.map((hour) => (
+Γöé Γöé         <TimePickerColumnItem
+Γöé Γöé           key={hour}
+Γöé Γöé           value={hour}
+Γöé Γöé           selected={displayHour === hour}
+Γöé Γöé           format={format}
+Γöé Γöé           onClick={() => onHourSelect(hour)}
+Γöé Γöé         />
+Γöé Γöé       ))}
+Γöé Γöé     </HourPrimitive>
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface TimePickerMinuteProps extends DivProps {
+Γöé Γöé   format?: SegmentFormat;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function TimePickerMinute(props: TimePickerMinuteProps) {
+Γöé Γöé   const { asChild, format = "2-digit", className, ...minuteProps } = props;
+Γöé Γöé 
+Γöé Γöé   const { minuteStep, showSeconds } = useTimePickerContext(MINUTE_NAME);
+Γöé Γöé   const store = useStoreContext(MINUTE_NAME);
+Γöé Γöé 
+Γöé Γöé   const value = useStore((state) => state.value);
+Γöé Γöé   const timeValue = parseTimeString(value);
+Γöé Γöé 
+Γöé Γöé   const minutes = Array.from(
+Γöé Γöé     { length: Math.ceil(60 / minuteStep) },
+Γöé Γöé     (_, i) => i * minuteStep,
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onMinuteSelect = React.useCallback(
+Γöé Γöé     (minute: number) => {
+Γöé Γöé       const now = new Date();
+Γöé Γöé       const currentTime = timeValue ?? {};
+Γöé Γöé       const newTime = { ...currentTime, minute };
+Γöé Γöé 
+Γöé Γöé       if (newTime.hour === undefined) {
+Γöé Γöé         newTime.hour = now.getHours();
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (showSeconds && newTime.second === undefined) {
+Γöé Γöé         newTime.second = now.getSeconds();
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       const newValue = formatTimeValue(newTime, showSeconds);
+Γöé Γöé       store.setState("value", newValue);
+Γöé Γöé     },
+Γöé Γöé     [timeValue, showSeconds, store],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const MinutePrimitive = asChild ? SlotPrimitive.Slot : TimePickerColumn;
+Γöé Γöé 
+Γöé Γöé   const now = new Date();
+Γöé Γöé   const referenceMinute = timeValue?.minute ?? now.getMinutes();
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <MinutePrimitive
+Γöé Γöé       data-slot="time-picker-minute"
+Γöé Γöé       {...minuteProps}
+Γöé Γöé       className={cn(
+Γöé Γöé         "scrollbar-none flex max-h-[200px] flex-col gap-1 overflow-y-auto p-1",
+Γöé Γöé         className,
+Γöé Γöé       )}
+Γöé Γöé     >
+Γöé Γöé       {minutes.map((minute) => (
+Γöé Γöé         <TimePickerColumnItem
+Γöé Γöé           key={minute}
+Γöé Γöé           value={minute}
+Γöé Γöé           selected={referenceMinute === minute}
+Γöé Γöé           format={format}
+Γöé Γöé           onClick={() => onMinuteSelect(minute)}
+Γöé Γöé         />
+Γöé Γöé       ))}
+Γöé Γöé     </MinutePrimitive>
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface TimePickerSecondProps extends DivProps {
+Γöé Γöé   format?: SegmentFormat;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function TimePickerSecond(props: TimePickerSecondProps) {
+Γöé Γöé   const { asChild, format = "2-digit", className, ...secondProps } = props;
+Γöé Γöé 
+Γöé Γöé   const { secondStep } = useTimePickerContext(SECOND_NAME);
+Γöé Γöé   const store = useStoreContext(SECOND_NAME);
+Γöé Γöé 
+Γöé Γöé   const value = useStore((state) => state.value);
+Γöé Γöé   const timeValue = parseTimeString(value);
+Γöé Γöé 
+Γöé Γöé   const seconds = Array.from(
+Γöé Γöé     { length: Math.ceil(60 / secondStep) },
+Γöé Γöé     (_, i) => i * secondStep,
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const onSecondSelect = React.useCallback(
+Γöé Γöé     (second: number) => {
+Γöé Γöé       const now = new Date();
+Γöé Γöé       const currentTime = timeValue ?? {};
+Γöé Γöé       const newTime = { ...currentTime, second };
+Γöé Γöé 
+Γöé Γöé       if (newTime.hour === undefined) {
+Γöé Γöé         newTime.hour = now.getHours();
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (newTime.minute === undefined) {
+Γöé Γöé         newTime.minute = now.getMinutes();
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       const newValue = formatTimeValue(newTime, true);
+Γöé Γöé       store.setState("value", newValue);
+Γöé Γöé     },
+Γöé Γöé     [timeValue, store],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const SecondPrimitive = asChild ? SlotPrimitive.Slot : TimePickerColumn;
+Γöé Γöé 
+Γöé Γöé   const now = new Date();
+Γöé Γöé   const referenceSecond = timeValue?.second ?? now.getSeconds();
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <SecondPrimitive
+Γöé Γöé       data-slot="time-picker-second"
+Γöé Γöé       {...secondProps}
+Γöé Γöé       className={cn(
+Γöé Γöé         "scrollbar-none flex max-h-[200px] flex-col gap-1 overflow-y-auto p-1",
+Γöé Γöé         className,
+Γöé Γöé       )}
+Γöé Γöé     >
+Γöé Γöé       {seconds.map((second) => (
+Γöé Γöé         <TimePickerColumnItem
+Γöé Γöé           key={second}
+Γöé Γöé           value={second}
+Γöé Γöé           selected={referenceSecond === second}
+Γöé Γöé           format={format}
+Γöé Γöé           onClick={() => onSecondSelect(second)}
+Γöé Γöé         />
+Γöé Γöé       ))}
+Γöé Γöé     </SecondPrimitive>
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function TimePickerPeriod(props: DivProps) {
+Γöé Γöé   const { asChild, className, ...periodProps } = props;
+Γöé Γöé 
+Γöé Γöé   const { is12Hour, showSeconds } = useTimePickerContext(PERIOD_NAME);
+Γöé Γöé   const store = useStoreContext(PERIOD_NAME);
+Γöé Γöé 
+Γöé Γöé   const value = useStore((state) => state.value);
+Γöé Γöé   const timeValue = parseTimeString(value);
+Γöé Γöé 
+Γöé Γöé   const onPeriodToggle = React.useCallback(
+Γöé Γöé     (period: Period) => {
+Γöé Γöé       const now = new Date();
+Γöé Γöé       const currentTime = timeValue ?? {};
+Γöé Γöé 
+Γöé Γöé       const currentHour =
+Γöé Γöé         currentTime.hour !== undefined ? currentTime.hour : now.getHours();
+Γöé Γöé       const currentDisplay = to12Hour(currentHour);
+Γöé Γöé       const new24Hour = to24Hour(currentDisplay.hour, period);
+Γöé Γöé 
+Γöé Γöé       const newTime = { ...currentTime, hour: new24Hour };
+Γöé Γöé 
+Γöé Γöé       if (newTime.minute === undefined) {
+Γöé Γöé         newTime.minute = now.getMinutes();
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       if (showSeconds && newTime.second === undefined) {
+Γöé Γöé         newTime.second = now.getSeconds();
+Γöé Γöé       }
+Γöé Γöé 
+Γöé Γöé       const newValue = formatTimeValue(newTime, showSeconds);
+Γöé Γöé       store.setState("value", newValue);
+Γöé Γöé     },
+Γöé Γöé     [timeValue, showSeconds, store],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   if (!is12Hour) return null;
+Γöé Γöé 
+Γöé Γöé   const now = new Date();
+Γöé Γöé   const referenceHour = timeValue?.hour ?? now.getHours();
+Γöé Γöé   const currentPeriod = to12Hour(referenceHour).period;
+Γöé Γöé 
+Γöé Γöé   const PeriodPrimitive = asChild ? SlotPrimitive.Slot : TimePickerColumn;
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <PeriodPrimitive
+Γöé Γöé       data-slot="time-picker-period"
+Γöé Γöé       {...periodProps}
+Γöé Γöé       className={cn("flex flex-col gap-1 p-1", className)}
+Γöé Γöé     >
+Γöé Γöé       {PERIODS.map((period) => (
+Γöé Γöé         <TimePickerColumnItem
+Γöé Γöé           key={period}
+Γöé Γöé           value={period}
+Γöé Γöé           selected={currentPeriod === period}
+Γöé Γöé           onClick={() => onPeriodToggle(period)}
+Γöé Γöé         />
+Γöé Γöé       ))}
+Γöé Γöé     </PeriodPrimitive>
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé interface TimePickerSeparatorProps extends React.ComponentProps<"span"> {
+Γöé Γöé   asChild?: boolean;
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function TimePickerSeparator(props: TimePickerSeparatorProps) {
+Γöé Γöé   const { asChild, children, ...separatorProps } = props;
+Γöé Γöé 
+Γöé Γöé   const SeparatorPrimitive = asChild ? SlotPrimitive.Slot : "span";
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <SeparatorPrimitive
+Γöé Γöé       aria-hidden="true"
+Γöé Γöé       data-slot="time-picker-separator"
+Γöé Γöé       {...separatorProps}
+Γöé Γöé     >
+Γöé Γöé       {children ?? ":"}
+Γöé Γöé     </SeparatorPrimitive>
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé function TimePickerClear(props: ButtonProps) {
+Γöé Γöé   const {
+Γöé Γöé     asChild,
+Γöé Γöé     className,
+Γöé Γöé     children,
+Γöé Γöé     disabled: disabledProp,
+Γöé Γöé     ...clearProps
+Γöé Γöé   } = props;
+Γöé Γöé 
+Γöé Γöé   const { disabled, readOnly } = useTimePickerContext(CLEAR_NAME);
+Γöé Γöé   const store = useStoreContext(CLEAR_NAME);
+Γöé Γöé 
+Γöé Γöé   const isDisabled = disabledProp || disabled;
+Γöé Γöé 
+Γöé Γöé   const onClick = React.useCallback(
+Γöé Γöé     (event: React.MouseEvent<HTMLButtonElement>) => {
+Γöé Γöé       clearProps.onClick?.(event);
+Γöé Γöé       if (event.defaultPrevented) return;
+Γöé Γöé 
+Γöé Γöé       event.preventDefault();
+Γöé Γöé       if (disabled || readOnly) return;
+Γöé Γöé       store.setState("value", "");
+Γöé Γöé     },
+Γöé Γöé     [clearProps.onClick, disabled, readOnly, store],
+Γöé Γöé   );
+Γöé Γöé 
+Γöé Γöé   const ClearPrimitive = asChild ? SlotPrimitive.Slot : "button";
+Γöé Γöé 
+Γöé Γöé   return (
+Γöé Γöé     <ClearPrimitive
+Γöé Γöé       type="button"
+Γöé Γöé       data-slot="time-picker-clear"
+Γöé Γöé       disabled={isDisabled}
+Γöé Γöé       {...clearProps}
+Γöé Γöé       className={cn(
+Γöé Γöé         "inline-flex items-center justify-center rounded-sm font-medium text-sm transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50",
+Γöé Γöé         className,
+Γöé Γöé       )}
+Γöé Γöé       onClick={onClick}
+Γöé Γöé     >
+Γöé Γöé       {children ?? "Clear"}
+Γöé Γöé     </ClearPrimitive>
+Γöé Γöé   );
+Γöé Γöé }
+Γöé Γöé 
+Γöé Γöé export {
+Γöé Γöé   TimePicker,
+Γöé Γöé   TimePickerClear,
+Γöé Γöé   TimePickerContent,
+Γöé Γöé   TimePickerHour,
+Γöé Γöé   TimePickerInput,
+Γöé Γöé   TimePickerInputGroup,
+Γöé Γöé   TimePickerLabel,
+Γöé Γöé   TimePickerMinute,
+Γöé Γöé   TimePickerPeriod,
+Γöé Γöé   type TimePickerProps,
+Γöé Γöé   TimePickerSecond,
+Γöé Γöé   TimePickerSeparator,
+Γöé Γöé   TimePickerTrigger,
+Γöé Γöé   useStore as useTimePicker,
+Γöé Γöé };
+Γöé Γöé 
+Γöé ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+Γöé
+Γöö Run without --dry-run to apply.

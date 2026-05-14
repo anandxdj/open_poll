@@ -1,49 +1,60 @@
 ---
-name: Open Poll Premium
+name: Open Poll Modern
 colors:
-  surface: '#050505'
-  surface-dim: '#0a0a0a'
-  surface-bright: '#1a1a1a'
-  on-surface: '#ffffff'
-  primary: '#facc15'
-  on-primary: '#000000'
-  primary-container: '#facc15'
-  on-primary-container: '#000000'
-  secondary: '#f97316'
-  on-secondary: '#ffffff'
-  outline: 'rgba(255, 255, 255, 0.1)'
+  background: 'hsl(0 0% 100%)'
+  foreground: 'hsl(222.2 84% 4.9%)'
+  primary: 'hsl(28 50% 69%)' # #d8ad87 Sandy Tan
+  secondary: 'hsl(210 40% 96.1%)'
+  muted: 'hsl(210 40% 96.1%)'
+  border: 'hsl(214.3 31.8% 91.4%)'
 typography:
-  fontFamily: 'Geist, sans-serif'
-  h1:
-    fontSize: 36px
+  fontFamily: 'Geist Sans, Inter, sans-serif'
+  headings:
     fontWeight: '700'
-    letterSpacing: '-0.02em'
+    letterSpacing: '-0.025em'
   body:
-    fontSize: 16px
-    fontWeight: '400'
+    fontSize: '16px'
+    lineHeight: '1.6'
 rounded:
-  default: '1rem'
-  xl: '1.5rem'
-  '2xl': '2rem'
+  default: '0.5rem'
+  md: '0.375rem'
+  lg: '0.5rem'
+  xl: '0.75rem'
 ---
 
-# Design System: Open Poll Premium
+# Design System: Open Poll Modern (Supastarter Inspired)
 
-## Creative North Star: "The Cinematic Creator"
-This design system is built for creators who value precision and premium aesthetics. We use **Vantablack surfaces**, **Glowing Yellow accents**, and **Double-Bezel architecture** to create an interface that feels like high-end hardware.
+## Creative North Star: "Professional Clarity"
+This design system is inspired by **supastarter.dev**, focusing on a clean, high-contrast, and professional SaaS aesthetic. It prioritizes readability, functional components, and a "production-ready" feel.
 
 ## Core Principles
 
-### 1. The Double-Bezel (Nested Architecture)
-Major containers should never sit flat. Use a nested wrapper for haptic depth.
-- **Outer Shell**: `p-1.5 rounded-[2rem] bg-white/5 border border-white/10`
-- **Inner Core**: `rounded-[calc(2rem-0.375rem)] bg-[#0a0a0a] shadow-inner`
+### 1. High Contrast & Readability
+Use deep slates for text and pure whites/light slates for backgrounds. Ensure every element has sufficient contrast for accessibility.
 
-### 2. Button-in-Button
-Primary CTAs should include a nested circular icon wrapper to create kinetic tension.
+### 2. Standardized Component Geometry
+Stick to standard Tailwind radii (0.5rem) and spacing (4px/0.25rem grid). Avoid over-styling with glows or complex gradients.
 
-### 3. Macro-Whitespace
-Allow the design to breathe. Use `py-24` or higher for section gaps and `p-8` for container internals.
+### 3. Functional Motion
+Transitions should be subtle and fast. Use standard easing for UI interactions to maintain a responsive feel.
 
-### 4. Fluid Motion
-All transitions must use custom cubic-beziers: `cubic-bezier(0.32, 0.72, 0, 1)`.
+### 4. Semantic Color Usage
+- **Primary (#d8ad87 Sandy Tan)**: Call to actions, active states, and focus rings.
+- **Secondary/Muted (warm sand)**: Backgrounds for cards, sidebars, and inactive elements.
+- **Destructive (Red)**: Error states and dangerous actions.
+
+## Component Guidelines
+
+### Buttons
+- **Primary**: Solid Blue, white text.
+- **Secondary**: Light Gray background or outlined.
+- **Ghost**: Transparent, subtle background on hover.
+
+### Cards
+- Bordered by default (`border-border`).
+- Subtle shadows or flat depending on context.
+- Consistent padding (`p-6`).
+
+### Typography
+- **Headings**: `tracking-tight font-bold`.
+- **Body**: `leading-relaxed text-muted-foreground` for secondary info, `text-foreground` for primary content.
