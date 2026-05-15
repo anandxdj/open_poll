@@ -10,8 +10,7 @@ if (!(Get-Command "docker-compose" -ErrorAction SilentlyContinue)) {
 # Run docker-compose up with build
 docker-compose up --build -d
 
-Write-Host "Services are starting up!" -ForegroundColor Green
-Write-Host "Frontend: http://localhost:3000"
+Write-Host "Backend services are starting up!" -ForegroundColor Green
 Write-Host "Backend: http://localhost:5000"
 Write-Host "Redis: localhost:6379"
 Write-Host "MongoDB: Remote Atlas Instance"

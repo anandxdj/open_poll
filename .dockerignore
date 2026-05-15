@@ -1,0 +1,7 @@
+node_modules
+frontend
+.git
+.gitignore
+*.md
+.dockerignore
+docker.ps1

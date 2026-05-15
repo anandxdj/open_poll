@@ -16,6 +16,7 @@ import cookieParser from 'cookie-parser';
 import authRouter from './modules/auth/auth.route';
 
 const app = express();
+app.set('trust proxy', 1);
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
