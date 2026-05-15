@@ -134,11 +134,13 @@ export class AuthController {
       const redirectUrl = new URL(`${frontendUrl}/auth/callback`);
       redirectUrl.searchParams.set('token', accessToken);
       
+      console.log(`[Auth] Redirecting to frontend: ${redirectUrl.origin}${redirectUrl.pathname}`);
       res.redirect(redirectUrl.toString());
     } catch (error: any) {
       console.error('Google callback error:', error);
       const errorMessage = error.message || 'Google authentication failed';
-      res.redirect(`${process.env.FRONTEND_URL}/login?error=${encodeURIComponent(errorMessage)}`);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(errorMessage)}`);
     }
   }
 }

@@ -55,6 +55,19 @@ app.get('/ready', (req, res) => {
   });
 });
 
+// Bridge Route: Catch OAuth redirects that hit the backend root and forward to frontend
+app.get('/auth/callback', (req, res) => {
+  const { token } = req.query;
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  
+  if (!token) {
+    return res.redirect(`${frontendUrl}/login?error=Missing token`);
+  }
+
+  console.log(`[Auth] Bridging callback for token: ${String(token).substring(0, 10)}...`);
+  res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
+});
+
 app.use('/api/auth', authRouter);
 app.use('/api/polls', pollsRouter);
 app.use('/api/responses', responsesRouter);
