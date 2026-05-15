@@ -1,28 +1,56 @@
 services:
-
   redis:
-    image: redis:alpine
-    container_name: openpoll_redis
+    image: redis:7-alpine
+    container_name: openpoll-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+
+    command: ["redis-server", "--appendonly", "yes"]
+
     volumes:
       - redis_data:/data
 
-  backend:
-    build:
-      context: ./backend
-    container_name: openpoll_backend
+    networks:
+      - traefik
+
+  openpoll-backend:
+    image: anandxdj/openpoll-backend:latest
+    container_name: openpoll-backend
     restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+
     depends_on:
       - redis
-    env_file:
-      - ./backend/.env
-    environment:
-      - REDIS_URL=redis://redis:6379
-    ports:
-      # Host port 5000 is commonly occupied on Windows, so map the API to 5001 locally.
-      - "5001:5000"
+
+    networks:
+      - traefik
+
+    labels:
+      - "traefik.enable=true"
+
+      # DOMAIN ROUTING (your real domain)
+      - "traefik.http.routers.openpoll-backend.rule=Host(`openpoll-backend.anands.dev`)"
+
+      # HTTPS entrypoint
+      - "traefik.http.routers.openpoll-backend.entrypoints=websecure"
+
+      # SSL via Let's Encrypt
+      - "traefik.http.routers.openpoll-backend.tls.certresolver=letsencrypt"
+
+      # INTERNAL CONTAINER PORT
+      - "traefik.http.services.openpoll-backend.loadbalancer.server.port=8080"
+
+      # SAME DOCKER NETWORK AS TRAEFIK
+      - "traefik.docker.network=traefik"
+
+networks:
+  traefik:
+    external: true
 
 volumes:
   redis_data:
