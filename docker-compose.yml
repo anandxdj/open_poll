@@ -13,7 +13,9 @@ services:
       - traefik
 
   openpoll-backend:
-    image: anandxdj/openpoll-backend:latest
+    build:
+      context: ./backend
+
     container_name: openpoll-backend
     restart: unless-stopped
 
@@ -32,20 +34,10 @@ services:
 
     labels:
       - "traefik.enable=true"
-
-      # DOMAIN ROUTING (your real domain)
       - "traefik.http.routers.openpoll-backend.rule=Host(`openpoll-backend.anands.dev`)"
-
-      # HTTPS entrypoint
       - "traefik.http.routers.openpoll-backend.entrypoints=websecure"
-
-      # SSL via Let's Encrypt
       - "traefik.http.routers.openpoll-backend.tls.certresolver=letsencrypt"
-
-      # INTERNAL CONTAINER PORT
       - "traefik.http.services.openpoll-backend.loadbalancer.server.port=8080"
-
-      # SAME DOCKER NETWORK AS TRAEFIK
       - "traefik.docker.network=traefik"
 
 networks:
