@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Sparkles } from "lucide-react";
+import { Plus } from "lucide-react";
+import { ProductLogo } from "@/components/ui/ProductLogo";
 
 import { PollCardV2 } from "@/features/polls/components/PollCardV2";
 import { useCreatePollModal } from "@/features/polls/components/CreatePollModalProvider";
@@ -55,7 +56,7 @@ export default function PollsPage() {
     <>
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur-xl md:px-6 sticky top-0 z-10">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Open Poll</p>
+        
           <h1 className="text-sm font-semibold text-foreground/90">Your Polls</h1>
         </div>
         <button
@@ -117,7 +118,7 @@ export default function PollsPage() {
               {!isLoading && !error && filteredPolls.length === 0 ? (
                 <div className="rounded-[2rem] border border-border bg-card p-12 text-center">
                   <div className="mx-auto flex size-14 items-center justify-center rounded-3xl bg-primary/15 ring-1 ring-primary/25">
-                    <Sparkles className="size-6 text-primary" />
+                    <ProductLogo size={32} />
                   </div>
                   <h2 className="mt-4 text-lg font-semibold text-foreground/85">
                     {activeTab === "all" ? "No polls yet" : `No ${activeTab} polls`}

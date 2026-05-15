@@ -1,20 +1,53 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { User, Palette, Shield, Bell, AppWindow } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { useAuthStore } from "@/features/auth";
 
 const ease = [0.32, 0.72, 0, 1] as const;
 
+function applyWithTransition(
+  origin: { x: number; y: number },
+  apply: () => void,
+) {
+  if (!document.startViewTransition) {
+    apply();
+    return;
+  }
+  
+  // Fallback to center if coordinates are missing or zero (keyboard activation)
+  const x = origin.x || window.innerWidth / 2;
+  const y = origin.y || window.innerHeight / 2;
+
+  const endRadius = Math.hypot(
+    Math.max(x, window.innerWidth - x),
+    Math.max(y, window.innerHeight - y),
+  );
+  document.documentElement.style.setProperty("--vt-x", `${x}px`);
+  document.documentElement.style.setProperty("--vt-y", `${y}px`);
+  document.documentElement.style.setProperty("--vt-r", `${endRadius}px`);
+  document.startViewTransition(apply);
+}
+
 export default function SettingsPage() {
-  const searchParams = useSearchParams();
   const { theme, setTheme } = useTheme();
+  const { user } = useAuthStore();
   const [mounted, setMounted] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2);
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -62,25 +95,34 @@ export default function SettingsPage() {
             </div>
             <div className="rounded-[1.5rem] border border-border bg-card p-6 space-y-6">
               <div className="flex items-center gap-4">
-                <div className="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xl font-bold">
-                  JD
+                <div className="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xl font-bold overflow-hidden">
+                  {user?.picture && !imgError ? (
+                    <img 
+                      src={user.picture} 
+                      alt="" 
+                      className="size-full object-cover" 
+                      onError={() => setImgError(true)}
+                    />
+                  ) : (
+                    getInitials(user?.name || "User")
+                  )}
                 </div>
                 <div>
-                  <p className="font-bold text-foreground/90">John Doe</p>
-                  <p className="text-xs text-muted-foreground">john.doe@example.com</p>
+                  <p className="font-bold text-foreground/90">{user?.name || "User"}</p>
+                  <p className="text-xs text-muted-foreground">{user?.email || "Account"}</p>
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
+                  <Label htmlFor="firstName">Full Name</Label>
                   <div className="rounded-xl border border-border bg-secondary/30 px-3 py-2 text-sm text-foreground/60 cursor-not-allowed">
-                    John
+                    {user?.name || "User"}
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
+                  <Label htmlFor="email">Email Address</Label>
                   <div className="rounded-xl border border-border bg-secondary/30 px-3 py-2 text-sm text-foreground/60 cursor-not-allowed">
-                    Doe
+                    {user?.email || "Account"}
                   </div>
                 </div>
               </div>
@@ -101,7 +143,12 @@ export default function SettingsPage() {
                 </div>
                 <Switch
                   checked={theme === "dark"}
-                  onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+                  onCheckedChange={() => {}}
+                  onClick={(e) => {
+                    const origin = { x: e.clientX, y: e.clientY };
+                    const next = theme === "dark" ? "light" : "dark";
+                    applyWithTransition(origin, () => setTheme(next));
+                  }}
                 />
               </div>
             </div>

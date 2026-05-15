@@ -50,7 +50,7 @@ export const useCreatorStore = create<CreatorState>((set) => ({
     set({ isLoading: true, error: null });
     try {
       // Mock creatorId until Auth is built
-      const res = await apiClient.get('/polls?creatorId=mock-creator-id-123');
+      const res = await apiClient.get('/polls');
       const list = res.data?.data;
       set({ polls: Array.isArray(list) ? list : [], isLoading: false });
     } catch (err: unknown) {
@@ -64,11 +64,7 @@ export const useCreatorStore = create<CreatorState>((set) => ({
   createPoll: async (pollData) => {
     set({ isLoading: true, error: null });
     try {
-      const payload = {
-        ...pollData,
-        creatorId: 'mock-creator-id-123'
-      };
-      const res = await apiClient.post('/polls', payload);
+      const res = await apiClient.post('/polls', pollData);
       const newPoll = res.data.data;
       
       // Update local state instantly so the UI feels fast

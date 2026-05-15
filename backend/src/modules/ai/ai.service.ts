@@ -21,7 +21,7 @@ export class AiService {
     }
 
     return new ChatGoogleGenerativeAI({
-      model: 'gemini-flash-latest',
+      model: 'gemini-flash-lite-latest',
       temperature: 0.3,
       apiKey: process.env.GEMINI_API_KEY,
     });

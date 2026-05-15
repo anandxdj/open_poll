@@ -36,15 +36,15 @@ export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps)
     switch (type) {
       case "bar-v":
         return (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <BarChart data={chartData} margin={{ top: 8, right: 4, left: -8, bottom: 4 }}>
-              <CartesianGrid vertical={false} stroke="currentColor" className="text-white/10" />
+              <CartesianGrid vertical={false} stroke="currentColor" className="opacity-[0.08]" />
               <XAxis
                 dataKey="label"
                 tickLine={false}
                 axisLine={false}
                 tick={{ fill: "currentColor", fontSize: 11 }}
-                className="text-white/40"
+                className="text-muted-foreground/60"
                 interval={0}
                 height={56}
                 tickFormatter={(v: string) => (v.length > 18 ? `${v.slice(0, 16)}…` : v)}
@@ -54,17 +54,18 @@ export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps)
                 tickLine={false}
                 axisLine={false}
                 tick={{ fill: "currentColor", fontSize: 11 }}
-                className="text-white/40"
+                className="text-muted-foreground/60"
                 allowDecimals={false}
               />
               <Tooltip
-                cursor={{ fill: "rgba(255,255,255,0.05)" }}
+                cursor={{ fill: "var(--secondary)", opacity: 0.2 }}
                 contentStyle={{
                   borderRadius: 12,
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  background: "#0d0d0d",
-                  color: "#fff",
+                  border: "1px solid var(--border)",
+                  background: "var(--popover)",
+                  color: "var(--popover-foreground)",
                   fontSize: "12px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 }}
               />
               <Bar
@@ -81,13 +82,13 @@ export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps)
 
       case "bar-h":
         return (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <BarChart
               data={chartData}
               layout="vertical"
               margin={{ top: 8, right: 32, left: 32, bottom: 8 }}
             >
-              <CartesianGrid horizontal={false} stroke="currentColor" className="text-white/10" />
+              <CartesianGrid horizontal={false} stroke="currentColor" className="opacity-[0.08]" />
               <XAxis type="number" hide />
               <YAxis
                 dataKey="label"
@@ -95,18 +96,19 @@ export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps)
                 tickLine={false}
                 axisLine={false}
                 tick={{ fill: "currentColor", fontSize: 11 }}
-                className="text-white/40"
+                className="text-muted-foreground/60"
                 width={100}
                 tickFormatter={(v: string) => (v.length > 12 ? `${v.slice(0, 10)}…` : v)}
               />
               <Tooltip
-                cursor={{ fill: "rgba(255,255,255,0.05)" }}
+                cursor={{ fill: "var(--secondary)", opacity: 0.2 }}
                 contentStyle={{
                   borderRadius: 12,
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  background: "#0d0d0d",
-                  color: "#fff",
+                  border: "1px solid var(--border)",
+                  background: "var(--popover)",
+                  color: "var(--popover-foreground)",
                   fontSize: "12px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 }}
               />
               <Bar
@@ -122,7 +124,7 @@ export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps)
 
       case "pie":
         return (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <PieChart>
               <Pie
                 data={chartData}
@@ -142,10 +144,11 @@ export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps)
               <Tooltip
                 contentStyle={{
                   borderRadius: 12,
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  background: "#0d0d0d",
-                  color: "#fff",
+                  border: "1px solid var(--border)",
+                  background: "var(--popover)",
+                  color: "var(--popover-foreground)",
                   fontSize: "12px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 }}
               />
             </PieChart>
@@ -160,12 +163,12 @@ export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps)
               return (
                 <div key={item.label} className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-white/70">{item.label}</span>
-                    <span className="tabular-nums text-white/40">
+                    <span className="font-medium text-foreground/80">{item.label}</span>
+                    <span className="tabular-nums text-muted-foreground/60">
                       {item.votes} votes ({pct.toFixed(0)}%)
                     </span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-white/5">
+                  <div className="h-2 overflow-hidden rounded-full bg-secondary">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
@@ -185,14 +188,14 @@ export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps)
     <div className="bezel-outer">
       <div className="bezel-inner p-6">
         <div className="mb-6 flex items-center justify-between">
-          <h3 className="text-sm font-semibold tracking-tight text-white/90">{title}</h3>
+          <h3 className="text-sm font-semibold tracking-tight text-foreground/90">{title}</h3>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
               {totalVotes} total
             </span>
           </div>
         </div>
-        <div className="h-64 w-full min-w-0">
+        <div className="h-64 min-h-[256px] w-full min-w-0">
           <AnimatePresence mode="wait">
             <motion.div
               key={type}

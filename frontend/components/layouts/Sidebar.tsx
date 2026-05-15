@@ -11,7 +11,6 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
-  Zap,
   User,
   LogOut,
   Moon,
@@ -19,8 +18,11 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProductLogo } from "@/components/ui/ProductLogo";
 import { useCreatePollModal } from "@/features/polls/components/CreatePollModalProvider";
 import { useTheme } from "next-themes";
+import { useAuthStore } from "@/features/auth";
+import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,19 +35,36 @@ import {
 const ease = [0.32, 0.72, 0, 1] as const;
 
 // View Transition logic for cinematic theme switching
-function applyWithTransition(apply: () => void) {
+function applyWithTransition(
+  origin: { x: number; y: number },
+  apply: () => void,
+) {
   if (!document.startViewTransition) {
     apply();
     return;
   }
+  
+  // Fallback to center if coordinates are missing or zero (keyboard activation)
+  const x = origin.x || window.innerWidth / 2;
+  const y = origin.y || window.innerHeight / 2;
+
+  const endRadius = Math.hypot(
+    Math.max(x, window.innerWidth - x),
+    Math.max(y, window.innerHeight - y),
+  );
+  document.documentElement.style.setProperty("--vt-x", `${x}px`);
+  document.documentElement.style.setProperty("--vt-y", `${y}px`);
+  document.documentElement.style.setProperty("--vt-r", `${endRadius}px`);
   document.startViewTransition(apply);
 }
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [navOpen, setNavOpen] = useState(true);
   const { open: openCreatePollModal } = useCreatePollModal();
   const { setTheme, resolvedTheme } = useTheme();
+  const { user, logout } = useAuthStore();
 
   const navItems = [
     { href: "/polls", label: "Dashboard", Icon: LayoutDashboard },
@@ -53,11 +72,27 @@ export default function Sidebar() {
     { href: "/analytics", label: "Analytics", Icon: BarChart2 },
   ];
 
-  const toggleTheme = () => {
-    applyWithTransition(() => {
+  const toggleTheme = (e: React.MouseEvent) => {
+    applyWithTransition({ x: e.clientX, y: e.clientY }, () => {
       setTheme(resolvedTheme === "dark" ? "light" : "dark");
     });
   };
+  
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
+  const [imgError, setImgError] = useState(false);
 
   return (
     <motion.aside
@@ -76,20 +111,20 @@ export default function Sidebar() {
               transition={{ duration: 0.18 }}
               className="flex items-center gap-2"
             >
-              <div className="size-7 rounded-lg bg-primary flex items-center justify-center shadow-sm">
-                <Zap className="size-3.5 text-primary-foreground fill-primary-foreground" />
+              <div className="size-7 flex items-center justify-center">
+                <ProductLogo size={36} />
               </div>
               <div>
                 <p className="text-xs font-bold text-sidebar-foreground leading-none">Open Poll</p>
-                <p className="text-[9px] font-medium text-sidebar-foreground/40 uppercase tracking-widest leading-none mt-0.5">App</p>
+               
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
         {!navOpen && (
-          <div className="mx-auto size-7 rounded-lg bg-primary flex items-center justify-center">
-            <Zap className="size-3.5 text-primary-foreground fill-primary-foreground" />
+          <div className="mx-auto size-7 flex items-center justify-center">
+            <ProductLogo size={36} />
           </div>
         )}
 
@@ -166,14 +201,23 @@ export default function Sidebar() {
                 !navOpen && "justify-center px-0"
               )}
             >
-              <div className="size-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
-                JD
+              <div className="size-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 overflow-hidden">
+                {user?.picture && !imgError ? (
+                  <img 
+                    src={user.picture} 
+                    alt="" 
+                    className="size-full object-cover" 
+                    onError={() => setImgError(true)}
+                  />
+                ) : (
+                  getInitials(user?.name || "User")
+                )}
               </div>
               {navOpen && (
                 <div className="flex flex-1 items-center justify-between min-w-0">
                   <div className="text-left min-w-0">
-                    <p className="text-[11px] font-bold leading-none truncate">John Doe</p>
-                    <p className="text-[9px] text-sidebar-foreground/40 leading-none mt-1 truncate">Free Plan</p>
+                    <p className="text-[11px] font-bold leading-none truncate">{user?.name || "User"}</p>
+                    <p className="text-[9px] text-sidebar-foreground/40 leading-none mt-1 truncate">{user?.email || "Account"}</p>
                   </div>
                   <ChevronUp className="size-3 opacity-30" />
                 </div>
@@ -225,7 +269,10 @@ export default function Sidebar() {
               </span>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="my-1 bg-sidebar-border" />
-            <DropdownMenuItem className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-red-500 transition-colors focus:bg-red-500/10 focus:text-red-500">
+            <DropdownMenuItem 
+              onClick={handleLogout}
+              className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-red-500 transition-colors focus:bg-red-500/10 focus:text-red-500"
+            >
               <LogOut className="size-4" />
               Log out
             </DropdownMenuItem>

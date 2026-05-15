@@ -40,7 +40,7 @@ export function AnalyticsOverview({ summaries, isLoading }: Props) {
     return (
       <div className="space-y-4">
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="h-20 animate-pulse rounded-2xl bg-white/[0.03]" />
+          <div key={i} className="h-20 animate-pulse rounded-2xl bg-foreground/5" />
         ))}
       </div>
     );
@@ -48,13 +48,13 @@ export function AnalyticsOverview({ summaries, isLoading }: Props) {
 
   if (summaries.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-[2rem] border border-white/[0.06] bg-[#0a0a0a] p-16 text-center">
-        <div className="flex size-14 items-center justify-center rounded-2xl bg-white/[0.04] ring-1 ring-white/[0.06]">
-          <BarChart2 className="size-7 text-white/30" />
+      <div className="flex flex-col items-center gap-4 rounded-[2rem] border border-foreground/10 bg-card p-16 text-center shadow-sm">
+        <div className="flex size-14 items-center justify-center rounded-2xl bg-foreground/5 ring-1 ring-foreground/10">
+          <BarChart2 className="size-7 text-muted-foreground" />
         </div>
         <div className="space-y-1">
-          <h3 className="text-base font-semibold text-white/60">No data yet</h3>
-          <p className="text-sm text-white/30">Create and publish polls to see analytics here.</p>
+          <h3 className="text-base font-semibold text-foreground/70">No data yet</h3>
+          <p className="text-sm text-muted-foreground">Create and publish polls to see analytics here.</p>
         </div>
         <Link
           href="/create"
@@ -77,15 +77,15 @@ export function AnalyticsOverview({ summaries, isLoading }: Props) {
           { label: "Polls Tracked", value: summaries.length, icon: BarChart2, accent: "text-violet-400" },
         ].map((stat) => (
           <motion.div key={stat.label} variants={item}>
-            <div className="group relative p-px rounded-[1.75rem] bg-gradient-to-b from-white/[0.07] to-transparent transition-all hover:from-white/[0.12]">
-              <div className="rounded-[calc(1.75rem-1px)] bg-[#0d0d0d] p-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
+            <div className="group relative p-px rounded-[1.75rem] bg-gradient-to-b from-foreground/10 to-transparent transition-all hover:from-foreground/20">
+              <div className="rounded-[calc(1.75rem-1px)] bg-card p-6 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
-                    <p className="text-xs font-medium uppercase tracking-widest text-white/40">{stat.label}</p>
-                    <p className="text-3xl font-bold tabular-nums tracking-tight text-white">{stat.value}</p>
-                    {stat.sub && <p className="text-xs text-white/30">{stat.sub}</p>}
+                    <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{stat.label}</p>
+                    <p className="text-3xl font-bold tabular-nums tracking-tight text-foreground">{stat.value}</p>
+                    {stat.sub && <p className="text-xs text-muted-foreground/70">{stat.sub}</p>}
                   </div>
-                  <div className={cn("flex size-10 items-center justify-center rounded-2xl bg-white/[0.04] ring-1 ring-white/[0.06]", stat.accent)}>
+                  <div className={cn("flex size-10 items-center justify-center rounded-2xl bg-foreground/5 ring-1 ring-foreground/10", stat.accent)}>
                     <stat.icon className="size-5" strokeWidth={1.5} />
                   </div>
                 </div>
@@ -108,8 +108,8 @@ export function AnalyticsOverview({ summaries, isLoading }: Props) {
       {/* Top polls leaderboard */}
       <motion.div variants={item} className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-medium uppercase tracking-widest text-white/40">Top Polls by Votes</h2>
-          <Users className="size-4 text-white/20" />
+          <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Top Polls by Votes</h2>
+          <Users className="size-4 text-muted-foreground/40" />
         </div>
 
         <div className="space-y-2">
@@ -119,7 +119,7 @@ export function AnalyticsOverview({ summaries, isLoading }: Props) {
               <Link
                 key={poll.id}
                 href={`/analytics/${poll.id}`}
-                className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-white/[0.05] bg-[#0d0d0d] px-4 py-3 transition-all hover:border-white/10 hover:bg-white/[0.04]"
+                className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-border bg-card px-4 py-3 transition-all hover:border-primary/30 hover:bg-secondary/10"
               >
                 {/* Progress bar bg */}
                 <div
@@ -129,27 +129,27 @@ export function AnalyticsOverview({ summaries, isLoading }: Props) {
 
                 <span className={cn(
                   "relative flex size-6 shrink-0 items-center justify-center rounded-lg text-xs font-bold tabular-nums",
-                  i === 0 ? "bg-yellow-400 text-black" : "bg-white/[0.05] text-white/40"
+                  i === 0 ? "bg-yellow-400 text-black" : "bg-secondary text-muted-foreground/70"
                 )}>
                   {i + 1}
                 </span>
 
                 <div className="relative min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-white/80 group-hover:text-white transition-colors">
+                  <p className="truncate text-sm font-medium text-foreground group-hover:text-primary transition-colors">
                     {poll.title}
                   </p>
                   <div className="mt-0.5 flex items-center gap-2">
                     {poll.isActive && (
-                      <span className="flex items-center gap-1 text-[10px] text-emerald-400">
+                      <span className="flex items-center gap-1 text-[10px] text-emerald-500">
                         <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
                         Live
                       </span>
                     )}
-                    <span className="text-xs text-white/30">{poll.totalResponses} response{poll.totalResponses !== 1 ? "s" : ""}</span>
+                    <span className="text-xs text-muted-foreground/60">{poll.totalResponses} response{poll.totalResponses !== 1 ? "s" : ""}</span>
                   </div>
                 </div>
 
-                <ArrowRight className="relative size-4 shrink-0 text-white/20 transition-all group-hover:translate-x-1 group-hover:text-white/50" />
+                <ArrowRight className="relative size-4 shrink-0 text-muted-foreground/30 transition-all group-hover:translate-x-1 group-hover:text-primary/70" />
               </Link>
             );
           })}

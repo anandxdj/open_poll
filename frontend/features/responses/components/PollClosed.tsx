@@ -8,7 +8,7 @@ export function PollClosed({ title }: { title: string }) {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center px-6 selection:bg-primary selection:text-primary-foreground">
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-white/[0.02] blur-[100px] rounded-full" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-foreground/[0.02] blur-[100px] rounded-full" />
       </div>
 
       <motion.div

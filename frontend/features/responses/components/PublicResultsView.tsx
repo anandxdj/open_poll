@@ -57,7 +57,7 @@ export function PublicResultsView({ poll }: Props) {
         <div className="size-10 rounded-xl bg-primary/20 flex items-center justify-center animate-pulse border border-primary/30">
           <Zap className="size-5 text-primary fill-primary" />
         </div>
-        <p className="mt-4 text-xs font-bold uppercase tracking-widest text-white/20 animate-pulse">
+        <p className="mt-4 text-xs font-bold uppercase tracking-widest text-muted-foreground/40 animate-pulse">
           Fetching results…
         </p>
       </div>
@@ -65,26 +65,26 @@ export function PublicResultsView({ poll }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-background text-white/90 selection:bg-primary selection:text-primary-foreground">
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
       {/* Ambient glow */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/[0.03] blur-[120px] rounded-full" />
       </div>
 
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 py-5 border-b border-white/[0.06] bg-black/20 backdrop-blur-md">
+      <header className="relative z-10 flex items-center justify-between px-6 py-5 border-b border-border bg-card/60 backdrop-blur-md">
         <div className="flex items-center gap-2.5">
           <div className="size-7 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
             <Zap className="size-4 text-primary-foreground fill-primary-foreground" />
           </div>
-          <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
             Open Poll
           </span>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={handleShare}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white/40 hover:bg-white/[0.06] hover:text-white/60 transition-all"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:bg-secondary hover:text-foreground transition-all"
           >
             <Share2 className="size-3" />
             Link
@@ -115,24 +115,24 @@ export function PublicResultsView({ poll }: Props) {
               <Trophy className="size-3" />
               Poll Conclusion
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-white/90 md:text-4xl">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
               {poll.title}
             </h1>
             <div className="flex items-center gap-4 pt-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">Total Responses</span>
-                <span className="text-sm font-bold text-white/70 tabular-nums">{analytics?.totalResponses ?? 0}</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">Total Responses</span>
+                <span className="text-sm font-bold text-foreground/70 tabular-nums">{analytics?.totalResponses ?? 0}</span>
               </div>
-              <div className="h-3 w-px bg-white/[0.1]" />
+              <div className="h-3 w-px bg-border" />
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">Questions</span>
-                <span className="text-sm font-bold text-white/70 tabular-nums">{poll.questions.length}</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">Questions</span>
+                <span className="text-sm font-bold text-foreground/70 tabular-nums">{poll.questions.length}</span>
               </div>
             </div>
           </motion.div>
 
           <div className="flex flex-col gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
               Change View
             </span>
             <VisualizationPicker value={visType} onChange={setVisType} />
@@ -158,10 +158,10 @@ export function PublicResultsView({ poll }: Props) {
                 transition={{ delay: idx * 0.1 }}
               >
                 <div className="mb-4 flex items-center gap-3">
-                  <div className="flex size-6 items-center justify-center rounded-lg bg-white/[0.05] text-[10px] font-bold text-white/40">
+                  <div className="flex size-6 items-center justify-center rounded-lg bg-secondary text-[10px] font-bold text-muted-foreground">
                     {idx + 1}
                   </div>
-                  <div className="h-px flex-1 bg-white/[0.06]" />
+                  <div className="h-px flex-1 bg-border" />
                 </div>
                 <QuestionAnalytics 
                   title={q.text} 
@@ -176,8 +176,8 @@ export function PublicResultsView({ poll }: Props) {
         {/* Closing */}
         <footer className="pt-12 text-center">
           <div className="inline-flex flex-col items-center gap-4">
-            <div className="h-px w-12 bg-white/[0.1]" />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-white/10">
+            <div className="h-px w-12 bg-border" />
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">
               Verified by Open Poll Protocol
             </p>
           </div>

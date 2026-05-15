@@ -24,7 +24,7 @@ export function AnalyticsHeaderStats({ poll, totalResponses }: AnalyticsHeaderSt
       label: "Status",
       value: status,
       icon: Clock,
-      color: status === "Live" ? "text-emerald-400" : "text-white/40",
+      color: status === "Live" ? "text-emerald-500" : "text-muted-foreground",
       sub: status === "Live" 
         ? `Ends in ${formatDistanceToNow(new Date(poll.expiresAt))}` 
         : `Ended ${formatDistanceToNow(new Date(poll.expiresAt))} ago`,
@@ -40,7 +40,7 @@ export function AnalyticsHeaderStats({ poll, totalResponses }: AnalyticsHeaderSt
       label: "Created",
       value: new Date(poll.createdAt).toLocaleDateString(),
       icon: Calendar,
-      color: "text-white/40",
+      color: "text-muted-foreground",
     },
   ];
 
@@ -50,14 +50,14 @@ export function AnalyticsHeaderStats({ poll, totalResponses }: AnalyticsHeaderSt
         <div key={stat.label} className="bezel-outer">
           <div className="bezel-inner flex h-full flex-col justify-between p-5">
             <div className="flex items-start justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-white/30">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
                 {stat.label}
               </p>
               <stat.icon className={stat.color + " size-4"} strokeWidth={1.5} />
             </div>
             <div className="mt-3 space-y-0.5">
-              <p className="text-2xl font-bold tracking-tight text-white/90">{stat.value}</p>
-              {stat.sub && <p className="text-[10px] text-white/20">{stat.sub}</p>}
+              <p className="text-2xl font-bold tracking-tight text-foreground">{stat.value}</p>
+              {stat.sub && <p className="text-[10px] text-muted-foreground/50">{stat.sub}</p>}
             </div>
           </div>
         </div>

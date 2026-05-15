@@ -12,6 +12,8 @@ import mongoose from 'mongoose';
 import { redisClient } from './common/config/redis';
 import { setupSocketAndPubSub } from './common/realtime/socket';
 import { startAnalyticsWorker } from './modules/responses/analytics.worker';
+import cookieParser from 'cookie-parser';
+import authRouter from './modules/auth/auth.route';
 
 const app = express();
 const httpServer = createServer(app);
@@ -23,8 +25,12 @@ const io = new Server(httpServer, {
 });
 
 // Global Middlewares
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+}));
 app.use(express.json());
+app.use(cookieParser());
 
 // Healthcheck Route
 app.get('/health', (req, res) => {
@@ -48,6 +54,7 @@ app.get('/ready', (req, res) => {
   });
 });
 
+app.use('/api/auth', authRouter);
 app.use('/api/polls', pollsRouter);
 app.use('/api/responses', responsesRouter);
 app.use('/api/ai', aiRouter);

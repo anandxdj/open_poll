@@ -19,7 +19,7 @@ export function VisualizationPicker({ value, onChange }: VisualizationPickerProp
   ];
 
   return (
-    <div className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-[#0d0d0d] p-1">
+    <div className="flex items-center gap-1 rounded-xl border border-border bg-secondary/50 p-1">
       {options.map((opt) => (
         <button
           key={opt.id}
@@ -28,7 +28,7 @@ export function VisualizationPicker({ value, onChange }: VisualizationPickerProp
             "flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-all",
             value === opt.id
               ? "bg-primary text-primary-foreground shadow-lg"
-              : "text-white/40 hover:bg-white/[0.04] hover:text-white/70"
+              : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
           )}
           title={opt.label}
         >

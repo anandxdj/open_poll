@@ -404,10 +404,10 @@ h2 { letter-spacing: -0.03em; }
 
 /* Double-Bezel System */
 @utility bezel-outer {
-  @apply p-1.5 rounded-[2rem] bg-white/5 border border-white/10;
+  @apply p-1.5 rounded-[2rem] bg-foreground/5 border border-foreground/10;
 }
 @utility bezel-inner {
-  @apply rounded-[calc(2rem-0.375rem)] bg-[#0a0a0a] shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)];
+  @apply rounded-[calc(2rem-0.375rem)] bg-card shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)];
 }
 
 /* Noise texture overlay — subtle premium feel */
@@ -446,4 +446,21 @@ h2 { letter-spacing: -0.03em; }
 }
 .animate-ai-glow {
   animation: ai-glow 2s ease-in-out infinite;
+}
+/* ── View Transitions ───────────────────────────────────────────────────── */
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0% at var(--vt-x) var(--vt-y));
+  }
+  to {
+    clip-path: circle(var(--vt-r) at var(--vt-x) var(--vt-y));
+  }
+}
+
+::view-transition-new(root) {
+  animation: theme-reveal 500ms ease-in-out;
+}
+
+::view-transition-old(root) {
+  animation: none;
 }

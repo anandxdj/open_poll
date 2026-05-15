@@ -23,3 +23,8 @@ Format:
 - 2026-05-13T16:00:00.000Z | Frontend redesign skill: landing unified amber palette, min-dvh + smooth scroll + noise overlay, shadcn Button motion/easing, /privacy /terms stubs, #pricing anchor | frontend
 - 2026-05-13T18:30:00.000Z | Frontend lint: fixed react-hooks/set-state-in-effect, ref-during-render, purity Date.now, explicit any, react/no-unescaped-entities; removed dead vote-aggregate effect on polls page | frontend
 - 2026-05-13T20:00:00.000Z | Cursor rule use-bun (always apply); analytics/[id] page refactor: dark shell alignment, /analytics back nav, emptyPollAnalytics in types | frontend
+- 2026-05-15T00:00:00.000Z | OIDC auth: discovery via id-backend, PKCE callback URL fix, tokenSet.claims v6, frontend /auth/callback + auth_session middleware | setup
+- 2026-05-15T12:00:00.000Z | SSO login loop fix: honor IdP return_to on login/signup, redirect existing sessions to /polls | frontend
+- 2026-05-15T12:10:00.000Z | SSO: route unauthenticated users to id.anands.dev/login (not authorize loop), auto-redirect when return_to present | frontend
+- 2026-05-15T12:20:00.000Z | OAuth: /api/auth/continue resumes PKCE after IdP login; backend login → idp login; app /login?return_to → continue → /polls | setup
+- 2026-05-15T14:00:00.000Z | OAuth redirect loop fix: continue via IdP login URL, restart login when PKCE cookies missing, drop stale isAuthenticated persist + middleware login bounce | setup+frontend

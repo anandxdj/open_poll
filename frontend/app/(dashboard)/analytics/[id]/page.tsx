@@ -49,12 +49,14 @@ export default function AnalyticsPollPage() {
       setError(null);
       try {
         const pollRes = await apiClient.get<ApiOk<Poll>>(`/polls/${id}`);
+        console.log("[Analytics] Poll Response:", pollRes.data);
         if (cancelled) return;
         setPoll(pollRes.data.data);
 
         let summary: PollAnalyticsPayload;
         try {
           const summaryRes = await apiClient.get<ApiOk<PollAnalyticsPayload>>(`/responses/poll/${id}/summary`);
+          console.log("[Analytics] Summary Response:", summaryRes.data);
           summary = summaryRes.data.data;
         } catch {
           summary = emptyPollAnalytics(id);
@@ -139,7 +141,7 @@ export default function AnalyticsPollPage() {
   return (
     <div className="mx-auto w-full max-w-5xl space-y-8 px-4 py-8 md:px-6">
       {/* Header section */}
-      <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
         <div className="space-y-3">
           <Button
             variant="ghost"
@@ -166,52 +168,54 @@ export default function AnalyticsPollPage() {
           <p className="text-sm text-white/35">Live counts update as responses arrive.</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
-          {!poll.isResultsPublished ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 rounded-xl border-primary/20 bg-primary/10 text-[11px] font-bold uppercase tracking-widest text-primary hover:bg-primary/20"
-              onClick={handlePublish}
-              disabled={publishing}
-            >
-              <Share2 className="mr-2 size-3.5" />
-              {publishing ? "Publishing..." : "Publish Results"}
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 rounded-xl border-emerald-500/20 bg-emerald-500/10 text-[11px] font-bold uppercase tracking-widest text-emerald-400 hover:bg-emerald-500/20"
-              onClick={handleShare}
-            >
-              <Share2 className="mr-2 size-3.5" />
-              Copy Link
-            </Button>
-          )}
-          {poll.isResultsPublished && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 rounded-xl border-sky-500/20 bg-sky-500/10 text-[11px] font-bold uppercase tracking-widest text-sky-400 hover:bg-sky-500/20"
-              onClick={handleShareX}
-            >
-              <Send className="mr-2 size-3.5 fill-sky-400" />
-              Share on X
-            </Button>
-          )}
-          {!poll.isResultsPublished && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 rounded-xl text-[11px] font-bold uppercase tracking-widest text-white/40 hover:text-white/60"
-              onClick={handleShare}
-            >
-              <Share2 className="mr-2 size-3.5" />
-              Share Poll
-            </Button>
-          )}
-          <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col items-end gap-4 md:flex-shrink-0">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {!poll.isResultsPublished ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-xl border-primary/20 bg-primary/10 text-[11px] font-bold uppercase tracking-widest text-primary hover:bg-primary/20"
+                onClick={handlePublish}
+                disabled={publishing}
+              >
+                <Share2 className="mr-2 size-3.5" />
+                {publishing ? "Publishing..." : "Publish Results"}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-xl border-emerald-500/20 bg-emerald-500/10 text-[11px] font-bold uppercase tracking-widest text-emerald-400 hover:bg-emerald-500/20"
+                onClick={handleShare}
+              >
+                <Share2 className="mr-2 size-3.5" />
+                Copy Link
+              </Button>
+            )}
+            {poll.isResultsPublished && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-xl border-sky-500/20 bg-sky-500/10 text-[11px] font-bold uppercase tracking-widest text-sky-400 hover:bg-sky-500/20"
+                onClick={handleShareX}
+              >
+                <Send className="mr-2 size-3.5 fill-sky-400" />
+                Share on X
+              </Button>
+            )}
+            {!poll.isResultsPublished && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 rounded-xl text-[11px] font-bold uppercase tracking-widest text-white/40 hover:text-white/60"
+                onClick={handleShare}
+              >
+                <Share2 className="mr-2 size-3.5" />
+                Share Poll
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-col items-end gap-1.5">
             <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">
               Visualization
             </span>
@@ -236,9 +240,14 @@ export default function AnalyticsPollPage() {
           <div className="h-px flex-1 bg-white/[0.06]" />
         </div>
 
-        {poll.questions.map((q) => {
+        {poll.questions.map((q, index) => {
           const qid = String(q._id ?? "");
-          const summary = analytics?.questionSummaries.find((s) => s.questionId === qid);
+          // Try finding by ID first, fallback to index for corrupted old polls
+          let summary = analytics?.questionSummaries.find((s) => s.questionId === qid);
+          if (!summary && analytics?.questionSummaries[index]) {
+            summary = analytics.questionSummaries[index];
+          }
+          
           const counts = summary?.counts ?? q.options.map(() => 0);
           const data = q.options.map((label, i) => ({
             label,

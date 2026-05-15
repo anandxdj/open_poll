@@ -228,15 +228,15 @@ export default function AnalyticsPage() {
         </div>
 
         {isLoading ? (
-          <div className="h-48 flex items-center justify-center">
+          <div className="h-48 min-h-[200px] flex items-center justify-center">
             <div className="text-sm text-muted-foreground animate-pulse">Loading chart…</div>
           </div>
         ) : summaries.length === 0 ? (
-          <div className="h-48 flex items-center justify-center">
+          <div className="h-48 min-h-[200px] flex items-center justify-center">
             <p className="text-sm text-muted-foreground">No data yet</p>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={200} minWidth={0}>
             <BarChart data={summaries} barSize={24}>
               <XAxis
                 dataKey="shortTitle"

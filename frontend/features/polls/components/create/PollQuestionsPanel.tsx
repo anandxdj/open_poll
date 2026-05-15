@@ -29,13 +29,13 @@ export function PollQuestionsPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 pb-2">
-        <h3 className="text-[10px] font-bold uppercase tracking-widest text-white/30">
+        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
           Question Stack
         </h3>
         <button
           type="button"
           onClick={onAddQuestion}
-          className="flex items-center gap-1.5 rounded-xl border border-border/[0.07] px-3 py-1.5 text-xs font-semibold text-muted-foreground/60 hover:border-primary/30 hover:text-primary/70 transition-all"
+          className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground/60 hover:border-primary/30 hover:text-primary/70 transition-all"
         >
           <Plus className="size-3.5" /> Add
         </button>

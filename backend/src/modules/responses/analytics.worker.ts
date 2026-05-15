@@ -57,16 +57,26 @@ export const startAnalyticsWorker = () => {
       }
 
       for (const item of parsedQuestionCounts) {
+        if (!item.questionId || item.questionId === 'undefined') {
+          console.warn(`[Analytics Worker] Skipping invalid questionId: ${item.questionId} for poll: ${pollId}`);
+          continue;
+        }
+
         for (const [index, value] of Object.entries(item.countsByIndex)) {
           const incrementBy = Number.parseInt(value, 10);
           if (!incrementBy) continue;
-          bulkOperations.push({
-            updateOne: {
-              filter: { pollId: new mongoose.Types.ObjectId(pollId) },
-              update: { $inc: { [`questionSummaries.$[question].counts.${index}`]: incrementBy } },
-              arrayFilters: [{ 'question.questionId': new mongoose.Types.ObjectId(item.questionId) }],
-            },
-          });
+          
+          try {
+            bulkOperations.push({
+              updateOne: {
+                filter: { pollId: new mongoose.Types.ObjectId(pollId) },
+                update: { $inc: { [`questionSummaries.$[question].counts.${index}`]: incrementBy } },
+                arrayFilters: [{ 'question.questionId': new mongoose.Types.ObjectId(item.questionId) }],
+              },
+            });
+          } catch (e) {
+            console.error(`[Analytics Worker] Failed to build operation for question: ${item.questionId}`, e);
+          }
         }
       }
 

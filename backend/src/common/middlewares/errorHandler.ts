@@ -8,5 +8,8 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
   }
   
   console.error(`[Unhandled Error]`, err);
-  res.status(500).json({ success: false, message: 'Internal Server Error' });
+  res.status(500).json({ 
+    success: false, 
+    message: 'Internal Server Error' 
+  });
 };

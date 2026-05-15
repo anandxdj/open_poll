@@ -93,12 +93,12 @@ export function StepByStepForm({ poll, deviceId }: Props) {
           </div>
         </motion.div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-white/90">You&apos;re all done!</h2>
-          <p className="text-sm text-white/40 max-w-xs">
+          <h2 className="text-2xl font-bold text-foreground/90">You&apos;re all done!</h2>
+          <p className="text-sm text-muted-foreground/60 max-w-xs">
             Your response has been submitted. Every vote shapes the outcome.
           </p>
         </div>
-        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-xs font-medium text-white/30">
+        <div className="rounded-2xl border border-border bg-secondary/30 px-5 py-3 text-xs font-medium text-muted-foreground/60">
           {total} question{total !== 1 ? "s" : ""} answered · Thank you for participating
         </div>
       </motion.div>
@@ -110,11 +110,11 @@ export function StepByStepForm({ poll, deviceId }: Props) {
     <div className="w-full space-y-6">
       {/* Progress */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs font-medium text-white/30">
+        <div className="flex items-center justify-between text-xs font-medium text-muted-foreground/50">
           <button
             onClick={goBack}
             disabled={step === 0}
-            className="flex items-center gap-1 hover:text-white/60 disabled:opacity-0 transition-all"
+            className="flex items-center gap-1 hover:text-foreground/80 disabled:opacity-0 transition-all"
           >
             <ChevronLeft className="size-3.5" /> Back
           </button>
@@ -122,7 +122,7 @@ export function StepByStepForm({ poll, deviceId }: Props) {
             {step + 1} / {total}
           </span>
         </div>
-        <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
+        <div className="h-1 rounded-full bg-secondary overflow-hidden">
           <motion.div
             className="h-full rounded-full bg-primary"
             animate={{ width: `${progress}%` }}
@@ -147,7 +147,7 @@ export function StepByStepForm({ poll, deviceId }: Props) {
           </div>
 
           {/* Question text */}
-          <h2 className="text-2xl font-bold leading-snug text-white/90 md:text-3xl">
+          <h2 className="text-2xl font-bold leading-snug text-foreground/90 md:text-3xl">
             {current.text}
           </h2>
 
@@ -167,17 +167,17 @@ export function StepByStepForm({ poll, deviceId }: Props) {
                   className={cn(
                     "group relative flex w-full items-center gap-4 rounded-2xl border px-5 py-4 text-left transition-all duration-300",
                     isSelected
-                      ? "border-primary/60 bg-primary/15 shadow-[0_0_20px_rgba(216,173,135,0.1)]"
-                      : "border-white/[0.08] bg-white/[0.03] hover:border-white/[0.16] hover:bg-white/[0.06]"
+                      ? "border-primary/60 bg-primary/10 shadow-[0_0_20px_rgba(216,173,135,0.05)]"
+                      : "border-border bg-secondary/30 hover:border-primary/30 hover:bg-secondary/50"
                   )}
                 >
                   {/* Option letter */}
                   <div
                     className={cn(
                       "flex size-8 shrink-0 items-center justify-center rounded-xl border text-xs font-bold transition-all duration-300",
-                      isSelected
+                    isSelected
                         ? "border-primary bg-primary text-primary-foreground"
-                        : "border-white/[0.1] bg-white/[0.04] text-white/40 group-hover:border-white/[0.2] group-hover:text-white/60"
+                        : "border-border bg-secondary text-muted-foreground/60 group-hover:border-primary/40 group-hover:text-foreground"
                     )}
                   >
                     {String.fromCharCode(65 + idx)}
@@ -185,7 +185,7 @@ export function StepByStepForm({ poll, deviceId }: Props) {
                   <span
                     className={cn(
                       "text-sm font-medium leading-snug transition-colors duration-200",
-                      isSelected ? "text-white" : "text-white/70 group-hover:text-white/85"
+                      isSelected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
                     )}
                   >
                     {opt}
@@ -208,7 +208,7 @@ export function StepByStepForm({ poll, deviceId }: Props) {
 
       {/* Submitting indicator */}
       {submitting && (
-        <div className="text-center text-xs text-white/30 animate-pulse">
+        <div className="text-center text-xs text-muted-foreground/40 animate-pulse">
           Submitting your answers…
         </div>
       )}

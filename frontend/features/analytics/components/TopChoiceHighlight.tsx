@@ -15,8 +15,13 @@ export function TopChoiceHighlight({ poll, analytics }: TopChoiceHighlightProps)
   // Find the overall most voted option across all questions
   let topAnswer = { text: "", votes: -1, questionTitle: "" };
 
-  poll.questions.forEach((q) => {
-    const summary = analytics.questionSummaries.find((s) => s.questionId === String(q._id));
+  poll.questions.forEach((q, index) => {
+    let summary = analytics.questionSummaries.find((s) => s.questionId === String(q._id));
+    // Fallback to index-based match if ID mismatch (repair corrupted old polls)
+    if (!summary && analytics.questionSummaries[index]) {
+      summary = analytics.questionSummaries[index];
+    }
+    
     if (summary) {
       summary.counts.forEach((count, i) => {
         if (count > topAnswer.votes) {
@@ -51,11 +56,11 @@ export function TopChoiceHighlight({ poll, analytics }: TopChoiceHighlightProps)
                 Trending
               </span>
             </div>
-            <h3 className="text-sm font-medium text-white/90">
+            <h3 className="text-sm font-medium text-foreground/90">
               "<span className="text-primary">{topAnswer.text}</span>" is currently the leading answer
-              for <span className="italic text-white/50">{topAnswer.questionTitle}</span>.
+              for <span className="italic text-muted-foreground/80">{topAnswer.questionTitle}</span>.
             </h3>
-            <p className="text-xs text-white/30">
+            <p className="text-xs text-muted-foreground/60">
               Captured {topAnswer.votes} out of {analytics.totalResponses} total responses ({percentage}%).
             </p>
           </div>

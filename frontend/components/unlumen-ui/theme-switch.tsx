@@ -54,11 +54,15 @@ function applyWithTransition(
   origin: { x: number; y: number },
   apply: () => void,
 ) {
-  if (!document.startViewTransition || window.innerWidth > 1800) {
+  if (!document.startViewTransition) {
     apply();
     return;
   }
-  const { x, y } = origin;
+  
+  // Fallback to center if coordinates are missing or zero (keyboard activation)
+  const x = origin.x || window.innerWidth / 2;
+  const y = origin.y || window.innerHeight / 2;
+  
   const endRadius = Math.hypot(
     Math.max(x, window.innerWidth - x),
     Math.max(y, window.innerHeight - y),
@@ -66,7 +70,7 @@ function applyWithTransition(
   document.documentElement.style.setProperty("--vt-x", `${x}px`);
   document.documentElement.style.setProperty("--vt-y", `${y}px`);
   document.documentElement.style.setProperty("--vt-r", `${endRadius}px`);
-  document.startViewTransition(apply).ready.catch(() => {});
+  document.startViewTransition(apply);
 }
 
 interface ThemeSwitchProps {

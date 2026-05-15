@@ -33,14 +33,14 @@ export function LivePreview({
         <div className="absolute -inset-4 rounded-[4rem] bg-primary/[0.06] blur-2xl" />
 
         {/* Device */}
-        <div className="relative mx-auto w-full aspect-[9/19] rounded-[2.5rem] bg-[#0d0d0d] border-[6px] border-[#1a1a1a] shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_24px_48px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col">
+        <div className="relative mx-auto w-full aspect-[9/19] rounded-[2.5rem] bg-card border-[6px] border-secondary shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_24px_48px_rgba(0,0,0,0.2)] dark:shadow-[0_24px_48px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col">
           {/* Notch */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-4 bg-[#1a1a1a] rounded-b-2xl z-10 flex items-center justify-center">
-            <div className="size-1.5 rounded-full bg-[#2a2a2a]" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-4 bg-secondary rounded-b-2xl z-10 flex items-center justify-center">
+            <div className="size-1.5 rounded-full bg-border" />
           </div>
 
           {/* Progress bar */}
-          <div className="absolute top-4 left-0 right-0 h-0.5 bg-white/[0.05] z-20">
+          <div className="absolute top-4 left-0 right-0 h-0.5 bg-foreground/[0.05] z-20">
             <motion.div
               className="h-full bg-primary shadow-[0_0_8px_rgba(216,173,135,0.8)]"
               animate={{ width: `${progress}%` }}
@@ -76,7 +76,7 @@ export function LivePreview({
                   </div>
 
                   {/* Question text */}
-                  <p className="text-[11px] font-bold text-white/90 leading-snug line-clamp-3">
+                  <p className="text-[11px] font-bold text-foreground/90 leading-snug line-clamp-3">
                     {question.text || "Your question will appear here…"}
                   </p>
 
@@ -86,10 +86,10 @@ export function LivePreview({
                       (opt, i) => (
                         <div
                           key={i}
-                          className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-2.5 py-2 transition-all duration-300 hover:border-primary hover:bg-primary/10 hover:shadow-[0_0_15px_rgba(216,173,135,0.2)] cursor-pointer"
+                          className="flex items-center gap-2 rounded-xl border border-border bg-secondary/50 px-2.5 py-2 transition-all duration-300 hover:border-primary/50 hover:bg-primary/5 hover:shadow-[0_0_15px_rgba(216,173,135,0.1)] cursor-pointer"
                         >
-                          <div className="size-3 rounded-full border border-white/20 shrink-0" />
-                          <span className="text-[9px] font-medium text-white/60 line-clamp-1">
+                          <div className="size-3 rounded-full border border-border shrink-0" />
+                          <span className="text-[9px] font-medium text-muted-foreground/60 line-clamp-1">
                             {opt || `Option ${i + 1}`}
                           </span>
                         </div>
@@ -108,8 +108,8 @@ export function LivePreview({
                   animate={{ opacity: 1 }}
                   className="flex flex-1 flex-col items-center justify-center gap-2 text-center"
                 >
-                  <CheckCircle2 className="size-6 text-white/20" />
-                  <p className="text-[9px] text-white/30">Add questions to preview</p>
+                  <CheckCircle2 className="size-6 text-muted-foreground/20" />
+                  <p className="text-[9px] text-muted-foreground/30">Add questions to preview</p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -118,7 +118,7 @@ export function LivePreview({
       </div>
 
       {/* Device label */}
-      <p className="text-[9px] font-medium uppercase tracking-widest text-white/20">
+      <p className="text-[9px] font-medium uppercase tracking-widest text-muted-foreground/20">
         Respondent view
       </p>
     </div>

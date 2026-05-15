@@ -46,7 +46,33 @@ export class PollService {
     if (payload.isAnonymous !== undefined) poll.isAnonymous = payload.isAnonymous;
     if (payload.expiresAt !== undefined) poll.expiresAt = new Date(payload.expiresAt);
     if (payload.isPublished !== undefined) poll.isPublished = payload.isPublished;
-    if (payload.questions !== undefined) poll.questions = payload.questions;
+    if (payload.questions !== undefined) {
+      poll.questions = payload.questions as any;
+      
+      // Sync AnalyticsModel to match new questions while preserving existing counts
+      const analytics = await AnalyticsModel.findOne({ pollId: poll._id });
+      if (analytics) {
+        const existingMap = new Map(
+          analytics.questionSummaries.map((s) => [String(s.questionId), s.counts])
+        );
+
+        analytics.questionSummaries = poll.questions.map((q) => {
+          const existingCounts = existingMap.get(String(q._id));
+          // If question existed and options count matches, keep counts. 
+          // Otherwise (new question or options changed), reset to zeros.
+          const counts = (existingCounts && existingCounts.length === q.options.length)
+            ? existingCounts
+            : q.options.map(() => 0);
+
+          return {
+            questionId: q._id,
+            counts
+          } as any;
+        });
+
+        await analytics.save();
+      }
+    }
 
     await poll.save();
     return poll;

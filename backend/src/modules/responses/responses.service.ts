@@ -84,10 +84,24 @@ export class ResponseService {
       return JSON.parse(cached) as PollAnalyticsUpdateEvent;
     }
 
-    const analyticsDoc = await AnalyticsModel.findOne({
+    let analyticsDoc = await AnalyticsModel.findOne({
       pollId: new mongoose.Types.ObjectId(pollId),
     });
-    if (!analyticsDoc) throw ApiError.notFound('Analytics not found for poll');
+
+    if (!analyticsDoc) {
+      // Recovery logic: if poll exists but analytics is missing, create it
+      const poll = await PollModel.findById(pollId);
+      if (!poll) throw ApiError.notFound('Poll not found');
+
+      analyticsDoc = await AnalyticsModel.create({
+        pollId: poll._id,
+        totalResponses: 0,
+        questionSummaries: poll.questions.map((q) => ({
+          questionId: q._id,
+          counts: q.options.map(() => 0),
+        })),
+      });
+    }
 
     const analytics: PollAnalyticsUpdateEvent = {
       pollId,

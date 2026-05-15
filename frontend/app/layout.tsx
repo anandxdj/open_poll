@@ -26,6 +26,11 @@ export const metadata: Metadata = {
   description:
     "Create beautiful, real-time polls powered by AI. Engage your audience with interactive questions and live analytics.",
   keywords: ["polling", "real-time", "survey", "audience", "analytics", "AI"],
+  icons: {
+    icon: "/logo-openpoll.png",
+    shortcut: "/logo-openpoll.png",
+    apple: "/logo-openpoll.png",
+  },
   openGraph: {
     title: "Open Poll — Real-Time Polling Platform",
     description: "Create beautiful, real-time polls powered by AI.",

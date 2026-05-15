@@ -23,6 +23,7 @@ import { useCreatorStore } from "@/features/polls/store/useCreatorStore";
 import { type AiTone, defaultAiExpiresAtIso, generateDraft, type GeneratedPollDraft } from "@/features/ai/api/generateDraft";
 import { AiPromptModal } from "@/features/ai/components/AiPromptModal";
 import { cn } from "@/lib/utils";
+import apiClient from "@/lib/api-client";
 import axios from "axios";
 
 const emptyQuestion = (): QuestionForm => ({
@@ -203,6 +204,7 @@ export function PollBuilder() {
           isAnonymous: s.isAnonymous,
           isPublished: false, // Save as draft
           questions: finalQuestions.map((q) => ({
+            _id: q._id,
             text: q.text,
             isMandatory: q.isMandatory,
             options: q.options,
@@ -341,6 +343,7 @@ export function PollBuilder() {
         isAnonymous,
         isPublished: false,
         questions: finalQuestions.map((q) => ({
+          _id: q._id,
           text: q.text,
           isMandatory: q.isMandatory,
           options: q.options,
@@ -348,10 +351,29 @@ export function PollBuilder() {
       };
 
       if (draftIdFromUrl) {
-        await updatePoll(draftIdFromUrl, payload);
+        const updated = await updatePoll(draftIdFromUrl, payload);
+        // Sync questions to get IDs for new questions
+        setQuestions(
+          updated.questions.map((q) => ({
+            _id: q._id,
+            text: q.text,
+            isMandatory: q.isMandatory,
+            options: [...q.options],
+          }))
+        );
         toast.success("Draft updated");
       } else {
         const newPoll = await createPoll(payload);
+        // Sync everything
+        setTitle(newPoll.title);
+        setQuestions(
+          newPoll.questions.map((q) => ({
+            _id: q._id,
+            text: q.text,
+            isMandatory: q.isMandatory,
+            options: [...q.options],
+          }))
+        );
         // Update URL so subsequent saves/auto-saves update THIS poll
         const params = new URLSearchParams(searchParams.toString());
         params.set("draftId", newPoll._id);
@@ -389,6 +411,7 @@ export function PollBuilder() {
         isAnonymous,
         isPublished,
         questions: questions.map((q) => ({
+          _id: q._id,
           text: q.text.trim(),
           isMandatory: q.isMandatory,
           options: q.options.map((o) => o.trim()).filter(Boolean),
