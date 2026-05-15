@@ -88,7 +88,7 @@ export function Pricing() {
             Choose the right plan for you
           </p>
           <p className="mx-auto max-w-2xl text-lg leading-8 text-muted-foreground">
-            Whether you're just starting out or running large-scale data collection, we have a plan that fits your needs.
+            Whether you&apos;re just starting out or running large-scale data collection, we have a plan that fits your needs.
           </p>
 
           <div className="mt-10 flex items-center justify-center gap-x-4">
@@ -133,7 +133,7 @@ export function Pricing() {
               )}
             >
               {tier.mostPopular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-sm font-semibold text-primary-foreground shadow-sm">
+                <div className="absolute -top-5 left-1/2 -translate-x-1/2 z-20 rounded-full bg-primary px-6 py-1.5 text-base font-bold text-primary-foreground shadow-md">
                   Most Popular
                 </div>
               )}
