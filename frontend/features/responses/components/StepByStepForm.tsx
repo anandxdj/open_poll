@@ -8,6 +8,7 @@ import { CheckCircle2, ChevronLeft } from "lucide-react";
 
 import type { Poll } from "@/features/polls/store/useCreatorStore";
 import { apiClient } from "@/lib/api-client";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -23,6 +24,7 @@ export function StepByStepForm({ poll, deviceId }: Props) {
   const [selectedNow, setSelectedNow] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const { user } = useAuthStore();
 
   const total = poll.questions.length;
   const current = poll.questions[step];
@@ -35,6 +37,7 @@ export function StepByStepForm({ poll, deviceId }: Props) {
       await apiClient.post("/responses", {
         pollId: poll._id,
         deviceId,
+        respondentId: user?._id,
         answers: poll.questions.map((q) => {
           const id = String(q._id);
           return { questionId: id, selectedOptionIndex: finalAnswers[id] ?? 0 };

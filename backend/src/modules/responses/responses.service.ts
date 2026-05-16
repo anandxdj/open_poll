@@ -44,6 +44,10 @@ export class ResponseService {
       }
     }
 
+    if (!poll.isAnonymous && !payload.respondentId) {
+      throw ApiError.unauthorized('This poll requires you to be logged in to vote.');
+    }
+
     const spamKey = `poll:${payload.pollId}:voted:${payload.deviceId}`;
     const hasVoted = await redisClient.get(spamKey);
     if (hasVoted) {

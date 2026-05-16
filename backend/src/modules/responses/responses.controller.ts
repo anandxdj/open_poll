@@ -6,7 +6,10 @@ import { ResponseService } from './responses.service';
 export class ResponsesController {
   static async submit(req: Request, res: Response, next: NextFunction) {
     try {
-      const response = await ResponseService.submitResponse(req.body);
+      const response = await ResponseService.submitResponse({
+        ...req.body,
+        respondentId: (req as any).user?.id
+      });
       return ApiResponse.created(res, 'Response submitted successfully', response);
     } catch (error) {
       next(error);

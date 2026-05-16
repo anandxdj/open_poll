@@ -12,7 +12,7 @@ export interface AuthRequest extends Request {
   };
 }
 
-export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const authenticate = (optional = false) => async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     let token;
 
@@ -23,6 +23,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     }
 
     if (!token) {
+      if (optional) return next();
       throw ApiError.unauthorized('Not authenticated');
     }
 
@@ -30,6 +31,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     const user = await UserModel.findById(decoded.id);
 
     if (!user) {
+      if (optional) return next();
       throw ApiError.unauthorized('User no longer exists');
     }
 
@@ -42,6 +44,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
     next();
   } catch (error) {
+    if (optional) return next();
     next(ApiError.unauthorized('Invalid or expired token'));
   }
 };

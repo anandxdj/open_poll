@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Zap } from "lucide-react";
 
 import type { Poll } from "@/features/polls/store/useCreatorStore";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { PollClosed } from "@/features/responses/components/PollClosed";
 import { StepByStepForm } from "@/features/responses/components/StepByStepForm";
 import { PublicResultsView } from "@/features/responses/components/PublicResultsView";
@@ -38,8 +39,10 @@ const ease = [0.32, 0.72, 0, 1] as const;
 
 export default function PublicPollPage() {
   const params = useParams();
+  const router = useRouter();
   const pollId = typeof params?.id === "string" ? params.id : undefined;
   const deviceId = useDeviceId();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuthStore();
 
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,7 +75,7 @@ export default function PublicPollPage() {
   }
 
   // Loading skeleton
-  if (loading || !deviceId) {
+  if (loading || !deviceId || isAuthLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -87,6 +90,12 @@ export default function PublicPollPage() {
 
   if (notFound || !poll) {
     return <PollClosed title="This link is not valid." />;
+  }
+
+  // Handle Authorized Voting
+  if (!poll.isAnonymous && !isAuthenticated) {
+    router.push(`/login?redirect=/p/${pollId}`);
+    return null;
   }
 
   // If results are published, show results instead of the voting form
