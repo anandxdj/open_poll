@@ -25,16 +25,19 @@ const steps = [
 
 export function Steps() {
   return (
-    <section id="how-it-works" className="py-32 px-6 border-t border-border bg-secondary/[0.02]">
+    <section id="how-it-works" className="py-32 px-6 border-t border-border bg-secondary/[0.02] scroll-mt-20">
       <div className="max-w-5xl mx-auto">
         <div className="text-center space-y-4 mb-20">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-3 py-1.5 text-xs font-medium tracking-tight text-muted-foreground">
-            <Users className="size-3 text-primary" />
-            How it works
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-3.5 py-1.5 text-xs font-bold tracking-widest text-primary uppercase">
+            <Users className="size-3" />
+            THE PROCESS
           </div>
           <h2 className="text-4xl sm:text-5xl font-bold tracking-tight text-balance">
             Three steps to live
           </h2>
+          <p className="max-w-2xl mx-auto text-muted-foreground text-base sm:text-lg leading-relaxed">
+            Building an audience connection doesn't need to be complicated. Here is exactly how your first poll comes to life in minutes.
+          </p>
         </div>
 
         <div className="relative">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import axios from "axios";
 import { toast } from "sonner";
@@ -43,6 +43,8 @@ export function StepByStepForm({ poll, deviceId }: Props) {
           return { questionId: id, selectedOptionIndex: finalAnswers[id] ?? 0 };
         }),
       });
+      // Store voted status locally to prevent ballot box stuffing
+      localStorage.setItem(`openpoll_voted_${poll._id}`, "true");
       setDone(true);
     } catch (e: unknown) {
       if (axios.isAxiosError(e)) {
@@ -74,6 +76,41 @@ export function StepByStepForm({ poll, deviceId }: Props) {
   function goBack() {
     if (step > 0) setStep((s) => s - 1);
   }
+
+  // Keyboard shortcut listener hook
+  const currentOptionsLength = current?.options?.length ?? 0;
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (submitting || done || selectedNow !== null) return;
+
+      // Ignore if typing inside text fields
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      const numOptions = currentOptionsLength;
+      const key = e.key;
+
+      // Handle Backspace or Left Arrow to go back
+      if (key === "Backspace" || key === "ArrowLeft") {
+        e.preventDefault();
+        goBack();
+        return;
+      }
+
+      // Handle 1-9 keys to select options
+      const parsedNum = parseInt(key, 10);
+      if (!isNaN(parsedNum) && parsedNum >= 1 && parsedNum <= numOptions) {
+        e.preventDefault();
+        choose(parsedNum - 1);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [step, submitting, done, selectedNow, currentOptionsLength]);
 
   // ── Done state ──────────────────────────────────────────────────
   if (done) {
@@ -193,7 +230,7 @@ export function StepByStepForm({ poll, deviceId }: Props) {
                   >
                     {opt}
                   </span>
-                  {isSelected && (
+                  {isSelected ? (
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
@@ -201,6 +238,10 @@ export function StepByStepForm({ poll, deviceId }: Props) {
                     >
                       <CheckCircle2 className="size-5 text-primary" />
                     </motion.div>
+                  ) : (
+                    <div className="ml-auto hidden md:inline-flex items-center justify-center rounded-lg border border-border bg-[#14120f]/50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-muted-foreground/30 shadow-sm transition-all duration-300 group-hover:border-primary/20 group-hover:text-primary/70 group-hover:bg-primary/5 select-none uppercase">
+                      Press {idx + 1}
+                    </div>
                   )}
                 </motion.button>
               );

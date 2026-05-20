@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Zap, Trophy, BarChart3, Share2, Send } from "lucide-react";
+import { Zap, Trophy, BarChart3, Share2, Send, Download } from "lucide-react";
 import { toast } from "sonner";
 import type { Poll } from "@/features/polls/store/useCreatorStore";
 import { QuestionAnalytics } from "@/features/analytics/components/QuestionAnalytics";
@@ -51,6 +51,50 @@ export function PublicResultsView({ poll }: Props) {
     window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, "_blank");
   };
 
+  const handleExportCSV = () => {
+    if (!analytics) {
+      toast.error("No analytics data available to export.");
+      return;
+    }
+    
+    // Header Row
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Question Number,Question Text,Option Number,Option Label,Vote Count,Percentage\n";
+    
+    poll.questions.forEach((q, idx) => {
+      const qid = String(q._id ?? "");
+      const summary = analytics.questionSummaries.find((s) => s.questionId === qid);
+      const counts = summary?.counts ?? q.options.map(() => 0);
+      const total = counts.reduce((a, b) => a + b, 0) || 1;
+      
+      q.options.forEach((opt, optIdx) => {
+        const votes = counts[optIdx] ?? 0;
+        const pct = ((votes / total) * 100).toFixed(1);
+        const escapedQuestion = q.text.replace(/"/g, '""');
+        const escapedOption = opt.replace(/"/g, '""');
+        
+        const row = [
+          idx + 1,
+          `"${escapedQuestion}"`,
+          optIdx + 1,
+          `"${escapedOption}"`,
+          votes,
+          `${pct}%`
+        ].join(",");
+        csvContent += row + "\n";
+      });
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `poll_results_${poll._id}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("CSV summary report downloaded!");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center">
@@ -88,6 +132,13 @@ export function PublicResultsView({ poll }: Props) {
           >
             <Share2 className="size-3" />
             Link
+          </button>
+          <button
+            onClick={handleExportCSV}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:bg-secondary hover:text-foreground transition-all"
+          >
+            <Download className="size-3" />
+            CSV Report
           </button>
           <button
             onClick={handleShareX}

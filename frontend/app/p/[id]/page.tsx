@@ -47,6 +47,13 @@ export default function PublicPollPage() {
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [hasVotedLocally, setHasVotedLocally] = useState(false);
+
+  useEffect(() => {
+    if (!pollId) return;
+    const voted = localStorage.getItem(`openpoll_voted_${pollId}`) === "true";
+    setHasVotedLocally(voted);
+  }, [pollId]);
 
   useEffect(() => {
     if (!pollId) return;
@@ -98,9 +105,20 @@ export default function PublicPollPage() {
     return null;
   }
 
-  // If results are published, show results instead of the voting form
-  if (poll.isResultsPublished) {
-    return <PublicResultsView poll={poll} />;
+  // If results are published, or if the user has already voted, show results
+  if (poll.isResultsPublished || hasVotedLocally) {
+    return (
+      <div className="relative min-h-screen bg-background flex flex-col">
+        {hasVotedLocally && !poll.isResultsPublished && (
+          <div className="relative z-50 bg-primary/10 border-b border-primary/20 text-center py-2.5 text-xs font-semibold text-primary backdrop-blur-md select-none">
+            ✨ You have already participated. Showing live results so far!
+          </div>
+        )}
+        <div className="flex-1">
+          <PublicResultsView poll={poll} />
+        </div>
+      </div>
+    );
   }
 
   if (!votingOpen(poll)) {

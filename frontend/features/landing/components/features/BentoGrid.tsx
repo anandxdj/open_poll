@@ -288,18 +288,18 @@ function BrandingVisual() {
 
 export function BentoGrid() {
   return (
-    <section id="features" className="px-6 pt-28 pb-32">
+    <section id="features" className="px-6 pt-28 pb-32 scroll-mt-20">
       <div className="max-w-7xl mx-auto">
         <div className="text-center space-y-4 mb-20">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-3 py-1.5 text-xs font-medium tracking-tight text-muted-foreground">
-            <Layers className="size-3 text-primary" />
-            Features
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-3.5 py-1.5 text-xs font-bold tracking-widest text-primary uppercase">
+            <Layers className="size-3" />
+            THE ENGINE
           </div>
           <h2 className="text-4xl sm:text-5xl font-bold tracking-tight text-balance">
-            Everything you need
+            Everything you need, built to perform
           </h2>
-          <p className="max-w-xl mx-auto text-muted-foreground text-lg text-pretty leading-relaxed">
-            A complete toolkit for running live polls: builder, sharing, and results in one place.
+          <p className="max-w-2xl mx-auto text-muted-foreground text-base sm:text-lg leading-relaxed">
+            Behind the simple workflow is a robust, secure, and highly customizable platform equipped to scale to any audience size.
           </p>
         </div>
 

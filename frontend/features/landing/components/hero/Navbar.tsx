@@ -28,6 +28,15 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [checkAuth]);
 
+  const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    e.preventDefault();
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+      window.history.pushState(null, "", `#${id}`);
+    }
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -61,15 +70,19 @@ export function Navbar() {
 
         {/* Nav links */}
         <nav className="hidden md:flex items-center gap-8">
-          {["Features", "How it works", "Pricing"].map((label) => (
-            <a
-              key={label}
-              href={`#${label.toLowerCase().replace(/\s+/g, "-")}`}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
-            >
-              {label}
-            </a>
-          ))}
+          {["Features", "How it works", "Pricing"].map((label) => {
+            const id = label.toLowerCase().replace(/\s+/g, "-");
+            return (
+              <a
+                key={label}
+                href={`#${id}`}
+                onClick={(e) => handleScroll(e, id)}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+              >
+                {label}
+              </a>
+            );
+          })}
         </nav>
 
         {/* CTAs */}

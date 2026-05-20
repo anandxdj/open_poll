@@ -25,14 +25,14 @@ export default function LandingPage() {
         {/* Social Proof */}
         <LogoMarquee />
 
-        {/* Features Section */}
-        <BentoGrid />
+        {/* Workflow Section (The Simple Path) */}
+        <Steps />
 
-        {/* Feature Showcase (Zig-Zag) */}
+        {/* Feature Showcase (The Magic in Action) */}
         <ShowcaseSections />
 
-        {/* Workflow Section */}
-        <Steps />
+        {/* Features Grid (Under the Hood Engine) */}
+        <BentoGrid />
 
         {/* Pricing Section */}
         <Pricing />
