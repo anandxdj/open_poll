@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Layers, Activity, FileText } from "lucide-react";
 import { ProductLogo } from "@/components/ui/ProductLogo";
+import { motion } from "framer-motion";
 
 import { PollCardV2 } from "@/features/polls/components/PollCardV2";
 import { useCreatePollModal } from "@/features/polls/components/CreatePollModalProvider";
@@ -69,7 +70,69 @@ export default function PollsPage() {
         </button>
       </header>
 
-      <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-6 md:px-6">
+      <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 md:px-6">
+        {/* Hero Stats Panel */}
+        <div className="grid gap-4 grid-cols-3 sm:grid-cols-3">
+          {[
+            {
+              label: "Total Polls",
+              value: polls.length,
+              desc: "All questions created",
+              icon: Layers,
+              color: "text-primary bg-primary/10 border-primary/20",
+              glow: "bg-primary/5",
+            },
+            {
+              label: "Active Polls",
+              value: activeCount,
+              desc: "Collecting live feedback",
+              icon: Activity,
+              color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+              glow: "bg-emerald-500/5",
+            },
+            {
+              label: "Drafts",
+              value: draftCount,
+              desc: "Work in progress",
+              icon: FileText,
+              color: "text-amber-500 bg-amber-500/10 border-amber-500/20",
+              glow: "bg-amber-500/5",
+            },
+          ].map((stat, i) => {
+            const Icon = stat.icon;
+            return (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1], delay: i * 0.08 }}
+                className="relative group overflow-hidden rounded-[2rem] border border-border bg-card p-5 transition-all duration-300 hover:border-primary/30"
+              >
+                {/* Glow behind icon */}
+                <div className={cn("absolute -right-4 -bottom-4 size-32 blur-3xl rounded-full pointer-events-none transition-all duration-500 group-hover:scale-110", stat.glow)} />
+                
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">{stat.label}</p>
+                    <h3 className="text-2xl font-extrabold tracking-tight text-foreground/90 tabular-nums">
+                      {isLoading ? (
+                        <span className="inline-block w-8 h-6 bg-secondary/50 rounded animate-pulse" />
+                      ) : (
+                        stat.value
+                      )}
+                    </h3>
+                    <p className="text-[10px] font-medium text-muted-foreground/40">{stat.desc}</p>
+                  </div>
+                  
+                  <div className={cn("size-10 rounded-2xl border flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105", stat.color)}>
+                    <Icon className="size-5" />
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-1.5">
                 {tabs.map((tab) => (
                   <button

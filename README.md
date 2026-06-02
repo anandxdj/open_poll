@@ -25,6 +25,46 @@ We utilized a cutting-edge modern web stack designed for speed, scale, and devel
 - **AI Integration**: Custom AI modules integrated into the backend architecture to process and summarize poll data on the fly.
 - **DevOps & Architecture**: Fully Dockerized environments with Docker Compose for absolute "it works on my machine (and production)" reliability.
 
+## 👤 Creator & System Architecture
+
+**Open Poll** is a real-time, AI-driven polling platform created by me using a high-performance, containerized tech stack comprising Next.js 15, Bun, Express, TypeScript, MongoDB, Redis, and Docker. 
+
+This platform was developed to revolutionize traditional, static data collection by enabling instantaneous WebSocket-driven sentiment sharing combined with automated, context-aware AI insights. Designed with a robust microservice-like structure, the application separates its high-throughput real-time backend from a highly responsive, animated frontend, ensuring horizontal scalability, caching efficiency, and a frictionless experience for users casting votes and exploring AI-generated analysis.
+
+### 🏗️ Architecture Diagram
+
+```mermaid
+graph TD
+    subgraph Client Layer
+        A[Next.js 15 Client / Web Browser]
+    end
+
+    subgraph Service Layer
+        B[Express Backend on Bun Runtime]
+    end
+
+    subgraph Storage & Caching Layer
+        C[(MongoDB - Persistent Storage)]
+        D[(Redis - Socket Session & Cache)]
+    end
+
+    subgraph AI Integration
+        E[AI Summarization Engine]
+    end
+
+    %% Communications
+    A -->|HTTP Requests / Auth| B
+    A <-->|WebSockets / Socket.io| B
+    B <-->|Mongoose ODM| C
+    B <-->|Redis Client| D
+    B <-->|API Integrations| E
+```
+
+### ⚙️ Component Flow
+1. **Frontend (Next.js 15)**: Leverages React Server Components (RSC) and client-side hooks for a modular layout, animated with Framer Motion, and connects to the WebSocket gateway for live graph updates.
+2. **Backend (Bun & Express)**: Orchestrates the API routes, WebSocket connections via Socket.io, and routes incoming analytics payloads to the AI module.
+3. **Data Tier (MongoDB & Redis)**: MongoDB stores persistent poll structures and user records, while Redis acts as a high-speed broker for socket adapter pooling and session state synchronization.
+
 ## 🚧 Challenges we ran into
 
 - Managing state synchronization and preventing race conditions when hundreds of users vote simultaneously in real-time.

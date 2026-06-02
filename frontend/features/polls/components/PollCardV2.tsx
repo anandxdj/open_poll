@@ -127,21 +127,42 @@ export function PollCardV2({ poll, liveVotes = 0 }: { poll: Poll; liveVotes?: nu
     >
       {/* Status & Delete */}
       <div className="flex items-center justify-between mb-4">
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest",
-            cfg.badgeClass
-          )}
-        >
+        <div className="flex items-center gap-2">
           <span
             className={cn(
-              "size-1.5 shrink-0 rounded-full",
-              cfg.dot,
-              status === "active" && "motion-safe:animate-pulse"
+              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest",
+              cfg.badgeClass
             )}
-          />
-          {cfg.label}
-        </span>
+          >
+            <span
+              className={cn(
+                "size-1.5 shrink-0 rounded-full",
+                cfg.dot,
+                status === "active" && "motion-safe:animate-pulse"
+              )}
+            />
+            {cfg.label}
+          </span>
+
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest select-none",
+              poll.isAnonymous
+                ? "border-white/5 bg-white/5 text-muted-foreground/60"
+                : "border-amber-500/20 bg-amber-500/10 text-primary"
+            )}
+          >
+            {poll.isAnonymous ? (
+              <>
+                <Globe className="size-3" /> Anonymous
+              </>
+            ) : (
+              <>
+                <Lock className="size-3" /> Verified
+              </>
+            )}
+          </span>
+        </div>
         
         <AlertDialog>
           <AlertDialogTrigger asChild>

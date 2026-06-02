@@ -9,6 +9,8 @@ export interface IResponse extends Document {
   pollId: mongoose.Types.ObjectId;
   respondentId: string;
   answers: IResponseAnswer[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const ResponseAnswerSchema = new Schema<IResponseAnswer>(

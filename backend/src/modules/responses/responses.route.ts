@@ -8,5 +8,6 @@ const router = Router();
 
 router.post('/', authenticate(true) as any, validate(submitResponseSchema), ResponsesController.submit);
 router.get('/poll/:pollId/summary', ResponsesController.getSummary);
+router.get('/poll/:pollId/list', authenticate() as any, ResponsesController.getResponsesList);
 
 export default router;

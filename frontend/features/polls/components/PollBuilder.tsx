@@ -19,6 +19,7 @@ import { defaultDatetimeLocal, toDatetimeLocalValue } from "@/features/polls/com
 import { PollQuestionCard } from "@/features/polls/components/create/PollQuestionCard";
 import { PublishSettingsModal } from "@/features/polls/components/create/PublishSettingsModal";
 import type { QuestionForm } from "@/features/polls/components/create/types";
+import { LivePreview } from "@/features/polls/components/create/LivePreview";
 import { useCreatorStore } from "@/features/polls/store/useCreatorStore";
 import { type AiTone, defaultAiExpiresAtIso, generateDraft, type GeneratedPollDraft } from "@/features/ai/api/generateDraft";
 import { AiPromptModal } from "@/features/ai/components/AiPromptModal";
@@ -659,6 +660,16 @@ export function PollBuilder() {
               </div>
             </div>
           </div>
+
+          {/* Right Live Preview Sidebar */}
+          <aside className="hidden lg:flex w-72 shrink-0 flex-col justify-center items-center border-l border-border/40 bg-[#0d0b09]/30 p-6 z-10 relative overflow-y-auto">
+            <LivePreview
+              question={activeQuestion}
+              questionIndex={activeIndex}
+              totalQuestions={questions.length}
+              pollTitle={title}
+            />
+          </aside>
         </div>
       </div>
 

@@ -14,11 +14,12 @@ import { cn } from "@/lib/utils";
 type Props = {
   poll: Poll;
   deviceId: string;
+  guestInfo?: { name: string; email: string } | null;
 };
 
 const ease = [0.32, 0.72, 0, 1] as const;
 
-export function StepByStepForm({ poll, deviceId }: Props) {
+export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [selectedNow, setSelectedNow] = useState<number | null>(null);
@@ -33,15 +34,25 @@ export function StepByStepForm({ poll, deviceId }: Props) {
 
   async function submitAll(finalAnswers: Record<string, number>) {
     setSubmitting(true);
+    let respondentId = user?._id;
+    if (!respondentId && guestInfo) {
+      respondentId = `guest:${guestInfo.email}:${guestInfo.name}`;
+    }
+
     try {
       await apiClient.post("/responses", {
         pollId: poll._id,
         deviceId,
-        respondentId: user?._id,
-        answers: poll.questions.map((q) => {
-          const id = String(q._id);
-          return { questionId: id, selectedOptionIndex: finalAnswers[id] ?? 0 };
-        }),
+        respondentId,
+        answers: poll.questions
+          .filter((q) => {
+            const id = String(q._id);
+            return q.isMandatory || finalAnswers[id] !== undefined;
+          })
+          .map((q) => {
+            const id = String(q._id);
+            return { questionId: id, selectedOptionIndex: finalAnswers[id] ?? 0 };
+          }),
       });
       // Store voted status locally to prevent ballot box stuffing
       localStorage.setItem(`openpoll_voted_${poll._id}`, "true");
@@ -71,6 +82,14 @@ export function StepByStepForm({ poll, deviceId }: Props) {
         setStep((s) => s + 1);
       }
     }, 320);
+  }
+
+  function handleSkip() {
+    if (step >= total - 1) {
+      void submitAll(answers);
+    } else {
+      setStep((s) => s + 1);
+    }
   }
 
   function goBack() {
@@ -158,9 +177,20 @@ export function StepByStepForm({ poll, deviceId }: Props) {
           >
             <ChevronLeft className="size-3.5" /> Back
           </button>
-          <span className="tabular-nums">
-            {step + 1} / {total}
-          </span>
+          <div className="flex items-center gap-4">
+            {!current.isMandatory && (
+              <button
+                type="button"
+                onClick={handleSkip}
+                className="text-primary hover:text-primary/80 font-bold transition-all px-2.5 py-1 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 select-none uppercase tracking-wide text-[10px]"
+              >
+                Skip
+              </button>
+            )}
+            <span className="tabular-nums">
+              {step + 1} / {total}
+            </span>
+          </div>
         </div>
         <div className="h-1 rounded-full bg-secondary overflow-hidden">
           <motion.div

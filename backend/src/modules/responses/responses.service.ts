@@ -6,6 +6,7 @@ import { ResponseModel } from './responses.model';
 import type { SubmitResponseInput } from './responses.schema';
 import { AnalyticsModel } from './analytics.model';
 import type { PollAnalyticsUpdateEvent } from '../../common/realtime/events';
+import { UserModel } from '../auth/auth.model';
 
 export class ResponseService {
   static async submitResponse(payload: SubmitResponseInput) {
@@ -119,5 +120,85 @@ export class ResponseService {
 
     await redisClient.set(cacheKey, JSON.stringify(analytics), { EX: 3600 });
     return analytics;
+  }
+
+  static async getPollResponsesList(pollId: string, userId: string) {
+    const poll = await PollModel.findById(pollId);
+    if (!poll) {
+      throw ApiError.notFound('Poll not found');
+    }
+
+    if (String(poll.creatorId) !== String(userId)) {
+      throw ApiError.forbidden('You are not authorized to view individual responses for this poll');
+    }
+
+    const responses = await ResponseModel.find({
+      pollId: new mongoose.Types.ObjectId(pollId),
+    }).sort({ createdAt: -1 });
+
+    const registeredUserIds = responses
+      .map((r) => r.respondentId)
+      .filter((id) => id && !id.startsWith('guest:') && mongoose.Types.ObjectId.isValid(id));
+
+    const users = await UserModel.find({
+      _id: { $in: registeredUserIds.map((id) => new mongoose.Types.ObjectId(id)) },
+    }).select('name email');
+
+    const userMap = new Map(users.map((u) => [String(u._id), u]));
+
+    const list = responses.map((r) => {
+      let voter = {
+        type: 'anonymous',
+        name: 'Anonymous Voter',
+        email: '',
+      };
+
+      if (!poll.isAnonymous && r.respondentId) {
+        if (r.respondentId.startsWith('guest:')) {
+          const parts = r.respondentId.split(':');
+          const email = parts[1] || '';
+          const name = parts[2] || 'Guest Voter';
+          voter = {
+            type: 'guest',
+            name,
+            email,
+          };
+        } else {
+          const userDoc = userMap.get(r.respondentId);
+          if (userDoc) {
+            voter = {
+              type: 'registered',
+              name: userDoc.name,
+              email: userDoc.email,
+            };
+          } else {
+            voter = {
+              type: 'registered',
+              name: 'Registered Voter',
+              email: r.respondentId,
+            };
+          }
+        }
+      }
+
+      return {
+        _id: r._id,
+        voter,
+        answers: r.answers.map((ans) => {
+          const question = poll.questions.find((q) => String(q._id) === String(ans.questionId));
+          return {
+            questionId: String(ans.questionId),
+            questionText: question ? question.text : 'Unknown Question',
+            selectedOptionIndex: ans.selectedOptionIndex,
+            selectedOptionText: question && ans.selectedOptionIndex >= 0 && ans.selectedOptionIndex < question.options.length
+              ? question.options[ans.selectedOptionIndex]
+              : 'Skipped/Invalid',
+          };
+        }),
+        createdAt: r.createdAt,
+      };
+    });
+
+    return list;
   }
 }
