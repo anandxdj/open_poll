@@ -4,6 +4,7 @@ import {
   REALTIME_CHANNELS,
   SOCKET_EVENTS,
   type ResponseAcceptedEvent,
+  type QuizRealtimeEvent,
 } from './events';
 
 export const setupSocketAndPubSub = async (io: Server) => {
@@ -29,10 +30,25 @@ export const setupSocketAndPubSub = async (io: Server) => {
       if (!pollId) return;
       socket.leave(`poll_${pollId}`);
     });
+
+    socket.on(SOCKET_EVENTS.quizJoin, (quizId: string) => {
+      if (!quizId) return;
+      socket.join(`quiz_${quizId}`);
+    });
+
+    socket.on(SOCKET_EVENTS.quizLeave, (quizId: string) => {
+      if (!quizId) return;
+      socket.leave(`quiz_${quizId}`);
+    });
   });
 
   await subscriber.subscribe(REALTIME_CHANNELS.analyticsUpdate, (payload: string) => {
     const parsed = JSON.parse(payload) as ResponseAcceptedEvent;
     io.to(`poll_${parsed.pollId}`).emit(SOCKET_EVENTS.analyticsUpdate, parsed.analytics);
+  });
+
+  await subscriber.subscribe(REALTIME_CHANNELS.quizEvent, (payload: string) => {
+    const parsed = JSON.parse(payload) as QuizRealtimeEvent;
+    io.to(`quiz_${parsed.quizId}`).emit(SOCKET_EVENTS.quizEvent, parsed);
   });
 };

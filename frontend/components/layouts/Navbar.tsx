@@ -8,6 +8,8 @@ const crumbMap: Record<string, string> = {
   polls: "Dashboard",
   create: "Create Poll",
   analytics: "Analytics",
+  quizzes: "Quizzes",
+  quiz: "Quiz",
 };
 
 function getBreadcrumbs(pathname: string) {

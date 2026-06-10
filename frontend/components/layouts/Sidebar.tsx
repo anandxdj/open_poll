@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   ListPlus,
   BarChart2,
+  Trophy,
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
@@ -70,6 +71,7 @@ export default function Sidebar() {
     { href: "/polls", label: "Dashboard", Icon: LayoutDashboard },
     { href: "/create", label: "Create Poll", Icon: ListPlus },
     { href: "/analytics", label: "Analytics", Icon: BarChart2 },
+    { href: "/quizzes", label: "Quizzes", Icon: Trophy },
   ];
 
   const toggleTheme = (e: React.MouseEvent) => {

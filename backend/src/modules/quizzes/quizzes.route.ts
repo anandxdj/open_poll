@@ -1,0 +1,35 @@
+import { Router } from 'express';
+import { QuizController } from './quizzes.controller';
+import { validate } from '../../common/middlewares/validate.middleware';
+import {
+  createQuizSchema,
+  updateQuizSchema,
+  joinQuizSchema,
+  submitQuizAnswerSchema,
+} from './quizzes.schema';
+import { authenticate } from '../auth/auth.middleware';
+
+const router = Router();
+
+// Public participant flow (no auth — participants join with a nickname)
+router.get('/code/:code', QuizController.getByCode);
+router.post('/:id/join', validate(joinQuizSchema), QuizController.join);
+router.post('/:id/answer', validate(submitQuizAnswerSchema), QuizController.answer);
+router.get('/:id/participants/:participantId', QuizController.participantState);
+
+// Creator CRUD
+router.post('/', authenticate(), validate(createQuizSchema), QuizController.create);
+router.get('/', authenticate(), QuizController.listByCreator);
+router.get('/:id', authenticate(), QuizController.getById);
+router.patch('/:id', authenticate(), validate(updateQuizSchema), QuizController.update);
+router.delete('/:id', authenticate(), QuizController.delete);
+
+// Host session controls
+router.get('/:id/host/state', authenticate(), QuizController.hostState);
+router.post('/:id/host/open-lobby', authenticate(), QuizController.openLobby);
+router.post('/:id/host/next-question', authenticate(), QuizController.startNextQuestion);
+router.post('/:id/host/reveal', authenticate(), QuizController.reveal);
+router.post('/:id/host/leaderboard', authenticate(), QuizController.showLeaderboard);
+router.post('/:id/host/end', authenticate(), QuizController.end);
+
+export default router;

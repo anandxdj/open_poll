@@ -14,13 +14,14 @@ import { setupSocketAndPubSub } from './common/realtime/socket';
 import { startAnalyticsWorker } from './modules/responses/analytics.worker';
 import cookieParser from 'cookie-parser';
 import authRouter from './modules/auth/auth.route';
+import quizzesRouter from './modules/quizzes/quizzes.route';
 
 const app = express();
 app.set('trust proxy', 1);
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     methods: ['GET', 'POST'],
   },
 });
@@ -72,6 +73,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/polls', pollsRouter);
 app.use('/api/responses', responsesRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/quizzes', quizzesRouter);
 app.use(errorHandler);
 
 // Boot Server & Connect Services
