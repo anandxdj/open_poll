@@ -15,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
+import { QRCodeSVG } from "qrcode.react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -123,7 +124,10 @@ export function HostView({ quizId }: HostViewProps) {
   }
 
   const isLastSlide = quiz.currentSlideIndex >= quiz.slides.length - 1;
-  const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/quiz/join` : "/quiz/join";
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const joinUrl = `${origin}/quiz/join`;
+  // QR deep-links straight into the play screen with the code pre-filled
+  const playUrl = `${origin}/quiz/play/${quiz.joinCode}`;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -193,13 +197,27 @@ export function HostView({ quizId }: HostViewProps) {
             >
               <div className="space-y-2">
                 <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
-                  Join at <span className="text-foreground/80">{joinUrl}</span> with code
+                  Scan the QR — or join at <span className="text-foreground/80">{joinUrl}</span>{" "}
+                  with code
                 </p>
-                <div className="p-1.5 rounded-[2rem] bg-white/5 border border-white/10 inline-block">
-                  <div className="rounded-[calc(2rem-0.375rem)] bg-card px-10 py-6">
-                    <span className="text-6xl font-black tracking-[0.3em] text-primary tabular-nums">
-                      {quiz.joinCode}
-                    </span>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <div className="p-1.5 rounded-[2rem] bg-white/5 border border-white/10">
+                    <div className="rounded-[calc(2rem-0.375rem)] bg-card px-10 py-6">
+                      <span className="text-6xl font-black tracking-[0.3em] text-primary tabular-nums">
+                        {quiz.joinCode}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-1.5 rounded-[2rem] bg-white/5 border border-white/10">
+                    <div className="rounded-[calc(2rem-0.375rem)] bg-white p-4">
+                      <QRCodeSVG
+                        value={playUrl}
+                        size={148}
+                        level="M"
+                        bgColor="#ffffff"
+                        fgColor="#000000"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

@@ -100,6 +100,8 @@ export interface QuizParticipantSelf {
   participantId: string;
   name: string;
   score: number;
+  /** Secret credential for answering — stored locally, never shared */
+  token: string;
 }
 
 export interface ParticipantState {

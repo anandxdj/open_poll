@@ -8,6 +8,7 @@ import {
   QuizAnswerModel,
   type IQuiz,
   type IQuizSlide,
+  type QuizSlideType,
 } from './quizzes.model';
 import type {
   CreateQuizInput,
@@ -19,6 +20,65 @@ import type {
 // Answers arriving slightly after the deadline (network latency) are still accepted
 const ANSWER_GRACE_MS = 750;
 const LEADERBOARD_SIZE = 10;
+// Live-session Redis keys self-clean 6h after the last transition
+const QUIZ_KEY_TTL_SEC = 6 * 3600;
+
+// ---------------------------------------------------------------------------
+// Redis key map — the answer hot path runs entirely on these (no Mongo reads),
+// so hundreds of simultaneous clicks don't queue on the database. Mongo stays
+// the durable system of record via async write-behind.
+// ---------------------------------------------------------------------------
+const k = {
+  session: (q: string) => `quiz:${q}:session`,
+  scores: (q: string) => `quiz:${q}:scores`, // ZSET participantId -> total score
+  correct: (q: string) => `quiz:${q}:correct`, // HASH participantId -> correct count
+  names: (q: string) => `quiz:${q}:names`, // HASH participantId -> nickname
+  tokens: (q: string) => `quiz:${q}:tokens`, // HASH participantId -> secret token
+  answered: (q: string, i: number) => `quiz:${q}:answered:${i}`, // SET participantIds
+  dist: (q: string, i: number) => `quiz:${q}:dist:${i}`, // HASH option/text -> count
+  results: (q: string, i: number) => `quiz:${q}:results:${i}`, // HASH pid -> {isCorrect,score}
+};
+
+const allQuizKeys = (quizId: string, slideCount: number) => {
+  const keys = [
+    k.session(quizId),
+    k.scores(quizId),
+    k.correct(quizId),
+    k.names(quizId),
+    k.tokens(quizId),
+  ];
+  for (let i = 0; i < slideCount; i++) {
+    keys.push(k.answered(quizId, i), k.dist(quizId, i), k.results(quizId, i));
+  }
+  return keys;
+};
+
+/** Snapshot of the live question, cached in Redis for the answer hot path */
+interface LiveSession {
+  slideIndex: number;
+  startedAtMs: number;
+  endsAtMs: number;
+  type: QuizSlideType;
+  correctOptions: number[];
+  acceptedNormalized: string[];
+  optionCount: number;
+  timeLimitMs: number;
+  points: number;
+  scoreDependsOnTime: boolean;
+}
+
+const buildSession = (quiz: IQuiz, slide: IQuizSlide): LiveSession => ({
+  slideIndex: quiz.currentSlideIndex,
+  startedAtMs: quiz.questionStartedAt!.getTime(),
+  endsAtMs: quiz.questionEndsAt!.getTime(),
+  type: slide.type,
+  correctOptions: slide.options.flatMap((o, i) => (o.isCorrect ? [i] : [])),
+  acceptedNormalized: slide.acceptedAnswers.map((a) => normalizeText(a)),
+  optionCount: slide.options.length,
+  timeLimitMs: slide.timeLimit * 1000,
+  points: slide.points,
+  scoreDependsOnTime: slide.scoreDependsOnTime,
+});
 
 const publishQuizEvent = async (
   quizId: string,
@@ -35,10 +95,9 @@ const publishQuizEvent = async (
   }
 };
 
-const generateJoinCode = () => {
-  // 6-digit numeric code, no leading-zero ambiguity issues since it's a string
-  return crypto.randomInt(100000, 1000000).toString();
-};
+const generateJoinCode = () => crypto.randomInt(100000, 1000000).toString();
+
+const generateParticipantToken = () => crypto.randomBytes(24).toString('hex');
 
 // Strip answer keys before sending a slide to participants
 const sanitizeSlide = (slide: IQuizSlide, slideIndex: number, totalSlides: number) => ({
@@ -54,21 +113,58 @@ const sanitizeSlide = (slide: IQuizSlide, slideIndex: number, totalSlides: numbe
 
 const normalizeText = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
 
-const computeScore = (slide: IQuizSlide, isCorrect: boolean, elapsedMs: number) => {
+const computeScore = (
+  points: number,
+  scoreDependsOnTime: boolean,
+  timeLimitMs: number,
+  isCorrect: boolean,
+  elapsedMs: number
+) => {
   if (!isCorrect) return 0;
-  if (!slide.scoreDependsOnTime) return slide.points;
-  const timeLimitMs = slide.timeLimit * 1000;
+  if (!scoreDependsOnTime) return points;
   const ratio = Math.min(Math.max(elapsedMs / timeLimitMs, 0), 1);
   // Mentimeter/Kahoot-style: fastest correct ≈ full points, slowest correct ≈ 50%
-  return Math.round(slide.points * (1 - ratio / 2));
+  return Math.round(points * (1 - ratio / 2));
 };
 
+const touchTtls = async (keys: string[]) => {
+  try {
+    await Promise.all(keys.map((key) => redisClient.expire(key, QUIZ_KEY_TTL_SEC)));
+  } catch (error) {
+    console.error('[Quiz] Failed to refresh key TTLs:', error);
+  }
+};
+
+/**
+ * Leaderboard from the Redis sorted set (fast, multi-instance safe).
+ * Falls back to Mongo if Redis state was lost (restart mid-quiz).
+ */
 const getLeaderboard = async (quizId: string, limit = LEADERBOARD_SIZE) => {
+  try {
+    const entries = await redisClient.zRangeWithScores(k.scores(quizId), 0, limit - 1, {
+      REV: true,
+    });
+    if (entries.length > 0) {
+      const [names, correct] = await Promise.all([
+        redisClient.hGetAll(k.names(quizId)),
+        redisClient.hGetAll(k.correct(quizId)),
+      ]);
+      return entries.map((entry, i) => ({
+        participantId: entry.value,
+        name: names[entry.value] ?? 'Player',
+        score: entry.score,
+        correctCount: Number(correct[entry.value] ?? 0),
+        rank: i + 1,
+      }));
+    }
+  } catch (error) {
+    console.error('[Quiz] Redis leaderboard failed, falling back to Mongo:', error);
+  }
+
   const participants = await QuizParticipantModel.find({ quizId })
     .sort({ score: -1, joinedAt: 1 })
     .limit(limit)
     .lean();
-
   return participants.map((p, i) => ({
     participantId: String(p._id),
     name: p.name,
@@ -76,6 +172,35 @@ const getLeaderboard = async (quizId: string, limit = LEADERBOARD_SIZE) => {
     correctCount: p.correctCount,
     rank: i + 1,
   }));
+};
+
+/**
+ * Verifies participantId + token. Redis-first; falls back to Mongo and
+ * re-hydrates the Redis hashes if they were lost.
+ */
+const verifyParticipant = async (quizId: string, participantId: string, token: string) => {
+  let stored: string | null | undefined = null;
+  try {
+    stored = await redisClient.hGet(k.tokens(quizId), participantId);
+  } catch (error) {
+    console.error('[Quiz] Redis token lookup failed:', error);
+  }
+
+  if (!stored) {
+    const participant = await QuizParticipantModel.findOne({ _id: participantId, quizId }).lean();
+    if (!participant) throw ApiError.notFound('Participant not found — rejoin the quiz');
+    stored = participant.token;
+    // Re-hydrate Redis so subsequent answers stay on the fast path
+    void Promise.all([
+      redisClient.hSet(k.tokens(quizId), participantId, participant.token),
+      redisClient.hSet(k.names(quizId), participantId, participant.name),
+      redisClient.zIncrBy(k.scores(quizId), 0, participantId),
+    ]).catch(() => {});
+  }
+
+  if (stored !== token) {
+    throw ApiError.unauthorized('Invalid participant token');
+  }
 };
 
 export class QuizService {
@@ -127,11 +252,12 @@ export class QuizService {
   }
 
   static async deleteQuiz(quizId: string, userId: string) {
-    await QuizService.assertOwnership(quizId, userId);
+    const quiz = await QuizService.assertOwnership(quizId, userId);
     await Promise.all([
       QuizModel.findByIdAndDelete(quizId),
       QuizParticipantModel.deleteMany({ quizId }),
       QuizAnswerModel.deleteMany({ quizId }),
+      redisClient.del(allQuizKeys(quizId, quiz.slides.length)).catch(() => {}),
     ]);
   }
 
@@ -144,6 +270,7 @@ export class QuizService {
     await Promise.all([
       QuizParticipantModel.deleteMany({ quizId }),
       QuizAnswerModel.deleteMany({ quizId }),
+      redisClient.del(allQuizKeys(quizId, quiz.slides.length)).catch(() => {}),
     ]);
 
     quiz.status = 'lobby';
@@ -173,6 +300,13 @@ export class QuizService {
     quiz.questionEndsAt = new Date(now.getTime() + slide.timeLimit * 1000);
     await quiz.save();
 
+    // Cache the live session so the answer hot path never touches Mongo
+    await redisClient
+      .set(k.session(quizId), JSON.stringify(buildSession(quiz, slide)), {
+        EX: QUIZ_KEY_TTL_SEC,
+      })
+      .catch((error) => console.error('[Quiz] Failed to cache session:', error));
+
     await publishQuizEvent(quizId, 'question:started', {
       slide: sanitizeSlide(slide, nextIndex, quiz.slides.length),
       startedAt: now.toISOString(),
@@ -195,41 +329,50 @@ export class QuizService {
     quiz.status = 'reveal';
     await quiz.save();
 
-    const answers = await QuizAnswerModel.find({ quizId, slideIndex }).lean();
-    const participantCount = await QuizParticipantModel.countDocuments({ quizId });
+    // Deleting the session immediately stops the answer fast path,
+    // even when the presenter reveals before the timer runs out
+    await redisClient.del(k.session(quizId)).catch(() => {});
+
+    const [distHash, answeredCount, nameCount] = await Promise.all([
+      redisClient.hGetAll(k.dist(quizId, slideIndex)).catch(() => ({}) as Record<string, string>),
+      redisClient.sCard(k.answered(quizId, slideIndex)).catch(() => 0),
+      redisClient.hLen(k.names(quizId)).catch(() => 0),
+    ]);
+    const participantCount =
+      nameCount > 0 ? nameCount : await QuizParticipantModel.countDocuments({ quizId });
 
     let distribution: Record<string, unknown>;
     if (slide.type === 'select_answer') {
-      const counts = slide.options.map(
-        (_, i) => answers.filter((a) => a.optionIndex === i).length
-      );
+      const counts = slide.options.map((_, i) => Number(distHash[String(i)] ?? 0));
       distribution = {
         kind: 'options',
         counts,
         options: slide.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })),
       };
     } else {
-      // Group typed answers, flag whether each group matched
-      const groups = new Map<string, { text: string; count: number; isCorrect: boolean }>();
       const accepted = slide.acceptedAnswers.map(normalizeText);
-      for (const a of answers) {
-        const key = normalizeText(a.text || '');
-        const existing = groups.get(key);
-        if (existing) existing.count += 1;
-        else groups.set(key, { text: a.text || '', count: 1, isCorrect: accepted.includes(key) });
-      }
-      distribution = {
-        kind: 'text',
-        answers: [...groups.values()].sort((a, b) => b.count - a.count).slice(0, 20),
-        acceptedAnswers: slide.acceptedAnswers,
-      };
+      const answers = Object.entries(distHash)
+        .map(([text, count]) => ({
+          text,
+          count: Number(count),
+          isCorrect: accepted.includes(text),
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 20);
+      distribution = { kind: 'text', answers, acceptedAnswers: slide.acceptedAnswers };
     }
+
+    await touchTtls([
+      k.answered(quizId, slideIndex),
+      k.dist(quizId, slideIndex),
+      k.results(quizId, slideIndex),
+    ]);
 
     await publishQuizEvent(quizId, 'question:revealed', {
       slideIndex,
       question: slide.question,
       distribution,
-      answeredCount: answers.length,
+      answeredCount,
       participantCount,
       isLastSlide: slideIndex === quiz.slides.length - 1,
     });
@@ -245,10 +388,11 @@ export class QuizService {
     quiz.status = 'leaderboard';
     await quiz.save();
 
-    const [leaderboard, participantCount] = await Promise.all([
-      getLeaderboard(quizId),
-      QuizParticipantModel.countDocuments({ quizId }),
-    ]);
+    const leaderboard = await getLeaderboard(quizId);
+    const participantCount = await redisClient
+      .hLen(k.names(quizId))
+      .catch(() => 0)
+      .then((n) => (n > 0 ? n : QuizParticipantModel.countDocuments({ quizId })));
 
     await publishQuizEvent(quizId, 'leaderboard:shown', {
       leaderboard,
@@ -265,10 +409,11 @@ export class QuizService {
     quiz.status = 'ended';
     await quiz.save();
 
-    const [leaderboard, participantCount] = await Promise.all([
-      getLeaderboard(quizId, 100),
-      QuizParticipantModel.countDocuments({ quizId }),
-    ]);
+    const leaderboard = await getLeaderboard(quizId, 100);
+    const participantCount = await QuizParticipantModel.countDocuments({ quizId });
+
+    // Keep Redis state readable for final screens, then self-clean
+    await touchTtls(allQuizKeys(quizId, quiz.slides.length));
 
     await publishQuizEvent(quizId, 'quiz:ended', { leaderboard, participantCount });
     return quiz;
@@ -276,12 +421,21 @@ export class QuizService {
 
   static async getHostState(quizId: string, userId: string) {
     const quiz = await QuizService.assertOwnership(quizId, userId);
-    const [participants, answeredCount] = await Promise.all([
-      QuizParticipantModel.find({ quizId }).sort({ joinedAt: 1 }).lean(),
-      quiz.currentSlideIndex >= 0
-        ? QuizAnswerModel.countDocuments({ quizId, slideIndex: quiz.currentSlideIndex })
-        : Promise.resolve(0),
-    ]);
+
+    let answeredCount = 0;
+    if (quiz.currentSlideIndex >= 0) {
+      answeredCount = await redisClient
+        .sCard(k.answered(quizId, quiz.currentSlideIndex))
+        .catch(() => 0);
+      if (answeredCount === 0) {
+        answeredCount = await QuizAnswerModel.countDocuments({
+          quizId,
+          slideIndex: quiz.currentSlideIndex,
+        });
+      }
+    }
+
+    const participants = await QuizParticipantModel.find({ quizId }).sort({ joinedAt: 1 }).lean();
 
     return {
       quiz,
@@ -334,128 +488,232 @@ export class QuizService {
     // Idempotent join: same device rejoins as the same participant (refresh-safe)
     const participant = await QuizParticipantModel.findOneAndUpdate(
       { quizId, deviceId: data.deviceId },
-      { $setOnInsert: { name: data.name, score: 0, correctCount: 0, joinedAt: new Date() } },
-      { new: true, upsert: true }
+      {
+        $setOnInsert: {
+          name: data.name,
+          token: generateParticipantToken(),
+          score: 0,
+          correctCount: 0,
+          joinedAt: new Date(),
+        },
+      },
+      { returnDocument: 'after', upsert: true }
     );
 
-    const participantCount = await QuizParticipantModel.countDocuments({ quizId });
+    const participantId = String(participant._id);
+
+    // Mirror identity into Redis for the answer hot path
+    await Promise.all([
+      redisClient.hSet(k.names(quizId), participantId, participant.name),
+      redisClient.hSet(k.tokens(quizId), participantId, participant.token),
+      redisClient.zIncrBy(k.scores(quizId), 0, participantId),
+    ]).catch((error) => console.error('[Quiz] Failed to mirror participant to Redis:', error));
+    await touchTtls([k.names(quizId), k.tokens(quizId), k.scores(quizId), k.correct(quizId)]);
+
+    const participantCount = await redisClient
+      .hLen(k.names(quizId))
+      .catch(() => 0)
+      .then((n) => (n > 0 ? n : QuizParticipantModel.countDocuments({ quizId })));
+
     await publishQuizEvent(quizId, 'participant:joined', {
-      participantId: String(participant._id),
+      participantId,
       name: participant.name,
       participantCount,
     });
 
+    // token returned ONLY to the joiner — never broadcast
     return {
-      participantId: String(participant._id),
+      participantId,
       name: participant.name,
       score: participant.score,
+      token: participant.token,
     };
   }
 
+  /**
+   * HOT PATH — runs entirely on Redis; Mongo writes are async write-behind.
+   */
   static async submitAnswer(quizId: string, data: SubmitQuizAnswerInput) {
-    const quiz = await QuizService.getQuizById(quizId);
-
-    if (quiz.status !== 'question' || quiz.currentSlideIndex !== data.slideIndex) {
-      throw ApiError.badRequest('This question is no longer accepting answers');
+    // 1. Load the live session (Redis-first, Mongo fallback rebuilds the cache)
+    let session: LiveSession | null = null;
+    const raw = await redisClient.get(k.session(quizId)).catch(() => null);
+    if (raw) {
+      session = JSON.parse(raw) as LiveSession;
+    } else {
+      const quiz = await QuizModel.findById(quizId);
+      if (quiz && quiz.status === 'question' && quiz.currentSlideIndex >= 0) {
+        const slide = quiz.slides[quiz.currentSlideIndex];
+        if (slide && quiz.questionStartedAt && quiz.questionEndsAt) {
+          session = buildSession(quiz, slide);
+          void redisClient
+            .set(k.session(quizId), JSON.stringify(session), { EX: QUIZ_KEY_TTL_SEC })
+            .catch(() => {});
+        }
+      }
     }
-    const slide = quiz.slides[data.slideIndex];
-    if (!slide || !quiz.questionStartedAt || !quiz.questionEndsAt) {
-      throw ApiError.internal('Question timing state is missing');
+
+    if (!session || session.slideIndex !== data.slideIndex) {
+      throw ApiError.badRequest('This question is no longer accepting answers');
     }
 
     const now = Date.now();
-    if (now > quiz.questionEndsAt.getTime() + ANSWER_GRACE_MS) {
+    if (now > session.endsAtMs + ANSWER_GRACE_MS) {
       throw ApiError.badRequest("Time's up — answer not accepted");
     }
 
-    const participant = await QuizParticipantModel.findOne({ _id: data.participantId, quizId });
-    if (!participant) throw ApiError.notFound('Participant not found — rejoin the quiz');
+    // 2. Authenticate the participant (token issued at join, never broadcast)
+    await verifyParticipant(quizId, data.participantId, data.participantToken);
 
-    // Server-clock scoring: clients can't cheat by reporting their own elapsed time
-    const elapsedMs = Math.max(0, now - quiz.questionStartedAt.getTime());
-
-    let isCorrect = false;
-    if (slide.type === 'select_answer') {
-      if (data.optionIndex === undefined || !slide.options[data.optionIndex]) {
-        throw ApiError.badRequest('Invalid option for this question');
-      }
-      isCorrect = slide.options[data.optionIndex]!.isCorrect;
-    } else {
-      if (data.text === undefined) {
-        throw ApiError.badRequest('This question expects a typed answer');
-      }
-      isCorrect = slide.acceptedAnswers.map(normalizeText).includes(normalizeText(data.text));
+    // 3. Atomic dedup — SADD returns 0 if this participant already answered
+    const answeredKey = k.answered(quizId, data.slideIndex);
+    const added = await redisClient.sAdd(answeredKey, data.participantId);
+    if (added === 0) {
+      throw ApiError.conflict('You already answered this question');
     }
 
-    const score = computeScore(slide, isCorrect, elapsedMs);
+    // 4. Grade + score (server clock — clients can't cheat timing)
+    const elapsedMs = Math.max(0, now - session.startedAtMs);
+    let isCorrect = false;
+    let distField: string;
 
     try {
-      await QuizAnswerModel.create({
-        quizId,
-        participantId: participant._id,
-        slideIndex: data.slideIndex,
-        optionIndex: slide.type === 'select_answer' ? data.optionIndex : null,
-        text: slide.type === 'type_answer' ? data.text : null,
-        isCorrect,
-        score,
-        timeMs: elapsedMs,
-      });
-    } catch (error: any) {
-      if (error?.code === 11000) {
-        throw ApiError.conflict('You already answered this question');
+      if (session.type === 'select_answer') {
+        if (
+          data.optionIndex === undefined ||
+          data.optionIndex < 0 ||
+          data.optionIndex >= session.optionCount
+        ) {
+          throw ApiError.badRequest('Invalid option for this question');
+        }
+        isCorrect = session.correctOptions.includes(data.optionIndex);
+        distField = String(data.optionIndex);
+      } else {
+        if (data.text === undefined) {
+          throw ApiError.badRequest('This question expects a typed answer');
+        }
+        const normalized = normalizeText(data.text);
+        isCorrect = session.acceptedNormalized.includes(normalized);
+        distField = normalized;
       }
+    } catch (error) {
+      // Undo the dedup marker so a corrected retry is allowed
+      await redisClient.sRem(answeredKey, data.participantId).catch(() => {});
       throw error;
     }
 
-    await QuizParticipantModel.updateOne(
-      { _id: participant._id },
-      { $inc: { score, correctCount: isCorrect ? 1 : 0 } }
+    const score = computeScore(
+      session.points,
+      session.scoreDependsOnTime,
+      session.timeLimitMs,
+      isCorrect,
+      elapsedMs
     );
 
-    const answeredCount = await QuizAnswerModel.countDocuments({
-      quizId,
-      slideIndex: data.slideIndex,
-    });
+    // 5. Atomic Redis updates (leaderboard, distribution, per-participant result)
+    const [, , , answeredCount] = await Promise.all([
+      redisClient.zIncrBy(k.scores(quizId), score, data.participantId),
+      isCorrect
+        ? redisClient.hIncrBy(k.correct(quizId), data.participantId, 1)
+        : Promise.resolve(0),
+      redisClient.hIncrBy(k.dist(quizId, data.slideIndex), distField, 1),
+      redisClient.sCard(answeredKey),
+      redisClient.hSet(
+        k.results(quizId, data.slideIndex),
+        data.participantId,
+        JSON.stringify({ isCorrect, score })
+      ),
+    ]);
+
     await publishQuizEvent(quizId, 'answer:received', {
       slideIndex: data.slideIndex,
       answeredCount,
     });
 
+    // 6. Write-behind to Mongo (durable record; off the latency path)
+    QuizAnswerModel.create({
+      quizId,
+      participantId: data.participantId,
+      slideIndex: data.slideIndex,
+      optionIndex: session.type === 'select_answer' ? data.optionIndex : null,
+      text: session.type === 'type_answer' ? data.text : null,
+      isCorrect,
+      score,
+      timeMs: elapsedMs,
+    }).catch((error: any) => {
+      if (error?.code !== 11000) console.error('[Quiz] Failed to persist answer:', error);
+    });
+    QuizParticipantModel.updateOne(
+      { _id: data.participantId },
+      { $inc: { score, correctCount: isCorrect ? 1 : 0 } }
+    ).catch((error) => console.error('[Quiz] Failed to persist participant score:', error));
+
     // Deliberately no correctness/score leak before reveal
     return { accepted: true };
   }
 
-  static async getParticipantState(quizId: string, participantId: string) {
-    const quiz = await QuizService.getQuizById(quizId);
-    const participant = await QuizParticipantModel.findOne({ _id: participantId, quizId }).lean();
-    if (!participant) throw ApiError.notFound('Participant not found');
+  static async getParticipantState(quizId: string, participantId: string, token: string) {
+    await verifyParticipant(quizId, participantId, token);
 
-    const rank =
-      (await QuizParticipantModel.countDocuments({ quizId, score: { $gt: participant.score } })) +
-      1;
+    const quiz = await QuizService.getQuizById(quizId);
+
+    // Score + rank from Redis (reveal-time stampede stays off Mongo)
+    let totalScore = 0;
+    let rank = 1;
+    let correctCount = 0;
+    try {
+      const zScore = await redisClient.zScore(k.scores(quizId), participantId);
+      totalScore = zScore ?? 0;
+      const higher = await redisClient.zCount(k.scores(quizId), `(${totalScore}`, '+inf');
+      rank = higher + 1;
+      correctCount = Number(
+        (await redisClient.hGet(k.correct(quizId), participantId)) ?? 0
+      );
+    } catch {
+      const participant = await QuizParticipantModel.findOne({ _id: participantId, quizId }).lean();
+      if (participant) {
+        totalScore = participant.score;
+        correctCount = participant.correctCount;
+        rank =
+          (await QuizParticipantModel.countDocuments({
+            quizId,
+            score: { $gt: participant.score },
+          })) + 1;
+      }
+    }
 
     // Last answer result is only exposed once the question has been revealed
     let lastAnswer: { slideIndex: number; isCorrect: boolean; score: number } | null = null;
     if (['reveal', 'leaderboard', 'ended'].includes(quiz.status) && quiz.currentSlideIndex >= 0) {
-      const answer = await QuizAnswerModel.findOne({
-        quizId,
-        participantId,
-        slideIndex: quiz.currentSlideIndex,
-      }).lean();
-      if (answer) {
-        lastAnswer = {
-          slideIndex: answer.slideIndex,
-          isCorrect: answer.isCorrect,
-          score: answer.score,
-        };
+      const cached = await redisClient
+        .hGet(k.results(quizId, quiz.currentSlideIndex), participantId)
+        .catch(() => null);
+      if (cached) {
+        const parsed = JSON.parse(cached) as { isCorrect: boolean; score: number };
+        lastAnswer = { slideIndex: quiz.currentSlideIndex, ...parsed };
+      } else {
+        const answer = await QuizAnswerModel.findOne({
+          quizId,
+          participantId,
+          slideIndex: quiz.currentSlideIndex,
+        }).lean();
+        if (answer) {
+          lastAnswer = {
+            slideIndex: answer.slideIndex,
+            isCorrect: answer.isCorrect,
+            score: answer.score,
+          };
+        }
       }
     }
 
+    const name =
+      (await redisClient.hGet(k.names(quizId), participantId).catch(() => null)) ?? 'Player';
+
     return {
-      participantId: String(participant._id),
-      name: participant.name,
-      totalScore: participant.score,
-      correctCount: participant.correctCount,
+      participantId,
+      name,
+      totalScore,
+      correctCount,
       rank,
       lastAnswer,
       quizStatus: quiz.status,

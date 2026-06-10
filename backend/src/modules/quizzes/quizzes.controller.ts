@@ -161,9 +161,15 @@ export class QuizController {
 
   static async participantState(req: Request, res: Response, next: NextFunction) {
     try {
+      const participantId = String(req.query.participantId || '');
+      const token = String(req.query.token || '');
+      if (!participantId || !token) {
+        throw ApiError.badRequest('participantId and token are required');
+      }
       const state = await QuizService.getParticipantState(
         requireParam(req, 'id'),
-        requireParam(req, 'participantId')
+        participantId,
+        token
       );
       return ApiResponse.ok(res, 'Participant state fetched', state);
     } catch (error) {

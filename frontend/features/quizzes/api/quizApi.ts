@@ -67,12 +67,18 @@ export const joinQuiz = async (quizId: string, name: string, deviceId: string) =
 
 export const submitAnswer = async (
   quizId: string,
-  input: { participantId: string; slideIndex: number; optionIndex?: number; text?: string }
+  input: {
+    participantId: string;
+    participantToken: string;
+    slideIndex: number;
+    optionIndex?: number;
+    text?: string;
+  }
 ) => (await apiClient.post<ApiOk<{ accepted: boolean }>>(`/quizzes/${quizId}/answer`, input)).data.data;
 
-export const getParticipantState = async (quizId: string, participantId: string) =>
+export const getParticipantState = async (quizId: string, participantId: string, token: string) =>
   (
-    await apiClient.get<ApiOk<ParticipantState>>(
-      `/quizzes/${quizId}/participants/${participantId}`
-    )
+    await apiClient.get<ApiOk<ParticipantState>>(`/quizzes/${quizId}/me`, {
+      params: { participantId, token },
+    })
   ).data.data;

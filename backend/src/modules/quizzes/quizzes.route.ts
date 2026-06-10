@@ -8,14 +8,35 @@ import {
   submitQuizAnswerSchema,
 } from './quizzes.schema';
 import { authenticate } from '../auth/auth.middleware';
+import { rateLimit } from '../../common/middlewares/rateLimit.middleware';
 
 const router = Router();
 
-// Public participant flow (no auth — participants join with a nickname)
-router.get('/code/:code', QuizController.getByCode);
-router.post('/:id/join', validate(joinQuizSchema), QuizController.join);
-router.post('/:id/answer', validate(submitQuizAnswerSchema), QuizController.answer);
-router.get('/:id/participants/:participantId', QuizController.participantState);
+// Public participant flow (no auth — participants join with a nickname).
+// Rate limits are per-IP and sized for classroom NAT (many players, one IP):
+// they exist to stop bots/enumeration, not to throttle legit bursts.
+router.get(
+  '/code/:code',
+  rateLimit({ prefix: 'quiz-code', windowSec: 60, max: 60 }),
+  QuizController.getByCode
+);
+router.post(
+  '/:id/join',
+  rateLimit({ prefix: 'quiz-join', windowSec: 300, max: 500 }),
+  validate(joinQuizSchema),
+  QuizController.join
+);
+router.post(
+  '/:id/answer',
+  rateLimit({ prefix: 'quiz-answer', windowSec: 60, max: 2000 }),
+  validate(submitQuizAnswerSchema),
+  QuizController.answer
+);
+router.get(
+  '/:id/me',
+  rateLimit({ prefix: 'quiz-me', windowSec: 60, max: 600 }),
+  QuizController.participantState
+);
 
 // Creator CRUD
 router.post('/', authenticate(), validate(createQuizSchema), QuizController.create);

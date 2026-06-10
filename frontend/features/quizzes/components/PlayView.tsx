@@ -62,7 +62,11 @@ export function PlayView({ code }: PlayViewProps) {
 
   const [info, setInfo] = useState<PublicQuizInfo | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const [participant, setParticipant] = useState<{ participantId: string; name: string } | null>(null);
+  const [participant, setParticipant] = useState<{
+    participantId: string;
+    name: string;
+    token: string;
+  } | null>(null);
   const [nameDraft, setNameDraft] = useState("");
   const [joining, setJoining] = useState(false);
 
@@ -98,7 +102,9 @@ export function PlayView({ code }: PlayViewProps) {
     const stored = localStorage.getItem(`openpoll_quiz_participant_${info.quizId}`);
     if (stored) {
       try {
-        setParticipant(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        // Older sessions without a token can't answer — force a fresh join
+        if (parsed?.participantId && parsed?.token) setParticipant(parsed);
       } catch {
         // ignore corrupt state
       }
@@ -125,7 +131,9 @@ export function PlayView({ code }: PlayViewProps) {
       case "question:revealed": {
         setStatus("reveal");
         if (participant && quizId) {
-          void getParticipantState(quizId, participant.participantId).then(setMyState).catch(() => {});
+          void getParticipantState(quizId, participant.participantId, participant.token)
+            .then(setMyState)
+            .catch(() => {});
         }
         break;
       }
@@ -138,7 +146,9 @@ export function PlayView({ code }: PlayViewProps) {
         setLeaderboard((event.payload as { leaderboard: LeaderboardEntry[] }).leaderboard);
         setStatus("ended");
         if (participant && quizId) {
-          void getParticipantState(quizId, participant.participantId).then(setMyState).catch(() => {});
+          void getParticipantState(quizId, participant.participantId, participant.token)
+            .then(setMyState)
+            .catch(() => {});
         }
         break;
       }
@@ -168,7 +178,11 @@ export function PlayView({ code }: PlayViewProps) {
     setJoining(true);
     try {
       const joined = await joinQuiz(info.quizId, name, deviceId);
-      const stored = { participantId: joined.participantId, name: joined.name };
+      const stored = {
+        participantId: joined.participantId,
+        name: joined.name,
+        token: joined.token,
+      };
       localStorage.setItem(`openpoll_quiz_participant_${info.quizId}`, JSON.stringify(stored));
       setParticipant(stored);
     } catch (err: any) {
@@ -184,6 +198,7 @@ export function PlayView({ code }: PlayViewProps) {
     try {
       await submitAnswer(quizId, {
         participantId: participant.participantId,
+        participantToken: participant.token,
         slideIndex: slide.slideIndex,
         ...payload,
       });
