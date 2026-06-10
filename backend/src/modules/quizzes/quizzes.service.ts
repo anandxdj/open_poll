@@ -6,6 +6,7 @@ import {
   QuizModel,
   QuizParticipantModel,
   QuizAnswerModel,
+  isScoredSlideType,
   type IQuiz,
   type IQuizSlide,
   type QuizSlideType,
@@ -35,8 +36,9 @@ const k = {
   names: (q: string) => `quiz:${q}:names`, // HASH participantId -> nickname
   tokens: (q: string) => `quiz:${q}:tokens`, // HASH participantId -> secret token
   answered: (q: string, i: number) => `quiz:${q}:answered:${i}`, // SET participantIds
-  dist: (q: string, i: number) => `quiz:${q}:dist:${i}`, // HASH option/text -> count
-  results: (q: string, i: number) => `quiz:${q}:results:${i}`, // HASH pid -> {isCorrect,score}
+  dist: (q: string, i: number) => `quiz:${q}:dist:${i}`, // HASH option/text -> count (sum/points for scales/ranking)
+  disp: (q: string, i: number) => `quiz:${q}:disp:${i}`, // HASH normalized text -> first-seen original casing
+  results: (q: string, i: number) => `quiz:${q}:results:${i}`, // HASH pid -> {isCorrect,score,scored}
 };
 
 const allQuizKeys = (quizId: string, slideCount: number) => {
@@ -48,7 +50,7 @@ const allQuizKeys = (quizId: string, slideCount: number) => {
     k.tokens(quizId),
   ];
   for (let i = 0; i < slideCount; i++) {
-    keys.push(k.answered(quizId, i), k.dist(quizId, i), k.results(quizId, i));
+    keys.push(k.answered(quizId, i), k.dist(quizId, i), k.disp(quizId, i), k.results(quizId, i));
   }
   return keys;
 };
@@ -59,9 +61,14 @@ interface LiveSession {
   startedAtMs: number;
   endsAtMs: number;
   type: QuizSlideType;
+  scored: boolean;
   correctOptions: number[];
   acceptedNormalized: string[];
   optionCount: number;
+  statementCount: number;
+  scaleMax: number;
+  itemCount: number;
+  maxEntries: number;
   timeLimitMs: number;
   points: number;
   scoreDependsOnTime: boolean;
@@ -72,9 +79,14 @@ const buildSession = (quiz: IQuiz, slide: IQuizSlide): LiveSession => ({
   startedAtMs: quiz.questionStartedAt!.getTime(),
   endsAtMs: quiz.questionEndsAt!.getTime(),
   type: slide.type,
+  scored: isScoredSlideType(slide.type),
   correctOptions: slide.options.flatMap((o, i) => (o.isCorrect ? [i] : [])),
   acceptedNormalized: slide.acceptedAnswers.map((a) => normalizeText(a)),
   optionCount: slide.options.length,
+  statementCount: slide.statements?.length ?? 0,
+  scaleMax: slide.scaleMax ?? 5,
+  itemCount: slide.items?.length ?? 0,
+  maxEntries: slide.maxEntries ?? 3,
   timeLimitMs: slide.timeLimit * 1000,
   points: slide.points,
   scoreDependsOnTime: slide.scoreDependsOnTime,
@@ -104,8 +116,15 @@ const sanitizeSlide = (slide: IQuizSlide, slideIndex: number, totalSlides: numbe
   slideIndex,
   totalSlides,
   type: slide.type,
+  scored: isScoredSlideType(slide.type),
   question: slide.question,
   options: slide.options.map((o) => ({ text: o.text })),
+  statements: slide.statements ?? [],
+  minLabel: slide.minLabel ?? '',
+  maxLabel: slide.maxLabel ?? '',
+  scaleMax: slide.scaleMax ?? 5,
+  items: slide.items ?? [],
+  maxEntries: slide.maxEntries ?? 3,
   timeLimit: slide.timeLimit,
   points: slide.points,
   scoreDependsOnTime: slide.scoreDependsOnTime,
@@ -333,8 +352,9 @@ export class QuizService {
     // even when the presenter reveals before the timer runs out
     await redisClient.del(k.session(quizId)).catch(() => {});
 
-    const [distHash, answeredCount, nameCount] = await Promise.all([
+    const [distHash, dispHash, answeredCount, nameCount] = await Promise.all([
       redisClient.hGetAll(k.dist(quizId, slideIndex)).catch(() => ({}) as Record<string, string>),
+      redisClient.hGetAll(k.disp(quizId, slideIndex)).catch(() => ({}) as Record<string, string>),
       redisClient.sCard(k.answered(quizId, slideIndex)).catch(() => 0),
       redisClient.hLen(k.names(quizId)).catch(() => 0),
     ]);
@@ -342,35 +362,87 @@ export class QuizService {
       nameCount > 0 ? nameCount : await QuizParticipantModel.countDocuments({ quizId });
 
     let distribution: Record<string, unknown>;
-    if (slide.type === 'select_answer') {
-      const counts = slide.options.map((_, i) => Number(distHash[String(i)] ?? 0));
-      distribution = {
-        kind: 'options',
-        counts,
-        options: slide.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })),
-      };
-    } else {
-      const accepted = slide.acceptedAnswers.map(normalizeText);
-      const answers = Object.entries(distHash)
-        .map(([text, count]) => ({
-          text,
-          count: Number(count),
-          isCorrect: accepted.includes(text),
-        }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 20);
-      distribution = { kind: 'text', answers, acceptedAnswers: slide.acceptedAnswers };
+    switch (slide.type) {
+      case 'select_answer': {
+        const counts = slide.options.map((_, i) => Number(distHash[String(i)] ?? 0));
+        distribution = {
+          kind: 'options',
+          counts,
+          options: slide.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })),
+        };
+        break;
+      }
+      case 'type_answer': {
+        const accepted = slide.acceptedAnswers.map(normalizeText);
+        const answers = Object.entries(distHash)
+          .map(([text, count]) => ({
+            text,
+            count: Number(count),
+            isCorrect: accepted.includes(text),
+          }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 20);
+        distribution = { kind: 'text', answers, acceptedAnswers: slide.acceptedAnswers };
+        break;
+      }
+      case 'wordcloud': {
+        const words = Object.entries(distHash)
+          .map(([norm, count]) => ({ text: dispHash[norm] ?? norm, count: Number(count) }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 100);
+        distribution = { kind: 'words', words };
+        break;
+      }
+      case 'open_ended': {
+        const responses = Object.entries(distHash)
+          .map(([norm, count]) => ({ text: dispHash[norm] ?? norm, count: Number(count) }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 50);
+        distribution = { kind: 'responses', responses };
+        break;
+      }
+      case 'scales': {
+        const statements = (slide.statements ?? []).map((statement, i) => {
+          const sum = Number(distHash[`s${i}:sum`] ?? 0);
+          const count = Number(distHash[`s${i}:count`] ?? 0);
+          return {
+            statement,
+            average: count > 0 ? Math.round((sum / count) * 100) / 100 : 0,
+            count,
+          };
+        });
+        distribution = {
+          kind: 'scales',
+          statements,
+          scaleMax: slide.scaleMax ?? 5,
+          minLabel: slide.minLabel ?? '',
+          maxLabel: slide.maxLabel ?? '',
+        };
+        break;
+      }
+      case 'ranking': {
+        const voters = Number(distHash['voters'] ?? 0);
+        const items = (slide.items ?? [])
+          .map((text, i) => ({ text, points: Number(distHash[String(i)] ?? 0) }))
+          .sort((a, b) => b.points - a.points)
+          .map((item, i) => ({ ...item, rank: i + 1 }));
+        distribution = { kind: 'ranking', items, voters };
+        break;
+      }
     }
 
     await touchTtls([
       k.answered(quizId, slideIndex),
       k.dist(quizId, slideIndex),
+      k.disp(quizId, slideIndex),
       k.results(quizId, slideIndex),
     ]);
 
     await publishQuizEvent(quizId, 'question:revealed', {
       slideIndex,
       question: slide.question,
+      type: slide.type,
+      scored: isScoredSlideType(slide.type),
       distribution,
       answeredCount,
       participantCount,
@@ -571,29 +643,94 @@ export class QuizService {
       throw ApiError.conflict('You already answered this question');
     }
 
-    // 4. Grade + score (server clock — clients can't cheat timing)
+    // 4. Grade + build distribution writes (server clock — clients can't cheat timing)
     const elapsedMs = Math.max(0, now - session.startedAtMs);
     let isCorrect = false;
-    let distField: string;
+    let distWrites: { field: string; by: number }[] = [];
+    // First-seen original casing for text-based reveals (word cloud / card wall)
+    let dispWrites: { field: string; value: string }[] = [];
 
     try {
-      if (session.type === 'select_answer') {
-        if (
-          data.optionIndex === undefined ||
-          data.optionIndex < 0 ||
-          data.optionIndex >= session.optionCount
-        ) {
-          throw ApiError.badRequest('Invalid option for this question');
+      switch (session.type) {
+        case 'select_answer': {
+          if (
+            data.optionIndex === undefined ||
+            data.optionIndex < 0 ||
+            data.optionIndex >= session.optionCount
+          ) {
+            throw ApiError.badRequest('Invalid option for this question');
+          }
+          isCorrect = session.correctOptions.includes(data.optionIndex);
+          distWrites = [{ field: String(data.optionIndex), by: 1 }];
+          break;
         }
-        isCorrect = session.correctOptions.includes(data.optionIndex);
-        distField = String(data.optionIndex);
-      } else {
-        if (data.text === undefined) {
-          throw ApiError.badRequest('This question expects a typed answer');
+        case 'type_answer': {
+          if (data.text === undefined) {
+            throw ApiError.badRequest('This question expects a typed answer');
+          }
+          const normalized = normalizeText(data.text);
+          isCorrect = session.acceptedNormalized.includes(normalized);
+          distWrites = [{ field: normalized, by: 1 }];
+          break;
         }
-        const normalized = normalizeText(data.text);
-        isCorrect = session.acceptedNormalized.includes(normalized);
-        distField = normalized;
+        case 'open_ended': {
+          if (data.text === undefined) {
+            throw ApiError.badRequest('This question expects a typed response');
+          }
+          const normalized = normalizeText(data.text);
+          distWrites = [{ field: normalized, by: 1 }];
+          dispWrites = [{ field: normalized, value: data.text.trim() }];
+          break;
+        }
+        case 'wordcloud': {
+          const raw = data.entries ?? (data.text !== undefined ? [data.text] : []);
+          const seen = new Set<string>();
+          for (const entry of raw.slice(0, session.maxEntries)) {
+            const normalized = normalizeText(entry);
+            if (!normalized || seen.has(normalized)) continue;
+            seen.add(normalized);
+            distWrites.push({ field: normalized, by: 1 });
+            dispWrites.push({ field: normalized, value: entry.trim() });
+          }
+          if (distWrites.length === 0) {
+            throw ApiError.badRequest('Submit at least one word');
+          }
+          break;
+        }
+        case 'scales': {
+          if (!data.ratings || data.ratings.length !== session.statementCount) {
+            throw ApiError.badRequest('Rate every statement');
+          }
+          if (data.ratings.some((r) => r < 1 || r > session.scaleMax)) {
+            throw ApiError.badRequest(`Ratings must be between 1 and ${session.scaleMax}`);
+          }
+          // Per-statement running sum + count; averages computed at reveal
+          distWrites = data.ratings.flatMap((rating, i) => [
+            { field: `s${i}:sum`, by: rating },
+            { field: `s${i}:count`, by: 1 },
+          ]);
+          break;
+        }
+        case 'ranking': {
+          const order = data.ranking;
+          if (!order || order.length !== session.itemCount) {
+            throw ApiError.badRequest('Rank every item');
+          }
+          const unique = new Set(order);
+          if (
+            unique.size !== session.itemCount ||
+            order.some((i) => i < 0 || i >= session.itemCount)
+          ) {
+            throw ApiError.badRequest('Invalid ranking order');
+          }
+          // Borda count: top spot earns n points, last spot earns 1
+          distWrites = order.map((itemIndex, position) => ({
+            field: String(itemIndex),
+            by: session.itemCount - position,
+          }));
+          distWrites.push({ field: 'voters', by: 1 });
+          break;
+        }
       }
     } catch (error) {
       // Undo the dedup marker so a corrected retry is allowed
@@ -601,26 +738,32 @@ export class QuizService {
       throw error;
     }
 
-    const score = computeScore(
-      session.points,
-      session.scoreDependsOnTime,
-      session.timeLimitMs,
-      isCorrect,
-      elapsedMs
-    );
+    // Interactive slides never touch the leaderboard
+    const score = session.scored
+      ? computeScore(
+          session.points,
+          session.scoreDependsOnTime,
+          session.timeLimitMs,
+          isCorrect,
+          elapsedMs
+        )
+      : 0;
 
     // 5. Atomic Redis updates (leaderboard, distribution, per-participant result)
-    const [, , , answeredCount] = await Promise.all([
+    const distKey = k.dist(quizId, data.slideIndex);
+    const dispKey = k.disp(quizId, data.slideIndex);
+    const [answeredCount] = await Promise.all([
+      redisClient.sCard(answeredKey),
       redisClient.zIncrBy(k.scores(quizId), score, data.participantId),
       isCorrect
         ? redisClient.hIncrBy(k.correct(quizId), data.participantId, 1)
         : Promise.resolve(0),
-      redisClient.hIncrBy(k.dist(quizId, data.slideIndex), distField, 1),
-      redisClient.sCard(answeredKey),
+      ...distWrites.map((w) => redisClient.hIncrBy(distKey, w.field, w.by)),
+      ...dispWrites.map((w) => redisClient.hSetNX(dispKey, w.field, w.value)),
       redisClient.hSet(
         k.results(quizId, data.slideIndex),
         data.participantId,
-        JSON.stringify({ isCorrect, score })
+        JSON.stringify({ isCorrect, score, scored: session.scored })
       ),
     ]);
 
@@ -635,7 +778,15 @@ export class QuizService {
       participantId: data.participantId,
       slideIndex: data.slideIndex,
       optionIndex: session.type === 'select_answer' ? data.optionIndex : null,
-      text: session.type === 'type_answer' ? data.text : null,
+      text: session.type === 'type_answer' || session.type === 'open_ended' ? data.text : null,
+      payload:
+        session.type === 'wordcloud'
+          ? { entries: data.entries ?? (data.text ? [data.text] : []) }
+          : session.type === 'scales'
+            ? { ratings: data.ratings }
+            : session.type === 'ranking'
+              ? { ranking: data.ranking }
+              : null,
       isCorrect,
       score,
       timeMs: elapsedMs,
@@ -682,14 +833,30 @@ export class QuizService {
     }
 
     // Last answer result is only exposed once the question has been revealed
-    let lastAnswer: { slideIndex: number; isCorrect: boolean; score: number } | null = null;
+    let lastAnswer: {
+      slideIndex: number;
+      isCorrect: boolean;
+      score: number;
+      scored: boolean;
+    } | null = null;
     if (['reveal', 'leaderboard', 'ended'].includes(quiz.status) && quiz.currentSlideIndex >= 0) {
+      const slideType = quiz.slides[quiz.currentSlideIndex]?.type;
+      const slideScored = slideType ? isScoredSlideType(slideType) : true;
       const cached = await redisClient
         .hGet(k.results(quizId, quiz.currentSlideIndex), participantId)
         .catch(() => null);
       if (cached) {
-        const parsed = JSON.parse(cached) as { isCorrect: boolean; score: number };
-        lastAnswer = { slideIndex: quiz.currentSlideIndex, ...parsed };
+        const parsed = JSON.parse(cached) as {
+          isCorrect: boolean;
+          score: number;
+          scored?: boolean;
+        };
+        lastAnswer = {
+          slideIndex: quiz.currentSlideIndex,
+          isCorrect: parsed.isCorrect,
+          score: parsed.score,
+          scored: parsed.scored ?? slideScored,
+        };
       } else {
         const answer = await QuizAnswerModel.findOne({
           quizId,
@@ -701,6 +868,7 @@ export class QuizService {
             slideIndex: answer.slideIndex,
             isCorrect: answer.isCorrect,
             score: answer.score,
+            scored: slideScored,
           };
         }
       }

@@ -16,9 +16,13 @@ leaderboard can be shown between questions; final standings show on `end`.
 ## Models (`quizzes.model.ts`)
 
 - **Quiz** — definition + live session state in one document.
-  - `slides[]`: `type` (`select_answer` | `type_answer`), `question`, `options[{text,isCorrect}]`,
-    `acceptedAnswers[]`, `timeLimit` (5–300s, default 30), `points` (default 1000),
-    `scoreDependsOnTime` (default true).
+  - `slides[]`: `type` — scored: `select_answer` | `type_answer`; interactive (non-scored,
+    Phase 3): `wordcloud` | `open_ended` | `scales` | `ranking`. Common: `question`,
+    `timeLimit` (5–300s, default 30). Per type: `options[{text,isCorrect}]` (select),
+    `acceptedAnswers[]` (type), `maxEntries` 1–3 (wordcloud), `statements[]` +
+    `minLabel`/`maxLabel` + `scaleMax` 2–10 (scales), `items[]` (ranking). Scored only:
+    `points` (default 1000), `scoreDependsOnTime` (default true). Flat schema with
+    per-type Zod `superRefine`; unused fields default empty.
   - Session: `status` (`draft → lobby → question ⇄ reveal ⇄ leaderboard → ended`),
     `currentSlideIndex` (-1 before first question), `questionStartedAt`, `questionEndsAt`,
     `joinCode` (unique 6-digit string).
@@ -37,6 +41,13 @@ Answers rejected after `questionEndsAt` + 750ms grace, and immediately after rev
 (session key is deleted even if the presenter reveals early). Type answers matched
 case/whitespace-insensitively against `acceptedAnswers`.
 
+Interactive types (`wordcloud`, `open_ended`, `scales`, `ranking`) are never scored:
+score=0, no correct count, leaderboard unchanged. The results hash entry carries
+`scored:false` so `/me` renders "response received" instead of correct/wrong.
+Payload per type: wordcloud `entries[]` (≤ maxEntries, deduped, one submission),
+open_ended `text`, scales `ratings[]` (one per statement, 1..scaleMax), ranking
+`ranking[]` (permutation of item indices, Borda-counted: top = n points … last = 1).
+
 ## Redis-first hot path (scalability)
 
 `submitAnswer` never reads Mongo on the happy path — it runs on Redis, with Mongo as
@@ -53,7 +64,8 @@ Key map (all keys TTL ~6h after last transition; wiped on `open-lobby`):
 | `quiz:{id}:names` | HASH | participantId → nickname (leaderboard display, participant count via `HLEN`). |
 | `quiz:{id}:tokens` | HASH | participantId → secret token (answer auth without Mongo). |
 | `quiz:{id}:answered:{slide}` | SET | `SADD` = atomic dedup (returns 0 on double answer); `SCARD` = live answered count. |
-| `quiz:{id}:dist:{slide}` | HASH | optionIndex or normalized text → count. Reveal builds the distribution chart from this. |
+| `quiz:{id}:dist:{slide}` | HASH | optionIndex/normalized text → count; scales: `s{i}:sum`+`s{i}:count`; ranking: itemIndex → Borda points + `voters`. Reveal builds the distribution from this. |
+| `quiz:{id}:disp:{slide}` | HASH | normalized text → first-seen original casing (wordcloud / open_ended display). |
 | `quiz:{id}:results:{slide}` | HASH | participantId → `{isCorrect, score}` for the reveal-time "your result" stampede. |
 
 Answer flow: `GET session` → token check (`HGET tokens`) → `SADD answered` (dedup) →
@@ -80,13 +92,15 @@ Redis/Mongo; events fan out via the existing Redis pub/sub → Socket.io bridge.
 Public (participants):
 - `GET /code/:code` — resolve join code (includes live slide for late joiners; 404 while draft)
 - `POST /:id/join` — `{ name, deviceId }` → `{ participantId, token }` (idempotent per device)
-- `POST /:id/answer` — `{ participantId, participantToken, slideIndex, optionIndex|text }`
+- `POST /:id/answer` — `{ participantId, participantToken, slideIndex, optionIndex|text|entries[]|ratings[]|ranking[] }`
 - `GET /:id/me?participantId=&token=` — score/rank; `lastAnswer` only after reveal
 
 Creator (JWT):
 - `POST /`, `GET /`, `GET /:id`, `PATCH /:id` (draft/ended only), `DELETE /:id`
 - Host controls: `GET /:id/host/state`, `POST /:id/host/open-lobby` (wipes previous run),
   `/next-question`, `/reveal`, `/leaderboard`, `/end`
+- AI: `POST /api/ai/generate-quiz` (JWT + 20/5min limit) — `{ topic, slideCount, slideTypes[], tone }`
+  → `{ title, slides[] }` validated against the create contract (mock fallback without Gemini key).
 
 ## Realtime
 
@@ -95,9 +109,11 @@ room `quiz_{quizId}`. See `realtime/socket-events.md` for the full event contrac
 
 ## Frontend
 
-`frontend/features/quizzes/` (types, api, hooks, components) + pages:
-- `/quizzes` — creator dashboard list
-- `/quiz/create` — slide builder (`?id=` for edit)
+`frontend/features/quizzes/` (types, api, hooks, components, slideTypeMeta) + pages:
+- `/polls` — unified dashboard with a Polls/Quizzes switcher (quiz stats + cards)
+- `/quizzes` — creator quiz list; sidebar "Create Quiz" opens a title modal (manual / AI)
+- `/quiz/create` — slide builder (`?id=` edit, `?name=&mode=ai|manual` from the modal);
+  Mentimeter-style "New slide" type picker + per-type editors; `AiQuizModal` fills slides
 - `/quiz/host/[id]` — fullscreen presenter (lobby with join code + **QR deep link** to
   `/quiz/play/{joinCode}`, timer, reveal charts, leaderboard)
 - `/quiz/join` + `/quiz/play/[code]` — participant flow (fullscreen, no app shell);

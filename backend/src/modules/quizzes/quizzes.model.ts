@@ -2,7 +2,19 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 // ---------- Slide ----------
 
-export type QuizSlideType = 'select_answer' | 'type_answer';
+// Scored (quiz competition): select_answer, type_answer.
+// Interactive (non-scored, Mentimeter-style): wordcloud, open_ended, scales, ranking.
+export type QuizSlideType =
+  | 'select_answer'
+  | 'type_answer'
+  | 'wordcloud'
+  | 'open_ended'
+  | 'scales'
+  | 'ranking';
+
+export const SCORED_SLIDE_TYPES: QuizSlideType[] = ['select_answer', 'type_answer'];
+
+export const isScoredSlideType = (type: QuizSlideType) => SCORED_SLIDE_TYPES.includes(type);
 
 export interface IQuizSlideOption {
   text: string;
@@ -17,8 +29,17 @@ export interface IQuizSlide {
   options: IQuizSlideOption[];
   // type_answer only — any of these (case/whitespace-insensitive) counts as correct
   acceptedAnswers: string[];
+  // scales only — statements rated on 1..scaleMax
+  statements: string[];
+  minLabel: string;
+  maxLabel: string;
+  scaleMax: number;
+  // ranking only — items participants order
+  items: string[];
+  // wordcloud only — entries allowed per participant (1-3)
+  maxEntries: number;
   timeLimit: number; // seconds
-  points: number; // max points for a correct answer
+  points: number; // max points for a correct answer (scored types only)
   scoreDependsOnTime: boolean;
 }
 
@@ -46,7 +67,11 @@ export interface IQuiz extends Document {
 }
 
 const QuizSlideSchema = new Schema<IQuizSlide>({
-  type: { type: String, enum: ['select_answer', 'type_answer'], required: true },
+  type: {
+    type: String,
+    enum: ['select_answer', 'type_answer', 'wordcloud', 'open_ended', 'scales', 'ranking'],
+    required: true,
+  },
   question: { type: String, required: true },
   options: {
     type: [
@@ -58,6 +83,12 @@ const QuizSlideSchema = new Schema<IQuizSlide>({
     default: [],
   },
   acceptedAnswers: { type: [String], default: [] },
+  statements: { type: [String], default: [] },
+  minLabel: { type: String, default: '' },
+  maxLabel: { type: String, default: '' },
+  scaleMax: { type: Number, default: 5, min: 2, max: 10 },
+  items: { type: [String], default: [] },
+  maxEntries: { type: Number, default: 3, min: 1, max: 3 },
   timeLimit: { type: Number, default: 30, min: 5, max: 300 },
   points: { type: Number, default: 1000, min: 0, max: 10000 },
   scoreDependsOnTime: { type: Boolean, default: true },
@@ -129,6 +160,8 @@ export interface IQuizAnswer extends Document {
   slideIndex: number;
   optionIndex?: number | null;
   text?: string | null;
+  /** Structured payload for interactive types (entries / ratings / ranking) */
+  payload?: unknown;
   isCorrect: boolean;
   score: number;
   timeMs: number; // elapsed time from question start to answer (server clock)
@@ -141,6 +174,7 @@ const QuizAnswerSchema = new Schema<IQuizAnswer>(
     slideIndex: { type: Number, required: true },
     optionIndex: { type: Number, default: null },
     text: { type: String, default: null },
+    payload: { type: Schema.Types.Mixed, default: null },
     isCorrect: { type: Boolean, required: true },
     score: { type: Number, required: true },
     timeMs: { type: Number, required: true },

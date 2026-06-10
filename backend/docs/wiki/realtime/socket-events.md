@@ -33,7 +33,9 @@ Server event:
 - `participant:joined` — `{ participantId, name, participantCount }`
 - `question:started` — `{ slide (sanitized, no answer keys), startedAt, endsAt, serverNow }`
 - `answer:received` — `{ slideIndex, answeredCount }`
-- `question:revealed` — `{ slideIndex, question, distribution, answeredCount, participantCount, isLastSlide }`
+- `question:revealed` — `{ slideIndex, question, type, scored, distribution, answeredCount, participantCount, isLastSlide }`
+  — `distribution.kind`: `options` (select) | `text` (type) | `words` (wordcloud) |
+  `responses` (open_ended) | `scales` (per-statement averages) | `ranking` (Borda items + voters)
 - `leaderboard:shown` — `{ leaderboard[], participantCount, isLastSlide }`
 - `quiz:ended` — `{ leaderboard[], participantCount }`
 

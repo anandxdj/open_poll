@@ -1,5 +1,7 @@
 import { apiClient } from "@/lib/api-client";
 import type {
+  GeneratedQuizDraft,
+  GenerateQuizInput,
   HostState,
   ParticipantState,
   PublicQuizInfo,
@@ -73,8 +75,16 @@ export const submitAnswer = async (
     slideIndex: number;
     optionIndex?: number;
     text?: string;
+    entries?: string[];
+    ratings?: number[];
+    ranking?: number[];
   }
 ) => (await apiClient.post<ApiOk<{ accepted: boolean }>>(`/quizzes/${quizId}/answer`, input)).data.data;
+
+// ---------- AI ----------
+
+export const generateQuizDraft = async (input: GenerateQuizInput) =>
+  (await apiClient.post<ApiOk<GeneratedQuizDraft>>("/ai/generate-quiz", input)).data.data;
 
 export const getParticipantState = async (quizId: string, participantId: string, token: string) =>
   (

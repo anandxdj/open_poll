@@ -1,4 +1,15 @@
-export type QuizSlideType = "select_answer" | "type_answer";
+export type QuizSlideType =
+  | "select_answer"
+  | "type_answer"
+  | "wordcloud"
+  | "open_ended"
+  | "scales"
+  | "ranking";
+
+export const SCORED_SLIDE_TYPES: QuizSlideType[] = ["select_answer", "type_answer"];
+
+export const isScoredSlideType = (type: QuizSlideType) =>
+  SCORED_SLIDE_TYPES.includes(type);
 
 export type QuizStatus =
   | "draft"
@@ -17,8 +28,19 @@ export interface QuizSlide {
   _id?: string;
   type: QuizSlideType;
   question: string;
+  // select_answer
   options: QuizSlideOption[];
+  // type_answer
   acceptedAnswers: string[];
+  // scales
+  statements: string[];
+  minLabel: string;
+  maxLabel: string;
+  scaleMax: number;
+  // ranking
+  items: string[];
+  // wordcloud
+  maxEntries: number;
   timeLimit: number;
   points: number;
   scoreDependsOnTime: boolean;
@@ -43,8 +65,15 @@ export interface LiveSlide {
   slideIndex: number;
   totalSlides: number;
   type: QuizSlideType;
+  scored: boolean;
   question: string;
   options: { text: string }[];
+  statements: string[];
+  minLabel: string;
+  maxLabel: string;
+  scaleMax: number;
+  items: string[];
+  maxEntries: number;
   timeLimit: number;
   points: number;
   scoreDependsOnTime: boolean;
@@ -68,11 +97,33 @@ export type RevealDistribution =
       kind: "text";
       answers: { text: string; count: number; isCorrect: boolean }[];
       acceptedAnswers: string[];
+    }
+  | {
+      kind: "words";
+      words: { text: string; count: number }[];
+    }
+  | {
+      kind: "responses";
+      responses: { text: string; count: number }[];
+    }
+  | {
+      kind: "scales";
+      statements: { statement: string; average: number; count: number }[];
+      scaleMax: number;
+      minLabel: string;
+      maxLabel: string;
+    }
+  | {
+      kind: "ranking";
+      items: { text: string; points: number; rank: number }[];
+      voters: number;
     };
 
 export interface RevealPayload {
   slideIndex: number;
   question: string;
+  type: QuizSlideType;
+  scored: boolean;
   distribution: RevealDistribution;
   answeredCount: number;
   participantCount: number;
@@ -110,7 +161,12 @@ export interface ParticipantState {
   totalScore: number;
   correctCount: number;
   rank: number;
-  lastAnswer: { slideIndex: number; isCorrect: boolean; score: number } | null;
+  lastAnswer: {
+    slideIndex: number;
+    isCorrect: boolean;
+    score: number;
+    scored: boolean;
+  } | null;
   quizStatus: QuizStatus;
 }
 
@@ -132,4 +188,18 @@ export interface PublicQuizInfo {
   currentSlide?: LiveSlide;
   questionStartedAt?: string;
   questionEndsAt?: string;
+}
+
+// ---------- AI generation ----------
+
+export interface GenerateQuizInput {
+  topic: string;
+  slideCount: number;
+  slideTypes: QuizSlideType[];
+  tone?: string;
+}
+
+export interface GeneratedQuizDraft {
+  title: string;
+  slides: QuizSlide[];
 }

@@ -298,6 +298,43 @@ export function HostView({ quizId }: HostViewProps) {
                   Participants are typing their answers…
                 </p>
               )}
+              {slide.type === "wordcloud" && (
+                <p className="text-center text-sm text-muted-foreground/60">
+                  Participants are sending words — the cloud appears at reveal…
+                </p>
+              )}
+              {slide.type === "open_ended" && (
+                <p className="text-center text-sm text-muted-foreground/60">
+                  Responses are coming in — revealed as a card wall…
+                </p>
+              )}
+              {slide.type === "scales" && (
+                <div className="space-y-2 max-w-xl mx-auto">
+                  {slide.statements.map((statement, i) => (
+                    <div
+                      key={i}
+                      className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-semibold text-foreground/85"
+                    >
+                      {statement}
+                    </div>
+                  ))}
+                  <p className="text-center text-xs text-muted-foreground/50 pt-1">
+                    Rating 1–{slide.scaleMax} · {slide.minLabel || "Low"} → {slide.maxLabel || "High"}
+                  </p>
+                </div>
+              )}
+              {slide.type === "ranking" && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-xl mx-auto">
+                  {slide.items.map((item, i) => (
+                    <div
+                      key={i}
+                      className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-semibold text-foreground/85"
+                    >
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-muted-foreground/70 tabular-nums">
@@ -494,28 +531,190 @@ function RevealChart({ reveal }: { reveal: RevealPayload }) {
     );
   }
 
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap justify-center gap-2">
-        {reveal.distribution.answers.map((answer, i) => (
-          <span
-            key={i}
-            className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
-              answer.isCorrect
-                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                : "border-white/10 bg-white/[0.03] text-foreground/70"
-            }`}
-          >
-            {answer.text} <span className="opacity-60">×{answer.count}</span>
-          </span>
-        ))}
-        {reveal.distribution.answers.length === 0 && (
-          <p className="text-sm text-muted-foreground/50">No answers were submitted.</p>
-        )}
+  if (reveal.distribution.kind === "text") {
+    return (
+      <div className="space-y-3">
+        <div className="flex flex-wrap justify-center gap-2">
+          {reveal.distribution.answers.map((answer, i) => (
+            <span
+              key={i}
+              className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
+                answer.isCorrect
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                  : "border-white/10 bg-white/[0.03] text-foreground/70"
+              }`}
+            >
+              {answer.text} <span className="opacity-60">×{answer.count}</span>
+            </span>
+          ))}
+          {reveal.distribution.answers.length === 0 && (
+            <p className="text-sm text-muted-foreground/50">No answers were submitted.</p>
+          )}
+        </div>
+        <p className="text-center text-xs text-muted-foreground/60">
+          Accepted: {reveal.distribution.acceptedAnswers.join(", ")}
+        </p>
       </div>
-      <p className="text-center text-xs text-muted-foreground/60">
-        Accepted: {reveal.distribution.acceptedAnswers.join(", ")}
+    );
+  }
+
+  if (reveal.distribution.kind === "words") {
+    const { words } = reveal.distribution;
+    const max = Math.max(...words.map((w) => w.count), 1);
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 py-4 max-w-2xl mx-auto">
+          {words.map((word, i) => {
+            const scale = word.count / max;
+            return (
+              <motion.span
+                key={word.text}
+                initial={{ opacity: 0, scale: 0.6 }}
+                animate={{ opacity: 0.55 + scale * 0.45, scale: 1 }}
+                transition={{ duration: 0.5, ease, delay: Math.min(i * 0.03, 0.6) }}
+                className={`font-extrabold tracking-tight leading-none ${WORD_COLORS[i % WORD_COLORS.length]}`}
+                style={{ fontSize: `${0.9 + scale * 2.4}rem` }}
+                title={`×${word.count}`}
+              >
+                {word.text}
+              </motion.span>
+            );
+          })}
+          {words.length === 0 && (
+            <p className="text-sm text-muted-foreground/50">No words were submitted.</p>
+          )}
+        </div>
+        <p className="text-center text-xs text-muted-foreground/50">
+          {reveal.answeredCount}/{reveal.participantCount} answered
+        </p>
+      </div>
+    );
+  }
+
+  if (reveal.distribution.kind === "responses") {
+    const { responses } = reveal.distribution;
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {responses.map((response, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease, delay: Math.min(i * 0.04, 0.6) }}
+              className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
+            >
+              <p className="text-sm font-medium text-foreground/85 leading-snug">
+                {response.text}
+              </p>
+              {response.count > 1 && (
+                <p className="text-[10px] font-bold text-primary/60 mt-1.5">×{response.count}</p>
+              )}
+            </motion.div>
+          ))}
+          {responses.length === 0 && (
+            <p className="text-sm text-muted-foreground/50 col-span-full text-center">
+              No responses were submitted.
+            </p>
+          )}
+        </div>
+        <p className="text-center text-xs text-muted-foreground/50">
+          {reveal.answeredCount}/{reveal.participantCount} answered
+        </p>
+      </div>
+    );
+  }
+
+  if (reveal.distribution.kind === "scales") {
+    const { statements, scaleMax, minLabel, maxLabel } = reveal.distribution;
+    return (
+      <div className="space-y-3 max-w-xl mx-auto">
+        {statements.map((entry, i) => (
+          <div
+            key={i}
+            className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-foreground/90">{entry.statement}</span>
+              <span className="text-sm font-bold tabular-nums text-primary">
+                {entry.average.toFixed(1)} <span className="text-muted-foreground/50 font-medium">/ {scaleMax}</span>
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(entry.average / scaleMax) * 100}%` }}
+                transition={{ duration: 0.7, ease }}
+                className="h-full rounded-full bg-violet-400"
+              />
+            </div>
+            <div className="flex justify-between text-[10px] font-medium text-muted-foreground/40 mt-1.5">
+              <span>{minLabel || "1"}</span>
+              <span>{entry.count} rating{entry.count !== 1 ? "s" : ""}</span>
+              <span>{maxLabel || String(scaleMax)}</span>
+            </div>
+          </div>
+        ))}
+        <p className="text-center text-xs text-muted-foreground/50">
+          {reveal.answeredCount}/{reveal.participantCount} answered
+        </p>
+      </div>
+    );
+  }
+
+  // ranking — combined order by Borda points
+  const { items, voters } = reveal.distribution;
+  const maxPoints = Math.max(...items.map((i) => i.points), 1);
+  return (
+    <div className="space-y-3 max-w-xl mx-auto">
+      {items.map((item) => (
+        <div
+          key={item.text}
+          className={`rounded-2xl border px-5 py-4 ${
+            item.rank === 1
+              ? "border-primary/40 bg-primary/10"
+              : "border-white/10 bg-white/[0.03]"
+          }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-foreground/90 flex items-center gap-2.5">
+              <span
+                className={`flex size-6 items-center justify-center rounded-full text-xs font-black tabular-nums ${
+                  item.rank === 1 ? "bg-primary text-primary-foreground" : "bg-white/10 text-foreground/70"
+                }`}
+              >
+                {item.rank}
+              </span>
+              {item.text}
+            </span>
+            <span className="text-xs font-bold tabular-nums text-muted-foreground/70">
+              {item.points} pts
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${(item.points / maxPoints) * 100}%` }}
+              transition={{ duration: 0.7, ease }}
+              className={`h-full rounded-full ${item.rank === 1 ? "bg-primary" : "bg-green-400/60"}`}
+            />
+          </div>
+        </div>
+      ))}
+      <p className="text-center text-xs text-muted-foreground/50">
+        {voters} of {reveal.participantCount} ranked
       </p>
     </div>
   );
 }
+
+const WORD_COLORS = [
+  "text-primary",
+  "text-rose-400",
+  "text-sky-400",
+  "text-emerald-400",
+  "text-violet-400",
+  "text-orange-400",
+  "text-pink-400",
+  "text-cyan-400",
+];

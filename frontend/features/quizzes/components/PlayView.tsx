@@ -2,11 +2,23 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle2, Hourglass, Loader2, PartyPopper, Send, Trophy, XCircle, Zap } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Hourglass,
+  Loader2,
+  PartyPopper,
+  Send,
+  Trophy,
+  XCircle,
+  Zap,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   getParticipantState,
   getQuizByCode,
@@ -76,8 +88,21 @@ export function PlayView({ code }: PlayViewProps) {
   const [answeredSlide, setAnsweredSlide] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [textDraft, setTextDraft] = useState("");
+  // Per-type input state (wordcloud / scales / ranking)
+  const [entries, setEntries] = useState<string[]>([]);
+  const [entryDraft, setEntryDraft] = useState("");
+  const [ratings, setRatings] = useState<number[]>([]);
+  const [order, setOrder] = useState<number[]>([]);
   const [myState, setMyState] = useState<ParticipantState | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+
+  const initInputs = (next: LiveSlide) => {
+    setTextDraft("");
+    setEntryDraft("");
+    setEntries([]);
+    setRatings((next.statements ?? []).map(() => Math.ceil((next.scaleMax || 5) / 2)));
+    setOrder((next.items ?? []).map((_, i) => i));
+  };
 
   // Initial fetch by join code
   useEffect(() => {
@@ -88,6 +113,7 @@ export function PlayView({ code }: PlayViewProps) {
         setStatus(data.status);
         if (data.currentSlide && data.questionEndsAt) {
           setSlide(data.currentSlide);
+          initInputs(data.currentSlide);
           setTiming({ endsAt: data.questionEndsAt, serverNow: data.serverNow });
         }
       } catch {
@@ -124,7 +150,7 @@ export function PlayView({ code }: PlayViewProps) {
         setSlide(payload.slide);
         setTiming({ endsAt: payload.endsAt, serverNow: payload.serverNow });
         setStatus("question");
-        setTextDraft("");
+        initInputs(payload.slide);
         setMyState(null);
         break;
       }
@@ -192,7 +218,13 @@ export function PlayView({ code }: PlayViewProps) {
     }
   };
 
-  const sendAnswer = async (payload: { optionIndex?: number; text?: string }) => {
+  const sendAnswer = async (payload: {
+    optionIndex?: number;
+    text?: string;
+    entries?: string[];
+    ratings?: number[];
+    ranking?: number[];
+  }) => {
     if (!quizId || !participant || !slide || submitting) return;
     setSubmitting(true);
     try {
@@ -334,7 +366,153 @@ export function PlayView({ code }: PlayViewProps) {
                     </button>
                   ))}
                 </div>
+              ) : slide.type === "wordcloud" ? (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2 justify-center min-h-8">
+                    {entries.map((entry, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/25 px-3 py-1.5 text-sm font-semibold text-primary"
+                      >
+                        {entry}
+                        <button
+                          onClick={() => setEntries((prev) => prev.filter((_, j) => j !== i))}
+                          className="hover:text-red-400 transition-colors"
+                        >
+                          <XCircle className="size-3.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  {entries.length < slide.maxEntries && (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const value = entryDraft.trim();
+                        if (!value) return;
+                        if (entries.some((x) => x.toLowerCase() === value.toLowerCase())) {
+                          setEntryDraft("");
+                          return;
+                        }
+                        setEntries((prev) => [...prev, value]);
+                        setEntryDraft("");
+                      }}
+                      className="flex gap-2"
+                    >
+                      <Input
+                        value={entryDraft}
+                        onChange={(e) => setEntryDraft(e.target.value)}
+                        placeholder={`Word ${entries.length + 1} of ${slide.maxEntries}…`}
+                        maxLength={60}
+                        autoFocus
+                        className="h-12 rounded-2xl bg-secondary/15 border-border/40 text-center text-lg font-semibold"
+                      />
+                      <Button type="submit" variant="outline" className="h-12 rounded-2xl px-4">
+                        Add
+                      </Button>
+                    </form>
+                  )}
+                  <Button
+                    onClick={() => {
+                      const draft = entryDraft.trim();
+                      const all =
+                        draft && !entries.some((x) => x.toLowerCase() === draft.toLowerCase())
+                          ? [...entries, draft]
+                          : entries;
+                      if (all.length > 0) void sendAnswer({ entries: all.slice(0, slide.maxEntries) });
+                    }}
+                    disabled={submitting || (entries.length === 0 && !entryDraft.trim())}
+                    className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-semibold"
+                  >
+                    {submitting ? <Loader2 className="size-4 animate-spin" /> : <>Send words <Send className="size-4 ml-2" /></>}
+                  </Button>
+                </div>
+              ) : slide.type === "scales" ? (
+                <div className="space-y-5">
+                  {slide.statements.map((statement, i) => (
+                    <div key={i} className="space-y-2">
+                      <p className="text-sm font-semibold text-foreground/85">{statement}</p>
+                      <input
+                        type="range"
+                        min={1}
+                        max={slide.scaleMax}
+                        step={1}
+                        value={ratings[i] ?? 1}
+                        onChange={(e) =>
+                          setRatings((prev) =>
+                            prev.map((r, j) => (j === i ? Number(e.target.value) : r))
+                          )
+                        }
+                        className="w-full accent-primary"
+                      />
+                      <div className="flex justify-between text-[10px] font-medium text-muted-foreground/50">
+                        <span>{slide.minLabel || "1"}</span>
+                        <span className="font-bold text-primary tabular-nums">{ratings[i] ?? 1}</span>
+                        <span>{slide.maxLabel || String(slide.scaleMax)}</span>
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    onClick={() => void sendAnswer({ ratings })}
+                    disabled={submitting}
+                    className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-semibold"
+                  >
+                    {submitting ? <Loader2 className="size-4 animate-spin" /> : <>Submit ratings <Send className="size-4 ml-2" /></>}
+                  </Button>
+                </div>
+              ) : slide.type === "ranking" ? (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    {order.map((itemIndex, position) => (
+                      <div
+                        key={itemIndex}
+                        className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
+                      >
+                        <span className="text-xs font-bold text-primary/70 tabular-nums w-5">
+                          {position + 1}
+                        </span>
+                        <span className="flex-1 text-sm font-semibold text-foreground/85">
+                          {slide.items[itemIndex]}
+                        </span>
+                        <button
+                          disabled={position === 0}
+                          onClick={() =>
+                            setOrder((prev) => {
+                              const next = [...prev];
+                              [next[position - 1], next[position]] = [next[position], next[position - 1]];
+                              return next;
+                            })
+                          }
+                          className="flex size-8 items-center justify-center rounded-lg border border-white/10 text-foreground/60 disabled:opacity-20 hover:bg-white/10 transition-all"
+                        >
+                          <ChevronUp className="size-4" />
+                        </button>
+                        <button
+                          disabled={position === order.length - 1}
+                          onClick={() =>
+                            setOrder((prev) => {
+                              const next = [...prev];
+                              [next[position], next[position + 1]] = [next[position + 1], next[position]];
+                              return next;
+                            })
+                          }
+                          className="flex size-8 items-center justify-center rounded-lg border border-white/10 text-foreground/60 disabled:opacity-20 hover:bg-white/10 transition-all"
+                        >
+                          <ChevronDown className="size-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    onClick={() => void sendAnswer({ ranking: order })}
+                    disabled={submitting}
+                    className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-semibold"
+                  >
+                    {submitting ? <Loader2 className="size-4 animate-spin" /> : <>Submit ranking <Send className="size-4 ml-2" /></>}
+                  </Button>
+                </div>
               ) : (
+                // type_answer + open_ended share the typed-response form
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -342,14 +520,25 @@ export function PlayView({ code }: PlayViewProps) {
                   }}
                   className="space-y-3"
                 >
-                  <Input
-                    value={textDraft}
-                    onChange={(e) => setTextDraft(e.target.value)}
-                    placeholder="Type your answer…"
-                    maxLength={200}
-                    autoFocus
-                    className="h-12 rounded-2xl bg-secondary/15 border-border/40 text-center text-lg font-semibold"
-                  />
+                  {slide.type === "open_ended" ? (
+                    <Textarea
+                      value={textDraft}
+                      onChange={(e) => setTextDraft(e.target.value)}
+                      placeholder="Share your thoughts…"
+                      maxLength={500}
+                      autoFocus
+                      className="min-h-28 rounded-2xl bg-secondary/15 border-border/40 text-base"
+                    />
+                  ) : (
+                    <Input
+                      value={textDraft}
+                      onChange={(e) => setTextDraft(e.target.value)}
+                      placeholder="Type your answer…"
+                      maxLength={200}
+                      autoFocus
+                      className="h-12 rounded-2xl bg-secondary/15 border-border/40 text-center text-lg font-semibold"
+                    />
+                  )}
                   <Button
                     type="submit"
                     disabled={submitting || !textDraft.trim()}
@@ -368,7 +557,21 @@ export function PlayView({ code }: PlayViewProps) {
           <Phase key="reveal">
             <div className="text-center space-y-5 w-full max-w-sm">
               {myState?.lastAnswer ? (
-                myState.lastAnswer.isCorrect ? (
+                !myState.lastAnswer.scored ? (
+                  <>
+                    <motion.div
+                      initial={{ scale: 0.5 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                    >
+                      <CheckCircle2 className="size-14 text-sky-400 mx-auto" />
+                    </motion.div>
+                    <h1 className="text-2xl font-bold text-sky-400">Response received!</h1>
+                    <p className="text-sm text-muted-foreground/60">
+                      Watch the big screen for the combined results.
+                    </p>
+                  </>
+                ) : myState.lastAnswer.isCorrect ? (
                   <>
                     <motion.div
                       initial={{ scale: 0.5 }}

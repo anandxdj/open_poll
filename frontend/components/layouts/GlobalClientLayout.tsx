@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Sidebar from "@/components/layouts/Sidebar";
 import { CreatePollModalProvider } from "@/features/polls/components/CreatePollModalProvider";
+import { CreateQuizModalProvider } from "@/features/quizzes/components/CreateQuizModalProvider";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 
 export default function GlobalClientLayout({ children }: { children: React.ReactNode }) {
@@ -31,12 +32,14 @@ export default function GlobalClientLayout({ children }: { children: React.React
 
   return (
     <CreatePollModalProvider>
-      <div className="fixed inset-0 flex min-h-0 bg-background text-foreground overflow-hidden selection:bg-primary selection:text-primary-foreground">
-        <Sidebar />
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-          {children}
-        </main>
-      </div>
+      <CreateQuizModalProvider>
+        <div className="fixed inset-0 flex min-h-0 bg-background text-foreground overflow-hidden selection:bg-primary selection:text-primary-foreground">
+          <Sidebar />
+          <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+            {children}
+          </main>
+        </div>
+      </CreateQuizModalProvider>
     </CreatePollModalProvider>
   );
 }
