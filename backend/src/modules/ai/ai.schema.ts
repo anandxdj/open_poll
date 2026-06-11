@@ -69,5 +69,24 @@ export const generatedQuizSchema = z.object({
   slides: z.array(generatedQuizSlideSchema).min(1).max(50),
 });
 
+// Gemini rejects JSON schemas with `default` values — use this for withStructuredOutput only.
+export const generatedQuizSlideSchemaForLLM = z.object({
+  type: z.enum(QUIZ_SLIDE_TYPES),
+  question: z.string().max(500),
+  options: z.array(z.object({ text: z.string().max(200), isCorrect: z.boolean() })).max(8),
+  acceptedAnswers: z.array(z.string().max(200)).max(20),
+  statements: z.array(z.string().max(200)).max(10),
+  minLabel: z.string().max(40),
+  maxLabel: z.string().max(40),
+  items: z.array(z.string().max(200)).max(10),
+  timeLimit: z.number().int().min(5).max(300),
+  points: z.number().int().min(0).max(10000),
+});
+
+export const generatedQuizSchemaForLLM = z.object({
+  title: z.string().max(120),
+  slides: z.array(generatedQuizSlideSchemaForLLM).max(50),
+});
+
 export type GenerateQuizRequestInput = z.infer<typeof generateQuizRequestSchema>;
 export type GeneratedQuizOutput = z.infer<typeof generatedQuizSchema>;

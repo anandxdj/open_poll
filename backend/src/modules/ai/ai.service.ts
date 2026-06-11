@@ -5,6 +5,7 @@ import { PollService } from '../polls/polls.service';
 import {
   generatedPollSchema,
   generatedQuizSchema,
+  generatedQuizSchemaForLLM,
 } from './ai.schema';
 import type {
   GeneratedPollOutput,
@@ -271,7 +272,7 @@ export class AiService {
     ].join('\n');
 
     try {
-      const structuredModel = model.withStructuredOutput(generatedQuizSchema);
+      const structuredModel = model.withStructuredOutput(generatedQuizSchemaForLLM);
       const generated = await structuredModel.invoke(systemPrompt);
       return this.repairQuizSlides(generatedQuizSchema.parse(generated));
     } catch (error) {
