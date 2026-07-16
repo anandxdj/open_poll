@@ -153,6 +153,8 @@ export interface QuizParticipantSelf {
   score: number;
   /** Secret credential for answering — stored locally, never shared */
   token: string;
+  /** Server-signed device identity — presented on rejoin after a refresh */
+  deviceToken: string;
 }
 
 export interface ParticipantState {

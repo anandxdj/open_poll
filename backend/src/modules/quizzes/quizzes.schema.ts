@@ -82,7 +82,9 @@ export const updateQuizSchema = z.object({
 
 export const joinQuizSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(30),
-  deviceId: z.string().min(8).max(100),
+  // Server-signed device token from a previous join — enables refresh-safe
+  // rejoin. Absent or invalid → the server mints a fresh identity.
+  deviceToken: z.string().max(256).optional(),
 });
 
 export const submitQuizAnswerSchema = z

@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { ApiError } from '../../common/utils/ApiError';
 import { redisClient } from '../../common/config/redis';
+import { newRandomId, signId, verifySignedId } from '../../common/utils/signedId.utils';
 import { REALTIME_CHANNELS, type QuizRealtimeEventType } from '../../common/realtime/events';
 import {
   QuizModel,
@@ -557,9 +558,15 @@ export class QuizService {
     if (quiz.status === 'draft') throw ApiError.badRequest('This quiz is not open yet');
     if (quiz.status === 'ended') throw ApiError.badRequest('This quiz has already ended');
 
+    // Device identity is server-issued and signed: a valid token from a prior
+    // join makes rejoin idempotent (refresh-safe); anything else gets a fresh
+    // id, so clients can't mint identities or impersonate another device.
+    const rejoinDeviceId = verifySignedId(data.deviceToken);
+    const deviceId = rejoinDeviceId ?? newRandomId();
+
     // Idempotent join: same device rejoins as the same participant (refresh-safe)
     const participant = await QuizParticipantModel.findOneAndUpdate(
-      { quizId, deviceId: data.deviceId },
+      { quizId, deviceId },
       {
         $setOnInsert: {
           name: data.name,
@@ -599,6 +606,9 @@ export class QuizService {
       name: participant.name,
       score: participant.score,
       token: participant.token,
+      // Signed device identity — the client stores this and presents it on
+      // rejoin. Opaque and unforgeable; replaces the client-chosen deviceId.
+      deviceToken: signId(deviceId),
     };
   }
 

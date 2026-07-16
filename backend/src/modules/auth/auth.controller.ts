@@ -1,8 +1,9 @@
 import type { Request, Response, NextFunction } from 'express';
+import * as crypto from 'crypto';
 import { AuthService } from './auth.service';
 import { ApiResponse } from '../../common/utils/ApiResponse';
 import { ApiError } from '../../common/utils/ApiError';
-import { verifyAccessToken } from '../../common/utils/jwt.utils';
+import { redisClient } from '../../common/config/redis';
 import type { AuthRequest } from './auth.middleware';
 
 const sessionCookieOptions = {
@@ -129,18 +130,42 @@ export class AuthController {
       // Set refresh token in httpOnly cookie
       res.cookie('refreshToken', refreshToken, sessionCookieOptions);
 
-      // Redirect to frontend with access token in URL
+      // Never put the access token in the redirect URL (it would leak into
+      // logs, history, and Referer headers). Park it behind a short-lived
+      // single-use exchange code instead.
+      const exchangeCode = crypto.randomBytes(32).toString('hex');
+      await redisClient.set(`auth:oauth-exchange:${exchangeCode}`, accessToken, { EX: 60 });
+
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       const redirectUrl = new URL(`${frontendUrl}/auth/callback`);
-      redirectUrl.searchParams.set('token', accessToken);
-      
-      console.log(`[Auth] Redirecting to frontend: ${redirectUrl.origin}${redirectUrl.pathname}`);
+      redirectUrl.searchParams.set('code', exchangeCode);
+
       res.redirect(redirectUrl.toString());
     } catch (error: any) {
       console.error('Google callback error:', error);
       const errorMessage = error.message || 'Google authentication failed';
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(errorMessage)}`);
+    }
+  }
+
+  /** Exchanges a single-use OAuth callback code for the access token. */
+  static async exchangeOAuthCode(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { code } = req.body;
+      if (!code || typeof code !== 'string' || !/^[a-f0-9]{64}$/.test(code)) {
+        throw ApiError.badRequest('Invalid exchange code');
+      }
+
+      const key = `auth:oauth-exchange:${code}`;
+      const accessToken = await redisClient.getDel(key);
+      if (!accessToken) {
+        throw ApiError.unauthorized('Exchange code expired or already used');
+      }
+
+      return ApiResponse.ok(res, 'Token exchanged', { accessToken });
+    } catch (error) {
+      next(error);
     }
   }
 }

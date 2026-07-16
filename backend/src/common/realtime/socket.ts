@@ -1,11 +1,21 @@
 import { createClient } from 'redis';
 import type { Server } from 'socket.io';
+import mongoose from 'mongoose';
 import {
   REALTIME_CHANNELS,
   SOCKET_EVENTS,
   type ResponseAcceptedEvent,
   type QuizRealtimeEvent,
 } from './events';
+import { PollModel } from '../../modules/polls/polls.model';
+import { QuizModel } from '../../modules/quizzes/quizzes.model';
+
+// Per-connection cap on join attempts — rooms are cheap but not free, and an
+// unauthenticated socket should not be able to spray joins.
+const MAX_JOINS_PER_MINUTE = 30;
+
+const isValidObjectId = (id: unknown): id is string =>
+  typeof id === 'string' && mongoose.Types.ObjectId.isValid(id);
 
 export const setupSocketAndPubSub = async (io: Server) => {
   const subscriber = createClient({
@@ -21,23 +31,43 @@ export const setupSocketAndPubSub = async (io: Server) => {
   }
 
   io.on('connection', (socket) => {
-    socket.on(SOCKET_EVENTS.pollJoin, (pollId: string) => {
-      if (!pollId) return;
+    let joinCount = 0;
+    let joinWindowStart = Date.now();
+
+    const allowJoin = () => {
+      const now = Date.now();
+      if (now - joinWindowStart > 60_000) {
+        joinWindowStart = now;
+        joinCount = 0;
+      }
+      joinCount += 1;
+      return joinCount <= MAX_JOINS_PER_MINUTE;
+    };
+
+    socket.on(SOCKET_EVENTS.pollJoin, async (pollId: string) => {
+      if (!isValidObjectId(pollId) || !allowJoin()) return;
+      // Only published polls broadcast — draft/private polls stay unobservable.
+      const poll = await PollModel.findById(pollId).select('isPublished').catch(() => null);
+      if (!poll?.isPublished) return;
       socket.join(`poll_${pollId}`);
     });
 
     socket.on(SOCKET_EVENTS.pollLeave, (pollId: string) => {
-      if (!pollId) return;
+      if (!isValidObjectId(pollId)) return;
       socket.leave(`poll_${pollId}`);
     });
 
-    socket.on(SOCKET_EVENTS.quizJoin, (quizId: string) => {
-      if (!quizId) return;
+    socket.on(SOCKET_EVENTS.quizJoin, async (quizId: string) => {
+      if (!isValidObjectId(quizId) || !allowJoin()) return;
+      // Draft quizzes are creator-private; anything in session is joinable —
+      // participants hold no auth, and broadcasts are answer-key-sanitized.
+      const quiz = await QuizModel.findById(quizId).select('status').catch(() => null);
+      if (!quiz || quiz.status === 'draft') return;
       socket.join(`quiz_${quizId}`);
     });
 
     socket.on(SOCKET_EVENTS.quizLeave, (quizId: string) => {
-      if (!quizId) return;
+      if (!isValidObjectId(quizId)) return;
       socket.leave(`quiz_${quizId}`);
     });
   });

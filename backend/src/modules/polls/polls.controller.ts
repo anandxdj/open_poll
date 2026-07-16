@@ -18,11 +18,19 @@ export class PollController {
     }
   }
 
-  static async getById(req: Request, res: Response, next: NextFunction) {
+  static async getById(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const pollId = req.params.pollId || req.params.id;
       if (!pollId) throw ApiError.badRequest('pollId is required');
       const poll = await PollService.getPollById(String(pollId));
+
+      // Unpublished drafts are creator-private: pretend they don't exist for
+      // anyone else so poll ids can't be enumerated.
+      const isOwner = req.user && String(poll.creatorId) === req.user.id;
+      if (!poll.isPublished && !isOwner) {
+        throw ApiError.notFound('Poll not found');
+      }
+
       return ApiResponse.ok(res, 'Poll fetched successfully', poll);
     } catch (error) {
       next(error);

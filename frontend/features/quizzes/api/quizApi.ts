@@ -59,11 +59,11 @@ export const endQuiz = async (id: string) =>
 export const getQuizByCode = async (code: string) =>
   (await apiClient.get<ApiOk<PublicQuizInfo>>(`/quizzes/code/${code}`)).data.data;
 
-export const joinQuiz = async (quizId: string, name: string, deviceId: string) =>
+export const joinQuiz = async (quizId: string, name: string, deviceToken?: string) =>
   (
     await apiClient.post<ApiOk<QuizParticipantSelf>>(`/quizzes/${quizId}/join`, {
       name,
-      deviceId,
+      deviceToken,
     })
   ).data.data;
 

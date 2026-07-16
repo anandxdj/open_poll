@@ -34,16 +34,29 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
 
   async function submitAll(finalAnswers: Record<string, number>) {
     setSubmitting(true);
-    let respondentId = user?._id;
-    if (!respondentId && guestInfo) {
-      respondentId = `guest:${guestInfo.email}:${guestInfo.name}`;
-    }
 
     try {
+      // Server-issued single-use ballot token — the dedup anchor for this vote.
+      const ballotRes = await apiClient.post<{ data: { ballotToken: string } }>(
+        `/responses/poll/${poll._id}/ballot`
+      );
+      const ballotToken = ballotRes.data.data.ballotToken;
+
+      // Non-anonymous guest votes carry a server-signed identity token.
+      let guestToken: string | undefined;
+      if (!user?._id && guestInfo) {
+        const guestRes = await apiClient.post<{ data: { guestToken: string } }>(
+          "/responses/guest-token",
+          { name: guestInfo.name, email: guestInfo.email }
+        );
+        guestToken = guestRes.data.data.guestToken;
+      }
+
       await apiClient.post("/responses", {
         pollId: poll._id,
+        ballotToken,
         deviceId,
-        respondentId,
+        guestToken,
         answers: poll.questions
           .filter((q) => {
             const id = String(q._id);

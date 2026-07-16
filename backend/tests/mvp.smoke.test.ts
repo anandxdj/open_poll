@@ -6,6 +6,7 @@ import { PollModel } from '../src/modules/polls/polls.model';
 import { ResponseModel } from '../src/modules/responses/responses.model';
 import { redisClient } from '../src/common/config/redis';
 import { AnalyticsModel } from '../src/modules/responses/analytics.model';
+import { issueBallotToken } from '../src/common/utils/signedId.utils';
 
 describe('backend mvp smoke tests', () => {
   it('creates a poll through PollService', async () => {
@@ -45,13 +46,14 @@ describe('backend mvp smoke tests', () => {
     const originalResponseFind = ResponseModel.find;
     const originalPublish = redisClient.publish;
     const originalGet = redisClient.get;
-    const originalSetEx = redisClient.setEx;
+    const originalSet = redisClient.set;
     const originalMulti = redisClient.multi;
 
     (PollModel as any).findById = async () => ({
       _id: pollId,
       isPublished: true,
       isClosed: false,
+      isAnonymous: true,
       expiresAt: new Date(Date.now() + 60_000),
       questions: [
         {
@@ -70,7 +72,8 @@ describe('backend mvp smoke tests', () => {
       },
     ];
     (redisClient as any).get = async () => null;
-    (redisClient as any).setEx = async () => 'OK';
+    // SET ... NX returns 'OK' on first use — the single-use ballot check passes
+    (redisClient as any).set = async () => 'OK';
     (redisClient as any).multi = () => ({
       sAdd: () => undefined,
       incr: () => undefined,
@@ -79,9 +82,10 @@ describe('backend mvp smoke tests', () => {
     });
     (redisClient as any).publish = async () => 1;
 
+    const { token: ballotToken } = issueBallotToken(String(pollId));
     const result = await ResponseService.submitResponse({
       pollId: String(pollId),
-      deviceId: 'test-device-uuid',
+      ballotToken,
       answers: [{ questionId: String(questionId), selectedOptionIndex: 0 }],
     });
 
@@ -92,7 +96,7 @@ describe('backend mvp smoke tests', () => {
     (ResponseModel as any).find = originalResponseFind;
     (redisClient as any).publish = originalPublish;
     (redisClient as any).get = originalGet;
-    (redisClient as any).setEx = originalSetEx;
+    (redisClient as any).set = originalSet;
     (redisClient as any).multi = originalMulti;
   });
 });

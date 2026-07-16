@@ -15,6 +15,7 @@ import { startAnalyticsWorker } from './modules/responses/analytics.worker';
 import cookieParser from 'cookie-parser';
 import authRouter from './modules/auth/auth.route';
 import quizzesRouter from './modules/quizzes/quizzes.route';
+import { mongoSanitize, securityHeaders } from './common/middlewares/security.middleware';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -27,12 +28,14 @@ const io = new Server(httpServer, {
 });
 
 // Global Middlewares
+app.use(securityHeaders);
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
+app.use(mongoSanitize);
 
 // Healthcheck Route
 app.get('/health', (req, res) => {
@@ -58,15 +61,14 @@ app.get('/ready', (req, res) => {
 
 // Bridge Route: Catch OAuth redirects that hit the backend root and forward to frontend
 app.get('/auth/callback', (req, res) => {
-  const { token } = req.query;
+  const { code } = req.query;
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-  
-  if (!token) {
-    return res.redirect(`${frontendUrl}/login?error=Missing token`);
+
+  if (!code) {
+    return res.redirect(`${frontendUrl}/login?error=Missing code`);
   }
 
-  console.log(`[Auth] Bridging callback for token: ${String(token).substring(0, 10)}...`);
-  res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
+  res.redirect(`${frontendUrl}/auth/callback?code=${encodeURIComponent(String(code))}`);
 });
 
 app.use('/api/auth', authRouter);

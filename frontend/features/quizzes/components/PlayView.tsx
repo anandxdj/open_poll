@@ -51,27 +51,11 @@ const OPTION_COLORS = [
   "bg-cyan-500/15 border-cyan-500/30 hover:bg-cyan-500/25 text-cyan-100",
 ];
 
-function useDeviceId() {
-  const [id, setId] = useState<string | null>(null);
-  useEffect(() => {
-    const key = "openpoll_device_id";
-    let v = localStorage.getItem(key);
-    if (!v) {
-      v = crypto.randomUUID();
-      localStorage.setItem(key, v);
-    }
-    setId(v);
-  }, []);
-  return id;
-}
-
 interface PlayViewProps {
   code: string;
 }
 
 export function PlayView({ code }: PlayViewProps) {
-  const deviceId = useDeviceId();
-
   const [info, setInfo] = useState<PublicQuizInfo | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [participant, setParticipant] = useState<{
@@ -195,7 +179,7 @@ export function PlayView({ code }: PlayViewProps) {
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!info || !deviceId) return;
+    if (!info) return;
     const name = nameDraft.trim();
     if (!name) {
       toast.error("Pick a nickname first.");
@@ -203,13 +187,20 @@ export function PlayView({ code }: PlayViewProps) {
     }
     setJoining(true);
     try {
-      const joined = await joinQuiz(info.quizId, name, deviceId);
+      // Present the server-signed device token from any previous join so a
+      // refresh rejoins as the same participant.
+      const deviceToken =
+        localStorage.getItem(`openpoll_quiz_device_${info.quizId}`) ?? undefined;
+      const joined = await joinQuiz(info.quizId, name, deviceToken);
       const stored = {
         participantId: joined.participantId,
         name: joined.name,
         token: joined.token,
       };
       localStorage.setItem(`openpoll_quiz_participant_${info.quizId}`, JSON.stringify(stored));
+      if (joined.deviceToken) {
+        localStorage.setItem(`openpoll_quiz_device_${info.quizId}`, joined.deviceToken);
+      }
       setParticipant(stored);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Could not join the quiz.");
@@ -260,7 +251,7 @@ export function PlayView({ code }: PlayViewProps) {
     );
   }
 
-  if (!info || !deviceId) {
+  if (!info) {
     return (
       <Shell>
         <Loader2 className="size-6 animate-spin text-primary/60" />

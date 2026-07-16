@@ -1,15 +1,43 @@
 import mongoose from 'mongoose';
 import { redisClient } from '../../common/config/redis';
 import { ApiError } from '../../common/utils/ApiError';
+import {
+  issueBallotToken,
+  verifyBallotToken,
+  issueGuestToken,
+  verifyGuestToken,
+} from '../../common/utils/signedId.utils';
 import { PollModel } from '../polls/polls.model';
 import { ResponseModel } from './responses.model';
-import type { SubmitResponseInput } from './responses.schema';
+import type { IssueGuestTokenInput, SubmitResponseInput } from './responses.schema';
 import { AnalyticsModel } from './analytics.model';
 import type { PollAnalyticsUpdateEvent } from '../../common/realtime/events';
 import { UserModel } from '../auth/auth.model';
 
+const VOTE_DEDUP_TTL_SEC = 86400;
+
 export class ResponseService {
-  static async submitResponse(payload: SubmitResponseInput) {
+  /**
+   * Mints a server-signed, single-use ballot token bound to this poll.
+   * The client cannot forge or rotate these — only the server can issue them.
+   */
+  static async issueBallot(pollId: string) {
+    const poll = await PollModel.findById(pollId);
+    if (!poll) throw ApiError.notFound('Poll not found');
+    if (!poll.isPublished) throw ApiError.badRequest('Poll is not published');
+    if (poll.isClosed) throw ApiError.badRequest('Poll is closed');
+    if (poll.expiresAt.getTime() <= Date.now()) throw ApiError.badRequest('Poll is expired');
+
+    const { token } = issueBallotToken(pollId);
+    return { ballotToken: token };
+  }
+
+  /** Signs a guest identity so `guest:` respondent strings cannot be self-asserted. */
+  static issueGuestIdentity(payload: IssueGuestTokenInput) {
+    return { guestToken: issueGuestToken(payload.email, payload.name) };
+  }
+
+  static async submitResponse(payload: SubmitResponseInput, clientIp?: string) {
     const poll = await PollModel.findById(payload.pollId);
     if (!poll) {
       throw ApiError.notFound('Poll not found');
@@ -45,16 +73,53 @@ export class ResponseService {
       }
     }
 
-    if (!poll.isAnonymous && !payload.respondentId) {
+    // Identity: derived server-side only. Authenticated user id wins; a signed
+    // guest token is accepted for non-anonymous polls; raw client strings never are.
+    let respondentId: string | null = payload.authenticatedUserId ?? null;
+    if (!respondentId && payload.guestToken) {
+      const guest = verifyGuestToken(payload.guestToken);
+      if (!guest) throw ApiError.unauthorized('Invalid guest token');
+      respondentId = `guest:${guest.email}:${guest.name}`;
+    }
+
+    if (!poll.isAnonymous && !respondentId) {
       throw ApiError.unauthorized('This poll requires you to be logged in to vote.');
     }
 
-    const spamKey = `poll:${payload.pollId}:voted:${payload.deviceId}`;
-    const hasVoted = await redisClient.get(spamKey);
-    if (hasVoted) {
+    // Dedup anchor: the server-issued ballot token, not any client-chosen string.
+    const ballotId = verifyBallotToken(payload.ballotToken, payload.pollId);
+    if (!ballotId) throw ApiError.unauthorized('Invalid or missing ballot token');
+
+    // Atomic single-use check — SET NX so concurrent submits cannot both pass.
+    const ballotKey = `poll:${payload.pollId}:ballot:${ballotId}`;
+    const firstUse = await redisClient.set(ballotKey, '1', {
+      NX: true,
+      EX: VOTE_DEDUP_TTL_SEC,
+    });
+    if (firstUse === null) {
       throw ApiError.conflict('You have already voted on this poll.');
     }
-    await redisClient.setEx(spamKey, 86400, 'true');
+
+    // Secondary dedup dimensions, also atomic. A registered/guest identity may
+    // vote once; an IP gets a generous cap to absorb NAT while stopping bulk
+    // ballot-minting from one machine.
+    if (respondentId) {
+      const identityKey = `poll:${payload.pollId}:voted:id:${respondentId}`;
+      const identityFirst = await redisClient.set(identityKey, '1', {
+        NX: true,
+        EX: VOTE_DEDUP_TTL_SEC,
+      });
+      if (identityFirst === null) {
+        throw ApiError.conflict('You have already voted on this poll.');
+      }
+    } else if (clientIp) {
+      const ipKey = `poll:${payload.pollId}:voted:ip:${clientIp}`;
+      const ipVotes = await redisClient.incr(ipKey);
+      if (ipVotes === 1) await redisClient.expire(ipKey, VOTE_DEDUP_TTL_SEC);
+      if (ipVotes > 50) {
+        throw ApiError.tooManyRequests('Too many votes from this network for this poll.');
+      }
+    }
 
     const pipeline = redisClient.multi();
     pipeline.sAdd('buffer:active_polls', payload.pollId);
@@ -70,7 +135,7 @@ export class ResponseService {
 
     ResponseModel.create({
       pollId: new mongoose.Types.ObjectId(payload.pollId),
-      respondentId: payload.respondentId ?? 'mock-respondent-123',
+      respondentId: respondentId ?? `anon:${ballotId}`,
       answers: payload.answers.map((a) => ({
         questionId: new mongoose.Types.ObjectId(a.questionId),
         selectedOptionIndex: a.selectedOptionIndex,
