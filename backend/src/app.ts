@@ -15,6 +15,8 @@ import { startAnalyticsWorker } from './modules/responses/analytics.worker';
 import cookieParser from 'cookie-parser';
 import authRouter from './modules/auth/auth.route';
 import quizzesRouter from './modules/quizzes/quizzes.route';
+import mcpRouter from './modules/mcp/mcp.route';
+import mcpSettingsRouter from './modules/mcp/mcp.settings.route';
 import { mongoSanitize, securityHeaders } from './common/middlewares/security.middleware';
 
 const app = express();
@@ -30,7 +32,19 @@ const io = new Server(httpServer, {
 // Global Middlewares
 app.use(securityHeaders);
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+    ].filter(Boolean) as string[];
+    // Allow requests with no origin (e.g. curl, Postman, server-side)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: Origin ${origin} not allowed`));
+    }
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: '100kb' }));
@@ -76,6 +90,8 @@ app.use('/api/polls', pollsRouter);
 app.use('/api/responses', responsesRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/quizzes', quizzesRouter);
+app.use('/api/mcp', mcpSettingsRouter);
+app.use('/mcp', mcpRouter);
 app.use(errorHandler);
 
 // Boot Server & Connect Services
