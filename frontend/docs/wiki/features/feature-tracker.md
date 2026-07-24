@@ -11,6 +11,21 @@ This document tracks the features we have already implemented and the features w
 - **Dashboard Page (`/polls`)**: Stat cards (Total Polls, Total Votes, Active Polls) + poll grid.
 - **Per-Poll Analytics (`/analytics/[id]`)**: Live bar charts with WebSocket updates via `useSocketListener`.
 - **AI Poll Generation**: AiPromptModal with Gemini-backed draft generation.
+- **Live Quiz Competitions (Phases 1–2)**: `features/quizzes/` + routes `/quizzes` (list),
+  `/quiz/create` (slide builder: select/type answer, correct-answer marking, time limit,
+  points, speed-bonus toggle), `/quiz/host/[id]` (fullscreen presenter: lobby with join
+  code + QR deep link, server-synced timer, reveal charts, animated leaderboard, podium),
+  `/quiz/join` + `/quiz/play/[code]` (participant: nickname join, colored answer buttons,
+  personal result + rank after reveal). Participant secret token stored in localStorage;
+  realtime via `quiz:event` socket envelope. Sidebar "Quizzes" nav item.
+- **Quiz Phase 3 — Interactive slide types + AI generation + unified dashboard**:
+  4 non-scored Mentimeter types (Word Cloud, Open Ended, Scales, Ranking) with builder
+  type-picker grid (`SlideTypePicker`), per-type editors, per-type play inputs (word
+  chips, textarea, sliders, up/down reorder), host reveal renderers (sized word cloud,
+  card wall, averaged bars, Borda ranked list). Sidebar "Create Quiz" → `CreateQuizModal`
+  (title → manual or AI); `AiQuizModal` calls `POST /api/ai/generate-quiz` and fills the
+  builder. `/polls` dashboard unified with a Polls/Quizzes switcher (quiz stats + shared
+  `QuizCard`).
 
 ## 🚧 Features In Progress / To Implement
 
@@ -43,4 +58,17 @@ This document tracks the features we have already implemented and the features w
 
 ### Advanced State / Storage
 - Robust caching for device IDs and offline capabilities.
-- *(Add new feature requests here)*
+
+### Live Quiz — Upcoming Phases (detail: `backend/docs/wiki/quiz-roadmap.md`)
+- **Phase 3**: non-scored interactive slides — Word Cloud, Open Ended, Scales, Ranking
+  (type picker grid in builder, per-type play inputs, host reveal renderers).
+- **Phase 4**: advanced scored types — Guess the Number, 100 Points, 2x2 Grid, Pin on Image.
+- **Phase 5**: presenter UX — slide images, reorder/duplicate, pause/extend timer,
+  kick participant, sounds, themes, nickname profanity filter.
+- **Phase 6**: socket-based answer submission + multi-instance socket adapter,
+  coalesced broadcasts, load-test CI.
+- **Phase 7**: session history per run, per-question reports, CSV export,
+  participant take-home result page.
+- **Phase 8**: team mode, streaks, reactions, audience Q&A, slide import, AI quiz generation.
+
+*(Add new feature requests here)*

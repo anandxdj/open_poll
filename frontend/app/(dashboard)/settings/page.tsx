@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { User, Palette, Shield, Bell, AppWindow } from "lucide-react";
+import { User, Palette, Shield, Bell, Plug } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/features/auth";
+import { McpSettingsSection } from "@/features/mcp/components/McpSettingsSection";
 
 const ease = [0.32, 0.72, 0, 1] as const;
 
@@ -58,6 +59,7 @@ export default function SettingsPage() {
     { id: "appearance", label: "Appearance", icon: Palette },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "security", label: "Security", icon: Shield },
+    { id: "mcp", label: "MCP", icon: Plug },
   ];
 
   if (!mounted) return null;
@@ -185,6 +187,8 @@ export default function SettingsPage() {
               </button>
             </div>
           </section>
+
+          <McpSettingsSection />
         </main>
       </div>
     </div>

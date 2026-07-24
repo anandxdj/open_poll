@@ -12,26 +12,45 @@ import mongoose from 'mongoose';
 import { redisClient } from './common/config/redis';
 import { setupSocketAndPubSub } from './common/realtime/socket';
 import { startAnalyticsWorker } from './modules/responses/analytics.worker';
+import { startLiveDistributionWorker } from './modules/presentations/liveDistribution.worker';
 import cookieParser from 'cookie-parser';
 import authRouter from './modules/auth/auth.route';
+import presentationsRouter from './modules/presentations/presentations.route';
+import mcpRouter from './modules/mcp/mcp.route';
+import mcpSettingsRouter from './modules/mcp/mcp.settings.route';
+import { mongoSanitize, securityHeaders } from './common/middlewares/security.middleware';
 
 const app = express();
 app.set('trust proxy', 1);
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     methods: ['GET', 'POST'],
   },
 });
 
 // Global Middlewares
+app.use(securityHeaders);
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+    ].filter(Boolean) as string[];
+    // Allow requests with no origin (e.g. curl, Postman, server-side)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: Origin ${origin} not allowed`));
+    }
+  },
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
+app.use(mongoSanitize);
 
 // Healthcheck Route
 app.get('/health', (req, res) => {
@@ -57,21 +76,24 @@ app.get('/ready', (req, res) => {
 
 // Bridge Route: Catch OAuth redirects that hit the backend root and forward to frontend
 app.get('/auth/callback', (req, res) => {
-  const { token } = req.query;
+  const { code } = req.query;
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-  
-  if (!token) {
-    return res.redirect(`${frontendUrl}/login?error=Missing token`);
+
+  if (!code) {
+    return res.redirect(`${frontendUrl}/login?error=Missing code`);
   }
 
-  console.log(`[Auth] Bridging callback for token: ${String(token).substring(0, 10)}...`);
-  res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
+  res.redirect(`${frontendUrl}/auth/callback?code=${encodeURIComponent(String(code))}`);
 });
 
 app.use('/api/auth', authRouter);
 app.use('/api/polls', pollsRouter);
 app.use('/api/responses', responsesRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/presentations', presentationsRouter);
+app.use('/api/quizzes', presentationsRouter);
+app.use('/api/mcp', mcpSettingsRouter);
+app.use('/mcp', mcpRouter);
 app.use(errorHandler);
 
 // Boot Server & Connect Services
@@ -81,6 +103,7 @@ const bootstrap = async () => {
   await connectRedis();
   await setupSocketAndPubSub(io);
   startAnalyticsWorker();
+  startLiveDistributionWorker();
 
   httpServer.listen(PORT, () => {
     console.log(`[Server] Running on port ${PORT}`);

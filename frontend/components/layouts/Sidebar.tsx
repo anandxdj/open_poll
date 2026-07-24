@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   ListPlus,
   BarChart2,
+  Presentation,
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
@@ -20,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ProductLogo } from "@/components/ui/ProductLogo";
 import { useCreatePollModal } from "@/features/polls/components/CreatePollModalProvider";
+import { useCreatePresentationModal } from "@/features/presentations/components/CreatePresentationModalProvider";
 import { useTheme } from "next-themes";
 import { useAuthStore } from "@/features/auth";
 import { useRouter } from "next/navigation";
@@ -63,12 +65,14 @@ export default function Sidebar() {
   const router = useRouter();
   const [navOpen, setNavOpen] = useState(true);
   const { open: openCreatePollModal } = useCreatePollModal();
+  const { open: openCreatePresentationModal } = useCreatePresentationModal();
   const { setTheme, resolvedTheme } = useTheme();
   const { user, logout } = useAuthStore();
 
   const navItems = [
     { href: "/polls", label: "Dashboard", Icon: LayoutDashboard },
     { href: "/create", label: "Create Poll", Icon: ListPlus },
+    { href: "/presentation/create", label: "Create Deck", Icon: Presentation },
     { href: "/analytics", label: "Analytics", Icon: BarChart2 },
   ];
 
@@ -168,6 +172,21 @@ export default function Sidebar() {
                 key={href}
                 type="button"
                 onClick={() => openCreatePollModal()}
+                className={cn(baseClass, "w-full text-left")}
+                title={!navOpen ? label : undefined}
+              >
+                <Icon className="size-4 shrink-0" strokeWidth={1.8} />
+                {navOpen && <span className={cn("text-xs font-medium", isActive && "font-semibold")}>{label}</span>}
+              </button>
+            );
+          }
+
+          if (href === "/presentation/create" || href === "/quiz/create") {
+            return (
+              <button
+                key={href}
+                type="button"
+                onClick={() => openCreatePresentationModal()}
                 className={cn(baseClass, "w-full text-left")}
                 title={!navOpen ? label : undefined}
               >

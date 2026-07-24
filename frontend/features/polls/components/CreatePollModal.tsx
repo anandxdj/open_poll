@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, PencilLine, X, ArrowRight, Zap } from "lucide-react";
+import { Sparkles, PencilLine, X, ArrowRight, Zap, BarChart2, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CreatePollModalProps {
@@ -16,12 +16,14 @@ const ease = [0.32, 0.72, 0, 1] as const;
 export function CreatePollModal({ open, onClose }: CreatePollModalProps) {
   const router = useRouter();
   const [pollName, setPollName] = useState("");
+  const [pollType, setPollType] = useState<"POLL" | "TRIAL">("POLL");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
     void Promise.resolve().then(() => {
       setPollName("");
+      setPollType("POLL");
       setTimeout(() => inputRef.current?.focus(), 120);
     });
   }, [open]);
@@ -34,14 +36,14 @@ export function CreatePollModal({ open, onClose }: CreatePollModalProps) {
 
   function handleManual() {
     if (!pollName.trim()) return;
-    const params = new URLSearchParams({ name: pollName.trim(), mode: "manual" });
+    const params = new URLSearchParams({ name: pollName.trim(), mode: "manual", pollType });
     onClose();
     router.push(`/create?${params.toString()}`);
   }
 
   function handleAI() {
     if (!pollName.trim()) return;
-    const params = new URLSearchParams({ name: pollName.trim(), mode: "ai" });
+    const params = new URLSearchParams({ name: pollName.trim(), mode: "ai", pollType });
     onClose();
     router.push(`/create?${params.toString()}`);
   }
@@ -80,8 +82,8 @@ export function CreatePollModal({ open, onClose }: CreatePollModalProps) {
                     <Zap className="size-3.5 fill-primary-foreground text-primary-foreground" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-foreground/90 leading-none">New Poll</p>
-                    <p className="text-[10px] font-medium text-muted-foreground mt-0.5">Name your poll to get started</p>
+                    <p className="text-sm font-bold text-foreground/90 leading-none">New Creation</p>
+                    <p className="text-[10px] font-medium text-muted-foreground mt-0.5">Create a Poll or an Assessment Trial</p>
                   </div>
                 </div>
                 <button
@@ -94,10 +96,45 @@ export function CreatePollModal({ open, onClose }: CreatePollModalProps) {
 
               {/* Body */}
               <div className="px-6 py-6 space-y-6">
+                {/* Type selector */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Creation Type
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-secondary/30 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setPollType("POLL")}
+                      className={cn(
+                        "flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all",
+                        pollType === "POLL"
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <BarChart2 className="size-3.5" />
+                      <span>Standard Poll</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPollType("TRIAL")}
+                      className={cn(
+                        "flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all",
+                        pollType === "TRIAL"
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Target className="size-3.5" />
+                      <span>Assessment Trial</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Name input */}
                 <div className="space-y-2">
                   <label htmlFor="create-poll-title" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Poll title
+                    {pollType === "TRIAL" ? "Trial Title" : "Poll Title"}
                   </label>
                   <input
                     id="create-poll-title"
@@ -105,7 +142,7 @@ export function CreatePollModal({ open, onClose }: CreatePollModalProps) {
                     value={pollName}
                     onChange={(e) => setPollName(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && valid) handleManual(); }}
-                    placeholder="e.g. Team lunch preferences"
+                    placeholder={pollType === "TRIAL" ? "e.g. TypeScript Fundamentals Trial" : "e.g. Team lunch preferences"}
                     autoComplete="off"
                     className="w-full rounded-xl border border-border bg-secondary/30 px-4 py-3 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/30 transition-all"
                   />
@@ -178,7 +215,7 @@ export function CreatePollModal({ open, onClose }: CreatePollModalProps) {
 
                 {!valid && pollName.length > 0 && (
                   <p className="text-[10px] text-muted-foreground text-center">
-                    Poll name needs at least 2 characters
+                    Name needs at least 2 characters
                   </p>
                 )}
               </div>

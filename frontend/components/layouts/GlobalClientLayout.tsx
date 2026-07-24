@@ -4,6 +4,8 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Sidebar from "@/components/layouts/Sidebar";
 import { CreatePollModalProvider } from "@/features/polls/components/CreatePollModalProvider";
+import { CreatePresentationModalProvider } from "@/features/presentations/components/CreatePresentationModalProvider";
+import { CreateQuizModalProvider } from "@/features/quizzes/components/CreateQuizModalProvider";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 
 export default function GlobalClientLayout({ children }: { children: React.ReactNode }) {
@@ -14,26 +16,35 @@ export default function GlobalClientLayout({ children }: { children: React.React
     checkAuth();
   }, [checkAuth]);
 
-  // Exclude landing page, auth pages, test route and public poll answering route natively
+  // Exclude landing page, auth pages, test route and public poll/live presentation routes natively
   if (
     pathname === "/" || 
     pathname === "/login" || 
     pathname === "/signup" ||
     pathname === "/auth/callback" ||
-    pathname?.startsWith("/test") || 
-    pathname?.startsWith("/p/")
+    pathname?.startsWith("/test") ||
+    pathname?.startsWith("/p/") ||
+    pathname?.startsWith("/live") ||
+    pathname?.startsWith("/presentation/host") ||
+    pathname?.startsWith("/quiz/join") ||
+    pathname?.startsWith("/quiz/play") ||
+    pathname?.startsWith("/quiz/host")
   ) {
     return <>{children}</>;
   }
 
   return (
     <CreatePollModalProvider>
-      <div className="fixed inset-0 flex min-h-0 bg-background text-foreground overflow-hidden selection:bg-primary selection:text-primary-foreground">
-        <Sidebar />
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-          {children}
-        </main>
-      </div>
+      <CreatePresentationModalProvider>
+        <CreateQuizModalProvider>
+          <div className="fixed inset-0 flex min-h-0 bg-background text-foreground overflow-hidden selection:bg-primary selection:text-primary-foreground">
+            <Sidebar />
+            <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+              {children}
+            </main>
+          </div>
+        </CreateQuizModalProvider>
+      </CreatePresentationModalProvider>
     </CreatePollModalProvider>
   );
 }

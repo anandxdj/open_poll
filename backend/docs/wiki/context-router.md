@@ -22,6 +22,11 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/modules/responses.md`
 - `backend/docs/wiki/api/responses.md`
 
+### Live quiz tasks (slides, scoring, leaderboard, participants)
+- `backend/docs/wiki/modules/quizzes.md`
+- `backend/docs/wiki/quiz-roadmap.md` (phases / what to build next)
+- Add `backend/docs/wiki/realtime/socket-events.md` only if touching events.
+
 ### Realtime Socket/Redis tasks
 - `backend/docs/wiki/realtime/socket-events.md`
 - `backend/docs/wiki/realtime/redis-channels.md`

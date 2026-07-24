@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import axios from "axios";
 import { toast } from "sonner";
-import { CheckCircle2, ChevronLeft } from "lucide-react";
+import { CheckCircle2, ChevronLeft, RotateCcw, XCircle, Award } from "lucide-react";
 
 import type { Poll } from "@/features/polls/store/useCreatorStore";
 import { apiClient } from "@/lib/api-client";
@@ -17,22 +17,79 @@ type Props = {
   guestInfo?: { name: string; email: string } | null;
 };
 
+type TrialBreakdownItem = {
+  questionId: string;
+  questionText: string;
+  userSelectedIndices: number[];
+  correctOptionIndices?: number[];
+  isCorrect: boolean;
+  explanation?: string;
+};
+
+type TrialResult = {
+  passed: boolean;
+  score: number;
+  maxScore: number;
+  percentage: number;
+  passingScorePercentage: number;
+  attemptNumber: number;
+  breakdown: TrialBreakdownItem[];
+};
+
 const ease = [0.32, 0.72, 0, 1] as const;
 
 export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
+  const isTrial = poll.pollType === 'TRIAL';
+
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [answers, setAnswers] = useState<Record<string, number[]>>({});
+  const [multiSelections, setMultiSelections] = useState<number[]>([]);
   const [selectedNow, setSelectedNow] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
+  const [trialResult, setTrialResult] = useState<TrialResult | null>(() => {
+    if (!isTrial) return null;
+    try {
+      const stored = localStorage.getItem(`openpoll_trial_result_${poll._id}`);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [done, setDone] = useState<boolean>(() => {
+    if (isTrial) {
+      return !!localStorage.getItem(`openpoll_trial_result_${poll._id}`);
+    }
+    return false;
+  });
   const { user } = useAuthStore();
 
   const total = poll.questions.length;
   const current = poll.questions[step];
   const qid = String(current._id ?? step);
+  const isMulti = current.type === 'multiple';
   const progress = ((step + 1) / total) * 100;
 
-  async function submitAll(finalAnswers: Record<string, number>) {
+  useEffect(() => {
+    // Reset multiSelections when step changes
+    const saved = answers[qid] || [];
+    setMultiSelections(saved);
+    setSelectedNow(null);
+  }, [step, qid, answers]);
+
+  function handleRetry() {
+    try {
+      localStorage.removeItem(`openpoll_trial_result_${poll._id}`);
+      localStorage.removeItem(`openpoll_voted_${poll._id}`);
+    } catch {
+      // ignore
+    }
+    setStep(0);
+    setAnswers({});
+    setTrialResult(null);
+    setDone(false);
+  }
+
+  async function submitAll(finalAnswers: Record<string, number[]>) {
     setSubmitting(true);
     let respondentId = user?._id;
     if (!respondentId && guestInfo) {
@@ -40,40 +97,58 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
     }
 
     try {
-      await apiClient.post("/responses", {
+      const res = await apiClient.post("/responses", {
         pollId: poll._id,
-        deviceId,
         respondentId,
+        deviceId,
         answers: poll.questions
           .filter((q) => {
             const id = String(q._id);
-            return q.isMandatory || finalAnswers[id] !== undefined;
+            return q.isMandatory || (finalAnswers[id] && finalAnswers[id].length > 0);
           })
           .map((q) => {
             const id = String(q._id);
-            return { questionId: id, selectedOptionIndex: finalAnswers[id] ?? 0 };
+            const indices = finalAnswers[id] || [0];
+            return {
+              questionId: id,
+              selectedOptionIndex: indices[0] ?? 0,
+              selectedOptionIndices: indices,
+            };
           }),
       });
-      // Store voted status locally to prevent ballot box stuffing
-      localStorage.setItem(`openpoll_voted_${poll._id}`, "true");
+
+      const payloadData = (res.data as any)?.data || res.data;
+      const trialResultData = payloadData?.trialResult;
+
+      if (isTrial && trialResultData) {
+        setTrialResult(trialResultData);
+        try {
+          localStorage.setItem(`openpoll_trial_result_${poll._id}`, JSON.stringify(trialResultData));
+          localStorage.setItem(`openpoll_voted_${poll._id}`, "true");
+        } catch {
+          // ignore
+        }
+      } else {
+        localStorage.setItem(`openpoll_voted_${poll._id}`, "true");
+      }
+
       setDone(true);
     } catch (e: unknown) {
       if (axios.isAxiosError(e)) {
         const msg = e.response?.data?.message;
-        toast.error(typeof msg === "string" ? msg : "Could not submit your vote.");
+        toast.error(typeof msg === "string" ? msg : "Could not submit your response.");
       } else {
-        toast.error("Could not submit your vote.");
+        toast.error("Could not submit your response.");
       }
     } finally {
       setSubmitting(false);
     }
   }
 
-  function choose(optionIndex: number) {
+  function chooseSingle(optionIndex: number) {
     setSelectedNow(optionIndex);
-    // Brief delay so user sees the selection before advancing
     setTimeout(() => {
-      const nextAnswers = { ...answers, [qid]: optionIndex };
+      const nextAnswers = { ...answers, [qid]: [optionIndex] };
       setAnswers(nextAnswers);
       setSelectedNow(null);
       if (step >= total - 1) {
@@ -82,6 +157,28 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
         setStep((s) => s + 1);
       }
     }, 320);
+  }
+
+  function toggleMulti(optionIndex: number) {
+    setMultiSelections((prev) =>
+      prev.includes(optionIndex)
+        ? prev.filter((i) => i !== optionIndex)
+        : [...prev, optionIndex].sort((a, b) => a - b)
+    );
+  }
+
+  function confirmMulti() {
+    if (multiSelections.length === 0 && current.isMandatory) {
+      toast.error("Please select at least one option.");
+      return;
+    }
+    const nextAnswers = { ...answers, [qid]: multiSelections };
+    setAnswers(nextAnswers);
+    if (step >= total - 1) {
+      void submitAll(nextAnswers);
+    } else {
+      setStep((s) => s + 1);
+    }
   }
 
   function handleSkip() {
@@ -96,43 +193,133 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
     if (step > 0) setStep((s) => s - 1);
   }
 
-  // Keyboard shortcut listener hook
+  // Keyboard shortcuts
   const currentOptionsLength = current?.options?.length ?? 0;
-
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (submitting || done || selectedNow !== null) return;
-
-      // Ignore if typing inside text fields
       const tag = document.activeElement?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
 
       const numOptions = currentOptionsLength;
       const key = e.key;
 
-      // Handle Backspace or Left Arrow to go back
       if (key === "Backspace" || key === "ArrowLeft") {
         e.preventDefault();
         goBack();
         return;
       }
 
-      // Handle 1-9 keys to select options
       const parsedNum = parseInt(key, 10);
       if (!isNaN(parsedNum) && parsedNum >= 1 && parsedNum <= numOptions) {
         e.preventDefault();
-        choose(parsedNum - 1);
+        if (isMulti) {
+          toggleMulti(parsedNum - 1);
+        } else {
+          chooseSingle(parsedNum - 1);
+        }
+      }
+
+      if (isMulti && key === "Enter") {
+        e.preventDefault();
+        confirmMulti();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [step, submitting, done, selectedNow, currentOptionsLength]);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [step, submitting, done, selectedNow, currentOptionsLength, isMulti, multiSelections]);
 
-  // ── Done state ──────────────────────────────────────────────────
+  // ── Done / Trial Result State ─────────────────────────────────────
   if (done) {
+    if (isTrial && trialResult) {
+      return (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease }}
+          className="space-y-6 py-6"
+        >
+          {/* Badge Header */}
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="relative">
+              <div className={`absolute -inset-4 rounded-full blur-xl ${trialResult.passed ? 'bg-emerald-500/20' : 'bg-rose-500/20'}`} />
+              <div className={`relative flex size-20 items-center justify-center rounded-full border text-white shadow-xl ${
+                trialResult.passed
+                  ? 'border-emerald-500 bg-gradient-to-br from-emerald-500 to-teal-700 shadow-emerald-500/20'
+                  : 'border-rose-500 bg-gradient-to-br from-rose-500 to-red-700 shadow-rose-500/20'
+              }`}>
+                {trialResult.passed ? <Award className="size-10" /> : <XCircle className="size-10" />}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <span className={`text-[10px] font-bold uppercase tracking-widest ${trialResult.passed ? 'text-emerald-500' : 'text-rose-500'}`}>
+                {trialResult.passed ? 'Trial Passed 🎉' : `Trial Attempt #${trialResult.attemptNumber} Failed`}
+              </span>
+              <h2 className="text-3xl font-extrabold text-foreground">
+                Score: {trialResult.percentage}%
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Passing grade required: <span className="font-bold text-foreground">{trialResult.passingScorePercentage}%</span> ({trialResult.score}/{trialResult.maxScore} points)
+              </p>
+            </div>
+          </div>
+
+          {/* Question Breakdown */}
+          <div className="space-y-4 rounded-2xl border border-border/60 bg-secondary/20 p-5">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Question Breakdown
+            </h3>
+
+            <div className="space-y-3">
+              {trialResult.breakdown.map((item, idx) => (
+                <div
+                  key={idx}
+                  className={`rounded-xl border p-4 transition-all ${
+                    item.isCorrect
+                      ? 'border-emerald-500/30 bg-emerald-500/5'
+                      : 'border-rose-500/30 bg-rose-500/5'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-semibold text-foreground">
+                      Q{idx + 1}. {item.questionText}
+                    </p>
+                    <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                      item.isCorrect ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                    }`}>
+                      {item.isCorrect ? 'Correct' : 'Incorrect'}
+                    </span>
+                  </div>
+
+                  {item.explanation && (
+                    <p className="mt-2 text-xs text-muted-foreground border-t border-border/40 pt-2">
+                      💡 <span className="font-semibold text-foreground">Explanation:</span> {item.explanation}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Retry Button on Failure */}
+          {!trialResult.passed && (
+            <div className="flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={handleRetry}
+                className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95"
+              >
+                <RotateCcw className="size-4" />
+                Retry Trial
+              </button>
+            </div>
+          )}
+        </motion.div>
+      );
+    }
+
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
@@ -212,8 +399,15 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
           className="space-y-6"
         >
           {/* Counter */}
-          <div className="text-[10px] font-bold uppercase tracking-widest text-primary/70">
-            Question {step + 1}
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-primary/70">
+              Question {step + 1}
+            </div>
+            {isMulti && (
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
+                Multi-Select (Choose all that apply)
+              </span>
+            )}
           </div>
 
           {/* Question text */}
@@ -224,13 +418,13 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
           {/* Options */}
           <div className="flex flex-col gap-3">
             {current.options.map((opt, idx) => {
-              const isSelected = selectedNow === idx;
+              const isSelected = isMulti ? multiSelections.includes(idx) : selectedNow === idx;
               return (
                 <motion.button
                   key={`${qid}-${idx}`}
                   type="button"
-                  disabled={submitting || selectedNow !== null}
-                  onClick={() => choose(idx)}
+                  disabled={submitting || (!isMulti && selectedNow !== null)}
+                  onClick={() => (isMulti ? toggleMulti(idx) : chooseSingle(idx))}
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
                   transition={{ duration: 0.15 }}
@@ -241,11 +435,11 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
                       : "border-border bg-secondary/30 hover:border-primary/30 hover:bg-secondary/50"
                   )}
                 >
-                  {/* Option letter */}
+                  {/* Option letter / checkbox */}
                   <div
                     className={cn(
                       "flex size-8 shrink-0 items-center justify-center rounded-xl border text-xs font-bold transition-all duration-300",
-                    isSelected
+                      isSelected
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-border bg-secondary text-muted-foreground/60 group-hover:border-primary/40 group-hover:text-foreground"
                     )}
@@ -269,7 +463,7 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
                       <CheckCircle2 className="size-5 text-primary" />
                     </motion.div>
                   ) : (
-                    <div className="ml-auto hidden md:inline-flex items-center justify-center rounded-lg border border-border bg-[#14120f]/50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-muted-foreground/30 shadow-sm transition-all duration-300 group-hover:border-primary/20 group-hover:text-primary/70 group-hover:bg-primary/5 select-none uppercase">
+                    <div className="ml-auto hidden md:inline-flex items-center justify-center rounded-lg border border-border bg-secondary/50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-muted-foreground/50 shadow-sm transition-all duration-300 group-hover:border-primary/20 group-hover:text-primary/70 group-hover:bg-primary/5 select-none uppercase">
                       Press {idx + 1}
                     </div>
                   )}
@@ -277,6 +471,20 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
               );
             })}
           </div>
+
+          {/* Confirm Multi Button */}
+          {isMulti && (
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={confirmMulti}
+                className="rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground shadow-md hover:bg-primary/90 transition-all"
+              >
+                {step >= total - 1 ? "Submit Assessment" : "Confirm Answer →"}
+              </button>
+            </div>
+          )}
         </motion.div>
       </AnimatePresence>
 

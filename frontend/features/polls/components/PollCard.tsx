@@ -5,6 +5,17 @@ import Link from "next/link";
 import { BarChart3, Clock, ExternalLink, Globe, Lock, Share2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import type { Poll } from "@/features/polls/store/useCreatorStore";
 import { useCreatorStore } from "@/features/polls/store/useCreatorStore";
 import { cn } from "@/lib/utils";
@@ -62,9 +73,7 @@ export function PollCard({ poll, liveVotes }: { poll: Poll; liveVotes?: number }
     return () => clearInterval(id);
   }, [poll.expiresAt, status]);
 
-  async function handleClose(e: React.MouseEvent) {
-    e.preventDefault();
-    if (!confirm(`Close "${poll.title}" now?`)) return;
+  async function handleConfirmClose() {
     setClosing(true);
     try {
       await closePoll(poll._id);
@@ -211,15 +220,42 @@ export function PollCard({ poll, liveVotes }: { poll: Poll; liveVotes?: number }
             <span />
           )}
           {status === "active" && (
-            <button
-              type="button"
-              onClick={handleClose}
-              disabled={closing}
-              className="inline-flex items-center gap-1 transition-colors hover:text-red-500 disabled:opacity-40"
-            >
-              <X className="size-3 shrink-0" aria-hidden />
-              {closing ? "Closing…" : "Close poll"}
-            </button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  type="button"
+                  disabled={closing}
+                  className="inline-flex items-center gap-1 transition-colors hover:text-red-500 disabled:opacity-40"
+                >
+                  <X className="size-3 shrink-0" aria-hidden />
+                  {closing ? "Closing…" : "Close poll"}
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="rounded-3xl border border-white/10 bg-card/95 backdrop-blur-2xl p-6 shadow-2xl max-w-md">
+                <AlertDialogHeader className="space-y-2">
+                  <div className="size-11 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-1">
+                    <X className="size-5" />
+                  </div>
+                  <AlertDialogTitle className="text-lg font-bold text-foreground">
+                    Close "{poll.title}" now?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="text-sm text-muted-foreground/80 leading-relaxed">
+                    Closing this poll will immediately stop accepting new responses from participants.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="mt-6 gap-3">
+                  <AlertDialogCancel className="rounded-full border-white/15 bg-white/5 text-xs font-semibold hover:bg-white/10">
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleConfirmClose}
+                    className="rounded-full bg-amber-500 hover:bg-amber-600 font-bold text-white text-xs px-5 shadow-lg shadow-amber-500/20"
+                  >
+                    Close Poll
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
       </div>

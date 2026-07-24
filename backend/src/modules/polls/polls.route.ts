@@ -9,7 +9,8 @@ const router = Router();
 // POST /api/polls
 router.post('/', authenticate(), validate(createPollSchema), PollController.create);
 router.get('/', authenticate(), PollController.listByCreator);
-router.get('/:id', PollController.getById);
+// Public read (with optional auth): drafts are only visible to their creator.
+router.get('/:id', authenticate(true), PollController.getById);
 router.patch('/:pollId', authenticate(), validate(updatePollSchema), PollController.update);
 router.post('/:id/close', authenticate(), PollController.close);
 router.post('/:id/publish-results', authenticate(), PollController.publishResults);

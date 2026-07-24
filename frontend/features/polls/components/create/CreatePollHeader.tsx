@@ -18,7 +18,7 @@ type CreatePollHeaderProps = {
 export function CreatePollHeader({ isAnonymous, onApplyDraft, compact }: CreatePollHeaderProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleGenerate = async (params: { topic: string; tone: AiTone; questionCount: number }) => {
+  const handleGenerate = async (params: { topic: string; tone: AiTone; questionCount: number; pollType?: 'POLL' | 'TRIAL'; passingScorePercentage?: number }) => {
     setIsGenerating(true);
     const tid = toast.loading("AI is thinking...");
     try {
@@ -53,7 +53,7 @@ export function CreatePollHeader({ isAnonymous, onApplyDraft, compact }: CreateP
   if (compact) return aiButton;
 
   return (
-    <div className="flex flex-col gap-4 border-b border-white/[0.08] pb-8 sm:flex-row sm:items-end sm:justify-between relative">
+    <div className="flex flex-col gap-4 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between relative">
       {/* Subtle primary glow behind the header */}
       <div className="absolute top-1/2 left-0 -translate-y-1/2 w-32 h-32 bg-primary/20 blur-[60px] pointer-events-none" />
       

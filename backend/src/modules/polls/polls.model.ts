@@ -5,12 +5,18 @@ export interface IQuestion {
   _id?: mongoose.Types.ObjectId;
   text: string;
   options: string[];
+  type?: 'single' | 'multiple';
+  correctOptionIndices?: number[];
+  explanation?: string;
+  points?: number;
   isMandatory: boolean;
 }
 
 export interface IPoll extends Document {
   creatorId: string; // Mocked for now, will be User ID later
   title: string;
+  pollType: 'POLL' | 'TRIAL';
+  passingScorePercentage: number;
   isAnonymous: boolean;
   expiresAt: Date;
   isPublished: boolean;
@@ -32,6 +38,10 @@ const QuestionSchema = new Schema<IQuestion>({
       message: "A question must have at least 2 options."
     }
   },
+  type: { type: String, enum: ['single', 'multiple'], default: 'single' },
+  correctOptionIndices: { type: [Number], default: [] },
+  explanation: { type: String, default: '' },
+  points: { type: Number, default: 1 },
   isMandatory: { type: Boolean, default: true }
 });
 
@@ -39,6 +49,8 @@ const QuestionSchema = new Schema<IQuestion>({
 const PollSchema = new Schema<IPoll>({
   creatorId: { type: String, required: true },
   title: { type: String, required: true },
+  pollType: { type: String, enum: ['POLL', 'TRIAL'], default: 'POLL' },
+  passingScorePercentage: { type: Number, default: 70 },
   isAnonymous: { type: Boolean, default: true },
   expiresAt: { type: Date, required: true },
   isPublished: { type: Boolean, default: false },

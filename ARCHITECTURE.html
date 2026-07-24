@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Open Poll — Architecture & Roadmap</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3248;
+    --accent: #6c63ff;
+    --accent2: #00d4aa;
+    --accent3: #ff6b6b;
+    --accent4: #ffd166;
+    --accent5: #4ecdc4;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --green: #10b981;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --blue: #3b82f6;
+    --purple: #8b5cf6;
+    --orange: #f97316;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  /* ─── NAV ─── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(15,17,23,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex; align-items: center; gap: 0;
+    overflow-x: auto;
+  }
+  .nav-brand { font-size: 1rem; font-weight: 700; color: var(--accent); padding: 1rem 1.5rem 1rem 0; border-right: 1px solid var(--border); white-space: nowrap; margin-right: 1rem; }
+  nav a { color: var(--text2); text-decoration: none; font-size: 0.82rem; padding: 1rem 0.75rem; white-space: nowrap; border-bottom: 2px solid transparent; transition: all 0.2s; }
+  nav a:hover { color: var(--text); border-bottom-color: var(--accent); }
+  /* ─── LAYOUT ─── */
+  .page { max-width: 1280px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  h1 { font-size: 2.5rem; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text2); font-size: 1rem; margin-bottom: 3rem; }
+  h2 { font-size: 1.5rem; font-weight: 700; color: var(--text); margin: 3rem 0 1.25rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.1rem; font-weight: 600; color: var(--accent2); margin: 1.75rem 0 0.75rem; }
+  h4 { font-size: 0.9rem; font-weight: 600; color: var(--accent4); margin: 1.25rem 0 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  p { color: var(--text2); margin-bottom: 0.75rem; font-size: 0.92rem; }
+  code { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.8rem; background: var(--surface2); color: var(--accent2); padding: 0.15em 0.4em; border-radius: 4px; }
+  pre { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; overflow-x: auto; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.8rem; color: #a8b5c8; margin: 1rem 0; line-height: 1.7; }
+  pre .k { color: #c792ea; }
+  pre .s { color: #c3e88d; }
+  pre .c { color: #546e7a; }
+  pre .n { color: #82aaff; }
+  pre .v { color: #f78c6c; }
+  /* ─── CARDS ─── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin: 1rem 0; }
+  .card-grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin: 1rem 0; }
+  .card h3 { margin-top: 0; }
+  .tag { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.73rem; font-weight: 600; padding: 0.2em 0.6em; border-radius: 4px; }
+  .tag-green { background: #10b98120; color: var(--green); }
+  .tag-red { background: #ef444420; color: var(--red); }
+  .tag-yellow { background: #f59e0b20; color: var(--yellow); }
+  .tag-blue { background: #3b82f620; color: var(--blue); }
+  .tag-purple { background: #8b5cf620; color: var(--purple); }
+  .tag-orange { background: #f9731620; color: var(--orange); }
+  .tag-cyan { background: #00d4aa20; color: var(--accent2); }
+  /* ─── TABLES ─── */
+  .table-wrap { overflow-x: auto; margin: 1rem 0; border-radius: 10px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { background: var(--surface2); color: var(--text); font-weight: 600; padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+  td { padding: 0.65rem 1rem; border-bottom: 1px solid var(--border); color: var(--text2); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  td code { font-size: 0.75rem; }
+  /* ─── ARCHITECTURE DIAGRAMS ─── */
+  .diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 2rem; margin: 1.5rem 0; overflow-x: auto; }
+  .diagram-title { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 1.5rem; }
+  /* Flow diagram */
+  .flow { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
+  .flow-node { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 110px; padding: 0.75rem 1rem; border-radius: 10px; font-size: 0.78rem; font-weight: 600; text-align: center; line-height: 1.3; border: 1.5px solid; }
+  .flow-arrow { color: var(--text3); font-size: 1.2rem; padding: 0 0.4rem; }
+  .flow-label { font-size: 0.65rem; color: var(--text3); margin-top: 0.3rem; font-weight: 400; }
+  /* Box node types */
+  .node-client { background: #1e2a4a; border-color: #3b82f6; color: #93c5fd; }
+  .node-api { background: #2a1e4a; border-color: #8b5cf6; color: #c4b5fd; }
+  .node-service { background: #1e3a2a; border-color: #10b981; color: #6ee7b7; }
+  .node-redis { background: #3a2a1e; border-color: #f97316; color: #fed7aa; }
+  .node-mongo { background: #2a3a1e; border-color: #84cc16; color: #d9f99d; }
+  .node-socket { background: #3a1e2a; border-color: #ec4899; color: #fbcfe8; }
+  .node-worker { background: #3a3a1e; border-color: #eab308; color: #fef08a; }
+  .node-ai { background: #1e3a3a; border-color: #06b6d4; color: #a5f3fc; }
+  /* State machine */
+  .states { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-start; justify-content: center; }
+  .state-box { border-radius: 10px; border: 2px solid; padding: 0.75rem 1.25rem; min-width: 130px; text-align: center; position: relative; }
+  .state-box .state-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+  .state-box .state-desc { font-size: 0.67rem; color: var(--text3); margin-top: 0.3rem; }
+  .state-box .state-action { font-size: 0.65rem; margin-top: 0.5rem; padding: 0.2rem 0.5rem; border-radius: 4px; background: rgba(255,255,255,0.07); }
+  .state-arrow { font-size: 0.7rem; color: var(--text3); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.15rem; }
+  .state-arrow .arrow-line { width: 50px; height: 2px; background: var(--border); position: relative; }
+  .state-arrow .arrow-label { font-size: 0.62rem; color: var(--accent4); white-space: nowrap; }
+  /* Redis key diagram */
+  .redis-keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; }
+  .redis-key { background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--orange); border-radius: 8px; padding: 0.75rem 1rem; }
+  .redis-key .key-name { font-family: monospace; font-size: 0.75rem; color: var(--accent4); margin-bottom: 0.3rem; }
+  .redis-key .key-type { font-size: 0.65rem; color: var(--orange); }
+  .redis-key .key-desc { font-size: 0.72rem; color: var(--text2); margin-top: 0.25rem; }
+  /* Event list */
+  .events { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; }
+  .event-card { background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--purple); border-radius: 8px; padding: 0.75rem 1rem; }
+  .event-name { font-family: monospace; font-size: 0.78rem; font-weight: 700; color: #c4b5fd; margin-bottom: 0.3rem; }
+  .event-direction { font-size: 0.65rem; color: var(--text3); margin-bottom: 0.3rem; }
+  .event-desc { font-size: 0.72rem; color: var(--text2); }
+  /* Layer diagram */
+  .layers { display: flex; flex-direction: column; gap: 0.5rem; }
+  .layer { border-radius: 8px; padding: 0.75rem 1.25rem; font-size: 0.8rem; font-weight: 600; text-align: center; display: flex; align-items: center; justify-content: center; gap: 0.75rem; }
+  /* Badges */
+  .badge { font-size: 0.7rem; font-weight: 600; padding: 0.2em 0.6em; border-radius: 20px; }
+  /* Priority */
+  .p0 { background: #ef444425; color: #ef4444; border: 1px solid #ef444440; }
+  .p1 { background: #f59e0b25; color: #f59e0b; border: 1px solid #f59e0b40; }
+  .p2 { background: #3b82f625; color: #3b82f6; border: 1px solid #3b82f640; }
+  .p3 { background: #64748b25; color: #64748b; border: 1px solid #64748b40; }
+  /* Comparison */
+  .has { color: var(--green); }
+  .missing { color: var(--red); }
+  .partial { color: var(--yellow); }
+  /* Sections */
+  section { margin-bottom: 4rem; }
+  .section-id { scroll-margin-top: 70px; }
+  /* Callout */
+  .callout { border-radius: 10px; padding: 1rem 1.25rem; margin: 1rem 0; font-size: 0.85rem; display: flex; gap: 0.75rem; align-items: flex-start; }
+  .callout-info { background: #3b82f610; border: 1px solid #3b82f630; color: #93c5fd; }
+  .callout-warn { background: #f59e0b10; border: 1px solid #f59e0b30; color: #fcd34d; }
+  .callout-success { background: #10b98110; border: 1px solid #10b98130; color: #6ee7b7; }
+  .callout-danger { background: #ef444410; border: 1px solid #ef444430; color: #fca5a5; }
+  .callout-icon { font-size: 1rem; }
+  /* Timeline */
+  .timeline { position: relative; padding-left: 2rem; }
+  .timeline::before { content: ''; position: absolute; left: 0.75rem; top: 0; bottom: 0; width: 2px; background: var(--border); }
+  .timeline-item { position: relative; margin-bottom: 2rem; }
+  .timeline-item::before { content: ''; position: absolute; left: -1.6rem; top: 0.4rem; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); }
+  .timeline-item.done::before { background: var(--green); }
+  .timeline-item.inprog::before { background: var(--yellow); }
+  .timeline-item.planned::before { background: var(--text3); }
+  .timeline-phase { font-size: 0.72rem; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.3rem; }
+  .timeline-title { font-size: 0.95rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; }
+  .timeline-body { font-size: 0.83rem; color: var(--text2); }
+  /* Columns */
+  .cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  @media (max-width: 700px) { .cols-2 { grid-template-columns: 1fr; } }
+  /* Separator */
+  hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+  /* List */
+  ul, ol { padding-left: 1.5rem; color: var(--text2); font-size: 0.9rem; }
+  li { margin-bottom: 0.35rem; }
+  li code { font-size: 0.75rem; }
+  /* Hot path */
+  .hot { color: var(--red); font-weight: 700; }
+  /* Slide type badge */
+  .slide-type { display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 0.2em 0.7em; border-radius: 20px; margin: 0.15rem; }
+  .scored { background: #10b98120; color: #6ee7b7; border: 1px solid #10b98140; }
+  .interactive { background: #8b5cf620; color: #c4b5fd; border: 1px solid #8b5cf640; }
+  /* Mentimeter gap */
+  .gap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; margin: 1rem 0; }
+  .gap-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
+  .gap-card h4 { margin-top: 0; margin-bottom: 0.5rem; }
+  .gap-card p { font-size: 0.82rem; margin-bottom: 0; }
+  .gap-card .gap-effort { font-size: 0.7rem; margin-top: 0.5rem; }
+
+  /* ─── Print ─── */
+  @media print { nav { display: none; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">⚡ Open Poll</div>
+  <a href="#overview">Overview</a>
+  <a href="#poll-arch">Poll Architecture</a>
+  <a href="#quiz-arch">Quiz Architecture</a>
+  <a href="#state-machine">State Machine</a>
+  <a href="#socket-arch">Sockets</a>
+  <a href="#data-flow">Data Flows</a>
+  <a href="#redis-keys">Redis Keys</a>
+  <a href="#ai-module">AI Module</a>
+  <a href="#frontend">Frontend</a>
+  <a href="#gap-analysis">Mentimeter Gap</a>
+  <a href="#roadmap">Roadmap</a>
+</nav>
+
+<div class="page">
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="overview" class="section-id">
+  <h1>Open Poll Architecture</h1>
+  <p class="subtitle">Interactive polling &amp; quiz platform — Express + Socket.IO + Redis + MongoDB + Next.js</p>
+
+  <div class="diagram">
+    <div class="diagram-title">System Overview — Tech Stack</div>
+    <div class="layers">
+      <div class="layer" style="background:#1a2a4a;border:1.5px solid #3b82f6;color:#93c5fd;">
+        🌐 &nbsp;Next.js 14 Frontend &nbsp;|&nbsp; React + Framer Motion + Tailwind + Socket.IO Client
+      </div>
+      <div class="layer" style="background:#1a1a1a;border:1.5px solid #475569;color:#94a3b8;font-size:0.7rem;">
+        ↕ HTTPS REST &nbsp;&nbsp;&nbsp; ↕ WebSocket (Socket.IO)
+      </div>
+      <div class="layer" style="background:#2a1e4a;border:1.5px solid #8b5cf6;color:#c4b5fd;">
+        🚀 &nbsp;Express API Server (TypeScript) &nbsp;|&nbsp; REST Routes + Socket.IO Gateway
+      </div>
+      <div class="layer" style="background:#1e1a1a;border:1.5px solid #475569;color:#94a3b8;font-size:0.7rem;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.5rem;padding:0.5rem 1rem;">
+        <span style="text-align:center">Polls Module</span>
+        <span style="text-align:center">Quizzes Module</span>
+        <span style="text-align:center">Responses Module</span>
+        <span style="text-align:center">AI Module</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+        <div class="layer" style="background:#3a2a1e;border:1.5px solid #f97316;color:#fed7aa;">
+          🔴 &nbsp;Redis — Hot Path, Pub/Sub, Rate Limiting, Analytics Buffer
+        </div>
+        <div class="layer" style="background:#2a3a1e;border:1.5px solid #84cc16;color:#d9f99d;">
+          🍃 &nbsp;MongoDB — Persistent storage (Polls, Quizzes, Users, Responses, Analytics)
+        </div>
+      </div>
+      <div class="layer" style="background:#1e3a3a;border:1.5px solid #06b6d4;color:#a5f3fc;">
+        🤖 &nbsp;Google Gemini 2.0 Flash + LangGraph — AI quiz &amp; poll generation
+      </div>
+    </div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>📊 Polls</h3>
+      <p>Passive, form-style surveys. Creator publishes; respondents fill async. Real-time analytics via buffered Redis → MongoDB writes. Device-based dedup. Guest email gate on non-anonymous polls.</p>
+      <div style="margin-top:0.75rem;">
+        <span class="tag tag-green">Async responses</span>
+        <span class="tag tag-blue">Expiry-based lifecycle</span>
+        <span class="tag tag-cyan">Analytics worker</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🎮 Quizzes</h3>
+      <p>Synchronous, host-driven sessions. Live competition with scoring, timers, leaderboards. Redis hot path for answer submissions. 6 slide types: 2 scored + 4 interactive.</p>
+      <div style="margin-top:0.75rem;">
+        <span class="tag tag-purple">Host state machine</span>
+        <span class="tag tag-red">Redis hot path</span>
+        <span class="tag tag-yellow">Time-based scoring</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🤖 AI Generation</h3>
+      <p>Gemini 2.0 Flash with LangGraph StateGraph. Generates full poll/quiz drafts from topic + config. Repair pass coerces LLM output to valid schema. Mock fallback if API unavailable.</p>
+      <div style="margin-top:0.75rem;">
+        <span class="tag tag-cyan">Structured output</span>
+        <span class="tag tag-blue">Schema repair</span>
+        <span class="tag tag-green">Fallback mocks</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="poll-arch" class="section-id">
+  <h2>📊 Poll Architecture</h2>
+
+  <h3>Data Model</h3>
+  <div class="cols-2">
+    <div>
+      <h4>Poll Document</h4>
+      <pre>
+<span class="k">interface</span> <span class="n">IPoll</span> {
+  creatorId:            string
+  title:                string
+  isAnonymous:          boolean
+  expiresAt:            Date       <span class="c">// must be future</span>
+  isPublished:          boolean    <span class="c">// gate: visible to responders</span>
+  isClosed:             boolean
+  closedAt?:            Date
+  isResultsPublished:   boolean    <span class="c">// separate gate from isClosed</span>
+  resultsPublishedAt?:  Date
+  questions: [{
+    text:        string
+    options:     string[]  <span class="c">// min 2</span>
+    isMandatory: boolean
+  }]
+}</pre>
+    </div>
+    <div>
+      <h4>Analytics Document (1-to-1 with Poll)</h4>
+      <pre>
+<span class="k">interface</span> <span class="n">IAnalytics</span> {
+  pollId:         ObjectId  <span class="c">// unique index</span>
+  totalResponses: number
+  questionSummaries: [{
+    questionId: ObjectId
+    counts:     number[]  <span class="c">// per option</span>
+  }]
+}
+
+<span class="c">// Created atomically with Poll.
+// Preserved across updates if question
+// order/options unchanged.</span></pre>
+    </div>
+  </div>
+
+  <h3>Poll Lifecycle</h3>
+  <div class="diagram">
+    <div class="diagram-title">Poll State Transitions</div>
+    <div class="flow" style="flex-wrap:wrap;gap:0.5rem;align-items:center;">
+      <div class="flow-node node-api" style="border-color:#475569;background:#1a1a2a;">
+        <div>DRAFT</div>
+        <div class="flow-label">isPublished=false</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-service">
+        <div>PUBLISHED</div>
+        <div class="flow-label">accepting responses</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-redis">
+        <div>CLOSED</div>
+        <div class="flow-label">isClosed=true</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-mongo">
+        <div>RESULTS LIVE</div>
+        <div class="flow-label">isResultsPublished=true</div>
+      </div>
+    </div>
+    <div style="margin-top:1rem;font-size:0.75rem;color:var(--text3);">
+      Also auto-closes when <code>expiresAt</code> is passed (checked at response submission time).
+    </div>
+  </div>
+
+  <h3>Response &amp; Analytics Pipeline</h3>
+  <div class="diagram">
+    <div class="diagram-title">Poll Voting — Buffered Write Architecture</div>
+    <div class="flow" style="flex-wrap:wrap;gap:0.5rem;align-items:center;">
+      <div class="flow-node node-client">
+        <div>Browser</div>
+        <div class="flow-label">submit answers</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-api">
+        <div>POST /responses</div>
+        <div class="flow-label">validation + dedup</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-redis">
+        <div>Redis Buffer</div>
+        <div class="flow-label">SADD + INCR + HINCRBY</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-worker">
+        <div>Analytics Worker</div>
+        <div class="flow-label">every 2 seconds</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-mongo">
+        <div>MongoDB</div>
+        <div class="flow-label">bulk arrayFilters update</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-socket">
+        <div>Socket.IO</div>
+        <div class="flow-label">analytics:update event</div>
+      </div>
+    </div>
+    <div style="margin-top:1rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem;font-size:0.78rem;">
+      <div style="background:var(--surface2);padding:0.75rem;border-radius:8px;">
+        <div style="color:var(--accent4);font-weight:700;margin-bottom:0.5rem;">Dedup Check (Redis)</div>
+        <code>poll:{pollId}:voted:{deviceId}</code><br>
+        <span style="color:var(--text3);">24h TTL — one vote per device per poll</span>
+      </div>
+      <div style="background:var(--surface2);padding:0.75rem;border-radius:8px;">
+        <div style="color:var(--accent4);font-weight:700;margin-bottom:0.5rem;">Fire-and-Forget Mongo Insert</div>
+        <span style="color:var(--text3);">Individual ResponseModel document for audit trail. Worker is source of truth for aggregates.</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>API Endpoints</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Method</th><th>Route</th><th>Auth</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>POST</code></td><td><code>/api/polls</code></td><td><span class="tag tag-purple">creator</span></td><td>Create poll + paired Analytics doc</td></tr>
+        <tr><td><code>GET</code></td><td><code>/api/polls</code></td><td><span class="tag tag-purple">creator</span></td><td>List creator's polls, sorted by date</td></tr>
+        <tr><td><code>GET</code></td><td><code>/api/polls/:id</code></td><td><span class="tag tag-green">public</span></td><td>Poll detail (no auth)</td></tr>
+        <tr><td><code>PATCH</code></td><td><code>/api/polls/:pollId</code></td><td><span class="tag tag-purple">creator+owner</span></td><td>Update (blocked if closed)</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/polls/:id/close</code></td><td><span class="tag tag-purple">creator+owner</span></td><td>Force close; sets closedAt = now</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/polls/:id/publish-results</code></td><td><span class="tag tag-purple">creator+owner</span></td><td>Reveal results (requires closed/expired)</td></tr>
+        <tr><td><code>DELETE</code></td><td><code>/api/polls/:id</code></td><td><span class="tag tag-purple">creator+owner</span></td><td>Delete poll + cascade Analytics</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/responses</code></td><td><span class="tag tag-green">public</span></td><td>Submit responses; Redis buffer + dedup</td></tr>
+        <tr><td><code>GET</code></td><td><code>/api/responses/analytics/:pollId</code></td><td><span class="tag tag-green">public</span></td><td>Aggregated counts (cached 1h)</td></tr>
+        <tr><td><code>GET</code></td><td><code>/api/responses/list/:pollId</code></td><td><span class="tag tag-purple">creator+owner</span></td><td>Individual responses (non-anonymous only)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="quiz-arch" class="section-id">
+  <h2>🎮 Quiz Architecture</h2>
+
+  <h3>Slide Types</h3>
+  <div class="card-grid-3">
+    <div class="card">
+      <div><span class="slide-type scored">SCORED</span></div>
+      <h3 style="margin-top:0.5rem;">select_answer</h3>
+      <p>Multiple choice. Options with <code>isCorrect</code> flag. Points + time multiplier. Distribution: option counts.</p>
+    </div>
+    <div class="card">
+      <div><span class="slide-type scored">SCORED</span></div>
+      <h3 style="margin-top:0.5rem;">type_answer</h3>
+      <p>Free text matching <code>acceptedAnswers[]</code>. Normalized (lowercase + collapse spaces). Top 20 shown on reveal.</p>
+    </div>
+    <div class="card">
+      <div><span class="slide-type interactive">INTERACTIVE</span></div>
+      <h3 style="margin-top:0.5rem;">wordcloud</h3>
+      <p>Up to 3 entries per participant. Dedup via original-casing hash. Top 100 on reveal. Variable font size by frequency.</p>
+    </div>
+    <div class="card">
+      <div><span class="slide-type interactive">INTERACTIVE</span></div>
+      <h3 style="margin-top:0.5rem;">open_ended</h3>
+      <p>Free text, 500 char max. Top 50 responses shown as card grid. No scoring.</p>
+    </div>
+    <div class="card">
+      <div><span class="slide-type interactive">INTERACTIVE</span></div>
+      <h3 style="margin-top:0.5rem;">scales</h3>
+      <p>2–5 statements, each rated 1–N. Average + response count per statement shown as horizontal bars.</p>
+    </div>
+    <div class="card">
+      <div><span class="slide-type interactive">INTERACTIVE</span></div>
+      <h3 style="margin-top:0.5rem;">ranking</h3>
+      <p>Drag-to-reorder items. Borda count aggregation (top = N pts, last = 1 pt). Final rank displayed as bars.</p>
+    </div>
+  </div>
+
+  <h3>Data Model</h3>
+  <div class="cols-2">
+    <div>
+      <h4>Quiz Document</h4>
+      <pre>
+<span class="k">interface</span> <span class="n">IQuiz</span> {
+  creatorId:         string
+  title:             string
+  joinCode:          string   <span class="c">// 6-digit unique, 5 retry on collision</span>
+  status:            <span class="s">'draft'</span> | <span class="s">'lobby'</span> | <span class="s">'question'</span>
+                   | <span class="s">'reveal'</span> | <span class="s">'leaderboard'</span> | <span class="s">'ended'</span>
+  currentSlideIndex: number   <span class="c">// -1 before first question</span>
+  questionStartedAt: Date | null
+  questionEndsAt:    Date | null
+  slides:            IQuizSlide[]
+}
+
+<span class="k">interface</span> <span class="n">IQuizSlide</span> {
+  type:              SlideType
+  question:          string
+  options:           { text: string, isCorrect: boolean }[]
+  acceptedAnswers:   string[]
+  statements:        string[]
+  minLabel:          string
+  maxLabel:          string
+  scaleMax:          number    <span class="c">// 2-10</span>
+  items:             string[]
+  maxEntries:        number    <span class="c">// wordcloud: 1-3</span>
+  timeLimit:         number    <span class="c">// seconds, 5-300</span>
+  points:            number    <span class="c">// 0-10000</span>
+  scoreDependsOnTime: boolean
+}</pre>
+    </div>
+    <div>
+      <h4>Participant Document</h4>
+      <pre>
+<span class="k">interface</span> <span class="n">IQuizParticipant</span> {
+  quizId:       ObjectId
+  name:         string   <span class="c">// max 30 chars</span>
+  deviceId:     string   <span class="c">// unique per quiz (compound index)</span>
+  token:        string   <span class="c">// 24-byte hex, issued once on join</span>
+  score:        number
+  correctCount: number
+  joinedAt:     Date
+}</pre>
+      <h4>Answer Document</h4>
+      <pre>
+<span class="k">interface</span> <span class="n">IQuizAnswer</span> {
+  quizId:        ObjectId
+  participantId: ObjectId
+  slideIndex:    number
+  optionIndex?:  number     <span class="c">// select_answer</span>
+  text?:         string     <span class="c">// type_answer, open_ended</span>
+  payload?: {
+    entries?:  string[]    <span class="c">// wordcloud</span>
+    ratings?:  number[]    <span class="c">// scales</span>
+    ranking?:  number[]    <span class="c">// ranking (indices)</span>
+  }
+  isCorrect:     boolean
+  score:         number
+  timeMs:        number    <span class="c">// server-side elapsed (anti-cheat)</span>
+}</pre>
+    </div>
+  </div>
+
+  <h3>Scoring Formula</h3>
+  <div class="card" style="border-color:var(--yellow)20;">
+    <div style="font-family:monospace;font-size:0.9rem;color:var(--text);">
+      score = points × (1 − elapsed / timeLimit / 2)
+    </div>
+    <p style="margin-top:0.75rem;font-size:0.82rem;">Fastest correct answer = full points. Slowest correct answer = 50% points. Wrong = 0. Non-scored slide types always = 0 regardless of setting. Grace window: 750ms after timer for network latency.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="state-machine" class="section-id">
+  <h2>🔄 Quiz Host State Machine</h2>
+
+  <div class="diagram">
+    <div class="diagram-title">Quiz Session State Machine — Host Controls</div>
+    <div class="states">
+
+      <div class="state-box" style="border-color:#475569;background:#1a1a2a;min-width:140px;">
+        <div class="state-label" style="color:#94a3b8;">draft</div>
+        <div class="state-desc">Quiz exists, not live</div>
+        <div class="state-action" style="color:#475569;">No participants</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.2rem;">
+        <div style="font-size:0.65rem;color:var(--accent4);">POST open-lobby</div>
+        <div style="font-size:1.2rem;color:var(--border);">→</div>
+      </div>
+
+      <div class="state-box" style="border-color:#3b82f6;background:#1e2a4a;min-width:140px;">
+        <div class="state-label" style="color:#93c5fd;">lobby</div>
+        <div class="state-desc">Participants joining</div>
+        <div class="state-action" style="color:#93c5fd;">QR code shown, join code live</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.2rem;">
+        <div style="font-size:0.65rem;color:var(--accent4);">POST next-question</div>
+        <div style="font-size:1.2rem;color:var(--border);">→</div>
+      </div>
+
+      <div class="state-box" style="border-color:#f97316;background:#3a2a1e;min-width:140px;">
+        <div class="state-label" style="color:#fed7aa;">question</div>
+        <div class="state-desc">Live timer, answering open</div>
+        <div class="state-action" style="color:#f97316;">Redis dedup + scoring</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.2rem;">
+        <div style="font-size:0.65rem;color:var(--accent4);">POST reveal</div>
+        <div style="font-size:1.2rem;color:var(--border);">→</div>
+      </div>
+
+      <div class="state-box" style="border-color:#10b981;background:#1e3a2a;min-width:140px;">
+        <div class="state-label" style="color:#6ee7b7;">reveal</div>
+        <div class="state-desc">Distribution shown</div>
+        <div class="state-action" style="color:#10b981;">Answers frozen</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.2rem;">
+        <div style="font-size:0.65rem;color:var(--accent4);">POST leaderboard</div>
+        <div style="font-size:1.2rem;color:var(--border);">→</div>
+      </div>
+
+      <div class="state-box" style="border-color:#8b5cf6;background:#2a1e4a;min-width:140px;">
+        <div class="state-label" style="color:#c4b5fd;">leaderboard</div>
+        <div class="state-desc">Rankings displayed</div>
+        <div class="state-action" style="color:#8b5cf6;">Redis ZRANGE top 10</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.2rem;">
+        <div style="font-size:0.65rem;color:var(--accent4);">POST end or next-question</div>
+        <div style="font-size:1.2rem;color:var(--border);">→</div>
+      </div>
+
+      <div class="state-box" style="border-color:#64748b;background:#1a1a1a;min-width:140px;">
+        <div class="state-label" style="color:#94a3b8;">ended</div>
+        <div class="state-desc">Session complete</div>
+        <div class="state-action" style="color:#64748b;">Redis TTL extended</div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:1.5rem;padding:1rem;background:var(--surface2);border-radius:8px;font-size:0.78rem;color:var(--text2);">
+      <strong style="color:var(--accent4);">Loop:</strong> After reveal or leaderboard → <code>next-question</code> increments <code>currentSlideIndex</code> and returns to <strong>question</strong> state. Final slide triggers <code>isLastSlide: true</code> in event payload so host UI shows "End Quiz" instead of "Next Question".
+    </div>
+  </div>
+
+  <h3>Host Control API Endpoints</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Route</th><th>Allowed From States</th><th>Sets Status</th><th>Side Effects</th></tr></thead>
+      <tbody>
+        <tr><td><code>POST /host/open-lobby</code></td><td>draft, ended</td><td>lobby</td><td>Resets participants, answers, Redis keys. Emits <code>lobby:opened</code></td></tr>
+        <tr><td><code>POST /host/next-question</code></td><td>lobby, reveal, leaderboard</td><td>question</td><td>Increments slideIndex, sets timing, caches LiveSession in Redis. Emits <code>question:started</code></td></tr>
+        <tr><td><code>POST /host/reveal</code></td><td>question</td><td>reveal</td><td>Reads Redis distribution, computes stats. Emits <code>question:revealed</code> with full distribution</td></tr>
+        <tr><td><code>POST /host/leaderboard</code></td><td>reveal</td><td>leaderboard</td><td>Redis ZRANGE top 10. Emits <code>leaderboard:shown</code></td></tr>
+        <tr><td><code>POST /host/end</code></td><td>leaderboard</td><td>ended</td><td>Extends Redis TTLs for final screen. Emits <code>quiz:ended</code> with top 100</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Content Sanitization</h3>
+  <div class="callout callout-warn">
+    <span class="callout-icon">⚠️</span>
+    <div>
+      <strong>Anti-cheat:</strong> When broadcasting <code>question:started</code>, the slide is sanitized — <code>isCorrect</code> flags and <code>acceptedAnswers[]</code> are stripped. Participant state endpoint only returns <code>lastAnswer</code> after status transitions to <code>reveal</code>, <code>leaderboard</code>, or <code>ended</code>. Server-side timing (stored in Redis LiveSession) means clients cannot fake faster responses.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="socket-arch" class="section-id">
+  <h2>⚡ WebSocket Architecture</h2>
+
+  <div class="diagram">
+    <div class="diagram-title">Real-Time Event Flow — Redis Pub/Sub → Socket.IO → Clients</div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:1rem;align-items:start;">
+
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:0.5rem;">Backend Services</div>
+        <div class="flow-node node-service" style="margin-bottom:0.5rem;width:100%;text-align:center;">ResponseService<br><span class="flow-label">buffers analytics</span></div>
+        <div class="flow-node node-worker" style="margin-bottom:0.5rem;width:100%;text-align:center;">AnalyticsWorker<br><span class="flow-label">every 2s</span></div>
+        <div class="flow-node node-service" style="margin-bottom:0.5rem;width:100%;text-align:center;">QuizService<br><span class="flow-label">hot path answers</span></div>
+        <div class="flow-node node-service" style="width:100%;text-align:center;">QuizHostService<br><span class="flow-label">state transitions</span></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:0.5rem;padding-top:2rem;">
+        <div style="font-size:0.65rem;color:var(--accent4);">PUBLISH to channel</div>
+        <div style="font-size:1.5rem;color:var(--border);">→</div>
+      </div>
+
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:0.5rem;">Redis Pub/Sub Channels</div>
+        <div class="flow-node node-redis" style="margin-bottom:0.75rem;width:100%;text-align:center;">analytics:update<br><span class="flow-label">PollAnalyticsUpdateEvent</span></div>
+        <div class="flow-node node-redis" style="width:100%;text-align:center;">quiz:event<br><span class="flow-label">QuizRealtimeEvent (typed)</span></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:0.5rem;padding-top:2rem;">
+        <div style="font-size:0.65rem;color:var(--accent4);">Socket.IO emit</div>
+        <div style="font-size:1.5rem;color:var(--border);">→</div>
+      </div>
+
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:0.5rem;">Socket.IO Rooms → Clients</div>
+        <div class="flow-node node-socket" style="margin-bottom:0.75rem;width:100%;text-align:center;">Room: poll_{pollId}<br><span class="flow-label">emit: analytics:update</span></div>
+        <div class="flow-node node-socket" style="width:100%;text-align:center;">Room: quiz_{quizId}<br><span class="flow-label">emit: quiz:event</span></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Quiz Real-Time Events</h3>
+  <div class="events">
+    <div class="event-card">
+      <div class="event-name">lobby:opened</div>
+      <div class="event-direction">Host action → All clients in room</div>
+      <div class="event-desc">Quiz is open for joining. Payload: <code>{ joinCode }</code></div>
+    </div>
+    <div class="event-card">
+      <div class="event-name">participant:joined</div>
+      <div class="event-direction">Auto on join/rejoin → All clients</div>
+      <div class="event-desc"><code>{ participantId, name, participantCount }</code></div>
+    </div>
+    <div class="event-card">
+      <div class="event-name">question:started</div>
+      <div class="event-direction">Host next-question → All clients</div>
+      <div class="event-desc">Sanitized slide (no isCorrect). <code>{ slide, startedAt, endsAt, serverNow }</code></div>
+    </div>
+    <div class="event-card">
+      <div class="event-name">answer:received</div>
+      <div class="event-direction">Any answer submit → All clients</div>
+      <div class="event-desc">Live count update. <code>{ slideIndex, answeredCount }</code></div>
+    </div>
+    <div class="event-card">
+      <div class="event-name">question:revealed</div>
+      <div class="event-direction">Host reveal → All clients</div>
+      <div class="event-desc">Full distribution. <code>{ slideIndex, type, scored, distribution, answeredCount, isLastSlide }</code></div>
+    </div>
+    <div class="event-card">
+      <div class="event-name">leaderboard:shown</div>
+      <div class="event-direction">Host leaderboard → All clients</div>
+      <div class="event-desc"><code>{ leaderboard: Entry[], participantCount, isLastSlide }</code></div>
+    </div>
+    <div class="event-card">
+      <div class="event-name">quiz:ended</div>
+      <div class="event-direction">Host end → All clients</div>
+      <div class="event-desc">Final state. <code>{ leaderboard: Entry[] (top 100), participantCount }</code></div>
+    </div>
+    <div class="event-card" style="border-left-color:var(--green);">
+      <div class="event-name" style="color:#6ee7b7;">analytics:update (Poll)</div>
+      <div class="event-direction">Worker flush → Poll subscribers</div>
+      <div class="event-desc"><code>{ pollId, totalResponses, questionSummaries }</code></div>
+    </div>
+  </div>
+
+  <h3>Client Socket Lifecycle</h3>
+  <pre>
+<span class="c">// Frontend — useQuizSocket hook</span>
+<span class="k">on</span> mount:    socket.emit(<span class="s">'quiz:join'</span>, { quizId })
+             socket.on(<span class="s">'quiz:event'</span>, handler)
+             socket.on(<span class="s">'reconnect'</span>, rejoin)
+
+<span class="k">on</span> unmount:  socket.off(<span class="s">'quiz:event'</span>)
+             socket.emit(<span class="s">'quiz:leave'</span>, { quizId })
+
+<span class="c">// Socket singleton — shared across components</span>
+<span class="k">getSocket</span>() → connect once, reuse everywhere</pre>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="data-flow" class="section-id">
+  <h2>🔀 Critical Data Flows</h2>
+
+  <h3>Quiz Answer — Hot Path (target: &lt;10ms)</h3>
+  <div class="diagram">
+    <div class="diagram-title">submitAnswer — Redis-First Architecture</div>
+    <div class="flow" style="flex-wrap:wrap;gap:0.5rem;">
+      <div class="flow-node node-client">
+        <div>PlayView</div>
+        <div class="flow-label">participantId + token + answer</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-api">
+        <div>POST /answer</div>
+        <div class="flow-label">rate: 2000/min</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-redis" style="position:relative;">
+        <div>Load LiveSession</div>
+        <div class="flow-label">quiz:{id}:session</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-redis">
+        <div>Validate deadline</div>
+        <div class="flow-label">now ≤ endsAtMs + 750ms</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-redis">
+        <div>Token verify</div>
+        <div class="flow-label">quiz:{id}:tokens HGET</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-redis">
+        <div>Atomic SADD</div>
+        <div class="flow-label">dedup per question</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-redis">
+        <div>Grade + Score</div>
+        <div class="flow-label">ZSET / HASH update</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-mongo" style="opacity:0.7;">
+        <div>Mongo write</div>
+        <div class="flow-label">fire-and-forget async</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-socket">
+        <div>Publish</div>
+        <div class="flow-label">answer:received event</div>
+      </div>
+    </div>
+    <div class="callout callout-info" style="margin-top:1rem;">
+      <span class="callout-icon">ℹ️</span>
+      <div>If Redis loses the LiveSession mid-quiz, it is rebuilt from MongoDB on next state query. No data loss — Mongo writes happen async but before next reveal.</div>
+    </div>
+  </div>
+
+  <h3>Host Opens Next Question</h3>
+  <div class="diagram">
+    <div class="diagram-title">startNextQuestion — Session Cache Build</div>
+    <div class="flow" style="flex-wrap:wrap;gap:0.5rem;">
+      <div class="flow-node node-client">
+        <div>HostView</div>
+        <div class="flow-label">click "Next Question"</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-api">
+        <div>POST /host/next-question</div>
+        <div class="flow-label">auth + ownership check</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-mongo">
+        <div>Quiz.findByIdAndUpdate</div>
+        <div class="flow-label">increment slideIndex, set timing</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-redis">
+        <div>SET LiveSession</div>
+        <div class="flow-label">all validation data cached</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-redis">
+        <div>Publish quiz:event</div>
+        <div class="flow-label">question:started payload</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-socket">
+        <div>All clients receive</div>
+        <div class="flow-label">sanitized slide + timing</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Participant Join — Idempotent Flow</h3>
+  <pre>
+POST /quizzes/:id/join { name, deviceId }
+
+1. Find quiz by id, verify status !== 'ended'
+2. QuizParticipant.findOne({ quizId, deviceId })
+   → EXISTS:  Return existing participantId + fresh token view
+   → MISSING: Insert new participant, generate token (24-byte hex)
+3. Cache in Redis: quiz:{id}:tokens HSET participantId → token
+                   quiz:{id}:names  HSET participantId → name
+4. Publish 'participant:joined' event to all in room
+5. Return { participantId, token }   ← token ONLY shown at join, never broadcast</pre>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="redis-keys" class="section-id">
+  <h2>🔴 Redis Key Catalog</h2>
+
+  <h3>Quiz Keys (TTL: 6h after last state change)</h3>
+  <div class="redis-keys">
+    <div class="redis-key">
+      <div class="key-name">quiz:{quizId}:session</div>
+      <div class="key-type">STRING (JSON) — Hot path</div>
+      <div class="key-desc">LiveSession: slideIndex, timing, slide type/config, answer validation data. Pre-computed to avoid Mongo reads on answer path.</div>
+    </div>
+    <div class="redis-key">
+      <div class="key-name">quiz:{quizId}:scores</div>
+      <div class="key-type">ZSET — Score leaderboard</div>
+      <div class="key-desc">participantId → cumulative score. ZINCRBY on each correct answer. ZREVRANGE for leaderboard display.</div>
+    </div>
+    <div class="redis-key">
+      <div class="key-name">quiz:{quizId}:correct</div>
+      <div class="key-type">HASH</div>
+      <div class="key-desc">participantId → correct answer count. Incremented alongside scores.</div>
+    </div>
+    <div class="redis-key">
+      <div class="key-name">quiz:{quizId}:names</div>
+      <div class="key-type">HASH</div>
+      <div class="key-desc">participantId → display name. Used in leaderboard without Mongo lookup.</div>
+    </div>
+    <div class="redis-key">
+      <div class="key-name">quiz:{quizId}:tokens</div>
+      <div class="key-type">HASH</div>
+      <div class="key-desc">participantId → secret token. Verified on every answer submission.</div>
+    </div>
+    <div class="redis-key">
+      <div class="key-name">quiz:{quizId}:answered:{slideIndex}</div>
+      <div class="key-type">SET — Dedup</div>
+      <div class="key-desc">participantIds who answered this slide. SADD returns 0 on duplicate → reject. One per slide.</div>
+    </div>
+    <div class="redis-key">
+      <div class="key-name">quiz:{quizId}:dist:{slideIndex}</div>
+      <div class="key-type">HASH — Distribution</div>
+      <div class="key-desc">option/text/normalized → count. Used on reveal to compute distribution per slide type.</div>
+    </div>
+    <div class="redis-key">
+      <div class="key-name">quiz:{quizId}:disp:{slideIndex}</div>
+      <div class="key-type">HASH — Display casing</div>
+      <div class="key-desc">normalized → first-seen original casing. Word clouds show "JavaScript" not "javascript".</div>
+    </div>
+    <div class="redis-key">
+      <div class="key-name">quiz:{quizId}:results:{slideIndex}</div>
+      <div class="key-type">HASH — Per-participant</div>
+      <div class="key-desc">participantId → { isCorrect, score, scored }. Served on getParticipantState after reveal.</div>
+    </div>
+  </div>
+
+  <h3>Poll Keys</h3>
+  <div class="redis-keys">
+    <div class="redis-key" style="border-left-color:var(--green);">
+      <div class="key-name" style="color:#6ee7b7;">poll:{pollId}:voted:{deviceId}</div>
+      <div class="key-type" style="color:var(--green);">STRING — 24h TTL</div>
+      <div class="key-desc">Vote dedup marker. Set on submit; reject duplicate device within 24h.</div>
+    </div>
+    <div class="redis-key" style="border-left-color:var(--green);">
+      <div class="key-name" style="color:#6ee7b7;">buffer:active_polls</div>
+      <div class="key-type" style="color:var(--green);">SET</div>
+      <div class="key-desc">Polls with pending analytics buffer. Worker pops from this set every 2s.</div>
+    </div>
+    <div class="redis-key" style="border-left-color:var(--green);">
+      <div class="key-name" style="color:#6ee7b7;">buffer:poll:{pollId}:total</div>
+      <div class="key-type" style="color:var(--green);">STRING (counter)</div>
+      <div class="key-desc">Accumulated response count delta since last flush.</div>
+    </div>
+    <div class="redis-key" style="border-left-color:var(--green);">
+      <div class="key-name" style="color:#6ee7b7;">buffer:poll:{pollId}:question:{qId}</div>
+      <div class="key-type" style="color:var(--green);">HASH</div>
+      <div class="key-desc">optionIndex → accumulated count delta for this question.</div>
+    </div>
+    <div class="redis-key" style="border-left-color:var(--green);">
+      <div class="key-name" style="color:#6ee7b7;">poll:{pollId}:analytics_cache</div>
+      <div class="key-type" style="color:var(--green);">STRING (JSON) — 1h TTL</div>
+      <div class="key-desc">Cached analytics result. Cleared on each worker flush, rebuilt on next read.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="ai-module" class="section-id">
+  <h2>🤖 AI Module</h2>
+
+  <div class="diagram">
+    <div class="diagram-title">AI Generation Pipeline — LangGraph + Gemini</div>
+    <div class="flow" style="flex-wrap:wrap;gap:0.5rem;">
+      <div class="flow-node node-client">
+        <div>AiQuizModal</div>
+        <div class="flow-label">topic + slideCount + types</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-api">
+        <div>POST /ai/generate-quiz</div>
+        <div class="flow-label">validated input</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-ai">
+        <div>LangGraph StateGraph</div>
+        <div class="flow-label">structured generation</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-ai">
+        <div>Gemini 2.0 Flash</div>
+        <div class="flow-label">generateContent()</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-service">
+        <div>Repair Pass</div>
+        <div class="flow-label">coerce to valid schema</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node node-client">
+        <div>Quiz Draft</div>
+        <div class="flow-label">pre-filled in builder</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cols-2">
+    <div class="card">
+      <h3>Quiz Generation Input</h3>
+      <pre style="margin-top:0;">
+{
+  topic:       string
+  slideCount:  number
+  slideTypes:  SlideType[]
+  tone:        string
+}</pre>
+    </div>
+    <div class="card">
+      <h3>Repair Pass Logic</h3>
+      <ul>
+        <li>Drops invalid slides (wrong type)</li>
+        <li>Fixes select_answer with no <code>isCorrect</code></li>
+        <li>Sets <code>points=0</code> for non-scored types</li>
+        <li>Pads to requested count if LLM returns fewer</li>
+        <li>Mock fallback if Gemini API unavailable</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout callout-info">
+    <span class="callout-icon">ℹ️</span>
+    <div>Poll generation also supported: <code>POST /ai/generate-poll</code> with topic, tone, questionCount, isAnonymous, expiresAt. Same LangGraph pattern, validates against generatedPollSchema.</div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="frontend" class="section-id">
+  <h2>🎨 Frontend Architecture</h2>
+
+  <h3>Route Map</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Route</th><th>Component</th><th>Who</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>/(dashboard)/polls</code></td><td>PollsPage</td><td>Creator</td><td>Dashboard list, filter by status</td></tr>
+        <tr><td><code>/p/[id]</code></td><td>PollPage</td><td>Respondent</td><td>Step-by-step voting + results</td></tr>
+        <tr><td><code>/(dashboard)/quizzes</code></td><td>QuizzesPage</td><td>Creator</td><td>Dashboard list, edit/delete/host</td></tr>
+        <tr><td><code>/quiz/create</code></td><td>QuizBuilder</td><td>Creator</td><td>Slide editor with slide type picker</td></tr>
+        <tr><td><code>/quiz/host/[id]</code></td><td>HostView</td><td>Creator/Host</td><td>6-phase host control panel</td></tr>
+        <tr><td><code>/quiz/join</code></td><td>JoinPage</td><td>Participant</td><td>Enter 6-digit code</td></tr>
+        <tr><td><code>/quiz/play/[code]</code></td><td>PlayView</td><td>Participant</td><td>Full participant experience</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>HostView — 6 Phase UI</h3>
+  <div class="card-grid-3">
+    <div class="card">
+      <div class="tag tag-purple" style="margin-bottom:0.5rem;">draft</div>
+      <p style="font-size:0.82rem;">Ready to go live? Shows quiz title + slide count. Single CTA: Open Lobby.</p>
+    </div>
+    <div class="card">
+      <div class="tag tag-blue" style="margin-bottom:0.5rem;">lobby</div>
+      <p style="font-size:0.82rem;">QR code + 6-digit code. Live participant list via socket. CTA: Start Quiz.</p>
+    </div>
+    <div class="card">
+      <div class="tag tag-orange" style="margin-bottom:0.5rem;">question</div>
+      <p style="font-size:0.82rem;">Question text + QuizTimer countdown. Answered count badge. CTA: Reveal Answers.</p>
+    </div>
+    <div class="card">
+      <div class="tag tag-green" style="margin-bottom:0.5rem;">reveal</div>
+      <p style="font-size:0.82rem;">RevealChart (polymorphic by type). Options bar, word cloud, scale bars, Borda bars. CTAs: Leaderboard or Next.</p>
+    </div>
+    <div class="card">
+      <div class="tag tag-purple" style="margin-bottom:0.5rem;">leaderboard</div>
+      <p style="font-size:0.82rem;">Top 10 with rank medals. CTAs: Next Question or Final Results.</p>
+    </div>
+    <div class="card">
+      <div class="tag" style="background:#64748b25;color:#94a3b8;border:1px solid #64748b40;" style="margin-bottom:0.5rem;">ended</div>
+      <p style="font-size:0.82rem;">Final leaderboard. CTAs: Run Again or Back to Dashboard.</p>
+    </div>
+  </div>
+
+  <h3>PlayView — Participant Input Components</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Slide Type</th><th>Input UI</th><th>Special Behavior</th></tr></thead>
+      <tbody>
+        <tr><td><span class="slide-type scored">select_answer</span></td><td>Colored option buttons (8-color rotation)</td><td>Disabled after selection or time expires</td></tr>
+        <tr><td><span class="slide-type scored">type_answer</span></td><td>Single-line text input + submit</td><td>Disabled after submit</td></tr>
+        <tr><td><span class="slide-type interactive">wordcloud</span></td><td>Multi-entry tag pills, up to maxEntries</td><td>Client-side dedup; submit all at once</td></tr>
+        <tr><td><span class="slide-type interactive">scales</span></td><td>Range sliders per statement with min/max labels</td><td>Default to midpoint; all statements required</td></tr>
+        <tr><td><span class="slide-type interactive">ranking</span></td><td>Drag-to-reorder list with ↑↓ buttons</td><td>Submit full order as index array</td></tr>
+        <tr><td><span class="slide-type interactive">open_ended</span></td><td>Textarea (500 char max)</td><td>Disabled after submit</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="gap-analysis" class="section-id">
+  <h2>🎯 Mentimeter Feature Gap Analysis</h2>
+
+  <div class="callout callout-warn">
+    <span class="callout-icon">📋</span>
+    <div>Mentimeter is the leading interactive presentation platform. Below are features they have that we're missing — categorized by impact and effort. Mentimeter treats quizzes as <em>one</em> slide type within a broader "presentation" metaphor.</div>
+  </div>
+
+  <h3>Critical Missing Features (User Retention Risk)</h3>
+  <div class="gap-grid">
+    <div class="gap-card" style="border-left:3px solid var(--red);">
+      <h4>🔴 Post-Session Results Page</h4>
+      <p>After quiz ends, all data lives only in Redis (6h TTL). No permanent results page creator can share or revisit. Mentimeter keeps all results indefinitely with shareable link.</p>
+      <div class="gap-effort"><span class="badge p0">P0</span> &nbsp;Backend: persist to Mongo on end. Frontend: results viewer route.</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--red);">
+      <h4>🔴 Anonymous Participant Mode</h4>
+      <p>Quizzes always require a nickname. Mentimeter supports fully anonymous answering. Some audiences (corporate, sensitive topics) need this.</p>
+      <div class="gap-effort"><span class="badge p0">P0</span> &nbsp;Add <code>isAnonymous</code> flag to quiz. Skip name gate in PlayView.</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--red);">
+      <h4>🔴 Audience-Paced Mode</h4>
+      <p>Mentimeter's default is audience-paced (all questions visible at once, respond at own pace). We only have host-paced. Major use case for surveys and onboarding quizzes.</p>
+      <div class="gap-effort"><span class="badge p0">P0</span> &nbsp;Significant: needs new session model (no state machine).</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--yellow);">
+      <h4>🟡 Results Export (CSV/PDF)</h4>
+      <p>Mentimeter allows downloading full response data as CSV or PDF slide deck. Critical for post-event analysis.</p>
+      <div class="gap-effort"><span class="badge p1">P1</span> &nbsp;Backend CSV endpoint. Frontend download button in results view.</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--yellow);">
+      <h4>🟡 Q&amp;A / Back-Channel</h4>
+      <p>Mentimeter has a dedicated Q&amp;A slide type where audience submits questions, host moderates (upvote, archive, mark as answered). Huge for conferences.</p>
+      <div class="gap-effort"><span class="badge p1">P1</span> &nbsp;New slide type + moderation UI for host.</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--yellow);">
+      <h4>🟡 Image/Media in Slides</h4>
+      <p>Mentimeter supports images in questions and option buttons. Visual context dramatically improves engagement for content-rich quizzes.</p>
+      <div class="gap-effort"><span class="badge p1">P1</span> &nbsp;File upload (S3/Cloudflare R2), image field on slide schema.</div>
+    </div>
+  </div>
+
+  <h3>High-Value Missing Features</h3>
+  <div class="gap-grid">
+    <div class="gap-card" style="border-left:3px solid var(--blue);">
+      <h4>🔵 Email Capture at Join</h4>
+      <p>Polls have guest email gate; quizzes don't. Conference lead-gen use case: capture attendee emails during interactive sessions.</p>
+      <div class="gap-effort"><span class="badge p2">P2</span> &nbsp;Optional email field on join. Exportable with results.</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--blue);">
+      <h4>🔵 "Pin on Image" Slide Type</h4>
+      <p>Participants click on an image to indicate their answer (heat map). Used for product feedback, geography questions, diagrams.</p>
+      <div class="gap-effort"><span class="badge p2">P2</span> &nbsp;New slide type. Complex: coordinate storage + heat map viz.</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--blue);">
+      <h4>🔵 Emoji / Quick Reactions</h4>
+      <p>Mentimeter has live emoji reactions participants can send during any slide. Increases engagement, not tied to scoring.</p>
+      <div class="gap-effort"><span class="badge p2">P2</span> &nbsp;Socket event. No Mongo write needed. Frontend floating emojis.</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--blue);">
+      <h4>🔵 Custom Branding / Themes</h4>
+      <p>Mentimeter Pro: custom colors, logo, font. Corporate clients expect white-label presentation experience.</p>
+      <div class="gap-effort"><span class="badge p2">P2</span> &nbsp;Theme schema on Quiz. CSS variables injected per quiz.</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--blue);">
+      <h4>🔵 "Guess the Number" Slide</h4>
+      <p>Participants enter a number; results show guesses on a number line. Close-is-correct scoring variant.</p>
+      <div class="gap-effort"><span class="badge p2">P2</span> &nbsp;New slide type. Median + histogram visualization.</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--blue);">
+      <h4>🔵 Speaker Notes</h4>
+      <p>Host can add notes per slide visible only in host view. Essential for scripted presentations.</p>
+      <div class="gap-effort"><span class="badge p2">P2</span> &nbsp;Add <code>hostNotes</code> field to slide schema. Display in HostView.</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--blue);">
+      <h4>🔵 Voting Limits / Pace Control</h4>
+      <p>Mentimeter allows multiple votes per participant, vote weighting, and pace locking (participants can't advance). We have single-vote only.</p>
+      <div class="gap-effort"><span class="badge p2">P2</span> &nbsp;Remove SADD dedup gate (or make configurable).</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--blue);">
+      <h4>🔵 Presentation Template Library</h4>
+      <p>Mentimeter has 300+ pre-built templates by use case (icebreaker, retrospective, training). Dramatically lowers barrier to first quiz.</p>
+      <div class="gap-effort"><span class="badge p2">P2</span> &nbsp;Seed DB with templates. Template picker in create flow.</div>
+    </div>
+  </div>
+
+  <h3>Nice-to-Have / Future Differentiators</h3>
+  <div class="gap-grid">
+    <div class="gap-card" style="border-left:3px solid var(--text3);">
+      <h4>⬜ PowerPoint / Google Slides Plugin</h4>
+      <p>Mentimeter has Office add-in + Google Slides extension. Present from existing decks with live polls embedded.</p>
+      <div class="gap-effort"><span class="badge p3">P3</span> &nbsp;Separate product track. iFrame embed is prerequisite.</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--text3);">
+      <h4>⬜ Hand Raise / Queue</h4>
+      <p>Participants raise a virtual hand; host sees queue. Used in webinars and classrooms.</p>
+      <div class="gap-effort"><span class="badge p3">P3</span> &nbsp;Socket event. Host moderation UI.</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--text3);">
+      <h4>⬜ Teams / Collaboration</h4>
+      <p>Multiple creators on one workspace. Shared quiz library. Mentimeter Teams plan.</p>
+      <div class="gap-effort"><span class="badge p3">P3</span> &nbsp;Auth overhaul. Org/team data model.</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--text3);">
+      <h4>⬜ LMS Integration</h4>
+      <p>Google Classroom, Canvas, Blackboard integration. Grades sync. Education market.</p>
+      <div class="gap-effort"><span class="badge p3">P3</span> &nbsp;OAuth flows per LMS. Standards: LTI 1.3.</div>
+    </div>
+    <div class="gap-card" style="border-left:3px solid var(--text3);">
+      <h4>⬜ Password Protection</h4>
+      <p>Join code + password for private sessions. Mentimeter supports this on Pro.</p>
+      <div class="gap-effort"><span class="badge p3">P3</span> &nbsp;Add <code>joinPassword</code> field. Check at join endpoint.</div>
+    </div>
+  </div>
+
+  <h3>Full Feature Matrix</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Feature</th><th>Open Poll</th><th>Mentimeter</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Multiple choice</td><td class="has">✓</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Word cloud</td><td class="has">✓</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Open ended</td><td class="has">✓</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Scales / rating</td><td class="has">✓</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Ranking</td><td class="has">✓</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Type answer (text match)</td><td class="has">✓</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Kahoot-style scoring</td><td class="has">✓</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Leaderboard</td><td class="has">✓</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Join by code</td><td class="has">✓</td><td class="has">✓</td><td></td></tr>
+        <tr><td>QR code joining</td><td class="has">✓</td><td class="has">✓</td><td></td></tr>
+        <tr><td>AI generation</td><td class="has">✓</td><td class="partial">partial</td><td>We use Gemini; Menti has limited AI</td></tr>
+        <tr><td>Real-time analytics</td><td class="has">✓</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Host-paced mode</td><td class="has">✓</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Audience-paced mode</td><td class="missing">✗</td><td class="has">✓</td><td>Major gap</td></tr>
+        <tr><td>Anonymous mode (quiz)</td><td class="missing">✗</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Post-session results page</td><td class="missing">✗</td><td class="has">✓</td><td>Results evaporate after 6h</td></tr>
+        <tr><td>Results export (CSV/PDF)</td><td class="missing">✗</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Q&amp;A slide / moderation</td><td class="missing">✗</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Images in slides</td><td class="missing">✗</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Emoji reactions</td><td class="missing">✗</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Speaker notes</td><td class="missing">✗</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Custom branding</td><td class="missing">✗</td><td class="has">✓ (paid)</td><td></td></tr>
+        <tr><td>Guess the number</td><td class="missing">✗</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Pin on image</td><td class="missing">✗</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Templates library</td><td class="missing">✗</td><td class="has">✓</td><td></td></tr>
+        <tr><td>PowerPoint integration</td><td class="missing">✗</td><td class="has">✓</td><td></td></tr>
+        <tr><td>Teams / collaboration</td><td class="missing">✗</td><td class="has">✓ (paid)</td><td></td></tr>
+        <tr><td>iFrame embed</td><td class="missing">✗</td><td class="has">✓</td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="roadmap" class="section-id">
+  <h2>🗺️ Development Roadmap</h2>
+
+  <div class="callout callout-success">
+    <span class="callout-icon">✅</span>
+    <div>Items marked <strong>done</strong> are already in the codebase on <code>feature/quiz-ai-work</code> branch.</div>
+  </div>
+
+  <div class="timeline">
+
+    <div class="timeline-item done">
+      <div class="timeline-phase">Phase 1 — Shipped</div>
+      <div class="timeline-title">Core Poll Platform</div>
+      <div class="timeline-body">Async polling, Redis-buffered analytics, guest auth gate, real-time WebSocket updates, anonymous mode, results publishing gate, AI poll generation.</div>
+    </div>
+
+    <div class="timeline-item done">
+      <div class="timeline-phase">Phase 2 — Shipped</div>
+      <div class="timeline-title">Quiz Engine + 6 Slide Types</div>
+      <div class="timeline-body">Host state machine, Redis hot path for answers, time-based Kahoot scoring, leaderboard, anti-cheat token system, idempotent joins, all 6 slide types, word cloud + scale + ranking visualizations, AI quiz generation.</div>
+    </div>
+
+    <div class="timeline-item inprog">
+      <div class="timeline-phase">Phase 3 — Immediate Next (P0)</div>
+      <div class="timeline-title">Persistence + Anonymous Mode</div>
+      <div class="timeline-body">
+        <ul>
+          <li><strong>Post-session results:</strong> Persist quiz results to Mongo on <code>endQuiz()</code>. Add <code>/quiz/:id/results</code> read-only route. New frontend results page.</li>
+          <li><strong>Anonymous quiz mode:</strong> <code>isAnonymous</code> flag on Quiz schema. Skip name input gate in PlayView.</li>
+          <li><strong>Optional slide:</strong> <code>isOptional</code> flag per slide. Skip button in PlayView.</li>
+          <li><strong>Email capture at join:</strong> Port poll's guest email gate to quiz join flow. Export with results.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="timeline-item planned">
+      <div class="timeline-phase">Phase 4 — Short Term (P1)</div>
+      <div class="timeline-title">Export + Q&amp;A + Media</div>
+      <div class="timeline-body">
+        <ul>
+          <li><strong>CSV/PDF export:</strong> Backend export endpoint. Frontend download button on results page.</li>
+          <li><strong>Q&amp;A slide type:</strong> Participants submit questions, host moderates (approve/archive/answer). Socket events for moderation.</li>
+          <li><strong>Image upload in slides:</strong> S3/R2 upload. <code>imageUrl</code> field on slide schema. Shown in HostView + PlayView.</li>
+          <li><strong>Speaker notes:</strong> <code>hostNotes</code> per slide. Shown only in HostView.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="timeline-item planned">
+      <div class="timeline-phase">Phase 5 — Medium Term (P2)</div>
+      <div class="timeline-title">Engagement + Branding</div>
+      <div class="timeline-body">
+        <ul>
+          <li><strong>Emoji reactions:</strong> Socket event <code>reaction:sent</code>. Floating emoji animation layer in PlayView/HostView.</li>
+          <li><strong>Guess the number:</strong> New slide type. Number input. Histogram + median visualization.</li>
+          <li><strong>Pin on image:</strong> New slide type. Click-coordinate storage. Heat map reveal.</li>
+          <li><strong>Custom branding:</strong> Theme fields on Quiz (primaryColor, logoUrl). CSS variable injection.</li>
+          <li><strong>Template library:</strong> Seed DB with 20+ templates. Template picker modal in create flow.</li>
+          <li><strong>Audience-paced mode:</strong> New quiz mode flag. No state machine; all slides visible at once. Async like polls.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="timeline-item planned">
+      <div class="timeline-phase">Phase 6 — Long Term (P3)</div>
+      <div class="timeline-title">Platform &amp; Integrations</div>
+      <div class="timeline-body">
+        <ul>
+          <li><strong>Teams / workspaces:</strong> Org data model. Shared quiz library. Role-based access.</li>
+          <li><strong>iFrame embed:</strong> Allow embedding polls/quizzes in any website.</li>
+          <li><strong>PowerPoint add-in:</strong> Present from existing decks with live polls.</li>
+          <li><strong>LMS integration:</strong> Google Classroom, Canvas via LTI 1.3. Grade passback.</li>
+          <li><strong>Hand raise:</strong> Socket event. Host queue UI. Used in webinars.</li>
+          <li><strong>Password protection:</strong> <code>joinPassword</code> field. Checked at join endpoint.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <h3>Quick Wins (under 1 day each)</h3>
+  <div class="card-grid">
+    <div class="card" style="border-color:var(--green)30;">
+      <h3>Speaker Notes</h3>
+      <p>Add <code>hostNotes?: string</code> to slide schema. Render in HostView below question. Zero breaking changes.</p>
+      <div><span class="badge p2">P2</span> &nbsp;<strong>~2h</strong></div>
+    </div>
+    <div class="card" style="border-color:var(--green)30;">
+      <h3>Anonymous Quiz Mode</h3>
+      <p>Add <code>isAnonymous: boolean</code> to Quiz. Skip name input, use <code>Guest_{rand}</code>. Leaderboard shows "Anonymous".</p>
+      <div><span class="badge p0">P0</span> &nbsp;<strong>~3h</strong></div>
+    </div>
+    <div class="card" style="border-color:var(--green)30;">
+      <h3>Emoji Reactions</h3>
+      <p>New socket event <code>reaction:sent</code>. No DB write. Frontend: floating emoji overlay. Huge engagement boost.</p>
+      <div><span class="badge p2">P2</span> &nbsp;<strong>~4h</strong></div>
+    </div>
+    <div class="card" style="border-color:var(--green)30;">
+      <h3>Password Protection</h3>
+      <p>Add <code>joinPassword?: string</code> to Quiz. Hash at save. Verify at join endpoint. UI: extra field in join modal.</p>
+      <div><span class="badge p3">P3</span> &nbsp;<strong>~3h</strong></div>
+    </div>
+    <div class="card" style="border-color:var(--green)30;">
+      <h3>Post-Session Results Persistence</h3>
+      <p>In <code>endQuiz()</code>, write snapshot to a <code>QuizSession</code> collection. Add <code>GET /quizzes/:id/session/:sessionId</code>.</p>
+      <div><span class="badge p0">P0</span> &nbsp;<strong>~6h</strong></div>
+    </div>
+    <div class="card" style="border-color:var(--green)30;">
+      <h3>CSV Export</h3>
+      <p>Query <code>QuizAnswer</code> collection. Stream CSV via <code>content-type: text/csv</code>. Frontend: download button on results.</p>
+      <div><span class="badge p1">P1</span> &nbsp;<strong>~4h</strong></div>
+    </div>
+  </div>
+</section>
+
+<hr>
+<div style="text-align:center;color:var(--text3);font-size:0.78rem;padding:2rem 0;">
+  Generated: June 2026 &nbsp;·&nbsp; Branch: feature/quiz-ai-work &nbsp;·&nbsp; Stack: Express + Socket.IO + Redis + MongoDB + Next.js 14 + Gemini 2.0 Flash
+</div>
+
+</div><!-- /page -->
+</body>
+</html>
