@@ -1,0 +1,12 @@
+# Vercel Dockerfile — builds/runs as a Vercel Function on Fluid compute.
+# Server must listen on process.env.PORT (already handled in src/app.ts).
+FROM oven/bun:latest
+
+WORKDIR /app
+
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
+
+COPY . .
+
+CMD ["bun", "run", "start"]
