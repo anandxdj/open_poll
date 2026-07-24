@@ -1,43 +1,15 @@
 import mongoose from 'mongoose';
 import { redisClient } from '../../common/config/redis';
 import { ApiError } from '../../common/utils/ApiError';
-import {
-  issueBallotToken,
-  verifyBallotToken,
-  issueGuestToken,
-  verifyGuestToken,
-} from '../../common/utils/signedId.utils';
 import { PollModel } from '../polls/polls.model';
 import { ResponseModel } from './responses.model';
-import type { IssueGuestTokenInput, SubmitResponseInput } from './responses.schema';
+import type { SubmitResponseInput } from './responses.schema';
 import { AnalyticsModel } from './analytics.model';
 import type { PollAnalyticsUpdateEvent } from '../../common/realtime/events';
 import { UserModel } from '../auth/auth.model';
 
-const VOTE_DEDUP_TTL_SEC = 86400;
-
 export class ResponseService {
-  /**
-   * Mints a server-signed, single-use ballot token bound to this poll.
-   * The client cannot forge or rotate these — only the server can issue them.
-   */
-  static async issueBallot(pollId: string) {
-    const poll = await PollModel.findById(pollId);
-    if (!poll) throw ApiError.notFound('Poll not found');
-    if (!poll.isPublished) throw ApiError.badRequest('Poll is not published');
-    if (poll.isClosed) throw ApiError.badRequest('Poll is closed');
-    if (poll.expiresAt.getTime() <= Date.now()) throw ApiError.badRequest('Poll is expired');
-
-    const { token } = issueBallotToken(pollId);
-    return { ballotToken: token };
-  }
-
-  /** Signs a guest identity so `guest:` respondent strings cannot be self-asserted. */
-  static issueGuestIdentity(payload: IssueGuestTokenInput) {
-    return { guestToken: issueGuestToken(payload.email, payload.name) };
-  }
-
-  static async submitResponse(payload: SubmitResponseInput, clientIp?: string) {
+  static async submitResponse(payload: SubmitResponseInput) {
     const poll = await PollModel.findById(payload.pollId);
     if (!poll) {
       throw ApiError.notFound('Poll not found');
@@ -62,84 +34,162 @@ export class ResponseService {
       }
     }
 
-    for (const answer of payload.answers) {
+    // Standardize answers array
+    const normalizedAnswers = payload.answers.map((answer) => {
       const question = questionMap.get(answer.questionId);
       if (!question) {
         throw ApiError.badRequest(`Question ${answer.questionId} does not belong to this poll`);
       }
 
-      if (answer.selectedOptionIndex < 0 || answer.selectedOptionIndex >= question.options.length) {
-        throw ApiError.badRequest(`Invalid selectedOptionIndex for question ${answer.questionId}`);
+      let indices: number[] = [];
+      if (Array.isArray(answer.selectedOptionIndices) && answer.selectedOptionIndices.length > 0) {
+        indices = answer.selectedOptionIndices;
+      } else if (typeof answer.selectedOptionIndex === 'number') {
+        indices = [answer.selectedOptionIndex];
       }
-    }
 
-    // Identity: derived server-side only. Authenticated user id wins; a signed
-    // guest token is accepted for non-anonymous polls; raw client strings never are.
-    let respondentId: string | null = payload.authenticatedUserId ?? null;
-    if (!respondentId && payload.guestToken) {
-      const guest = verifyGuestToken(payload.guestToken);
-      if (!guest) throw ApiError.unauthorized('Invalid guest token');
-      respondentId = `guest:${guest.email}:${guest.name}`;
-    }
+      for (const idx of indices) {
+        if (idx < 0 || idx >= question.options.length) {
+          throw ApiError.badRequest(`Invalid option index ${idx} for question ${answer.questionId}`);
+        }
+      }
 
-    if (!poll.isAnonymous && !respondentId) {
+      return {
+        questionId: answer.questionId,
+        selectedOptionIndex: indices[0] ?? 0,
+        selectedOptionIndices: indices,
+      };
+    });
+
+    if (!poll.isAnonymous && !payload.respondentId) {
       throw ApiError.unauthorized('This poll requires you to be logged in to vote.');
     }
 
-    // Dedup anchor: the server-issued ballot token, not any client-chosen string.
-    const ballotId = verifyBallotToken(payload.ballotToken, payload.pollId);
-    if (!ballotId) throw ApiError.unauthorized('Invalid or missing ballot token');
+    const respondentKey = payload.respondentId || payload.deviceId;
+    const spamKey = `poll:${payload.pollId}:voted:${payload.deviceId}`;
 
-    // Atomic single-use check — SET NX so concurrent submits cannot both pass.
-    const ballotKey = `poll:${payload.pollId}:ballot:${ballotId}`;
-    const firstUse = await redisClient.set(ballotKey, '1', {
-      NX: true,
-      EX: VOTE_DEDUP_TTL_SEC,
-    });
-    if (firstUse === null) {
-      throw ApiError.conflict('You have already voted on this poll.');
-    }
-
-    // Secondary dedup dimensions, also atomic. A registered/guest identity may
-    // vote once; an IP gets a generous cap to absorb NAT while stopping bulk
-    // ballot-minting from one machine.
-    if (respondentId) {
-      const identityKey = `poll:${payload.pollId}:voted:id:${respondentId}`;
-      const identityFirst = await redisClient.set(identityKey, '1', {
-        NX: true,
-        EX: VOTE_DEDUP_TTL_SEC,
-      });
-      if (identityFirst === null) {
+    // For standard polls, block duplicate votes. For trials, allow retries if the trial hasn't been passed.
+    if (poll.pollType === 'POLL') {
+      const hasVoted = await redisClient.get(spamKey);
+      if (hasVoted) {
         throw ApiError.conflict('You have already voted on this poll.');
       }
-    } else if (clientIp) {
-      const ipKey = `poll:${payload.pollId}:voted:ip:${clientIp}`;
-      const ipVotes = await redisClient.incr(ipKey);
-      if (ipVotes === 1) await redisClient.expire(ipKey, VOTE_DEDUP_TTL_SEC);
-      if (ipVotes > 50) {
-        throw ApiError.tooManyRequests('Too many votes from this network for this poll.');
-      }
+      await redisClient.setEx(spamKey, 86400, 'true');
     }
 
+    // Buffer counts to Redis for analytics pipeline
     const pipeline = redisClient.multi();
     pipeline.sAdd('buffer:active_polls', payload.pollId);
     pipeline.incr(`buffer:poll:${payload.pollId}:total`);
-    for (const answer of payload.answers) {
-      pipeline.hIncrBy(
-        `buffer:poll:${payload.pollId}:question:${answer.questionId}`,
-        String(answer.selectedOptionIndex),
-        1,
-      );
+    for (const answer of normalizedAnswers) {
+      for (const idx of answer.selectedOptionIndices) {
+        pipeline.hIncrBy(
+          `buffer:poll:${payload.pollId}:question:${answer.questionId}`,
+          String(idx),
+          1,
+        );
+      }
     }
     await pipeline.exec();
 
+    let trialResult: any = null;
+    let attemptNumber = 1;
+
+    if (poll.pollType === 'TRIAL') {
+      const previousAttempts = await ResponseModel.countDocuments({
+        pollId: new mongoose.Types.ObjectId(payload.pollId),
+        respondentId: respondentKey,
+      });
+      attemptNumber = previousAttempts + 1;
+
+      let score = 0;
+      let maxScore = 0;
+
+      const breakdown = poll.questions.map((question) => {
+        const userAns = normalizedAnswers.find((a) => a.questionId === String(question._id));
+        const userIndices = (userAns?.selectedOptionIndices || []).slice().sort((a, b) => a - b);
+        const correctIndices = (question.correctOptionIndices || []).slice().sort((a, b) => a - b);
+        const qPoints = question.points || 1;
+        maxScore += qPoints;
+
+        const isCorrect =
+          userIndices.length === correctIndices.length &&
+          userIndices.every((val, idx) => val === correctIndices[idx]);
+
+        if (isCorrect) {
+          score += qPoints;
+        }
+
+        return {
+          questionId: String(question._id),
+          questionText: question.text,
+          userSelectedIndices: userIndices,
+          correctOptionIndices: correctIndices,
+          isCorrect,
+          explanation: question.explanation || '',
+        };
+      });
+
+      const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+      const passThreshold = poll.passingScorePercentage ?? 70;
+      const passed = percentage >= passThreshold;
+
+      trialResult = {
+        passed,
+        score,
+        maxScore,
+        percentage,
+        passingScorePercentage: passThreshold,
+        attemptNumber,
+        breakdown: breakdown.map((item) => {
+          if (passed) {
+            return item;
+          } else {
+            // Hide correct answers and explanations on failure to encourage learning
+            return {
+              questionId: item.questionId,
+              questionText: item.questionText,
+              userSelectedIndices: item.userSelectedIndices,
+              isCorrect: item.isCorrect,
+            };
+          }
+        }),
+      };
+
+      // Save Mongo response record asynchronously
+      await ResponseModel.create({
+        pollId: new mongoose.Types.ObjectId(payload.pollId),
+        respondentId: respondentKey,
+        answers: normalizedAnswers.map((a) => ({
+          questionId: new mongoose.Types.ObjectId(a.questionId),
+          selectedOptionIndex: a.selectedOptionIndex,
+          selectedOptionIndices: a.selectedOptionIndices,
+        })),
+        attemptNumber,
+        score,
+        maxScore,
+        percentage,
+        passed,
+      });
+
+      return {
+        message: passed
+          ? 'Trial passed successfully! 🎉'
+          : `Trial attempt #${attemptNumber} complete. Score: ${percentage}%. Pass threshold: ${passThreshold}%.`,
+        trialResult,
+      };
+    }
+
+    // For standard polls:
     ResponseModel.create({
       pollId: new mongoose.Types.ObjectId(payload.pollId),
-      respondentId: respondentId ?? `anon:${ballotId}`,
-      answers: payload.answers.map((a) => ({
+      respondentId: respondentKey,
+      answers: normalizedAnswers.map((a) => ({
         questionId: new mongoose.Types.ObjectId(a.questionId),
         selectedOptionIndex: a.selectedOptionIndex,
+        selectedOptionIndices: a.selectedOptionIndices,
       })),
+      attemptNumber: 1,
     }).catch((error: unknown) => {
       console.error('[Mongo Backup Error]', error);
     });
@@ -255,7 +305,7 @@ export class ResponseService {
             questionId: String(ans.questionId),
             questionText: question ? question.text : 'Unknown Question',
             selectedOptionIndex: ans.selectedOptionIndex,
-            selectedOptionText: question && ans.selectedOptionIndex >= 0 && ans.selectedOptionIndex < question.options.length
+            selectedOptionText: question && typeof ans.selectedOptionIndex === 'number' && ans.selectedOptionIndex >= 0 && ans.selectedOptionIndex < question.options.length
               ? question.options[ans.selectedOptionIndex]
               : 'Skipped/Invalid',
           };

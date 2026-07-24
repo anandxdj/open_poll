@@ -49,7 +49,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={cn("h-full antialiased", geistSans.variable, geistMono.variable, amethystaAmethysta.variable)}
     >
-      <body className="min-h-dvh flex flex-col bg-background text-foreground">
+      <body className="min-h-dvh flex flex-col bg-background text-foreground" suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

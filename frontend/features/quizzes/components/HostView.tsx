@@ -64,7 +64,7 @@ export function HostView({ quizId }: HostViewProps) {
       setLeaderboard(state.leaderboard);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Could not load quiz.");
-      router.push("/quizzes");
+      router.push("/polls");
     } finally {
       setLoading(false);
     }
@@ -475,10 +475,10 @@ export function HostView({ quizId }: HostViewProps) {
                   <Play className="size-4 mr-2" /> Run again
                 </Button>
                 <Button
-                  onClick={() => router.push("/quizzes")}
+                  onClick={() => router.push("/polls")}
                   className="h-11 rounded-full bg-primary text-primary-foreground font-semibold px-6"
                 >
-                  Back to quizzes
+                  Back to dashboard
                 </Button>
               </div>
             </motion.div>

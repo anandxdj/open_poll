@@ -7,13 +7,25 @@ export type GenerateDraftBody = {
   topic: string;
   tone: AiTone;
   questionCount: number;
+  pollType?: 'POLL' | 'TRIAL';
+  passingScorePercentage?: number;
   isAnonymous: boolean;
   expiresAt: string;
 };
 
 export type GeneratedPollDraft = {
   title: string;
-  questions: { text: string; options: string[]; isMandatory: boolean }[];
+  pollType?: 'POLL' | 'TRIAL';
+  passingScorePercentage?: number;
+  questions: {
+    text: string;
+    options: string[];
+    isMandatory: boolean;
+    type?: 'single' | 'multiple';
+    correctOptionIndices?: number[];
+    explanation?: string;
+    points?: number;
+  }[];
   isAnonymous: boolean;
   expiresAt: string;
   isPublished: boolean;

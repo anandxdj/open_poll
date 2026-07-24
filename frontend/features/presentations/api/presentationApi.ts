@@ -1,0 +1,105 @@
+import { apiClient } from "@/lib/api-client";
+import type {
+  GeneratedPresentationDraft,
+  GeneratePresentationInput,
+  HostState,
+  ParticipantState,
+  PublicPresentationInfo,
+  Presentation,
+  PresentationParticipantSelf,
+  PresentationSlide,
+} from "../types";
+
+type ApiOk<T> = { success: boolean; message: string; data: T };
+
+export interface PresentationDraftInput {
+  title: string;
+  slides: Omit<PresentationSlide, "_id">[];
+}
+
+// ---------- Creator ----------
+
+export const createPresentation = async (input: PresentationDraftInput) =>
+  (await apiClient.post<ApiOk<Presentation>>("/presentations", input)).data.data;
+
+export const listPresentations = async () =>
+  (await apiClient.get<ApiOk<Presentation[]>>("/presentations")).data.data;
+
+export const getPresentation = async (id: string) =>
+  (await apiClient.get<ApiOk<Presentation>>(`/presentations/${id}`)).data.data;
+
+export const updatePresentation = async (id: string, input: Partial<PresentationDraftInput>) =>
+  (await apiClient.patch<ApiOk<Presentation>>(`/presentations/${id}`, input)).data.data;
+
+export const deletePresentation = async (id: string) =>
+  (await apiClient.delete<ApiOk<null>>(`/presentations/${id}`)).data;
+
+// Backward compatible aliases
+export const createQuiz = createPresentation;
+export const listQuizzes = listPresentations;
+export const getQuiz = getPresentation;
+export const updateQuiz = updatePresentation;
+export const deleteQuiz = deletePresentation;
+
+// ---------- Host controls ----------
+
+export const getHostState = async (id: string) =>
+  (await apiClient.get<ApiOk<HostState>>(`/presentations/${id}/host/state`)).data.data;
+
+export const openLobby = async (id: string) =>
+  (await apiClient.post<ApiOk<Presentation>>(`/presentations/${id}/host/open-lobby`)).data.data;
+
+export const startNextQuestion = async (id: string) =>
+  (await apiClient.post<ApiOk<Presentation>>(`/presentations/${id}/host/next-question`)).data.data;
+
+export const revealAnswers = async (id: string) =>
+  (await apiClient.post<ApiOk<Presentation>>(`/presentations/${id}/host/reveal`)).data.data;
+
+export const showLeaderboard = async (id: string) =>
+  (await apiClient.post<ApiOk<Presentation>>(`/presentations/${id}/host/leaderboard`)).data.data;
+
+export const endPresentation = async (id: string) =>
+  (await apiClient.post<ApiOk<Presentation>>(`/presentations/${id}/host/end`)).data.data;
+export const endQuiz = endPresentation;
+
+// ---------- Participant (public) ----------
+
+export const getPresentationByCode = async (code: string) =>
+  (await apiClient.get<ApiOk<PublicPresentationInfo>>(`/presentations/code/${code}`)).data.data;
+export const getQuizByCode = getPresentationByCode;
+
+export const joinPresentation = async (presentationId: string, name: string, deviceToken?: string) =>
+  (
+    await apiClient.post<ApiOk<PresentationParticipantSelf>>(`/presentations/${presentationId}/join`, {
+      name,
+      deviceToken,
+    })
+  ).data.data;
+export const joinQuiz = joinPresentation;
+
+export const submitAnswer = async (
+  presentationId: string,
+  input: {
+    participantId: string;
+    participantToken: string;
+    slideIndex: number;
+    optionIndex?: number;
+    text?: string;
+    entries?: string[];
+    ratings?: number[];
+    ranking?: number[];
+  }
+) => (await apiClient.post<ApiOk<{ accepted: boolean }>>(`/presentations/${presentationId}/answer`, input)).data.data;
+
+// ---------- AI ----------
+
+export const generatePresentationDraft = async (input: GeneratePresentationInput) =>
+  (await apiClient.post<ApiOk<GeneratedPresentationDraft>>("/ai/generate-quiz", input)).data.data;
+export const generateQuizDraft = generatePresentationDraft;
+
+export const getParticipantState = async (presentationId: string, participantId: string, token: string) =>
+  (
+    await apiClient.get<ApiOk<ParticipantState>>(`/presentations/${presentationId}/me`, {
+      params: { participantId, token },
+    })
+  ).data.data;

@@ -6,7 +6,6 @@ import { PollModel } from '../src/modules/polls/polls.model';
 import { ResponseModel } from '../src/modules/responses/responses.model';
 import { redisClient } from '../src/common/config/redis';
 import { AnalyticsModel } from '../src/modules/responses/analytics.model';
-import { issueBallotToken } from '../src/common/utils/signedId.utils';
 
 describe('backend mvp smoke tests', () => {
   it('creates a poll through PollService', async () => {
@@ -18,6 +17,8 @@ describe('backend mvp smoke tests', () => {
     const created = await PollService.createPoll(
       {
         title: 'Backend MVP Poll',
+        pollType: 'POLL',
+        passingScorePercentage: 70,
         isAnonymous: true,
         expiresAt: new Date(Date.now() + 60_000).toISOString(),
         isPublished: true,
@@ -25,6 +26,10 @@ describe('backend mvp smoke tests', () => {
           {
             text: 'Best runtime?',
             options: ['Bun', 'Node'],
+            type: 'single',
+            correctOptionIndices: [],
+            explanation: '',
+            points: 1,
             isMandatory: true,
           },
         ],
@@ -37,9 +42,9 @@ describe('backend mvp smoke tests', () => {
     (AnalyticsModel as any).create = originalAnalyticsCreate;
   });
 
-  it('submits response and publishes analytics event', async () => {
-    const pollId = new mongoose.Types.ObjectId();
+  it('submitting a response buffers vote counts and queues async persist', async () => {
     const questionId = new mongoose.Types.ObjectId();
+    const pollId = new mongoose.Types.ObjectId();
 
     const originalPollFindById = PollModel.findById;
     const originalResponseCreate = ResponseModel.create;
@@ -51,9 +56,12 @@ describe('backend mvp smoke tests', () => {
 
     (PollModel as any).findById = async () => ({
       _id: pollId,
+      creatorId: 'mock-creator-id-123',
+      title: 'Backend MVP Poll',
+      pollType: 'POLL',
+      isAnonymous: true,
       isPublished: true,
       isClosed: false,
-      isAnonymous: true,
       expiresAt: new Date(Date.now() + 60_000),
       questions: [
         {
@@ -65,15 +73,12 @@ describe('backend mvp smoke tests', () => {
       ],
     });
 
-    (ResponseModel as any).create = async (payload: unknown) => payload;
-    (ResponseModel as any).find = async () => [
-      {
-        answers: [{ questionId, selectedOptionIndex: 0 }],
-      },
-    ];
+    (ResponseModel as any).create = async (data: unknown) => data;
+
+    Object.defineProperty(redisClient, 'isOpen', { value: true, configurable: true, writable: true });
     (redisClient as any).get = async () => null;
-    // SET ... NX returns 'OK' on first use — the single-use ballot check passes
     (redisClient as any).set = async () => 'OK';
+    (redisClient as any).setEx = async () => 'OK';
     (redisClient as any).multi = () => ({
       sAdd: () => undefined,
       incr: () => undefined,
@@ -82,10 +87,9 @@ describe('backend mvp smoke tests', () => {
     });
     (redisClient as any).publish = async () => 1;
 
-    const { token: ballotToken } = issueBallotToken(String(pollId));
     const result = await ResponseService.submitResponse({
       pollId: String(pollId),
-      ballotToken,
+      deviceId: 'test-device-123',
       answers: [{ questionId: String(questionId), selectedOptionIndex: 0 }],
     });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Sparkles, Trash2 } from "lucide-react";
+import { Check, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { QuestionForm } from "./types";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,6 +11,7 @@ type PollQuestionCardProps = {
   question: QuestionForm;
   index: number;
   canRemove: boolean;
+  pollType?: 'POLL' | 'TRIAL';
   onRemove: () => void;
   onChange: (patch: Partial<QuestionForm>) => void;
   onOptionChange: (optionIndex: number, value: string) => void;
@@ -22,12 +23,29 @@ export function PollQuestionCard({
   question,
   index,
   canRemove,
+  pollType = 'POLL',
   onRemove,
   onChange,
   onOptionChange,
   onAddOption,
   onRemoveOption,
 }: PollQuestionCardProps) {
+  const isTrial = pollType === 'TRIAL';
+  const qType = question.type || 'single';
+  const correctIndices = question.correctOptionIndices || [];
+
+  const toggleCorrectOption = (oi: number) => {
+    if (qType === 'single') {
+      onChange({ correctOptionIndices: [oi] });
+    } else {
+      if (correctIndices.includes(oi)) {
+        onChange({ correctOptionIndices: correctIndices.filter((idx) => idx !== oi) });
+      } else {
+        onChange({ correctOptionIndices: [...correctIndices, oi].sort((a, b) => a - b) });
+      }
+    }
+  };
+
   return (
     <motion.div
       key={index}
@@ -43,9 +61,32 @@ export function PollQuestionCard({
           <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-[11px] font-bold text-primary-foreground">
             {index + 1}
           </div>
-          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-            Multiple Choice
-          </span>
+          {isTrial ? (
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-secondary/50 p-1 text-[10px] font-bold uppercase tracking-wider">
+              <button
+                type="button"
+                onClick={() => onChange({ type: 'single', correctOptionIndices: correctIndices.slice(0, 1) })}
+                className={`rounded px-2 py-0.5 transition-colors ${
+                  qType === 'single' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Single Answer
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ type: 'multiple' })}
+                className={`rounded px-2 py-0.5 transition-colors ${
+                  qType === 'multiple' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Multi-Select
+              </button>
+            </div>
+          ) : (
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Multiple Choice
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -78,57 +119,81 @@ export function PollQuestionCard({
         <textarea
           value={question.text}
           onChange={(e) => onChange({ text: e.target.value })}
-          placeholder="What would you like to ask?"
+          placeholder={isTrial ? "Enter assessment question..." : "What would you like to ask?"}
           className="w-full resize-none bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-3xl font-bold text-foreground placeholder:text-muted-foreground min-h-[80px] leading-tight"
           rows={2}
         />
-     
       </div>
 
       {/* Options */}
       <div className="space-y-3">
-        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          Answer Choices
-        </label>
+        <div className="flex items-center justify-between">
+          <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Answer Choices {isTrial && <span className="text-emerald-500 font-normal">(Click checkmark to mark correct answer)</span>}
+          </label>
+        </div>
 
         <div className="space-y-2">
           <AnimatePresence>
-            {question.options.map((opt, oi) => (
-              <motion.div
-                key={oi}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 8 }}
-                transition={{ duration: 0.2, ease }}
-                className="group flex items-center gap-3"
-              >
-                {/* Option number */}
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary/30 text-[10px] font-bold text-muted-foreground group-focus-within:border-primary group-focus-within:bg-primary group-focus-within:text-primary-foreground group-focus-within:shadow-[0_0_15px_rgba(216,173,135,0.4)] transition-all duration-300">
-                  {oi + 1}
-                </div>
+            {question.options.map((opt, oi) => {
+              const isCorrect = correctIndices.includes(oi);
 
-                {/* Input */}
-                <div className="flex flex-1 items-center gap-3 rounded-xl border border-border bg-secondary/30 px-4 py-3 group-focus-within:border-primary/50 group-focus-within:bg-primary/5 group-focus-within:shadow-[0_0_15px_rgba(216,173,135,0.1)] transition-all duration-300">
-                  <input
-                    value={opt}
-                    onChange={(e) => onOptionChange(oi, e.target.value)}
-                    placeholder={`Choice ${oi + 1}`}
-                    className="flex-1 bg-transparent border-none p-0 text-sm font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0"
-                  />
-                </div>
+              return (
+                <motion.div
+                  key={oi}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 8 }}
+                  transition={{ duration: 0.2, ease }}
+                  className="group flex items-center gap-3"
+                >
+                  {/* Correct Answer Selector (Trial Mode) */}
+                  {isTrial ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleCorrectOption(oi)}
+                      title={isCorrect ? "Correct Answer" : "Mark as Correct"}
+                      className={`flex size-7 shrink-0 items-center justify-center rounded-lg border text-[10px] font-bold transition-all duration-300 ${
+                        isCorrect
+                          ? 'border-emerald-500 bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.4)]'
+                          : 'border-border bg-secondary/30 text-muted-foreground hover:border-emerald-500/50 hover:text-emerald-400'
+                      }`}
+                    >
+                      {isCorrect ? <Check className="size-4 stroke-[3]" /> : oi + 1}
+                    </button>
+                  ) : (
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary/30 text-[10px] font-bold text-muted-foreground group-focus-within:border-primary group-focus-within:bg-primary group-focus-within:text-primary-foreground group-focus-within:shadow-[0_0_15px_rgba(216,173,135,0.4)] transition-all duration-300">
+                      {oi + 1}
+                    </div>
+                  )}
 
-                {/* Remove */}
-                {question.options.length > 2 && (
-                  <button
-                    type="button"
-                    onClick={() => onRemoveOption(oi)}
-                    className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground opacity-0 transition-all duration-200 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-400"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                )}
-              </motion.div>
-            ))}
+                  {/* Input */}
+                  <div className={`flex flex-1 items-center gap-3 rounded-xl border px-4 py-3 transition-all duration-300 ${
+                    isTrial && isCorrect
+                      ? 'border-emerald-500/50 bg-emerald-500/5'
+                      : 'border-border bg-secondary/30 group-focus-within:border-primary/50 group-focus-within:bg-primary/5'
+                  }`}>
+                    <input
+                      value={opt}
+                      onChange={(e) => onOptionChange(oi, e.target.value)}
+                      placeholder={`Choice ${oi + 1}`}
+                      className="flex-1 bg-transparent border-none p-0 text-sm font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0"
+                    />
+                  </div>
+
+                  {/* Remove */}
+                  {question.options.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveOption(oi)}
+                      className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground opacity-0 transition-all duration-200 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-400"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  )}
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
 
           {/* Add option */}
@@ -146,6 +211,22 @@ export function PollQuestionCard({
           )}
         </div>
       </div>
+
+      {/* Trial Answer Explanation Box */}
+      {isTrial && (
+        <div className="space-y-2 rounded-xl border border-border/60 bg-secondary/20 p-4">
+          <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Explanation (Shown to respondent after passing)
+          </label>
+          <textarea
+            value={question.explanation || ""}
+            onChange={(e) => onChange({ explanation: e.target.value })}
+            placeholder="Explain why these choices are correct..."
+            className="w-full resize-none bg-transparent border-none p-0 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0 min-h-[40px]"
+            rows={2}
+          />
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -25,10 +25,12 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   /** Seed the topic field (e.g. quiz title from the create flow) */
   initialTopic?: string;
-  onGenerated: (draft: GeneratedQuizDraft) => void;
+  onGenerated?: (draft: GeneratedQuizDraft) => void;
+  onGenerate?: (params: { topic: string; slideCount: number; slideTypes: QuizSlideType[] }) => void;
+  isGenerating?: boolean;
 };
 
-export function AiQuizModal({ open, onOpenChange, initialTopic, onGenerated }: Props) {
+export function AiQuizModal({ open, onOpenChange, initialTopic, onGenerated, onGenerate, isGenerating }: Props) {
   const [topic, setTopic] = useState("");
   const [slideCount, setSlideCount] = useState(5);
   const [types, setTypes] = useState<QuizSlideType[]>(["select_answer", "type_answer"]);
@@ -57,6 +59,11 @@ export function AiQuizModal({ open, onOpenChange, initialTopic, onGenerated }: P
       toast.error("Topic should be at least 3 characters.");
       return;
     }
+    if (onGenerate) {
+      onGenerate({ topic: trimmed, slideCount, slideTypes: types });
+      onOpenChange(false);
+      return;
+    }
     setGenerating(true);
     try {
       const draft = await generateQuizDraft({
@@ -64,7 +71,7 @@ export function AiQuizModal({ open, onOpenChange, initialTopic, onGenerated }: P
         slideCount,
         slideTypes: types,
       });
-      onGenerated(draft);
+      onGenerated?.(draft);
       onOpenChange(false);
       toast.success(`Generated ${draft.slides.length} slides — review and tweak before saving.`);
     } catch (err: any) {
@@ -73,6 +80,8 @@ export function AiQuizModal({ open, onOpenChange, initialTopic, onGenerated }: P
       setGenerating(false);
     }
   };
+
+  const isBusy = isGenerating || generating;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -151,10 +160,10 @@ export function AiQuizModal({ open, onOpenChange, initialTopic, onGenerated }: P
           <Button
             type="button"
             className="rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90"
-            disabled={generating}
+            disabled={isBusy}
             onClick={() => void handleGenerate()}
           >
-            {generating ? (
+            {isBusy ? (
               <>
                 <Loader2 className="size-4 mr-2 animate-spin" /> Generating…
               </>

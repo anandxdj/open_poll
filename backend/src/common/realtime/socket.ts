@@ -9,6 +9,7 @@ import {
 } from './events';
 import { PollModel } from '../../modules/polls/polls.model';
 import { QuizModel } from '../../modules/quizzes/quizzes.model';
+import { PresentationModel } from '../../modules/presentations/presentations.model';
 
 // Per-connection cap on join attempts — rooms are cheap but not free, and an
 // unauthenticated socket should not be able to spray joins.
@@ -59,10 +60,18 @@ export const setupSocketAndPubSub = async (io: Server) => {
 
     socket.on(SOCKET_EVENTS.quizJoin, async (quizId: string) => {
       if (!isValidObjectId(quizId) || !allowJoin()) return;
-      // Draft quizzes are creator-private; anything in session is joinable —
-      // participants hold no auth, and broadcasts are answer-key-sanitized.
+      // Draft quizzes/presentations are creator-private; anything in session is
+      // joinable — participants hold no auth, and broadcasts are answer-key-sanitized.
+      // Quizzes and presentations live in separate collections but share this room
+      // namespace and the `quiz:event` channel, so check both.
       const quiz = await QuizModel.findById(quizId).select('status').catch(() => null);
-      if (!quiz || quiz.status === 'draft') return;
+      if (quiz) {
+        if (quiz.status === 'draft') return;
+        socket.join(`quiz_${quizId}`);
+        return;
+      }
+      const presentation = await PresentationModel.findById(quizId).select('status').catch(() => null);
+      if (!presentation || presentation.status === 'draft') return;
       socket.join(`quiz_${quizId}`);
     });
 

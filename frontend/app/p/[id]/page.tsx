@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Zap, ArrowRight, Lock, User, Mail } from "lucide-react";
+import { Zap, ArrowRight, Lock, User, Mail, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 import type { Poll } from "@/features/polls/store/useCreatorStore";
@@ -142,8 +142,9 @@ export default function PublicPollPage() {
     return (
       <div className="relative min-h-screen bg-background flex flex-col">
         {hasVotedLocally && !poll.isResultsPublished && (
-          <div className="relative z-50 bg-primary/10 border-b border-primary/20 text-center py-2.5 text-xs font-semibold text-primary backdrop-blur-md select-none">
-            ✨ You have already participated. Showing live results so far!
+          <div className="relative z-50 bg-primary/10 border-b border-primary/20 text-center py-2.5 text-xs font-semibold text-primary backdrop-blur-md select-none flex items-center justify-center gap-1.5">
+            <CheckCircle2 className="size-3.5" />
+            <span>You have already participated. Showing live results so far!</span>
           </div>
         )}
         <div className="flex-1">

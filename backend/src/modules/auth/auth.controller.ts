@@ -6,10 +6,12 @@ import { ApiError } from '../../common/utils/ApiError';
 import { redisClient } from '../../common/config/redis';
 import type { AuthRequest } from './auth.middleware';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const sessionCookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
+  secure: isProduction,
+  sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
   path: '/',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };

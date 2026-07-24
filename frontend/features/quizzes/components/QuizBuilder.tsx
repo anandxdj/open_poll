@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -21,13 +21,60 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { createQuiz, getQuiz, updateQuiz } from "../api/quizApi";
+import { cn } from "@/lib/utils";
+import { createQuiz, generateQuizDraft, getQuiz, updateQuiz } from "../api/quizApi";
 import { slideTypeMeta } from "../slideTypeMeta";
 import { AiQuizModal } from "./AiQuizModal";
 import { SlideTypePicker } from "./SlideTypePicker";
 import { isScoredSlideType, type GeneratedQuizDraft, type QuizSlide, type QuizSlideType } from "../types";
 
 const ease = [0.32, 0.72, 0, 1] as const;
+
+const buildDraftStorageKey = (quizId: string | null) =>
+  quizId ? `openpoll_quiz_draft_${quizId}` : "openpoll_quiz_draft_new";
+
+type PersistedQuizDraft = {
+  title: string;
+  slides: QuizSlide[];
+  active: number;
+};
+
+function loadDraft(storageKey: string): PersistedQuizDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedQuizDraft;
+    if (!parsed || typeof parsed.title !== "string" || !Array.isArray(parsed.slides)) {
+      return null;
+    }
+    return {
+      title: parsed.title,
+      slides: parsed.slides,
+      active: typeof parsed.active === "number" ? parsed.active : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(storageKey: string, draft: PersistedQuizDraft) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(draft));
+  } catch {
+    // Ignore storage quota or private-mode failures.
+  }
+}
+
+function clearDraft(storageKey: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(storageKey);
+  } catch {
+    // Ignore storage failures.
+  }
+}
 
 const blankSlide = (type: QuizSlideType = "select_answer"): QuizSlide => ({
   type,
@@ -102,7 +149,21 @@ export function QuizBuilder() {
   const [acceptedDraft, setAcceptedDraft] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
   const aiAutoOpened = useRef(false);
+  const draftStorageKey = useMemo(() => buildDraftStorageKey(editId), [editId]);
+  const draftHydratedRef = useRef(false);
+  const draftDirtyRef = useRef(false);
+
+  useEffect(() => {
+    const saved = loadDraft(draftStorageKey);
+    if (saved) {
+      setTitle(saved.title);
+      setSlides(saved.slides.length > 0 ? saved.slides : [blankSlide()]);
+      setActive(Math.min(saved.active, Math.max(0, saved.slides.length - 1)));
+    }
+    draftHydratedRef.current = true;
+  }, [draftStorageKey]);
 
   useEffect(() => {
     if (!editId) return;
@@ -113,7 +174,7 @@ export function QuizBuilder() {
         setSlides(quiz.slides);
       } catch {
         toast.error("Could not load quiz for editing.");
-        router.push("/quizzes");
+        router.push("/polls");
       } finally {
         setLoading(false);
       }
@@ -148,6 +209,49 @@ export function QuizBuilder() {
     setActive(0);
   };
 
+  const handleAiGenerate = async (params: { topic: string; slideCount: number; slideTypes: QuizSlideType[] }) => {
+    setIsAiGenerating(true);
+    const toastId = toast.loading("AI is drafting your quiz slides...");
+    try {
+      const draft = await generateQuizDraft(params);
+      handleGenerated(draft);
+      toast.success(`Generated ${draft.slides.length} slides — review and tweak before saving.`, { id: toastId });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "AI quiz generation failed.", { id: toastId });
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!draftHydratedRef.current) return;
+    if (editId === null && !title.trim() && slides.length === 1 && !slides[0]?.question.trim()) {
+      return;
+    }
+
+    draftDirtyRef.current = true;
+    const timeout = window.setTimeout(() => {
+      saveDraft(draftStorageKey, { title, slides, active });
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [title, slides, active, draftStorageKey, editId]);
+
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      if (!draftDirtyRef.current) return;
+      saveDraft(draftStorageKey, { title, slides, active });
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      if (draftDirtyRef.current) {
+        saveDraft(draftStorageKey, { title, slides, active });
+      }
+    };
+  }, [draftStorageKey, title, slides, active]);
+
   const addAcceptedAnswer = () => {
     const value = acceptedDraft.trim();
     if (!value) return;
@@ -181,7 +285,8 @@ export function QuizBuilder() {
         await createQuiz(payload);
         toast.success("Quiz created!");
       }
-      router.push("/quizzes");
+      clearDraft(draftStorageKey);
+      router.push("/polls");
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to save quiz.");
     } finally {
@@ -220,10 +325,17 @@ export function QuizBuilder() {
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
+            disabled={isAiGenerating}
             onClick={() => setAiOpen(true)}
-            className="h-11 rounded-full px-5 font-semibold border-primary/25 text-primary hover:bg-primary/10"
+            className={cn(
+              "h-11 rounded-full px-5 font-semibold transition-all duration-300",
+              isAiGenerating
+                ? "animate-ai-glow border-primary text-primary"
+                : "border-primary/25 text-primary hover:bg-primary/10 hover:shadow-[0_0_20px_rgba(216,173,135,0.4)]"
+            )}
           >
-            <Sparkles className="size-4 mr-2" /> AI generate
+            <Sparkles className={cn("size-4 mr-2 transition-transform duration-200", isAiGenerating && "animate-spin")} />
+            {isAiGenerating ? "Generating..." : "AI generate"}
           </Button>
           <Button
             onClick={handleSave}
@@ -247,7 +359,7 @@ export function QuizBuilder() {
                 className={`w-full text-left rounded-2xl border px-3 py-2.5 transition-all duration-300 ${
                   i === active
                     ? "border-primary/40 bg-primary/10 ring-1 ring-yellow-400/30"
-                    : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+                    : "border-white/10 bg-white/3 hover:bg-white/6"
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -301,10 +413,10 @@ export function QuizBuilder() {
           transition={{ duration: 0.4, ease }}
           className="flex-1 p-1.5 rounded-[2rem] bg-white/5 border border-white/10"
         >
-          <div className="rounded-[calc(2rem-0.375rem)] bg-card p-6 space-y-6">
+          <div className="rounded-[1.625rem] bg-card p-6 space-y-6">
             {/* Type badge */}
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/[0.04] border border-white/10 px-4 py-2 text-xs font-semibold text-foreground/85">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/4 border border-white/10 px-4 py-2 text-xs font-semibold text-foreground/85">
                 <meta.Icon className={`size-3.5 ${meta.iconClass}`} /> {meta.label}
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40 ml-1">
                   {scored ? "Scored" : "Interactive"}
@@ -455,7 +567,7 @@ export function QuizBuilder() {
                       className={`size-10 rounded-xl border text-sm font-bold transition-all ${
                         slide.maxEntries === n
                           ? "border-primary/40 bg-primary/15 text-primary"
-                          : "border-white/10 bg-white/[0.03] text-muted-foreground hover:bg-white/[0.08]"
+                          : "border-white/10 bg-white/3 text-muted-foreground hover:bg-white/8"
                       }`}
                     >
                       {n}
@@ -469,7 +581,7 @@ export function QuizBuilder() {
             )}
 
             {slide.type === "open_ended" && (
-              <p className="text-xs text-muted-foreground/50 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
+              <p className="text-xs text-muted-foreground/50 rounded-2xl border border-white/5 bg-white/2 px-4 py-3">
                 Participants type a free-form response. Answers show up as a card wall on the
                 presenter screen — duplicates are grouped with a counter.
               </p>
@@ -676,6 +788,8 @@ export function QuizBuilder() {
         onOpenChange={setAiOpen}
         initialTopic={title}
         onGenerated={handleGenerated}
+        onGenerate={handleAiGenerate}
+        isGenerating={isAiGenerating}
       />
     </div>
   );
