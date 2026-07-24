@@ -7,7 +7,25 @@ import { mcpRateLimit } from './mcp.rateLimit';
 import { createMcpServer } from './mcp.server';
 
 const router = Router();
-const transports = new Map<string, StreamableHTTPServerTransport>();
+
+interface McpSession {
+  transport: StreamableHTTPServerTransport;
+  userId: string;
+  lastAccessedAt: number;
+}
+
+const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+const sessions = new Map<string, McpSession>();
+
+function evictStaleSessions() {
+  const now = Date.now();
+  for (const [sessionId, session] of sessions) {
+    if (now - session.lastAccessedAt > SESSION_IDLE_TIMEOUT_MS) {
+      session.transport.close().catch(() => {});
+      sessions.delete(sessionId);
+    }
+  }
+}
 
 async function handleMcpRequest(req: McpAuthRequest, res: any) {
   if (!req.mcp) {
@@ -15,13 +33,24 @@ async function handleMcpRequest(req: McpAuthRequest, res: any) {
     return;
   }
 
+  evictStaleSessions();
+
   const sessionIdHeader = req.headers['mcp-session-id'];
   const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
 
   try {
-    let transport = sessionId ? transports.get(sessionId) : undefined;
+    let session = sessionId ? sessions.get(sessionId) : undefined;
 
-    if (!transport && sessionId) {
+    if (session && session.userId !== req.mcp.user.id) {
+      res.status(403).json({
+        jsonrpc: '2.0',
+        error: { code: -32000, message: 'Session does not belong to this token' },
+        id: null,
+      });
+      return;
+    }
+
+    if (!session && sessionId) {
       res.status(200).json({
         jsonrpc: '2.0',
         error: { code: -32000, message: 'Session not found' },
@@ -30,34 +59,42 @@ async function handleMcpRequest(req: McpAuthRequest, res: any) {
       return;
     }
 
-    if (!transport && isInitializeRequest(req.body)) {
+    let transport: StreamableHTTPServerTransport;
+
+    if (!session && isInitializeRequest(req.body)) {
       transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (newSessionId) => {
-          if (transport) {
-            transports.set(newSessionId, transport);
-          }
+          sessions.set(newSessionId, {
+            transport,
+            userId: req.mcp!.user.id,
+            lastAccessedAt: Date.now(),
+          });
         },
       });
 
       transport.onclose = () => {
-        const sid = transport?.sessionId;
-        if (sid) transports.delete(sid);
+        const sid = transport.sessionId;
+        if (sid) sessions.delete(sid);
       };
 
       const server = createMcpServer({
         userId: req.mcp.user.id,
+        tokenId: req.mcp.tokenId,
         scopes: req.mcp.scopes,
       });
 
       await server.connect(transport);
-    } else if (!transport) {
+    } else if (!session) {
       res.status(200).json({
         jsonrpc: '2.0',
         error: { code: -32000, message: 'Bad Request: No valid session ID provided' },
         id: null,
       });
       return;
+    } else {
+      transport = session.transport;
+      session.lastAccessedAt = Date.now();
     }
 
     await transport.handleRequest(req, res, req.body);

@@ -94,10 +94,18 @@ mounted in `app/(dashboard)/settings/page.tsx`.
       sets none and UI has no expiry picker. Add if desired.
 - [ ] **`lastUsedAt` display** already wired in UI; confirm it updates (fire-and-forget
       write in `resolveToken`).
-- [ ] **Stateful transport cleanup** — `mcp.route.ts` keeps transports in an
-      in-memory `Map` keyed by session id. Fine for single instance; for multi-instance
-      deploys either use sticky sessions or move to stateless mode.
-- [ ] **Audit log** (optional) — record tool calls per token for abuse review.
+- [ ] **Stateful transport cleanup** — `mcp.route.ts` keeps sessions in an
+      in-memory `Map` keyed by session id, now idle-evicted after 30 min. Fine for
+      single instance; for multi-instance deploys either use sticky sessions or
+      move to stateless mode.
+- [x] **Audit log** — `[McpAudit]` line per tool call (tool, tokenId, userId, ok/error).
+- [x] **Session ownership check** — sessions are bound to the userId that created
+      them; a request bearing another user's token for the same session id is
+      rejected (403) instead of silently executing as the original user.
+- [x] **Poll schema reuse** — `create_poll`/`edit_poll` validate through the same
+      `createPollSchema`/`updatePollSchema` as the REST API instead of a hand-rolled
+      duplicate, so defaults/constraints can't silently drift.
+- [x] **pollId validation** — malformed ids rejected as `400` before hitting Mongoose.
 - [ ] **Revoke-all / rotate** convenience action (optional).
 - [ ] **v2 tools** (deferred): `close_poll` behind a `poll:close` scope.
 - [ ] Rename `prefix`/`last4` display if you want a nicer masked format in the UI.

@@ -5,6 +5,7 @@ import type { McpScope } from './mcp.constants.js';
 
 export type McpSessionContext = {
   userId: string;
+  tokenId: string;
   scopes: McpScope[];
 };
 
@@ -23,6 +24,7 @@ export function createMcpServer(ctx: McpSessionContext): McpServer {
     try {
       const result = await handleMcpTool(name, args, {
         userId: ctx.userId,
+        tokenId: ctx.tokenId,
         scopes: ctx.scopes,
       });
       return {

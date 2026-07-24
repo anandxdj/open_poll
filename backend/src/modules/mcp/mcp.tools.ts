@@ -1,36 +1,42 @@
 import { z } from 'zod';
+import mongoose from 'mongoose';
 import { ApiError } from '../../common/utils/ApiError';
 import { PollService } from '../polls/polls.service';
 import { ResponseService } from '../responses/responses.service';
+import { createPollSchema, updatePollSchema } from '../polls/polls.schema';
 import type { McpScope } from './mcp.constants';
 
-const pollQuestionSchema = z.object({
-  text: z.string().min(3),
+// MCP tools only expose a subset of createPollSchema/updatePollSchema's fields
+// (no pollType/passingScorePercentage/quiz question fields); the REST schemas'
+// own zod .default()s fill in the rest so both surfaces stay in sync.
+const mcpPollQuestionInput = z.object({
+  text: z.string().min(1),
   options: z.array(z.string().min(1)).min(2),
   isMandatory: z.boolean().optional(),
 });
 
-const createPollInputSchema = z.object({
+const createPollMcpInputSchema = z.object({
   title: z.string().min(3),
   isAnonymous: z.boolean().optional(),
   expiresAt: z.string().optional(),
   isPublished: z.boolean().optional(),
-  questions: z.array(pollQuestionSchema).min(1),
+  questions: z.array(mcpPollQuestionInput).min(1),
 });
 
-const editPollInputSchema = z.object({
+const editPollMcpInputSchema = z.object({
   pollId: z.string().min(1),
   title: z.string().min(3).optional(),
   isAnonymous: z.boolean().optional(),
   expiresAt: z.string().optional(),
   isPublished: z.boolean().optional(),
-  questions: z.array(pollQuestionSchema).min(1).optional(),
+  questions: z.array(mcpPollQuestionInput).min(1).optional(),
 }).refine((data) => Object.keys(data).length > 1, {
   message: 'At least one field besides pollId is required',
 });
 
 export type McpUserContext = {
   userId: string;
+  tokenId: string;
   scopes: McpScope[];
 };
 
@@ -42,6 +48,14 @@ function defaultExpiresAt(): string {
   const date = new Date();
   date.setDate(date.getDate() + 30);
   return date.toISOString();
+}
+
+function parsePollId(raw: unknown): string {
+  const pollId = z.string().min(1).parse(raw);
+  if (!mongoose.isValidObjectId(pollId)) {
+    throw ApiError.badRequest('Invalid poll ID');
+  }
+  return pollId;
 }
 
 async function assertPollOwner(pollId: string, userId: string) {
@@ -63,6 +77,22 @@ export async function handleMcpTool(
   args: Record<string, unknown> | undefined,
   ctx: McpUserContext,
 ) {
+  try {
+    const result = await dispatchMcpTool(name, args, ctx);
+    console.log(`[McpAudit] tool=${name} tokenId=${ctx.tokenId} userId=${ctx.userId} ok`);
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Tool execution failed';
+    console.log(`[McpAudit] tool=${name} tokenId=${ctx.tokenId} userId=${ctx.userId} error="${message}"`);
+    throw error;
+  }
+}
+
+async function dispatchMcpTool(
+  name: string,
+  args: Record<string, unknown> | undefined,
+  ctx: McpUserContext,
+) {
   switch (name) {
     case 'list_polls': {
       assertScope(ctx.scopes, 'poll:read');
@@ -72,69 +102,42 @@ export async function handleMcpTool(
 
     case 'get_poll': {
       assertScope(ctx.scopes, 'poll:read');
-      const pollId = z.string().min(1).parse(args?.pollId);
+      const pollId = parsePollId(args?.pollId);
       const poll = await assertPollOwner(pollId, ctx.userId);
       return { poll: serialize(poll) };
     }
 
     case 'create_poll': {
       assertScope(ctx.scopes, 'poll:create');
-      const parsed = createPollInputSchema.parse(args);
-      const expiresAt = parsed.expiresAt ?? defaultExpiresAt();
-      if (new Date(expiresAt).getTime() <= Date.now()) {
-        throw ApiError.badRequest('Expiry date must be in the future');
-      }
+      const parsed = createPollMcpInputSchema.parse(args);
 
-      const poll = await PollService.createPoll(
-        {
-          title: parsed.title,
-          pollType: 'POLL',
-          passingScorePercentage: 70,
-          isAnonymous: parsed.isAnonymous ?? true,
-          expiresAt,
-          isPublished: parsed.isPublished ?? true,
-          questions: parsed.questions.map((question) => ({
-            ...question,
-            type: (question as any).type ?? 'single',
-            correctOptionIndices: (question as any).correctOptionIndices ?? [],
-            explanation: (question as any).explanation ?? '',
-            points: (question as any).points ?? 1,
-            isMandatory: question.isMandatory ?? true,
-          })),
-        },
-        ctx.userId,
-      );
+      const validated = createPollSchema.parse({
+        title: parsed.title,
+        isAnonymous: parsed.isAnonymous ?? true,
+        expiresAt: parsed.expiresAt ?? defaultExpiresAt(),
+        isPublished: parsed.isPublished ?? true,
+        questions: parsed.questions,
+      });
 
+      const poll = await PollService.createPoll(validated, ctx.userId);
       return { poll: serialize(poll) };
     }
 
     case 'edit_poll': {
       assertScope(ctx.scopes, 'poll:edit');
-      const parsed = editPollInputSchema.parse(args);
+      const parsed = editPollMcpInputSchema.parse(args);
       await assertPollOwner(parsed.pollId, ctx.userId);
 
       const { pollId, ...updates } = parsed;
-      if (updates.expiresAt && new Date(updates.expiresAt).getTime() <= Date.now()) {
-        throw ApiError.badRequest('Expiry date must be in the future');
-      }
+      const validated = updatePollSchema.parse(updates);
 
-      const poll = await PollService.updatePoll(pollId, {
-        ...updates,
-        questions: updates.questions?.map((question) => ({
-          ...question,
-          type: (question as any).type ?? 'single',
-          correctOptionIndices: (question as any).correctOptionIndices ?? [],
-          explanation: (question as any).explanation ?? '',
-          points: (question as any).points ?? 1,
-          isMandatory: question.isMandatory ?? true,
-        })),
-      });
+      const poll = await PollService.updatePoll(pollId, validated);
       return { poll: serialize(poll) };
     }
 
     case 'get_poll_analytics': {
       assertScope(ctx.scopes, 'analytics:read');
-      const pollId = z.string().min(1).parse(args?.pollId);
+      const pollId = parsePollId(args?.pollId);
       await assertPollOwner(pollId, ctx.userId);
       const analytics = await ResponseService.getPollAnalytics(pollId);
       return {
@@ -145,7 +148,7 @@ export async function handleMcpTool(
 
     case 'get_share_link': {
       assertScope(ctx.scopes, 'poll:read');
-      const pollId = z.string().min(1).parse(args?.pollId);
+      const pollId = parsePollId(args?.pollId);
       const poll = await assertPollOwner(pollId, ctx.userId);
       const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
       const shareUrl = `${frontendUrl}/p/${pollId}`;
