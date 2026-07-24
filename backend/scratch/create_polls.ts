@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const BASE_URL = 'http://127.0.0.1:5000/mcp';
-const TOKEN = 'opoll_mcp_6c11HGEgzexjlOec6uCJP-WknGc95gxBVUeIoPGvXbg';
+const TOKEN = process.env.MCP_TOKEN || "your_mcp_token_here";
 
 function parseSseResponse(data: unknown): any {
   if (typeof data !== 'string') {
