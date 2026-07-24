@@ -152,27 +152,27 @@ export function PollCardV2({ poll, liveVotes = 0 }: { poll: Poll; liveVotes?: nu
           </span>
 
           {poll.pollType === 'TRIAL' && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-emerald-400 uppercase tracking-widest">
-              <Target className="size-3" /> Quiz
+            <span
+              title="Quiz"
+              className="inline-flex items-center justify-center size-6 rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
+            >
+              <Target className="size-3.5" />
             </span>
           )}
 
           <span
+            title={poll.isAnonymous ? "Anonymous Poll" : "Verified Poll"}
             className={cn(
-              "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest select-none",
+              "inline-flex items-center justify-center size-6 rounded-full border select-none",
               poll.isAnonymous
-                ? "border-white/5 bg-white/5 text-muted-foreground/60"
+                ? "border-white/10 bg-white/5 text-muted-foreground/70"
                 : "border-amber-500/20 bg-amber-500/10 text-primary"
             )}
           >
             {poll.isAnonymous ? (
-              <>
-                <Globe className="size-3" /> Anonymous
-              </>
+              <Globe className="size-3.5" />
             ) : (
-              <>
-                <Lock className="size-3" /> Verified
-              </>
+              <Lock className="size-3.5" />
             )}
           </span>
         </div>
@@ -230,13 +230,6 @@ export function PollCardV2({ poll, liveVotes = 0 }: { poll: Poll; liveVotes?: nu
           )}
         </div>
       </div>
-
-      {/* Progress */}
-      {status === "active" && (
-        <div className="w-full bg-secondary/30 rounded-full h-1 mb-6">
-          <div className="bg-primary h-1 rounded-full w-2/3" />
-        </div>
-      )}
 
       {/* Primary Actions */}
       <div className="grid grid-cols-2 gap-2.5">
