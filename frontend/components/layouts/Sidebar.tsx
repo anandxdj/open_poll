@@ -8,8 +8,7 @@ import {
   LayoutDashboard,
   ListPlus,
   BarChart2,
-  SquarePlus,
-  Trophy,
+  Presentation,
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
@@ -22,7 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ProductLogo } from "@/components/ui/ProductLogo";
 import { useCreatePollModal } from "@/features/polls/components/CreatePollModalProvider";
-import { useCreateQuizModal } from "@/features/quizzes/components/CreateQuizModalProvider";
+import { useCreatePresentationModal } from "@/features/presentations/components/CreatePresentationModalProvider";
 import { useTheme } from "next-themes";
 import { useAuthStore } from "@/features/auth";
 import { useRouter } from "next/navigation";
@@ -66,16 +65,15 @@ export default function Sidebar() {
   const router = useRouter();
   const [navOpen, setNavOpen] = useState(true);
   const { open: openCreatePollModal } = useCreatePollModal();
-  const { open: openCreateQuizModal } = useCreateQuizModal();
+  const { open: openCreatePresentationModal } = useCreatePresentationModal();
   const { setTheme, resolvedTheme } = useTheme();
   const { user, logout } = useAuthStore();
 
   const navItems = [
     { href: "/polls", label: "Dashboard", Icon: LayoutDashboard },
     { href: "/create", label: "Create Poll", Icon: ListPlus },
-    { href: "/quiz/create", label: "Create Quiz", Icon: SquarePlus },
+    { href: "/presentation/create", label: "Create Deck", Icon: Presentation },
     { href: "/analytics", label: "Analytics", Icon: BarChart2 },
-    { href: "/quizzes", label: "Quizzes", Icon: Trophy },
   ];
 
   const toggleTheme = (e: React.MouseEvent) => {
@@ -168,12 +166,27 @@ export default function Sidebar() {
             !navOpen && "w-9 justify-center px-0"
           );
 
-          if (href === "/create" || href === "/quiz/create") {
+          if (href === "/create") {
             return (
               <button
                 key={href}
                 type="button"
-                onClick={() => (href === "/create" ? openCreatePollModal() : openCreateQuizModal())}
+                onClick={() => openCreatePollModal()}
+                className={cn(baseClass, "w-full text-left")}
+                title={!navOpen ? label : undefined}
+              >
+                <Icon className="size-4 shrink-0" strokeWidth={1.8} />
+                {navOpen && <span className={cn("text-xs font-medium", isActive && "font-semibold")}>{label}</span>}
+              </button>
+            );
+          }
+
+          if (href === "/presentation/create" || href === "/quiz/create") {
+            return (
+              <button
+                key={href}
+                type="button"
+                onClick={() => openCreatePresentationModal()}
                 className={cn(baseClass, "w-full text-left")}
                 title={!navOpen ? label : undefined}
               >

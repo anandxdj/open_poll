@@ -52,7 +52,6 @@ export default function PollsPage() {
   }, []);
 
   const handleDeleteQuiz = async (quiz: Quiz) => {
-    if (!window.confirm(`Delete "${quiz.title}"? This removes all results.`)) return;
     try {
       await deleteQuiz(quiz._id);
       setQuizzes((prev) => prev.filter((q) => q._id !== quiz._id));
@@ -169,7 +168,7 @@ export default function PollsPage() {
             {(
               [
                 { key: "polls", label: "Polls", Icon: BarChart3 },
-                { key: "quizzes", label: "Quizzes", Icon: Trophy },
+                { key: "quizzes", label: "Decks", Icon: Trophy },
               ] as const
             ).map(({ key, label, Icon }) => (
               <button
@@ -195,7 +194,7 @@ export default function PollsPage() {
           className="flex items-center gap-1.5 rounded-xl border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-colors duration-200 hover:bg-primary hover:text-primary-foreground"
         >
           <Plus className="size-3.5" />
-          {view === "polls" ? "New Poll" : "New Quiz"}
+          {view === "polls" ? "New Poll" : "New Deck"}
         </button>
       </header>
 

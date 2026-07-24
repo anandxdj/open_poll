@@ -43,6 +43,8 @@ export class PollService {
     }
 
     if (payload.title !== undefined) poll.title = payload.title;
+    if (payload.pollType !== undefined) poll.pollType = payload.pollType;
+    if (payload.passingScorePercentage !== undefined) poll.passingScorePercentage = payload.passingScorePercentage;
     if (payload.isAnonymous !== undefined) poll.isAnonymous = payload.isAnonymous;
     if (payload.expiresAt !== undefined) poll.expiresAt = new Date(payload.expiresAt);
     if (payload.isPublished !== undefined) poll.isPublished = payload.isPublished;

@@ -7,7 +7,8 @@ export const submitResponseSchema = z.object({
   answers: z.array(
     z.object({
       questionId: z.string().min(1, 'questionId is required'),
-      selectedOptionIndex: z.number().int().min(0),
+      selectedOptionIndex: z.number().int().min(0).optional(),
+      selectedOptionIndices: z.array(z.number().int().min(0)).optional(),
     }),
   ).min(1, 'At least one answer is required'),
 });

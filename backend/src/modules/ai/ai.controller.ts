@@ -12,15 +12,6 @@ export class AiController {
     }
   }
 
-  static async generateQuizDraft(req: Request, res: Response, next: NextFunction) {
-    try {
-      const draft = await AiService.generateQuizDraft(req.body);
-      return ApiResponse.ok(res, 'AI quiz draft generated successfully', draft);
-    } catch (error) {
-      next(error);
-    }
-  }
-
   static async generateAndSave(req: Request, res: Response, next: NextFunction) {
     try {
       const payload = {
@@ -29,6 +20,15 @@ export class AiController {
       };
       const result = await AiService.generateAndSavePoll(payload);
       return ApiResponse.created(res, 'AI poll generated and saved successfully', result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async generateQuizDraft(req: Request, res: Response, next: NextFunction) {
+    try {
+      const draft = await AiService.generateQuizDraft(req.body);
+      return ApiResponse.ok(res, 'AI quiz draft generated successfully', draft);
     } catch (error) {
       next(error);
     }

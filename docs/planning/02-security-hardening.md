@@ -1,10 +1,16 @@
 ---
 summary: Verified vulnerability findings and a prioritized remediation plan. P0 items gate any public launch.
 status: draft
-last_updated: 2026-06-10
+last_updated: 2026-07-16
 ---
 
 # Security Hardening Plan
+
+> **Remediation status (2026-07-16, branch `security/hardening-p0-p1`):**
+> P0 #1–#4 and P1 #5–#9 are fixed. #10 fixed alongside #1. Remaining open: #11–#14 (P2).
+> Key new primitives: `backend/src/common/utils/signedId.utils.ts` (HMAC-signed ballot /
+> guest / device tokens) and `backend/src/common/middlewares/security.middleware.ts`
+> (security headers + Mongo-operator sanitization).
 
 Findings below were verified by reading the cited source on 2026-06-10. Each has a file:line
 anchor, the exploit, and the fix. **P0 = launch-gating.** For a polling/voting product, result

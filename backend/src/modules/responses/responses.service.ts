@@ -34,47 +34,162 @@ export class ResponseService {
       }
     }
 
-    for (const answer of payload.answers) {
+    // Standardize answers array
+    const normalizedAnswers = payload.answers.map((answer) => {
       const question = questionMap.get(answer.questionId);
       if (!question) {
         throw ApiError.badRequest(`Question ${answer.questionId} does not belong to this poll`);
       }
 
-      if (answer.selectedOptionIndex < 0 || answer.selectedOptionIndex >= question.options.length) {
-        throw ApiError.badRequest(`Invalid selectedOptionIndex for question ${answer.questionId}`);
+      let indices: number[] = [];
+      if (Array.isArray(answer.selectedOptionIndices) && answer.selectedOptionIndices.length > 0) {
+        indices = answer.selectedOptionIndices;
+      } else if (typeof answer.selectedOptionIndex === 'number') {
+        indices = [answer.selectedOptionIndex];
       }
-    }
+
+      for (const idx of indices) {
+        if (idx < 0 || idx >= question.options.length) {
+          throw ApiError.badRequest(`Invalid option index ${idx} for question ${answer.questionId}`);
+        }
+      }
+
+      return {
+        questionId: answer.questionId,
+        selectedOptionIndex: indices[0] ?? 0,
+        selectedOptionIndices: indices,
+      };
+    });
 
     if (!poll.isAnonymous && !payload.respondentId) {
       throw ApiError.unauthorized('This poll requires you to be logged in to vote.');
     }
 
+    const respondentKey = payload.respondentId || payload.deviceId;
     const spamKey = `poll:${payload.pollId}:voted:${payload.deviceId}`;
-    const hasVoted = await redisClient.get(spamKey);
-    if (hasVoted) {
-      throw ApiError.conflict('You have already voted on this poll.');
-    }
-    await redisClient.setEx(spamKey, 86400, 'true');
 
+    // For standard polls, block duplicate votes. For trials, allow retries if the trial hasn't been passed.
+    if (poll.pollType === 'POLL') {
+      const hasVoted = await redisClient.get(spamKey);
+      if (hasVoted) {
+        throw ApiError.conflict('You have already voted on this poll.');
+      }
+      await redisClient.setEx(spamKey, 86400, 'true');
+    }
+
+    // Buffer counts to Redis for analytics pipeline
     const pipeline = redisClient.multi();
     pipeline.sAdd('buffer:active_polls', payload.pollId);
     pipeline.incr(`buffer:poll:${payload.pollId}:total`);
-    for (const answer of payload.answers) {
-      pipeline.hIncrBy(
-        `buffer:poll:${payload.pollId}:question:${answer.questionId}`,
-        String(answer.selectedOptionIndex),
-        1,
-      );
+    for (const answer of normalizedAnswers) {
+      for (const idx of answer.selectedOptionIndices) {
+        pipeline.hIncrBy(
+          `buffer:poll:${payload.pollId}:question:${answer.questionId}`,
+          String(idx),
+          1,
+        );
+      }
     }
     await pipeline.exec();
 
+    let trialResult: any = null;
+    let attemptNumber = 1;
+
+    if (poll.pollType === 'TRIAL') {
+      const previousAttempts = await ResponseModel.countDocuments({
+        pollId: new mongoose.Types.ObjectId(payload.pollId),
+        respondentId: respondentKey,
+      });
+      attemptNumber = previousAttempts + 1;
+
+      let score = 0;
+      let maxScore = 0;
+
+      const breakdown = poll.questions.map((question) => {
+        const userAns = normalizedAnswers.find((a) => a.questionId === String(question._id));
+        const userIndices = (userAns?.selectedOptionIndices || []).slice().sort((a, b) => a - b);
+        const correctIndices = (question.correctOptionIndices || []).slice().sort((a, b) => a - b);
+        const qPoints = question.points || 1;
+        maxScore += qPoints;
+
+        const isCorrect =
+          userIndices.length === correctIndices.length &&
+          userIndices.every((val, idx) => val === correctIndices[idx]);
+
+        if (isCorrect) {
+          score += qPoints;
+        }
+
+        return {
+          questionId: String(question._id),
+          questionText: question.text,
+          userSelectedIndices: userIndices,
+          correctOptionIndices: correctIndices,
+          isCorrect,
+          explanation: question.explanation || '',
+        };
+      });
+
+      const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+      const passThreshold = poll.passingScorePercentage ?? 70;
+      const passed = percentage >= passThreshold;
+
+      trialResult = {
+        passed,
+        score,
+        maxScore,
+        percentage,
+        passingScorePercentage: passThreshold,
+        attemptNumber,
+        breakdown: breakdown.map((item) => {
+          if (passed) {
+            return item;
+          } else {
+            // Hide correct answers and explanations on failure to encourage learning
+            return {
+              questionId: item.questionId,
+              questionText: item.questionText,
+              userSelectedIndices: item.userSelectedIndices,
+              isCorrect: item.isCorrect,
+            };
+          }
+        }),
+      };
+
+      // Save Mongo response record asynchronously
+      await ResponseModel.create({
+        pollId: new mongoose.Types.ObjectId(payload.pollId),
+        respondentId: respondentKey,
+        answers: normalizedAnswers.map((a) => ({
+          questionId: new mongoose.Types.ObjectId(a.questionId),
+          selectedOptionIndex: a.selectedOptionIndex,
+          selectedOptionIndices: a.selectedOptionIndices,
+        })),
+        attemptNumber,
+        score,
+        maxScore,
+        percentage,
+        passed,
+      });
+
+      return {
+        message: passed
+          ? 'Trial passed successfully! 🎉'
+          : `Trial attempt #${attemptNumber} complete. Score: ${percentage}%. Pass threshold: ${passThreshold}%.`,
+        trialResult,
+      };
+    }
+
+    // For standard polls:
     ResponseModel.create({
       pollId: new mongoose.Types.ObjectId(payload.pollId),
-      respondentId: payload.respondentId ?? 'mock-respondent-123',
-      answers: payload.answers.map((a) => ({
+      respondentId: respondentKey,
+      answers: normalizedAnswers.map((a) => ({
         questionId: new mongoose.Types.ObjectId(a.questionId),
         selectedOptionIndex: a.selectedOptionIndex,
+        selectedOptionIndices: a.selectedOptionIndices,
       })),
+      attemptNumber: 1,
     }).catch((error: unknown) => {
       console.error('[Mongo Backup Error]', error);
     });
@@ -190,7 +305,7 @@ export class ResponseService {
             questionId: String(ans.questionId),
             questionText: question ? question.text : 'Unknown Question',
             selectedOptionIndex: ans.selectedOptionIndex,
-            selectedOptionText: question && ans.selectedOptionIndex >= 0 && ans.selectedOptionIndex < question.options.length
+            selectedOptionText: question && typeof ans.selectedOptionIndex === 'number' && ans.selectedOptionIndex >= 0 && ans.selectedOptionIndex < question.options.length
               ? question.options[ans.selectedOptionIndex]
               : 'Skipped/Invalid',
           };

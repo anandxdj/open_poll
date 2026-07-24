@@ -25,17 +25,19 @@ import {
 } from "@/features/ai/api/generateDraft";
 import { cn } from "@/lib/utils";
 import BasicDropdown from "@/components/ui/basic-dropdown";
-import { Briefcase, Coffee, GraduationCap, Laugh, Sparkles } from "lucide-react";
+import { Briefcase, Coffee, GraduationCap, Laugh, Sparkles, BarChart2, Target } from "lucide-react";
 
 type Props = {
   children: React.ReactNode;
   isAnonymous: boolean;
-  onGenerate: (params: { topic: string; tone: AiTone; questionCount: number }) => void;
+  onGenerate: (params: { topic: string; tone: AiTone; questionCount: number; pollType?: 'POLL' | 'TRIAL'; passingScorePercentage?: number }) => void;
   /** Optionally control open state from outside */
   externalOpen?: boolean;
   onExternalOpenChange?: (open: boolean) => void;
   /** When the dialog opens, seed the topic field (e.g. poll title from the create flow). */
   initialTopic?: string;
+  initialPollType?: 'POLL' | 'TRIAL';
+  initialPassingScorePercentage?: number;
   isGenerating?: boolean;
 };
 
@@ -45,6 +47,8 @@ export function AiPromptModal({
   externalOpen,
   onExternalOpenChange,
   initialTopic,
+  initialPollType = 'POLL',
+  initialPassingScorePercentage = 70,
   isGenerating,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -59,17 +63,23 @@ export function AiPromptModal({
     }
   };
   const [topic, setTopic] = useState("");
+  const [pollType, setPollType] = useState<'POLL' | 'TRIAL'>(initialPollType);
+  const [passingScorePercentage, setPassingScorePercentage] = useState(initialPassingScorePercentage);
   const [tone, setTone] = useState<AiTone>("professional & casual");
   const [questionCount, setQuestionCount] = useState(5);
 
   useEffect(() => {
     if (!isOpen) return;
+    setPollType(initialPollType || 'POLL');
+    if (typeof initialPassingScorePercentage === 'number') {
+      setPassingScorePercentage(initialPassingScorePercentage);
+    }
     const seed = initialTopic?.trim();
     if (!seed) return;
     void Promise.resolve().then(() => {
       setTopic(seed);
     });
-  }, [isOpen, initialTopic]);
+  }, [isOpen, initialTopic, initialPollType, initialPassingScorePercentage]);
 
   function handleAction() {
     const trimmed = topic.trim();
@@ -77,7 +87,7 @@ export function AiPromptModal({
       toast.error("Topic should be at least 3 characters.");
       return;
     }
-    onGenerate({ topic: trimmed, tone, questionCount });
+    onGenerate({ topic: trimmed, tone, questionCount, pollType, passingScorePercentage });
     setIsOpen(false);
   }
 
@@ -87,19 +97,74 @@ export function AiPromptModal({
       <DialogContent className="max-w-lg rounded-2xl sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Generate with AI</DialogTitle>
-          <DialogDescription>Describe what you want to ask. We shape questions to match your tone.</DialogDescription>
+          <DialogDescription>Describe what you want to ask. We shape questions to match your tone and target.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
+          {/* Creation Type Selector */}
+          <div className="grid gap-2">
+            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Type</Label>
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-secondary/30 p-1">
+              <button
+                type="button"
+                onClick={() => setPollType("POLL")}
+                className={cn(
+                  "flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all",
+                  pollType === "POLL"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <BarChart2 className="size-3.5" />
+                <span>Standard Poll</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPollType("TRIAL")}
+                className={cn(
+                  "flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all",
+                  pollType === "TRIAL"
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Target className="size-3.5" />
+                <span>Assessment Trial</span>
+              </button>
+            </div>
+          </div>
+
           <div className="grid gap-2">
             <Label htmlFor="ai-topic">Topic</Label>
             <Textarea
               id="ai-topic"
-              placeholder="e.g. Quarterly team priorities, favorite frameworks for side projects…"
+              placeholder={pollType === 'TRIAL' ? "e.g. Social engineering tactics, phishing awareness test..." : "e.g. Quarterly team priorities, favorite frameworks..."}
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              className="min-h-28 rounded-xl"
+              className="min-h-24 rounded-xl"
             />
           </div>
+
+          {pollType === 'TRIAL' && (
+            <div className="grid gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="ai-pass-threshold" className="text-xs font-semibold text-emerald-400">
+                  Passing Score Required
+                </Label>
+                <span className="text-xs font-bold tabular-nums text-emerald-400">{passingScorePercentage}%</span>
+              </div>
+              <input
+                id="ai-pass-threshold"
+                type="range"
+                min={10}
+                max={100}
+                step={5}
+                value={passingScorePercentage}
+                onChange={(e) => setPassingScorePercentage(Number(e.target.value))}
+                className="accent-emerald-500"
+              />
+            </div>
+          )}
+
           <div className="grid gap-2">
             <Label htmlFor="ai-tone">Tone</Label>
             <BasicDropdown
@@ -115,6 +180,7 @@ export function AiPromptModal({
               onChange={(item) => setTone(item.id as AiTone)}
             />
           </div>
+
           <div className="grid gap-2">
             <div className="flex items-center justify-between gap-2">
               <Label htmlFor="ai-count">Question count</Label>
@@ -142,7 +208,7 @@ export function AiPromptModal({
             disabled={isGenerating}
             onClick={handleAction}
           >
-            {isGenerating ? "Busy..." : "Generate questions"}
+            {isGenerating ? "Generating..." : pollType === 'TRIAL' ? "Generate Trial Questions" : "Generate Poll Questions"}
           </Button>
         </DialogFooter>
       </DialogContent>

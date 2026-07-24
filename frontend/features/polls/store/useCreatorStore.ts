@@ -13,6 +13,8 @@ function axiosMessage(err: unknown): string | undefined {
 export interface Poll {
   _id: string;
   title: string;
+  pollType?: 'POLL' | 'TRIAL';
+  passingScorePercentage?: number;
   isAnonymous: boolean;
   expiresAt: string;
   isPublished: boolean;
@@ -23,6 +25,10 @@ export interface Poll {
     text: string;
     options: string[];
     isMandatory: boolean;
+    type?: 'single' | 'multiple';
+    correctOptionIndices?: number[];
+    explanation?: string;
+    points?: number;
   }[];
   createdAt: string;
 }
@@ -42,7 +48,7 @@ interface CreatorState {
 }
 
 export const useCreatorStore = create<CreatorState>((set) => ({
-  polls:[],
+  polls: [],
   isLoading: false,
   error: null,
 
@@ -72,7 +78,7 @@ export const useCreatorStore = create<CreatorState>((set) => ({
         const exists = state.polls.some((p) => p._id === newPoll._id);
         if (exists) return { isLoading: false };
         return { 
-          polls:[newPoll, ...state.polls], 
+          polls: [newPoll, ...state.polls], 
           isLoading: false 
         };
       });

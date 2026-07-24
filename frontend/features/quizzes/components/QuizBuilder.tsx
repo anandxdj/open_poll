@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -21,13 +21,60 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { createQuiz, getQuiz, updateQuiz } from "../api/quizApi";
+import { cn } from "@/lib/utils";
+import { createQuiz, generateQuizDraft, getQuiz, updateQuiz } from "../api/quizApi";
 import { slideTypeMeta } from "../slideTypeMeta";
 import { AiQuizModal } from "./AiQuizModal";
 import { SlideTypePicker } from "./SlideTypePicker";
 import { isScoredSlideType, type GeneratedQuizDraft, type QuizSlide, type QuizSlideType } from "../types";
 
 const ease = [0.32, 0.72, 0, 1] as const;
+
+const buildDraftStorageKey = (quizId: string | null) =>
+  quizId ? `openpoll_quiz_draft_${quizId}` : "openpoll_quiz_draft_new";
+
+type PersistedQuizDraft = {
+  title: string;
+  slides: QuizSlide[];
+  active: number;
+};
+
+function loadDraft(storageKey: string): PersistedQuizDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedQuizDraft;
+    if (!parsed || typeof parsed.title !== "string" || !Array.isArray(parsed.slides)) {
+      return null;
+    }
+    return {
+      title: parsed.title,
+      slides: parsed.slides,
+      active: typeof parsed.active === "number" ? parsed.active : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(storageKey: string, draft: PersistedQuizDraft) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(draft));
+  } catch {
+    // Ignore storage quota or private-mode failures.
+  }
+}
+
+function clearDraft(storageKey: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(storageKey);
+  } catch {
+    // Ignore storage failures.
+  }
+}
 
 const blankSlide = (type: QuizSlideType = "select_answer"): QuizSlide => ({
   type,
@@ -102,7 +149,26 @@ export function QuizBuilder() {
   const [acceptedDraft, setAcceptedDraft] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
   const aiAutoOpened = useRef(false);
+  const draftStorageKey = useMemo(() => buildDraftStorageKey(editId), [editId]);
+  const draftHydratedRef = useRef(false);
+  const draftDirtyRef = useRef(false);
+  const activeSlideRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    activeSlideRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [active]);
+
+  useEffect(() => {
+    const saved = loadDraft(draftStorageKey);
+    if (saved) {
+      setTitle(saved.title);
+      setSlides(saved.slides.length > 0 ? saved.slides : [blankSlide()]);
+      setActive(Math.min(saved.active, Math.max(0, saved.slides.length - 1)));
+    }
+    draftHydratedRef.current = true;
+  }, [draftStorageKey]);
 
   useEffect(() => {
     if (!editId) return;
@@ -113,7 +179,7 @@ export function QuizBuilder() {
         setSlides(quiz.slides);
       } catch {
         toast.error("Could not load quiz for editing.");
-        router.push("/quizzes");
+        router.push("/polls");
       } finally {
         setLoading(false);
       }
@@ -148,6 +214,49 @@ export function QuizBuilder() {
     setActive(0);
   };
 
+  const handleAiGenerate = async (params: { topic: string; slideCount: number; slideTypes: QuizSlideType[] }) => {
+    setIsAiGenerating(true);
+    const toastId = toast.loading("AI is drafting your quiz slides...");
+    try {
+      const draft = await generateQuizDraft(params);
+      handleGenerated(draft);
+      toast.success(`Generated ${draft.slides.length} slides — review and tweak before saving.`, { id: toastId });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "AI quiz generation failed.", { id: toastId });
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!draftHydratedRef.current) return;
+    if (editId === null && !title.trim() && slides.length === 1 && !slides[0]?.question.trim()) {
+      return;
+    }
+
+    draftDirtyRef.current = true;
+    const timeout = window.setTimeout(() => {
+      saveDraft(draftStorageKey, { title, slides, active });
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [title, slides, active, draftStorageKey, editId]);
+
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      if (!draftDirtyRef.current) return;
+      saveDraft(draftStorageKey, { title, slides, active });
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      if (draftDirtyRef.current) {
+        saveDraft(draftStorageKey, { title, slides, active });
+      }
+    };
+  }, [draftStorageKey, title, slides, active]);
+
   const addAcceptedAnswer = () => {
     const value = acceptedDraft.trim();
     if (!value) return;
@@ -181,7 +290,8 @@ export function QuizBuilder() {
         await createQuiz(payload);
         toast.success("Quiz created!");
       }
-      router.push("/quizzes");
+      clearDraft(draftStorageKey);
+      router.push("/polls");
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to save quiz.");
     } finally {
@@ -198,13 +308,13 @@ export function QuizBuilder() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-6xl mx-auto w-full">
+    <div className="flex flex-col h-full min-h-0 max-w-6xl mx-auto w-full p-4 sm:p-6 gap-4 sm:gap-6 overflow-hidden">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease }}
-        className="flex flex-col md:flex-row md:items-center gap-4"
+        className="flex flex-col md:flex-row md:items-center gap-4 shrink-0"
       >
         <div className="flex-1 space-y-1">
           <p className="text-[10px] font-bold uppercase tracking-widest text-primary/60">
@@ -217,71 +327,90 @@ export function QuizBuilder() {
             className="border-none bg-transparent px-0 text-2xl font-bold tracking-tight focus-visible:ring-0 placeholder:text-muted-foreground/30"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="outline"
+            disabled={isAiGenerating}
             onClick={() => setAiOpen(true)}
-            className="h-11 rounded-full px-5 font-semibold border-primary/25 text-primary hover:bg-primary/10"
+            className={cn(
+              "h-9 rounded-full px-4 text-xs font-semibold transition-all duration-300",
+              isAiGenerating
+                ? "animate-ai-glow border-primary text-primary"
+                : "border-primary/30 text-primary hover:bg-primary/10 hover:shadow-[0_0_15px_rgba(216,173,135,0.3)]"
+            )}
           >
-            <Sparkles className="size-4 mr-2" /> AI generate
+            <Sparkles className={cn("size-3.5 mr-1.5 transition-transform duration-200", isAiGenerating && "animate-spin")} />
+            {isAiGenerating ? "Generating..." : "AI generate"}
           </Button>
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="h-11 rounded-full bg-primary text-primary-foreground font-semibold px-6 hover:bg-primary/90"
+            className="h-9 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-5 hover:bg-primary/90 shadow-sm"
           >
-            {saving ? <Loader2 className="size-4 animate-spin" /> : editId ? "Save changes" : "Create quiz"}
+            {saving ? <Loader2 className="size-3.5 animate-spin" /> : editId ? "Save changes" : "Create quiz"}
           </Button>
         </div>
       </motion.div>
 
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 items-stretch flex-1 min-h-0 overflow-hidden">
         {/* Slide rail */}
-        <div className="lg:w-56 shrink-0 space-y-2">
-          {slides.map((s, i) => {
-            const m = slideTypeMeta(s.type);
-            return (
-              <button
-                key={i}
-                onClick={() => setActive(i)}
-                className={`w-full text-left rounded-2xl border px-3 py-2.5 transition-all duration-300 ${
-                  i === active
-                    ? "border-primary/40 bg-primary/10 ring-1 ring-yellow-400/30"
-                    : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-muted-foreground/50 tabular-nums">
-                    {i + 1}
-                  </span>
-                  <m.Icon className={`size-3 ${m.iconClass}`} />
-                  <span className="flex-1 truncate text-xs font-medium text-foreground/80">
-                    {s.question.trim() || m.label}
-                  </span>
-                  {slides.length > 1 && (
-                    <span
-                      role="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSlides((prev) => prev.filter((_, j) => j !== i));
-                        setActive((prev) => Math.max(0, prev > i ? prev - 1 : Math.min(prev, slides.length - 2)));
-                      }}
-                      className="text-muted-foreground/40 hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 className="size-3" />
-                    </span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
+        <div className="w-full lg:w-56 shrink-0 flex flex-col rounded-3xl border border-white/10 bg-card/60 backdrop-blur-xl h-full min-h-0 overflow-hidden">
+          {/* Header */}
+          <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 px-3.5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-primary/80">Questions</p>
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+              {slides.length}
+            </span>
+          </div>
 
-          {/* Add slide → Mentimeter-style type picker */}
-          <div className="relative">
+          {/* Scrollable list of slides */}
+          <div className="custom-scrollbar flex-1 space-y-1.5 overflow-y-auto p-2 min-h-0 max-h-[40vh] lg:max-h-none">
+            {slides.map((s, i) => {
+              const m = slideTypeMeta(s.type);
+              return (
+                <button
+                  key={i}
+                  ref={i === active ? activeSlideRef : null}
+                  onClick={() => setActive(i)}
+                  className={`w-full text-left rounded-2xl border px-3 py-2.5 transition-all duration-300 ${
+                    i === active
+                      ? "border-primary/40 bg-primary/10 ring-1 ring-yellow-400/30 text-foreground"
+                      : "border-white/5 bg-white/3 text-muted-foreground hover:bg-white/6 hover:text-foreground"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-muted-foreground/50 tabular-nums">
+                      {i + 1}
+                    </span>
+                    <m.Icon className={`size-3 ${m.iconClass}`} />
+                    <span className="flex-1 truncate text-xs font-medium">
+                      {s.question.trim() || m.label}
+                    </span>
+                    {slides.length > 1 && (
+                      <span
+                        role="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSlides((prev) => prev.filter((_, j) => j !== i));
+                          setActive((prev) => Math.max(0, prev > i ? prev - 1 : Math.min(prev, slides.length - 2)));
+                        }}
+                        className="text-muted-foreground/40 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 className="size-3" />
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Pinned Footer */}
+          <div className="relative shrink-0 border-t border-white/10 p-2">
             <Button
               variant="outline"
               onClick={() => setPickerOpen((v) => !v)}
-              className="w-full rounded-2xl border-dashed border-white/15 bg-transparent text-xs text-muted-foreground/70 hover:text-foreground"
+              className="w-full rounded-2xl border-dashed border-white/15 bg-transparent text-xs text-muted-foreground/70 hover:text-foreground hover:border-primary/40 hover:bg-primary/5"
             >
               <Plus className="size-3.5 mr-1" /> New slide
             </Button>
@@ -289,6 +418,7 @@ export function QuizBuilder() {
               open={pickerOpen}
               onClose={() => setPickerOpen(false)}
               onPick={addSlide}
+              position="top"
             />
           </div>
         </div>
@@ -299,12 +429,12 @@ export function QuizBuilder() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease }}
-          className="flex-1 p-1.5 rounded-[2rem] bg-white/5 border border-white/10"
+          className="flex-1 min-h-0 flex flex-col p-1.5 rounded-[2rem] bg-white/5 border border-white/10 overflow-hidden h-full"
         >
-          <div className="rounded-[calc(2rem-0.375rem)] bg-card p-6 space-y-6">
+          <div className="rounded-[1.625rem] bg-card p-5 sm:p-6 space-y-6 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
             {/* Type badge */}
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/[0.04] border border-white/10 px-4 py-2 text-xs font-semibold text-foreground/85">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/4 border border-white/10 px-4 py-2 text-xs font-semibold text-foreground/85">
                 <meta.Icon className={`size-3.5 ${meta.iconClass}`} /> {meta.label}
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40 ml-1">
                   {scored ? "Scored" : "Interactive"}
@@ -327,7 +457,7 @@ export function QuizBuilder() {
                       ? "e.g. Rank these features by importance"
                       : "Ask something…"
                 }
-                className="min-h-20 rounded-2xl bg-secondary/15 border-border/40 text-base"
+                className="min-h-20 rounded-2xl bg-secondary/15 border-border/40 text-base resize-none overflow-hidden [field-sizing:content]"
               />
             </div>
 
@@ -455,7 +585,7 @@ export function QuizBuilder() {
                       className={`size-10 rounded-xl border text-sm font-bold transition-all ${
                         slide.maxEntries === n
                           ? "border-primary/40 bg-primary/15 text-primary"
-                          : "border-white/10 bg-white/[0.03] text-muted-foreground hover:bg-white/[0.08]"
+                          : "border-white/10 bg-white/3 text-muted-foreground hover:bg-white/8"
                       }`}
                     >
                       {n}
@@ -469,7 +599,7 @@ export function QuizBuilder() {
             )}
 
             {slide.type === "open_ended" && (
-              <p className="text-xs text-muted-foreground/50 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
+              <p className="text-xs text-muted-foreground/50 rounded-2xl border border-white/5 bg-white/2 px-4 py-3">
                 Participants type a free-form response. Answers show up as a card wall on the
                 presenter screen — duplicates are grouped with a counter.
               </p>
@@ -676,6 +806,8 @@ export function QuizBuilder() {
         onOpenChange={setAiOpen}
         initialTopic={title}
         onGenerated={handleGenerated}
+        onGenerate={handleAiGenerate}
+        isGenerating={isAiGenerating}
       />
     </div>
   );

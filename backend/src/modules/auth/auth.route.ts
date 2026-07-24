@@ -23,5 +23,6 @@ router.get('/me', authenticate() as any, AuthController.me as any);
 // Google OAuth
 router.get('/google', AuthController.googleLogin);
 router.get('/google/callback', AuthController.googleCallback as any);
+router.post('/oauth/exchange', rateLimit({ prefix: 'auth-oauth-exchange', windowSec: 300, max: 20 }), AuthController.exchangeOAuthCode as any);
 
 export default router;

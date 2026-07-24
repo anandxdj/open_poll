@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { ApiError } from '../../common/utils/ApiError';
 import { redisClient } from '../../common/config/redis';
+import { newRandomId, signId, verifySignedId } from '../../common/utils/signedId.utils';
 import { REALTIME_CHANNELS, type QuizRealtimeEventType } from '../../common/realtime/events';
 import {
   QuizModel,
@@ -11,6 +12,7 @@ import {
   type IQuizSlide,
   type QuizSlideType,
 } from './quizzes.model';
+import { computeSlideDistributionHelper } from '../presentations/presentations.service';
 import type {
   CreateQuizInput,
   UpdateQuizInput,
@@ -352,84 +354,13 @@ export class QuizService {
     // even when the presenter reveals before the timer runs out
     await redisClient.del(k.session(quizId)).catch(() => {});
 
-    const [distHash, dispHash, answeredCount, nameCount] = await Promise.all([
-      redisClient.hGetAll(k.dist(quizId, slideIndex)).catch(() => ({}) as Record<string, string>),
-      redisClient.hGetAll(k.disp(quizId, slideIndex)).catch(() => ({}) as Record<string, string>),
-      redisClient.sCard(k.answered(quizId, slideIndex)).catch(() => 0),
-      redisClient.hLen(k.names(quizId)).catch(() => 0),
-    ]);
-    const participantCount =
-      nameCount > 0 ? nameCount : await QuizParticipantModel.countDocuments({ quizId });
-
-    let distribution: Record<string, unknown>;
-    switch (slide.type) {
-      case 'select_answer': {
-        const counts = slide.options.map((_, i) => Number(distHash[String(i)] ?? 0));
-        distribution = {
-          kind: 'options',
-          counts,
-          options: slide.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })),
-        };
-        break;
-      }
-      case 'type_answer': {
-        const accepted = slide.acceptedAnswers.map(normalizeText);
-        const answers = Object.entries(distHash)
-          .map(([text, count]) => ({
-            text,
-            count: Number(count),
-            isCorrect: accepted.includes(text),
-          }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 20);
-        distribution = { kind: 'text', answers, acceptedAnswers: slide.acceptedAnswers };
-        break;
-      }
-      case 'wordcloud': {
-        const words = Object.entries(distHash)
-          .map(([norm, count]) => ({ text: dispHash[norm] ?? norm, count: Number(count) }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 100);
-        distribution = { kind: 'words', words };
-        break;
-      }
-      case 'open_ended': {
-        const responses = Object.entries(distHash)
-          .map(([norm, count]) => ({ text: dispHash[norm] ?? norm, count: Number(count) }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 50);
-        distribution = { kind: 'responses', responses };
-        break;
-      }
-      case 'scales': {
-        const statements = (slide.statements ?? []).map((statement, i) => {
-          const sum = Number(distHash[`s${i}:sum`] ?? 0);
-          const count = Number(distHash[`s${i}:count`] ?? 0);
-          return {
-            statement,
-            average: count > 0 ? Math.round((sum / count) * 100) / 100 : 0,
-            count,
-          };
-        });
-        distribution = {
-          kind: 'scales',
-          statements,
-          scaleMax: slide.scaleMax ?? 5,
-          minLabel: slide.minLabel ?? '',
-          maxLabel: slide.maxLabel ?? '',
-        };
-        break;
-      }
-      case 'ranking': {
-        const voters = Number(distHash['voters'] ?? 0);
-        const items = (slide.items ?? [])
-          .map((text, i) => ({ text, points: Number(distHash[String(i)] ?? 0) }))
-          .sort((a, b) => b.points - a.points)
-          .map((item, i) => ({ ...item, rank: i + 1 }));
-        distribution = { kind: 'ranking', items, voters };
-        break;
-      }
-    }
+    const { distribution, answeredCount, participantCount } = await computeSlideDistributionHelper(
+      'quiz',
+      quizId,
+      slideIndex,
+      slide,
+      QuizParticipantModel
+    );
 
     await touchTtls([
       k.answered(quizId, slideIndex),
@@ -495,6 +426,7 @@ export class QuizService {
     const quiz = await QuizService.assertOwnership(quizId, userId);
 
     let answeredCount = 0;
+    let liveDistribution: Record<string, unknown> | null = null;
     if (quiz.currentSlideIndex >= 0) {
       answeredCount = await redisClient
         .sCard(k.answered(quizId, quiz.currentSlideIndex))
@@ -504,6 +436,20 @@ export class QuizService {
           quizId,
           slideIndex: quiz.currentSlideIndex,
         });
+      }
+
+      if (quiz.status === 'question' || quiz.status === 'reveal') {
+        const slide = quiz.slides[quiz.currentSlideIndex];
+        if (slide) {
+          const res = await computeSlideDistributionHelper(
+            'quiz',
+            quizId,
+            quiz.currentSlideIndex,
+            slide,
+            QuizParticipantModel
+          );
+          liveDistribution = res.distribution;
+        }
       }
     }
 
@@ -518,6 +464,7 @@ export class QuizService {
         score: p.score,
       })),
       answeredCount,
+      liveDistribution,
       leaderboard: await getLeaderboard(quizId),
     };
   }
@@ -557,9 +504,15 @@ export class QuizService {
     if (quiz.status === 'draft') throw ApiError.badRequest('This quiz is not open yet');
     if (quiz.status === 'ended') throw ApiError.badRequest('This quiz has already ended');
 
+    // Device identity is server-issued and signed: a valid token from a prior
+    // join makes rejoin idempotent (refresh-safe); anything else gets a fresh
+    // id, so clients can't mint identities or impersonate another device.
+    const rejoinDeviceId = verifySignedId(data.deviceToken);
+    const deviceId = rejoinDeviceId ?? newRandomId();
+
     // Idempotent join: same device rejoins as the same participant (refresh-safe)
     const participant = await QuizParticipantModel.findOneAndUpdate(
-      { quizId, deviceId: data.deviceId },
+      { quizId, deviceId },
       {
         $setOnInsert: {
           name: data.name,
@@ -599,6 +552,9 @@ export class QuizService {
       name: participant.name,
       score: participant.score,
       token: participant.token,
+      // Signed device identity — the client stores this and presents it on
+      // rejoin. Opaque and unforgeable; replaces the client-chosen deviceId.
+      deviceToken: signId(deviceId),
     };
   }
 
@@ -766,6 +722,8 @@ export class QuizService {
         JSON.stringify({ isCorrect, score, scored: session.scored })
       ),
     ]);
+
+    await redisClient.sAdd('buffer:active_quiz_distributions', quizId).catch(() => {});
 
     await publishQuizEvent(quizId, 'answer:received', {
       slideIndex: data.slideIndex,

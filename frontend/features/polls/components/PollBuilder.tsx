@@ -13,6 +13,8 @@ import {
   Send,
   Sparkles,
   X,
+  BarChart2,
+  Target,
 } from "lucide-react";
 
 import { defaultDatetimeLocal, toDatetimeLocalValue } from "@/features/polls/components/create/datetime";
@@ -52,9 +54,12 @@ export function PollBuilder() {
   // Pre-fill title from query param set by CreatePollModal
   const nameFromUrl = searchParams.get("name") ?? "";
   const modeFromUrl = searchParams.get("mode") ?? "manual"; // "ai" | "manual"
+  const pollTypeFromUrl = (searchParams.get("pollType") as "POLL" | "TRIAL") || "POLL";
   const draftIdFromUrl = searchParams.get("draftId");
 
   const [title, setTitle] = useState(nameFromUrl);
+  const [pollType, setPollType] = useState<"POLL" | "TRIAL">(pollTypeFromUrl);
+  const [passingScorePercentage, setPassingScorePercentage] = useState<number>(70);
   const [expiresAtLocal, setExpiresAtLocal] = useState(defaultDatetimeLocal);
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [isPublished, setIsPublished] = useState(true);
@@ -69,6 +74,8 @@ export function PollBuilder() {
       const poll = polls.find(p => p._id === draftIdFromUrl);
       if (poll) {
         setTitle(poll.title);
+        if (poll.pollType) setPollType(poll.pollType);
+        if (typeof poll.passingScorePercentage === 'number') setPassingScorePercentage(poll.passingScorePercentage);
         setIsAnonymous(poll.isAnonymous);
         setIsPublished(poll.isPublished);
         setExpiresAtLocal(toDatetimeLocalValue(poll.expiresAt));
@@ -76,7 +83,16 @@ export function PollBuilder() {
           poll.questions.map((q) => {
             const opts = [...q.options];
             while (opts.length < 2) opts.push("");
-            return { _id: q._id, text: q.text, isMandatory: q.isMandatory, options: opts };
+            return {
+              _id: q._id,
+              text: q.text,
+              isMandatory: q.isMandatory,
+              options: opts,
+              type: q.type || 'single',
+              correctOptionIndices: q.correctOptionIndices || [],
+              explanation: q.explanation || '',
+              points: q.points || 1,
+            };
           })
         );
         setIsDraftLoaded(true);
@@ -117,6 +133,8 @@ export function PollBuilder() {
 
   const stateRef = useRef({
     title,
+    pollType,
+    passingScorePercentage,
     expiresAtLocal,
     isAnonymous,
     questions,
@@ -129,6 +147,8 @@ export function PollBuilder() {
   useEffect(() => {
     stateRef.current = {
       title,
+      pollType,
+      passingScorePercentage,
       expiresAtLocal,
       isAnonymous,
       questions,
@@ -137,7 +157,7 @@ export function PollBuilder() {
       isPublished,
       nameFromUrl
     };
-  }, [title, expiresAtLocal, isAnonymous, questions, draftIdFromUrl, isDraftLoaded, isPublished, nameFromUrl]);
+  }, [title, pollType, passingScorePercentage, expiresAtLocal, isAnonymous, questions, draftIdFromUrl, isDraftLoaded, isPublished, nameFromUrl]);
 
   const isExplicitSaveRef = useRef(false);
   const isSavingRef = useRef(false);
@@ -201,6 +221,8 @@ export function PollBuilder() {
 
         const payload = {
           title: finalTitle,
+          pollType: s.pollType,
+          passingScorePercentage: s.passingScorePercentage,
           expiresAt: expiresAt,
           isAnonymous: s.isAnonymous,
           isPublished: false, // Save as draft
@@ -209,6 +231,10 @@ export function PollBuilder() {
             text: q.text,
             isMandatory: q.isMandatory,
             options: q.options,
+            type: q.type || 'single',
+            correctOptionIndices: q.correctOptionIndices || [],
+            explanation: q.explanation || '',
+            points: q.points || 1,
           })),
         };
 
@@ -227,12 +253,26 @@ export function PollBuilder() {
   }, [nameFromUrl]);
 
 
-  async function handleAiGenerate(params: { topic: string; tone: AiTone; questionCount: number }) {
+  async function handleAiGenerate(params: {
+    topic: string;
+    tone: AiTone;
+    questionCount: number;
+    pollType?: 'POLL' | 'TRIAL';
+    passingScorePercentage?: number;
+  }) {
     setIsAiGenerating(true);
     const toastId = toast.loading("AI is shaping your questions...");
     try {
+      const selectedPollType = params.pollType ?? pollType;
+      const selectedPassingScore = params.passingScorePercentage ?? passingScorePercentage;
+
+      if (selectedPollType) setPollType(selectedPollType);
+      if (typeof selectedPassingScore === 'number') setPassingScorePercentage(selectedPassingScore);
+
       const draft = await generateDraft({
         ...params,
+        pollType: selectedPollType,
+        passingScorePercentage: selectedPassingScore,
         isAnonymous,
         expiresAt: defaultAiExpiresAtIso(7),
       });
@@ -247,11 +287,22 @@ export function PollBuilder() {
   }
 
   const applyDraft = useCallback((draft: GeneratedPollDraft) => {
+    if (draft.pollType) setPollType(draft.pollType);
+    if (typeof draft.passingScorePercentage === 'number') setPassingScorePercentage(draft.passingScorePercentage);
+
     setQuestions((prev) => {
       const newQuestions: QuestionForm[] = draft.questions.map((q) => {
         const opts = [...q.options];
         while (opts.length < 2) opts.push("");
-        return { text: q.text, isMandatory: q.isMandatory, options: opts };
+        return {
+          text: q.text,
+          isMandatory: q.isMandatory,
+          options: opts,
+          type: q.type || 'single',
+          correctOptionIndices: q.correctOptionIndices || [],
+          explanation: q.explanation || '',
+          points: q.points || 1,
+        };
       });
 
       // If we only have one empty question, replace it. Otherwise, append.
@@ -264,7 +315,7 @@ export function PollBuilder() {
     });
 
     setAiTrigger(false);
-    toast.success("AI questions added to your poll!");
+    toast.success("AI questions added!");
   }, []);
 
   const canSave = useMemo(() => {
@@ -274,11 +325,17 @@ export function PollBuilder() {
     // Allow if it's not more than 2 minutes in the past (buffer for user interaction)
     if (Number.isNaN(exp) || exp < nowMs - 120_000) return false;
     if (questions.length === 0) return false;
-    return questions.every((q) => {
+    const validQuestions = questions.every((q) => {
       const opts = q.options.map((o) => o.trim()).filter(Boolean);
-      return q.text.trim().length >= 3 && opts.length >= 2;
+      const basicValid = q.text.trim().length >= 3 && opts.length >= 2;
+      if (!basicValid) return false;
+      if (pollType === 'TRIAL') {
+        return Boolean(q.correctOptionIndices && q.correctOptionIndices.length > 0);
+      }
+      return true;
     });
-  }, [title, expiresAtLocal, questions, nowMs]);
+    return validQuestions;
+  }, [title, expiresAtLocal, questions, nowMs, pollType]);
 
   function updateQuestion(index: number, patch: Partial<QuestionForm>) {
     setQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, ...patch } : q)));
@@ -340,6 +397,8 @@ export function PollBuilder() {
 
       const payload = {
         title: finalTitle,
+        pollType,
+        passingScorePercentage,
         expiresAt: new Date(expiresAtLocal).toISOString(),
         isAnonymous,
         isPublished: false,
@@ -348,6 +407,10 @@ export function PollBuilder() {
           text: q.text,
           isMandatory: q.isMandatory,
           options: q.options,
+          type: q.type || 'single',
+          correctOptionIndices: q.correctOptionIndices || [],
+          explanation: q.explanation || '',
+          points: q.points || 1,
         })),
       };
 
@@ -360,6 +423,10 @@ export function PollBuilder() {
             text: q.text,
             isMandatory: q.isMandatory,
             options: [...q.options],
+            type: q.type || 'single',
+            correctOptionIndices: q.correctOptionIndices || [],
+            explanation: q.explanation || '',
+            points: q.points || 1,
           }))
         );
         toast.success("Draft updated");
@@ -373,6 +440,10 @@ export function PollBuilder() {
             text: q.text,
             isMandatory: q.isMandatory,
             options: [...q.options],
+            type: q.type || 'single',
+            correctOptionIndices: q.correctOptionIndices || [],
+            explanation: q.explanation || '',
+            points: q.points || 1,
           }))
         );
         // Update URL so subsequent saves/auto-saves update THIS poll
@@ -408,6 +479,8 @@ export function PollBuilder() {
     try {
       const payload = {
         title: title.trim(),
+        pollType,
+        passingScorePercentage,
         expiresAt: new Date(expiresAtLocal).toISOString(),
         isAnonymous,
         isPublished,
@@ -416,6 +489,10 @@ export function PollBuilder() {
           text: q.text.trim(),
           isMandatory: q.isMandatory,
           options: q.options.map((o) => o.trim()).filter(Boolean),
+          type: q.type || 'single',
+          correctOptionIndices: q.correctOptionIndices || [],
+          explanation: q.explanation || '',
+          points: q.points || 1,
         })),
       };
 
@@ -426,11 +503,11 @@ export function PollBuilder() {
       }
       
       setPublishModalOpen(false);
-      toast.success(isPublished ? "Poll published!" : "Poll saved as draft!");
+      toast.success(isPublished ? (pollType === 'TRIAL' ? "Trial published!" : "Poll published!") : "Saved as draft!");
       router.push("/polls");
     } catch {
       isExplicitSaveRef.current = false; // Release lock on failure
-      toast.error("Could not save poll. Try again.");
+      toast.error("Could not save. Try again.");
     } finally {
       isSavingRef.current = false;
     }
@@ -460,10 +537,57 @@ export function PollBuilder() {
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Poll title"
+            placeholder={pollType === 'TRIAL' ? "Trial title" : "Poll title"}
             className="min-w-0 flex-1 bg-transparent border-none p-0 text-sm font-semibold text-foreground/90 placeholder:text-muted-foreground focus:outline-none focus:ring-0 truncate"
             aria-label="Poll title"
           />
+
+          {/* Creation Type Badge & Settings Toggle */}
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary/30 p-1">
+            <button
+              type="button"
+              onClick={() => setPollType("POLL")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all",
+                pollType === "POLL"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <BarChart2 className="size-3.5" />
+              <span>Poll</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPollType("TRIAL")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all",
+                pollType === "TRIAL"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Target className="size-3.5" />
+              <span>Trial</span>
+            </button>
+          </div>
+
+          {pollType === 'TRIAL' && (
+            <div className="hidden sm:flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400">
+              <span>Pass Score:</span>
+              <input
+                type="number"
+                min={10}
+                max={100}
+                step={5}
+                value={passingScorePercentage}
+                onChange={(e) => setPassingScorePercentage(Number(e.target.value))}
+                className="w-10 rounded bg-background/50 px-1 py-0.5 text-center text-xs font-bold text-emerald-400 focus:outline-none"
+              />
+              <span>%</span>
+            </div>
+          )}
+
           <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
             <AiPromptModal
               isAnonymous={isAnonymous}
@@ -471,6 +595,8 @@ export function PollBuilder() {
               externalOpen={aiTrigger}
               onExternalOpenChange={setAiTrigger}
               initialTopic={title}
+              initialPollType={pollType}
+              initialPassingScorePercentage={passingScorePercentage}
               isGenerating={isAiGenerating}
             >
               <button
@@ -525,7 +651,7 @@ export function PollBuilder() {
           {/* Subtle background glow */}
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
 
-          <aside className="flex w-40 shrink-0 flex-col overflow-hidden border-r border-border/50 bg-[#0d0b09]/80 backdrop-blur-xl sm:w-44 xl:w-52 relative z-10">
+          <aside className="flex w-40 shrink-0 flex-col overflow-hidden border-r border-border/50 bg-card/80 backdrop-blur-xl sm:w-44 xl:w-52 relative z-10">
             <div className="flex h-12 shrink-0 items-center justify-between border-b border-border/50 px-2.5 sm:h-14 sm:px-3">
               <p className="text-[9px] font-bold uppercase tracking-widest text-primary/80">Questions</p>
               <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">
@@ -590,7 +716,7 @@ export function PollBuilder() {
               </button>
             </div>
 
-            <div className="shrink-0 border-t border-border/50 bg-[#0d0b09]/80 px-2.5 py-2 sm:px-3 sm:py-2.5">
+            <div className="shrink-0 border-t border-border/50 bg-card/80 px-2.5 py-2 sm:px-3 sm:py-2.5">
               <div className="mb-1 flex items-center justify-between">
                 <span className="text-[8px] font-bold uppercase tracking-widest text-primary/70">Progress</span>
                 <span className="text-[8px] font-bold text-primary">
@@ -627,6 +753,7 @@ export function PollBuilder() {
                       question={activeQuestion}
                       index={activeIndex}
                       canRemove={questions.length > 1}
+                      pollType={pollType}
                       onRemove={() => removeQuestion(activeIndex)}
                       onChange={(patch) => updateQuestion(activeIndex, patch)}
                       onOptionChange={(oi, v) => updateOption(activeIndex, oi, v)}
@@ -636,7 +763,7 @@ export function PollBuilder() {
                   )}
                 </AnimatePresence>
 
-                <div className="flex items-center justify-between border-t border-white/[0.08] pt-4">
+                <div className="flex items-center justify-between border-t border-border pt-4">
                   <button
                     type="button"
                     disabled={activeIndex === 0}
@@ -662,7 +789,7 @@ export function PollBuilder() {
           </div>
 
           {/* Right Live Preview Sidebar */}
-          <aside className="hidden lg:flex w-72 shrink-0 flex-col justify-center items-center border-l border-border/40 bg-[#0d0b09]/30 p-6 z-10 relative overflow-y-auto">
+          <aside className="hidden lg:flex w-72 shrink-0 flex-col justify-center items-center border-l border-border/40 bg-card/30 p-6 z-10 relative overflow-y-auto">
             <LivePreview
               question={activeQuestion}
               questionIndex={activeIndex}
@@ -685,6 +812,11 @@ export function PollBuilder() {
         isPublished={isPublished}
         onPublishedChange={setIsPublished}
         pollTitle={title}
+        pollType={pollType}
+        onPollTypeChange={setPollType}
+        passingScorePercentage={passingScorePercentage}
+        onPassingScorePercentageChange={setPassingScorePercentage}
+        questions={questions}
       />
     </>
   );
