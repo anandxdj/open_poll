@@ -218,8 +218,7 @@ export function PresentationBuilder() {
   // with the (normalized-for-validation) version we just persisted.
   const skipNextLoadIdRef = useRef<string | null>(null);
   const isExplicitSaveRef = useRef(false);
-  // Flips false on unmount so an in-flight AI generation (or any other async
-  // save) knows not to touch React state, but can still persist the result.
+  const activeSlideRef = useRef<HTMLButtonElement | null>(null);
   const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
@@ -227,6 +226,10 @@ export function PresentationBuilder() {
       isMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    activeSlideRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [active]);
 
   useEffect(() => {
     const saved = loadDraft(draftStorageKey);
@@ -487,13 +490,13 @@ export function PresentationBuilder() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-6xl mx-auto w-full">
+    <div className="flex flex-col h-full min-h-0 max-w-6xl mx-auto w-full p-4 sm:p-6 gap-4 sm:gap-6 overflow-hidden">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease }}
-        className="flex flex-col md:flex-row md:items-center gap-4"
+        className="flex flex-col md:flex-row md:items-center gap-4 shrink-0"
       >
         <div className="flex-1 space-y-1">
           <p className="text-[10px] font-bold uppercase tracking-widest text-primary/60 flex items-center gap-1.5">
@@ -506,85 +509,98 @@ export function PresentationBuilder() {
             className="border-none bg-transparent px-0 text-2xl font-bold tracking-tight focus-visible:ring-0 placeholder:text-muted-foreground/30"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="outline"
             disabled={isAiGenerating}
             onClick={() => setAiOpen(true)}
             className={cn(
-              "h-11 rounded-full px-5 font-semibold transition-all duration-300",
+              "h-9 rounded-full px-4 text-xs font-semibold transition-all duration-300",
               isAiGenerating
                 ? "animate-ai-glow border-primary text-primary"
-                : "border-primary/25 text-primary hover:bg-primary/10 hover:shadow-[0_0_20px_rgba(216,173,135,0.4)]"
+                : "border-primary/30 text-primary hover:bg-primary/10 hover:shadow-[0_0_15px_rgba(216,173,135,0.3)]"
             )}
           >
-            <Sparkles className={cn("size-4 mr-2 transition-transform duration-200", isAiGenerating && "animate-spin")} />
+            <Sparkles className={cn("size-3.5 mr-1.5 transition-transform duration-200", isAiGenerating && "animate-spin")} />
             {isAiGenerating ? "Generating..." : "AI generate"}
           </Button>
           <Button
             variant="outline"
             onClick={handleSaveDraft}
             disabled={savingDraft || saving}
-            className="h-11 rounded-full px-5 font-semibold border-white/15 text-foreground/80 hover:bg-white/5"
+            className="h-9 rounded-full px-4 text-xs font-semibold border-white/15 text-foreground/80 hover:bg-white/5"
           >
-            {savingDraft ? <Loader2 className="size-4 animate-spin" /> : "Save Draft"}
+            {savingDraft ? <Loader2 className="size-3.5 animate-spin" /> : "Save Draft"}
           </Button>
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="h-11 rounded-full bg-primary text-primary-foreground font-semibold px-6 hover:bg-primary/90"
+            className="h-9 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-5 hover:bg-primary/90 shadow-sm"
           >
-            {saving ? <Loader2 className="size-4 animate-spin" /> : editId ? "Save changes" : "Create deck"}
+            {saving ? <Loader2 className="size-3.5 animate-spin" /> : editId ? "Save changes" : "Create deck"}
           </Button>
         </div>
       </motion.div>
 
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 items-stretch flex-1 min-h-0 overflow-hidden">
         {/* Slide rail */}
-        <div className="lg:w-56 shrink-0 space-y-2">
-          {slides.map((s, i) => {
-            const m = slideTypeMeta(s.type);
-            return (
-              <button
-                key={i}
-                onClick={() => setActive(i)}
-                className={`w-full text-left rounded-2xl border px-3 py-2.5 transition-all duration-300 ${
-                  i === active
-                    ? "border-primary/40 bg-primary/10 ring-1 ring-yellow-400/30"
-                    : "border-white/10 bg-white/3 hover:bg-white/6"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-muted-foreground/50 tabular-nums">
-                    {i + 1}
-                  </span>
-                  <m.Icon className={`size-3 ${m.iconClass}`} />
-                  <span className="flex-1 truncate text-xs font-medium text-foreground/80">
-                    {s.question.trim() || m.label}
-                  </span>
-                  {slides.length > 1 && (
-                    <span
-                      role="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSlides((prev) => prev.filter((_, j) => j !== i));
-                        setActive((prev) => Math.max(0, prev > i ? prev - 1 : Math.min(prev, slides.length - 2)));
-                      }}
-                      className="text-muted-foreground/40 hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 className="size-3" />
-                    </span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
+        <div className="w-full lg:w-56 shrink-0 flex flex-col rounded-3xl border border-white/10 bg-card/60 backdrop-blur-xl h-full min-h-0 overflow-hidden">
+          {/* Header */}
+          <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 px-3.5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-primary/80">Slides</p>
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+              {slides.length}
+            </span>
+          </div>
 
-          <div className="relative">
+          {/* Scrollable list of slides */}
+          <div className="custom-scrollbar flex-1 space-y-1.5 overflow-y-auto p-2 min-h-0 max-h-[40vh] lg:max-h-none">
+            {slides.map((s, i) => {
+              const m = slideTypeMeta(s.type);
+              return (
+                <button
+                  key={i}
+                  ref={i === active ? activeSlideRef : null}
+                  onClick={() => setActive(i)}
+                  className={`w-full text-left rounded-2xl border px-3 py-2.5 transition-all duration-300 ${
+                    i === active
+                      ? "border-primary/40 bg-primary/10 ring-1 ring-yellow-400/30 text-foreground"
+                      : "border-white/5 bg-white/3 text-muted-foreground hover:bg-white/6 hover:text-foreground"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-muted-foreground/50 tabular-nums">
+                      {i + 1}
+                    </span>
+                    <m.Icon className={`size-3 ${m.iconClass}`} />
+                    <span className="flex-1 truncate text-xs font-medium">
+                      {s.question.trim() || m.label}
+                    </span>
+                    {slides.length > 1 && (
+                      <span
+                        role="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSlides((prev) => prev.filter((_, j) => j !== i));
+                          setActive((prev) => Math.max(0, prev > i ? prev - 1 : Math.min(prev, slides.length - 2)));
+                        }}
+                        className="text-muted-foreground/40 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 className="size-3" />
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Pinned Footer */}
+          <div className="relative shrink-0 border-t border-white/10 p-2">
             <Button
               variant="outline"
               onClick={() => setPickerOpen((v) => !v)}
-              className="w-full rounded-2xl border-dashed border-white/15 bg-transparent text-xs text-muted-foreground/70 hover:text-foreground"
+              className="w-full rounded-2xl border-dashed border-white/15 bg-transparent text-xs text-muted-foreground/70 hover:text-foreground hover:border-primary/40 hover:bg-primary/5"
             >
               <Plus className="size-3.5 mr-1" /> New slide
             </Button>
@@ -592,6 +608,7 @@ export function PresentationBuilder() {
               open={pickerOpen}
               onClose={() => setPickerOpen(false)}
               onPick={addSlide}
+              position="top"
             />
           </div>
         </div>
@@ -602,9 +619,9 @@ export function PresentationBuilder() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease }}
-          className="flex-1 p-1.5 rounded-[2rem] bg-white/5 border border-white/10"
+          className="flex-1 min-h-0 flex flex-col p-1.5 rounded-[2rem] bg-white/5 border border-white/10 overflow-hidden h-full"
         >
-          <div className="rounded-[1.625rem] bg-card p-6 space-y-6">
+          <div className="rounded-[1.625rem] bg-card p-5 sm:p-6 space-y-6 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-2 rounded-full bg-white/4 border border-white/10 px-4 py-2 text-xs font-semibold text-foreground/85">
                 <meta.Icon className={`size-3.5 ${meta.iconClass}`} /> {meta.label}
@@ -622,7 +639,7 @@ export function PresentationBuilder() {
                 value={slide.question}
                 onChange={(e) => patchSlide({ question: e.target.value })}
                 placeholder="What statement or question would you like to present?"
-                className="min-h-24 rounded-2xl border-white/10 bg-secondary/15 px-4 py-3 text-base font-semibold focus-visible:ring-primary/40"
+                className="min-h-24 rounded-2xl border-white/10 bg-secondary/15 px-4 py-3 text-base font-semibold focus-visible:ring-primary/40 resize-none overflow-hidden [field-sizing:content]"
               />
             </div>
 

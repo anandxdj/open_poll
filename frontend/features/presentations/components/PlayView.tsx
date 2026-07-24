@@ -77,7 +77,8 @@ export function PlayView({ code }: PlayViewProps) {
   // Form states per slide type
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [typedText, setTypedText] = useState("");
-  const [wordCloudEntries, setWordCloudEntries] = useState<string[]>([""]);
+  const [wordCloudEntries, setWordCloudEntries] = useState<string[]>([]);
+  const [entryDraft, setEntryDraft] = useState("");
   const [ratings, setRatings] = useState<number[]>([]);
   const [rankingOrder, setRankingOrder] = useState<number[]>([]);
 
@@ -150,7 +151,8 @@ export function PlayView({ code }: PlayViewProps) {
           // Reset form state for new question
           setSelectedOption(null);
           setTypedText("");
-          setWordCloudEntries([""]);
+          setWordCloudEntries([]);
+          setEntryDraft("");
           if (payload.slide.type === "scales") {
             setRatings(new Array(payload.slide.statements.length).fill(Math.ceil(payload.slide.scaleMax / 2)));
           }
@@ -165,7 +167,9 @@ export function PlayView({ code }: PlayViewProps) {
           break;
         }
         case "leaderboard:shown": {
+          const payload = event.payload as { leaderboard: LeaderboardEntry[] };
           setInfo((prev) => (prev ? { ...prev, status: "leaderboard" } : prev));
+          if (payload.leaderboard) setEndLeaderboard(payload.leaderboard);
           void fetchMeState();
           break;
         }
@@ -229,7 +233,11 @@ export function PlayView({ code }: PlayViewProps) {
   };
 
   const targetMs = endsAt ? new Date(endsAt).getTime() : null;
-  const { secondsLeft, progress } = useCountdown(targetMs, info?.serverNow);
+  const { secondsLeft, progress, expired } = useCountdown(
+    targetMs,
+    info?.serverNow,
+    currentSlide?.timeLimit ?? 30
+  );
 
   const doSubmit = async (payload: {
     optionIndex?: number;
@@ -343,8 +351,19 @@ export function PlayView({ code }: PlayViewProps) {
             {hasAnswered ? (
               <div className="text-center py-8 space-y-2">
                 <CheckCircle2 className="size-10 text-emerald-400 mx-auto" />
-                <p className="font-bold text-sm">Response received!</p>
-                <p className="text-xs text-muted-foreground">Waiting for question to close.</p>
+                <p className="font-bold text-sm">
+                  {currentSlide.scored ? "Answer locked in!" : "Response received!"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {currentSlide.scored
+                    ? "Waiting for the reveal — faster answers earn more points."
+                    : "Waiting for question to close."}
+                </p>
+              </div>
+            ) : expired ? (
+              <div className="text-center py-8 space-y-2">
+                <Hourglass className="size-10 text-muted-foreground/40 mx-auto" />
+                <p className="font-bold text-sm">Time&apos;s up!</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -380,14 +399,256 @@ export function PlayView({ code }: PlayViewProps) {
                     </Button>
                   </div>
                 )}
+
+                {currentSlide.type === "open_ended" && (
+                  <div className="space-y-3">
+                    <Textarea
+                      value={typedText}
+                      onChange={(e) => setTypedText(e.target.value)}
+                      placeholder="Share your thoughts…"
+                      maxLength={500}
+                      className="min-h-28 rounded-xl text-base"
+                    />
+                    <Button
+                      onClick={() => void doSubmit({ text: typedText.trim() })}
+                      disabled={submitting || !typedText.trim()}
+                      className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold"
+                    >
+                      Submit
+                    </Button>
+                  </div>
+                )}
+
+                {currentSlide.type === "wordcloud" && (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2 justify-center min-h-8">
+                      {wordCloudEntries.map((entry, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/25 px-3 py-1.5 text-sm font-semibold text-primary"
+                        >
+                          {entry}
+                          <button
+                            onClick={() =>
+                              setWordCloudEntries((prev) => prev.filter((_, j) => j !== i))
+                            }
+                            className="hover:text-red-400 transition-colors"
+                          >
+                            <XCircle className="size-3.5" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    {wordCloudEntries.length < currentSlide.maxEntries && (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const value = entryDraft.trim();
+                          if (!value) return;
+                          if (wordCloudEntries.some((x) => x.toLowerCase() === value.toLowerCase())) {
+                            setEntryDraft("");
+                            return;
+                          }
+                          setWordCloudEntries((prev) => [...prev, value]);
+                          setEntryDraft("");
+                        }}
+                        className="flex gap-2"
+                      >
+                        <Input
+                          value={entryDraft}
+                          onChange={(e) => setEntryDraft(e.target.value)}
+                          placeholder={`Word ${wordCloudEntries.length + 1} of ${currentSlide.maxEntries}…`}
+                          maxLength={60}
+                          className="h-12 rounded-xl text-center font-bold"
+                        />
+                        <Button type="submit" variant="outline" className="h-12 rounded-xl px-4">
+                          Add
+                        </Button>
+                      </form>
+                    )}
+                    <Button
+                      onClick={() => {
+                        const draft = entryDraft.trim();
+                        const all =
+                          draft && !wordCloudEntries.some((x) => x.toLowerCase() === draft.toLowerCase())
+                            ? [...wordCloudEntries, draft]
+                            : wordCloudEntries;
+                        if (all.length > 0)
+                          void doSubmit({ entries: all.slice(0, currentSlide.maxEntries) });
+                      }}
+                      disabled={submitting || (wordCloudEntries.length === 0 && !entryDraft.trim())}
+                      className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold"
+                    >
+                      {submitting ? <Loader2 className="size-4 animate-spin" /> : <>Send words <Send className="size-4 ml-2" /></>}
+                    </Button>
+                  </div>
+                )}
+
+                {currentSlide.type === "scales" && (
+                  <div className="space-y-5">
+                    {currentSlide.statements.map((statement, i) => (
+                      <div key={i} className="space-y-2">
+                        <p className="text-sm font-semibold">{statement}</p>
+                        <input
+                          type="range"
+                          min={1}
+                          max={currentSlide.scaleMax}
+                          step={1}
+                          value={ratings[i] ?? 1}
+                          onChange={(e) =>
+                            setRatings((prev) =>
+                              prev.map((r, j) => (j === i ? Number(e.target.value) : r))
+                            )
+                          }
+                          className="w-full accent-primary"
+                        />
+                        <div className="flex justify-between text-[10px] font-medium text-muted-foreground">
+                          <span>{currentSlide.minLabel || "1"}</span>
+                          <span className="font-bold text-primary tabular-nums">{ratings[i] ?? 1}</span>
+                          <span>{currentSlide.maxLabel || String(currentSlide.scaleMax)}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <Button
+                      onClick={() => void doSubmit({ ratings })}
+                      disabled={submitting}
+                      className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold"
+                    >
+                      {submitting ? <Loader2 className="size-4 animate-spin" /> : <>Submit ratings <Send className="size-4 ml-2" /></>}
+                    </Button>
+                  </div>
+                )}
+
+                {currentSlide.type === "ranking" && (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      {rankingOrder.map((itemIndex, position) => (
+                        <div
+                          key={itemIndex}
+                          className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
+                        >
+                          <span className="text-xs font-bold text-primary/70 tabular-nums w-5">
+                            {position + 1}
+                          </span>
+                          <span className="flex-1 text-sm font-semibold">
+                            {currentSlide.items[itemIndex]}
+                          </span>
+                          <button
+                            disabled={position === 0}
+                            onClick={() =>
+                              setRankingOrder((prev) => {
+                                const next = [...prev];
+                                [next[position - 1], next[position]] = [next[position], next[position - 1]];
+                                return next;
+                              })
+                            }
+                            className="flex size-8 items-center justify-center rounded-lg border border-white/10 disabled:opacity-20 hover:bg-white/10 transition-all"
+                          >
+                            <ChevronUp className="size-4" />
+                          </button>
+                          <button
+                            disabled={position === rankingOrder.length - 1}
+                            onClick={() =>
+                              setRankingOrder((prev) => {
+                                const next = [...prev];
+                                [next[position], next[position + 1]] = [next[position + 1], next[position]];
+                                return next;
+                              })
+                            }
+                            className="flex size-8 items-center justify-center rounded-lg border border-white/10 disabled:opacity-20 hover:bg-white/10 transition-all"
+                          >
+                            <ChevronDown className="size-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      onClick={() => void doSubmit({ ranking: rankingOrder })}
+                      disabled={submitting}
+                      className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold"
+                    >
+                      {submitting ? <Loader2 className="size-4 animate-spin" /> : <>Submit ranking <Send className="size-4 ml-2" /></>}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {info.status === "leaderboard" && meState && (
+        {info.status === "reveal" && (
+          <div className="text-center space-y-5 w-full max-w-sm">
+            {meState?.lastAnswer ? (
+              !meState.lastAnswer.scored ? (
+                <>
+                  <CheckCircle2 className="size-14 text-sky-400 mx-auto" />
+                  <h2 className="text-2xl font-bold text-sky-400">Response received!</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Watch the big screen for the combined results.
+                  </p>
+                </>
+              ) : meState.lastAnswer.isCorrect ? (
+                <>
+                  <CheckCircle2 className="size-14 text-emerald-400 mx-auto" />
+                  <h2 className="text-2xl font-bold text-emerald-400">Correct!</h2>
+                  <p className="text-4xl font-black text-primary tabular-nums">
+                    +{meState.lastAnswer.score.toLocaleString()}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <XCircle className="size-14 text-red-400 mx-auto" />
+                  <h2 className="text-2xl font-bold text-red-400">Not quite…</h2>
+                  <p className="text-sm text-muted-foreground">No points this round.</p>
+                </>
+              )
+            ) : (
+              <>
+                <Hourglass className="size-12 text-muted-foreground/40 mx-auto" />
+                <h2 className="text-xl font-bold text-foreground/70">
+                  {meState ? "No answer this round" : "Checking your result…"}
+                </h2>
+              </>
+            )}
+            {meState && (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  Rank <span className="font-bold text-foreground">#{meState.rank}</span>
+                </span>
+                <span className="font-bold text-primary tabular-nums">
+                  {meState.totalScore.toLocaleString()} pts
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {info.status === "leaderboard" && (
           <div className="w-full space-y-4">
             <Leaderboard entries={endLeaderboard} highlightParticipantId={participantId} />
+          </div>
+        )}
+
+        {info.status === "ended" && (
+          <div className="w-full max-w-sm space-y-6 text-center">
+            <div className="space-y-2">
+              <PartyPopper className="size-10 text-primary mx-auto" />
+              <h2 className="text-2xl font-bold tracking-tight">That&apos;s a wrap!</h2>
+              {meState && (
+                <p className="text-sm text-muted-foreground">
+                  You finished <span className="font-bold text-primary">#{meState.rank}</span> with{" "}
+                  <span className="font-bold text-primary tabular-nums">
+                    {meState.totalScore.toLocaleString()}
+                  </span>{" "}
+                  points ({meState.correctCount} correct).
+                </p>
+              )}
+            </div>
+            <Leaderboard
+              entries={endLeaderboard}
+              highlightParticipantId={participantId}
+              title="Final standings"
+            />
           </div>
         )}
       </main>

@@ -313,11 +313,17 @@ export function PollBuilder() {
     // Allow if it's not more than 2 minutes in the past (buffer for user interaction)
     if (Number.isNaN(exp) || exp < nowMs - 120_000) return false;
     if (questions.length === 0) return false;
-    return questions.every((q) => {
+    const validQuestions = questions.every((q) => {
       const opts = q.options.map((o) => o.trim()).filter(Boolean);
-      return q.text.trim().length >= 3 && opts.length >= 2;
+      const basicValid = q.text.trim().length >= 3 && opts.length >= 2;
+      if (!basicValid) return false;
+      if (pollType === 'TRIAL') {
+        return Boolean(q.correctOptionIndices && q.correctOptionIndices.length > 0);
+      }
+      return true;
     });
-  }, [title, expiresAtLocal, questions, nowMs]);
+    return validQuestions;
+  }, [title, expiresAtLocal, questions, nowMs, pollType]);
 
   function updateQuestion(index: number, patch: Partial<QuestionForm>) {
     setQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, ...patch } : q)));
@@ -793,6 +799,11 @@ export function PollBuilder() {
         isPublished={isPublished}
         onPublishedChange={setIsPublished}
         pollTitle={title}
+        pollType={pollType}
+        onPollTypeChange={setPollType}
+        passingScorePercentage={passingScorePercentage}
+        onPassingScorePercentageChange={setPassingScorePercentage}
+        questions={questions}
       />
     </>
   );

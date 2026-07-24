@@ -39,16 +39,30 @@ type TrialResult = {
 const ease = [0.32, 0.72, 0, 1] as const;
 
 export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
+  const isTrial = poll.pollType === 'TRIAL';
+
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number[]>>({});
   const [multiSelections, setMultiSelections] = useState<number[]>([]);
   const [selectedNow, setSelectedNow] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
-  const [trialResult, setTrialResult] = useState<TrialResult | null>(null);
+  const [trialResult, setTrialResult] = useState<TrialResult | null>(() => {
+    if (!isTrial) return null;
+    try {
+      const stored = localStorage.getItem(`openpoll_trial_result_${poll._id}`);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [done, setDone] = useState<boolean>(() => {
+    if (isTrial) {
+      return !!localStorage.getItem(`openpoll_trial_result_${poll._id}`);
+    }
+    return false;
+  });
   const { user } = useAuthStore();
 
-  const isTrial = poll.pollType === 'TRIAL';
   const total = poll.questions.length;
   const current = poll.questions[step];
   const qid = String(current._id ?? step);
@@ -62,6 +76,19 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
     setSelectedNow(null);
   }, [step, qid, answers]);
 
+  function handleRetry() {
+    try {
+      localStorage.removeItem(`openpoll_trial_result_${poll._id}`);
+      localStorage.removeItem(`openpoll_voted_${poll._id}`);
+    } catch {
+      // ignore
+    }
+    setStep(0);
+    setAnswers({});
+    setTrialResult(null);
+    setDone(false);
+  }
+
   async function submitAll(finalAnswers: Record<string, number[]>) {
     setSubmitting(true);
     let respondentId = user?._id;
@@ -72,8 +99,8 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
     try {
       const res = await apiClient.post("/responses", {
         pollId: poll._id,
-        deviceId,
         respondentId,
+        deviceId,
         answers: poll.questions
           .filter((q) => {
             const id = String(q._id);
@@ -90,10 +117,16 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
           }),
       });
 
-      if (isTrial && res.data?.trialResult) {
-        setTrialResult(res.data.trialResult);
-        if (res.data.trialResult.passed) {
+      const payloadData = (res.data as any)?.data || res.data;
+      const trialResultData = payloadData?.trialResult;
+
+      if (isTrial && trialResultData) {
+        setTrialResult(trialResultData);
+        try {
+          localStorage.setItem(`openpoll_trial_result_${poll._id}`, JSON.stringify(trialResultData));
           localStorage.setItem(`openpoll_voted_${poll._id}`, "true");
+        } catch {
+          // ignore
         }
       } else {
         localStorage.setItem(`openpoll_voted_${poll._id}`, "true");
@@ -158,15 +191,6 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
 
   function goBack() {
     if (step > 0) setStep((s) => s - 1);
-  }
-
-  function handleRetry() {
-    setStep(0);
-    setAnswers({});
-    setMultiSelections([]);
-    setSelectedNow(null);
-    setDone(false);
-    setTrialResult(null);
   }
 
   // Keyboard shortcuts

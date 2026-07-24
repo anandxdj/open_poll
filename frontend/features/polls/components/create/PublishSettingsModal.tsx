@@ -1,10 +1,11 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarClock, Eye, Loader2, Send, Shield, UserRound, X, Zap } from "lucide-react";
+import { AlertTriangle, BarChart2, CalendarClock, Eye, Loader2, Send, Shield, Target, UserRound, X, Zap } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
+import type { QuestionForm } from "./types";
 
 interface PublishSettingsModalProps {
   open: boolean;
@@ -19,6 +20,11 @@ interface PublishSettingsModalProps {
   isPublished: boolean;
   onPublishedChange: (v: boolean) => void;
   pollTitle: string;
+  pollType?: 'POLL' | 'TRIAL';
+  onPollTypeChange?: (v: 'POLL' | 'TRIAL') => void;
+  passingScorePercentage?: number;
+  onPassingScorePercentageChange?: (v: number) => void;
+  questions?: QuestionForm[];
 }
 
 const ease = [0.32, 0.72, 0, 1] as const;
@@ -35,9 +41,20 @@ export function PublishSettingsModal({
   isPublished,
   onPublishedChange,
   pollTitle,
+  pollType = 'POLL',
+  onPollTypeChange,
+  passingScorePercentage = 70,
+  onPassingScorePercentageChange,
+  questions = [],
 }: PublishSettingsModalProps) {
+  const isTrial = pollType === 'TRIAL';
+  const missingAnswerIndices = (questions || [])
+    .map((q, idx) => (!q.correctOptionIndices || q.correctOptionIndices.length === 0 ? idx + 1 : null))
+    .filter((v): v is number => v !== null);
+  const hasMissingAnswers = isTrial && missingAnswerIndices.length > 0;
 
   async function handleConfirm() {
+    if (hasMissingAnswers) return;
     await onConfirm();
   }
 
@@ -96,10 +113,82 @@ export function PublishSettingsModal({
               {/* Body */}
               <div className="px-6 py-5 space-y-5">
 
+                {/* Mode Selector (Poll vs Quiz) */}
+                {onPollTypeChange && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                      Publish Mode
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl border border-border bg-secondary/20">
+                      <button
+                        type="button"
+                        onClick={() => onPollTypeChange('POLL')}
+                        className={cn(
+                          "flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all",
+                          pollType === 'POLL'
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <BarChart2 className="size-4" />
+                        <span>Poll (Survey)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onPollTypeChange('TRIAL')}
+                        className={cn(
+                          "flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all",
+                          pollType === 'TRIAL'
+                            ? "bg-emerald-600 text-white shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <Target className="size-4" />
+                        <span>Quiz (Trial)</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Passing Score Input for Quiz Mode */}
+                {isTrial && onPassingScorePercentageChange && (
+                  <div className="flex items-center justify-between rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3.5">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-bold text-emerald-400">Passing Grade</p>
+                      <p className="text-[10px] text-muted-foreground">Score needed to pass assessment</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min={10}
+                        max={100}
+                        step={5}
+                        value={passingScorePercentage}
+                        onChange={(e) => onPassingScorePercentageChange(Number(e.target.value))}
+                        className="w-14 rounded-xl border border-emerald-500/30 bg-background/80 px-2 py-1 text-center text-xs font-bold text-emerald-400 focus:outline-none"
+                      />
+                      <span className="text-xs font-bold text-emerald-400">%</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Warning Banner for Missing Quiz Answers */}
+                {hasMissingAnswers && (
+                  <div className="flex items-start gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3.5 text-amber-400">
+                    <AlertTriangle className="size-5 shrink-0 mt-0.5" />
+                    <div className="space-y-1 text-xs">
+                      <p className="font-bold">Missing Quiz Answers</p>
+                      <p className="text-[11px] text-amber-300/90 leading-snug">
+                        Question{missingAnswerIndices.length > 1 ? "s" : ""} {missingAnswerIndices.join(", ")} {missingAnswerIndices.length > 1 ? "need" : "needs"} at least one correct answer marked before publishing as a Quiz.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
                     <CalendarClock className="size-3" />
-                    Poll Closes At
+                    {isTrial ? "Quiz Closes At" : "Poll Closes At"}
                   </label>
                   <DateTimePicker
                     value={expiresAtLocal}
@@ -139,7 +228,7 @@ export function PublishSettingsModal({
                       <div>
                         <p className="text-sm font-semibold text-foreground/80">Publish Immediately</p>
                         <p className="text-[10px] text-muted-foreground">
-                          {isPublished ? "Poll goes live on publish" : "Saved as draft"}
+                          {isPublished ? (isTrial ? "Quiz goes live on publish" : "Poll goes live on publish") : "Saved as draft"}
                         </p>
                       </div>
                     </div>
@@ -175,8 +264,8 @@ export function PublishSettingsModal({
                 )}>
                   <div className={cn("size-1.5 rounded-full shrink-0", isPublished ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/20")} />
                   {isPublished
-                    ? "Poll will go live immediately after publishing"
-                    : "Poll will be saved as a private draft"}
+                    ? (isTrial ? "Quiz will go live immediately after publishing" : "Poll will go live immediately after publishing")
+                    : (isTrial ? "Quiz will be saved as a private draft" : "Poll will be saved as a private draft")}
                 </div>
               </div>
 
@@ -191,10 +280,10 @@ export function PublishSettingsModal({
                 </button>
                 <button
                   onClick={handleConfirm}
-                  disabled={isLoading}
+                  disabled={isLoading || hasMissingAnswers}
                   className={cn(
                     "flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98]",
-                    isLoading
+                    isLoading || hasMissingAnswers
                       ? "bg-primary/30 text-primary/50 cursor-not-allowed"
                       : "bg-primary text-primary-foreground shadow-sm hover:opacity-90"
                   )}
@@ -207,7 +296,7 @@ export function PublishSettingsModal({
                   ) : (
                     <>
                       <Send className="size-4" />
-                      {isPublished ? "Publish Poll" : "Save as Draft"}
+                      {isPublished ? (isTrial ? "Publish Quiz" : "Publish Poll") : "Save as Draft"}
                     </>
                   )}
                 </button>

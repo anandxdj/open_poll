@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Check, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { QuestionForm } from "./types";
@@ -33,6 +34,15 @@ export function PollQuestionCard({
   const isTrial = pollType === 'TRIAL';
   const qType = question.type || 'single';
   const correctIndices = question.correctOptionIndices || [];
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  }, [question.text]);
 
   const toggleCorrectOption = (oi: number) => {
     if (qType === 'single') {
@@ -87,6 +97,11 @@ export function PollQuestionCard({
               Multiple Choice
             </span>
           )}
+          {isTrial && correctIndices.length === 0 && (
+            <span className="rounded-lg bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-400 animate-pulse">
+              Needs correct answer
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -117,11 +132,12 @@ export function PollQuestionCard({
           Question
         </label>
         <textarea
+          ref={textareaRef}
           value={question.text}
           onChange={(e) => onChange({ text: e.target.value })}
           placeholder={isTrial ? "Enter assessment question..." : "What would you like to ask?"}
-          className="w-full resize-none bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-3xl font-bold text-foreground placeholder:text-muted-foreground min-h-[80px] leading-tight"
-          rows={2}
+          className="w-full resize-none overflow-hidden bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-3xl font-bold text-foreground placeholder:text-muted-foreground min-h-[44px] leading-tight [field-sizing:content]"
+          rows={1}
         />
       </div>
 

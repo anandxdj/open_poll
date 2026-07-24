@@ -164,7 +164,7 @@ export function PublicResultsView({ poll }: Props) {
           >
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary">
               <Trophy className="size-3" />
-              Poll Conclusion
+              {poll.pollType === 'TRIAL' ? "Quiz Assessment Results" : "Poll Conclusion"}
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
               {poll.title}
@@ -218,6 +218,8 @@ export function PublicResultsView({ poll }: Props) {
                   title={q.text} 
                   data={data} 
                   type={visType} 
+                  correctOptionIndices={poll.pollType === 'TRIAL' ? q.correctOptionIndices : undefined}
+                  explanation={poll.pollType === 'TRIAL' ? q.explanation : undefined}
                 />
               </motion.div>
             );

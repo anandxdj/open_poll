@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Zap, ArrowRight, Lock, User, Mail, CheckCircle2 } from "lucide-react";
+import { Zap, ArrowRight, Lock, User, Mail, CheckCircle2, Target } from "lucide-react";
 import { toast } from "sonner";
 
 import type { Poll } from "@/features/polls/store/useCreatorStore";
@@ -182,17 +182,37 @@ export default function PublicPollPage() {
                 <Lock className="size-3" /> Verification Required
               </div>
             ) : (
-              <p className="text-[10px] font-bold uppercase tracking-widest text-primary/60">
-                {poll.questions.length} Question{poll.questions.length !== 1 ? "s" : ""}
-              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                {poll.pollType === 'TRIAL' ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 uppercase tracking-widest">
+                    <Target className="size-3" /> Quiz Assessment
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary/60">
+                    Poll
+                  </span>
+                )}
+                {poll.pollType === 'TRIAL' && (
+                  <span className="rounded-full border border-border bg-secondary/40 px-2 py-0.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Pass: {poll.passingScorePercentage || 70}%
+                  </span>
+                )}
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                  · {poll.questions.length} Question{poll.questions.length !== 1 ? "s" : ""}
+                </span>
+              </div>
             )}
             <h1 className="text-3xl font-bold tracking-tight text-foreground/90 leading-tight">
               {poll.title}
             </h1>
             <p className="text-sm text-muted-foreground/60">
               {showGuestGate
-                ? "This is an authenticated poll. Please verify your details to participate as a guest."
-                : "Select one answer per question — questions appear one at a time."}
+                ? (poll.pollType === 'TRIAL'
+                    ? "This is an authenticated quiz assessment. Please verify your details to participate."
+                    : "This is an authenticated poll. Please verify your details to participate as a guest.")
+                : (poll.pollType === 'TRIAL'
+                    ? "Answer each question carefully — you will receive your scored results upon completion."
+                    : "Select one answer per question — questions appear one at a time.")}
             </p>
           </motion.div>
 

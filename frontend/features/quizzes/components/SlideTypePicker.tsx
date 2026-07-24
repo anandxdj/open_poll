@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HelpCircle, X } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { SLIDE_TYPE_META } from "../slideTypeMeta";
 import type { QuizSlideType } from "../types";
 
@@ -13,10 +14,11 @@ interface SlideTypePickerProps {
   open: boolean;
   onClose: () => void;
   onPick: (type: QuizSlideType) => void;
+  position?: "top" | "bottom";
 }
 
 /** Mentimeter-style "New slide" panel: interactive types + quiz competition types */
-export function SlideTypePicker({ open, onClose, onPick }: SlideTypePickerProps) {
+export function SlideTypePicker({ open, onClose, onPick, position = "top" }: SlideTypePickerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,16 +42,22 @@ export function SlideTypePicker({ open, onClose, onPick }: SlideTypePickerProps)
   const interactive = SLIDE_TYPE_META.filter((m) => m.section === "interactive");
   const competition = SLIDE_TYPE_META.filter((m) => m.section === "competition");
 
+  const posClass = position === "top" ? "bottom-full mb-2 left-0" : "top-full mt-2 left-0";
+  const initialY = position === "top" ? -8 : 8;
+
   return (
     <AnimatePresence>
       {open && (
         <motion.div
           ref={panelRef}
-          initial={{ opacity: 0, y: 8, scale: 0.98 }}
+          initial={{ opacity: 0, y: initialY, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 8, scale: 0.98 }}
+          exit={{ opacity: 0, y: initialY, scale: 0.98 }}
           transition={{ duration: 0.22, ease }}
-          className="absolute left-0 top-full mt-2 z-50 w-80 rounded-3xl border border-border bg-card p-4 shadow-2xl"
+          className={cn(
+            "absolute z-50 w-80 rounded-3xl border border-border bg-card/95 backdrop-blur-xl p-4 shadow-2xl",
+            posClass
+          )}
         >
           <div className="flex items-center justify-between mb-3">
             <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">

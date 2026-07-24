@@ -52,7 +52,6 @@ export default function PollsPage() {
   }, []);
 
   const handleDeleteQuiz = async (quiz: Quiz) => {
-    if (!window.confirm(`Delete "${quiz.title}"? This removes all results.`)) return;
     try {
       await deleteQuiz(quiz._id);
       setQuizzes((prev) => prev.filter((q) => q._id !== quiz._id));

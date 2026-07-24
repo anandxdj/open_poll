@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   BarChart3, 
   Clock, 
@@ -12,7 +13,10 @@ import {
   X, 
   Trash2, 
   Users,
-  MessageSquare
+  MessageSquare,
+  Target,
+  Play,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { Poll } from "@/features/polls/store/useCreatorStore";
 import { useCreatorStore } from "@/features/polls/store/useCreatorStore";
+import { createPresentation } from "@/features/presentations/api/presentationApi";
 import { cn } from "@/lib/utils";
 
 function pollStatus(poll: Poll): "active" | "expired" | "draft" {
@@ -68,6 +73,7 @@ const statusConfig = {
 };
 
 export function PollCardV2({ poll, liveVotes = 0 }: { poll: Poll; liveVotes?: number }) {
+  const router = useRouter();
   const { closePoll, deletePoll } = useCreatorStore();
   const status = pollStatus(poll);
   const cfg = statusConfig[status];
@@ -76,6 +82,7 @@ export function PollCardV2({ poll, liveVotes = 0 }: { poll: Poll; liveVotes?: nu
   );
   const [closing, setClosing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [hosting, setHosting] = useState(false);
 
   useEffect(() => {
     if (status !== "active") return;
@@ -113,7 +120,7 @@ export function PollCardV2({ poll, liveVotes = 0 }: { poll: Poll; liveVotes?: nu
     e.preventDefault();
     const url = `${window.location.origin}/p/${poll._id}`;
     await navigator.clipboard.writeText(url);
-    toast.success("Poll link copied!");
+    toast.success(poll.pollType === 'TRIAL' ? "Quiz link copied!" : "Poll link copied!");
   }
 
   const responseMode = poll.isAnonymous ? "anonymous" : "authenticated";
@@ -127,7 +134,7 @@ export function PollCardV2({ poll, liveVotes = 0 }: { poll: Poll; liveVotes?: nu
     >
       {/* Status & Delete */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest",
@@ -143,6 +150,12 @@ export function PollCardV2({ poll, liveVotes = 0 }: { poll: Poll; liveVotes?: nu
             />
             {cfg.label}
           </span>
+
+          {poll.pollType === 'TRIAL' && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-emerald-400 uppercase tracking-widest">
+              <Target className="size-3" /> Quiz
+            </span>
+          )}
 
           <span
             className={cn(
@@ -255,7 +268,7 @@ export function PollCardV2({ poll, liveVotes = 0 }: { poll: Poll; liveVotes?: nu
               )}
             >
               <Share2 className="size-3.5" />
-              {poll.isResultsPublished ? "Share Results" : "Share Poll"}
+              {poll.isResultsPublished ? "Share Results" : (poll.pollType === 'TRIAL' ? "Share Quiz" : "Share Poll")}
             </button>
           </>
         )}

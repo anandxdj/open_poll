@@ -6,6 +6,17 @@ import { Copy, Layers, Pencil, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { slideTypeMeta } from "../slideTypeMeta";
 import type { Presentation, PresentationStatus } from "../types";
 
@@ -88,13 +99,42 @@ export function PresentationCard({ presentation, index = 0, onDelete }: Presenta
           >
             <Pencil className="size-3.5 mr-1.5" /> Edit
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() => onDelete(presentation)}
-            className="h-9 rounded-full px-3 text-xs text-muted-foreground/60 hover:text-red-400 ml-auto"
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-9 rounded-full px-3 text-xs text-muted-foreground/60 hover:text-red-400 hover:bg-red-500/10 ml-auto transition-colors"
+                title="Delete deck"
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="rounded-3xl border border-white/10 bg-card/95 backdrop-blur-2xl p-6 shadow-2xl max-w-md">
+              <AlertDialogHeader className="space-y-2">
+                <div className="size-11 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 mb-1">
+                  <Trash2 className="size-5" />
+                </div>
+                <AlertDialogTitle className="text-lg font-bold text-foreground">
+                  Delete "{presentation.title || "Untitled Deck"}"?
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-sm text-muted-foreground/80 leading-relaxed">
+                  This action cannot be undone. All slides, live session history, and participant results will be permanently removed.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="mt-6 gap-3">
+                <AlertDialogCancel className="rounded-full border-white/15 bg-white/5 text-xs font-semibold hover:bg-white/10">
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => onDelete(presentation)}
+                  className="rounded-full bg-red-500 hover:bg-red-600 font-bold text-white text-xs px-5 shadow-lg shadow-red-500/20"
+                >
+                  Delete Deck
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
     </motion.div>

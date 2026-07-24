@@ -26,9 +26,11 @@ interface QuestionAnalyticsProps {
   title: string;
   data: Row[];
   type: VisualizationType;
+  correctOptionIndices?: number[];
+  explanation?: string;
 }
 
-export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps) {
+export function QuestionAnalytics({ title, data, type, correctOptionIndices, explanation }: QuestionAnalyticsProps) {
   const chartData = useMemo(() => data.map((d) => ({ ...d })), [data]);
   const totalVotes = useMemo(() => data.reduce((sum, d) => sum + d.votes, 0), [data]);
 
@@ -70,12 +72,21 @@ export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps)
               />
               <Bar
                 dataKey="votes"
-                fill={PRIMARY}
                 radius={[6, 6, 0, 0]}
                 maxBarSize={48}
                 animationDuration={600}
                 animationEasing="ease-out"
-              />
+              >
+                {chartData.map((entry, index) => {
+                  const isCorrect = correctOptionIndices?.includes(index);
+                  return (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={isCorrect ? "#10b981" : PRIMARY} 
+                    />
+                  );
+                })}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         );
@@ -113,11 +124,20 @@ export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps)
               />
               <Bar
                 dataKey="votes"
-                fill={PRIMARY}
                 radius={[0, 6, 6, 0]}
                 maxBarSize={32}
                 animationDuration={600}
-              />
+              >
+                {chartData.map((entry, index) => {
+                  const isCorrect = correctOptionIndices?.includes(index);
+                  return (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={isCorrect ? "#10b981" : PRIMARY} 
+                    />
+                  );
+                })}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         );
@@ -137,9 +157,16 @@ export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps)
                 nameKey="label"
                 animationDuration={800}
               >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
-                ))}
+                {chartData.map((entry, index) => {
+                  const isCorrect = correctOptionIndices?.includes(index);
+                  return (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={isCorrect ? "#10b981" : COLORS[index % COLORS.length]} 
+                      stroke="none" 
+                    />
+                  );
+                })}
               </Pie>
               <Tooltip
                 contentStyle={{
@@ -160,10 +187,18 @@ export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps)
           <div className="flex flex-col gap-4 py-2">
             {data.map((item, i) => {
               const pct = totalVotes > 0 ? (item.votes / totalVotes) * 100 : 0;
+              const isCorrect = correctOptionIndices?.includes(i);
               return (
                 <div key={item.label} className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-foreground/80">{item.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground/80">{item.label}</span>
+                      {isCorrect && (
+                        <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-bold text-emerald-400 uppercase tracking-wider">
+                          Correct Answer
+                        </span>
+                      )}
+                    </div>
                     <span className="tabular-nums text-muted-foreground/60">
                       {item.votes} votes ({pct.toFixed(0)}%)
                     </span>
@@ -173,7 +208,7 @@ export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps)
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
                       transition={{ duration: 0.8, ease: "easeOut" }}
-                      className="h-full bg-primary"
+                      className={cn("h-full", isCorrect ? "bg-emerald-500" : "bg-primary")}
                     />
                   </div>
                 </div>
@@ -209,6 +244,23 @@ export function QuestionAnalytics({ title, data, type }: QuestionAnalyticsProps)
             </motion.div>
           </AnimatePresence>
         </div>
+
+        {((correctOptionIndices && correctOptionIndices.length > 0) || explanation) && (
+          <div className="mt-5 pt-4 border-t border-border/40 space-y-2">
+            {correctOptionIndices && correctOptionIndices.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap text-xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                  ✓ Correct Answer: {correctOptionIndices.map((i) => data[i]?.label).filter(Boolean).join(", ")}
+                </span>
+              </div>
+            )}
+            {explanation && (
+              <p className="text-xs text-muted-foreground/80 bg-secondary/30 p-3 rounded-xl border border-border/30">
+                💡 <span className="font-semibold text-foreground">Explanation:</span> {explanation}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
