@@ -253,14 +253,26 @@ export function PollBuilder() {
   }, [nameFromUrl]);
 
 
-  async function handleAiGenerate(params: { topic: string; tone: AiTone; questionCount: number }) {
+  async function handleAiGenerate(params: {
+    topic: string;
+    tone: AiTone;
+    questionCount: number;
+    pollType?: 'POLL' | 'TRIAL';
+    passingScorePercentage?: number;
+  }) {
     setIsAiGenerating(true);
     const toastId = toast.loading("AI is shaping your questions...");
     try {
+      const selectedPollType = params.pollType ?? pollType;
+      const selectedPassingScore = params.passingScorePercentage ?? passingScorePercentage;
+
+      if (selectedPollType) setPollType(selectedPollType);
+      if (typeof selectedPassingScore === 'number') setPassingScorePercentage(selectedPassingScore);
+
       const draft = await generateDraft({
         ...params,
-        pollType,
-        passingScorePercentage,
+        pollType: selectedPollType,
+        passingScorePercentage: selectedPassingScore,
         isAnonymous,
         expiresAt: defaultAiExpiresAtIso(7),
       });
@@ -584,6 +596,7 @@ export function PollBuilder() {
               onExternalOpenChange={setAiTrigger}
               initialTopic={title}
               initialPollType={pollType}
+              initialPassingScorePercentage={passingScorePercentage}
               isGenerating={isAiGenerating}
             >
               <button

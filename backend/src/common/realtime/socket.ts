@@ -60,18 +60,15 @@ export const setupSocketAndPubSub = async (io: Server) => {
 
     socket.on(SOCKET_EVENTS.quizJoin, async (quizId: string) => {
       if (!isValidObjectId(quizId) || !allowJoin()) return;
-      // Draft quizzes/presentations are creator-private; anything in session is
-      // joinable — participants hold no auth, and broadcasts are answer-key-sanitized.
       // Quizzes and presentations live in separate collections but share this room
       // namespace and the `quiz:event` channel, so check both.
-      const quiz = await QuizModel.findById(quizId).select('status').catch(() => null);
+      const quiz = await QuizModel.findById(quizId).select('_id').catch(() => null);
       if (quiz) {
-        if (quiz.status === 'draft') return;
         socket.join(`quiz_${quizId}`);
         return;
       }
-      const presentation = await PresentationModel.findById(quizId).select('status').catch(() => null);
-      if (!presentation || presentation.status === 'draft') return;
+      const presentation = await PresentationModel.findById(quizId).select('_id').catch(() => null);
+      if (!presentation) return;
       socket.join(`quiz_${quizId}`);
     });
 

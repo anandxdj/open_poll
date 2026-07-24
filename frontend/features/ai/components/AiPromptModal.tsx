@@ -37,6 +37,7 @@ type Props = {
   /** When the dialog opens, seed the topic field (e.g. poll title from the create flow). */
   initialTopic?: string;
   initialPollType?: 'POLL' | 'TRIAL';
+  initialPassingScorePercentage?: number;
   isGenerating?: boolean;
 };
 
@@ -47,6 +48,7 @@ export function AiPromptModal({
   onExternalOpenChange,
   initialTopic,
   initialPollType = 'POLL',
+  initialPassingScorePercentage = 70,
   isGenerating,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -62,19 +64,22 @@ export function AiPromptModal({
   };
   const [topic, setTopic] = useState("");
   const [pollType, setPollType] = useState<'POLL' | 'TRIAL'>(initialPollType);
-  const [passingScorePercentage, setPassingScorePercentage] = useState(70);
+  const [passingScorePercentage, setPassingScorePercentage] = useState(initialPassingScorePercentage);
   const [tone, setTone] = useState<AiTone>("professional & casual");
   const [questionCount, setQuestionCount] = useState(5);
 
   useEffect(() => {
     if (!isOpen) return;
     setPollType(initialPollType || 'POLL');
+    if (typeof initialPassingScorePercentage === 'number') {
+      setPassingScorePercentage(initialPassingScorePercentage);
+    }
     const seed = initialTopic?.trim();
     if (!seed) return;
     void Promise.resolve().then(() => {
       setTopic(seed);
     });
-  }, [isOpen, initialTopic, initialPollType]);
+  }, [isOpen, initialTopic, initialPollType, initialPassingScorePercentage]);
 
   function handleAction() {
     const trimmed = topic.trim();

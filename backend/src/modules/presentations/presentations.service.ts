@@ -98,7 +98,7 @@ const buildSession = (presentation: IPresentation, slide: IPresentationSlide): L
   scoreDependsOnTime: slide.scoreDependsOnTime,
 });
 
-const publishPresentationEvent = async (
+export const publishPresentationEvent = async (
   presentationId: string,
   type: QuizRealtimeEventType,
   payload: Record<string, unknown>
@@ -111,6 +111,105 @@ const publishPresentationEvent = async (
   } catch (error) {
     console.error('[Presentation] Failed to publish realtime event:', error);
   }
+};
+
+export const computeSlideDistributionHelper = async (
+  prefix: 'presentation' | 'quiz',
+  id: string,
+  slideIndex: number,
+  slide: any,
+  ParticipantModel: any
+) => {
+  const distKey = `${prefix}:${id}:dist:${slideIndex}`;
+  const dispKey = `${prefix}:${id}:disp:${slideIndex}`;
+  const answeredKey = `${prefix}:${id}:answered:${slideIndex}`;
+  const namesKey = `${prefix}:${id}:names`;
+
+  const [distHash, dispHash, answeredCount, nameCount] = await Promise.all([
+    redisClient.hGetAll(distKey).catch(() => ({}) as Record<string, string>),
+    redisClient.hGetAll(dispKey).catch(() => ({}) as Record<string, string>),
+    redisClient.sCard(answeredKey).catch(() => 0),
+    redisClient.hLen(namesKey).catch(() => 0),
+  ]);
+
+  const participantCount =
+    nameCount > 0
+      ? nameCount
+      : await ParticipantModel.countDocuments(
+          prefix === 'presentation' ? { presentationId: id } : { quizId: id }
+        );
+
+  let distribution: Record<string, unknown> = {};
+  switch (slide.type) {
+    case 'select_answer': {
+      const counts = slide.options.map((_: any, i: number) => Number(distHash[String(i)] ?? 0));
+      distribution = {
+        kind: 'options',
+        counts,
+        options: slide.options.map((o: any) => ({ text: o.text, isCorrect: o.isCorrect })),
+      };
+      break;
+    }
+    case 'type_answer': {
+      const accepted = (slide.acceptedAnswers || []).map(normalizeText);
+      const answers = Object.entries(distHash)
+        .map(([text, count]) => ({
+          text,
+          count: Number(count),
+          isCorrect: accepted.includes(text),
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 20);
+      distribution = { kind: 'text', answers, acceptedAnswers: slide.acceptedAnswers };
+      break;
+    }
+    case 'wordcloud': {
+      const words = Object.entries(distHash)
+        .map(([norm, count]) => ({ text: dispHash[norm] ?? norm, count: Number(count) }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 100);
+      distribution = { kind: 'words', words };
+      break;
+    }
+    case 'open_ended': {
+      const responses = Object.entries(distHash)
+        .map(([norm, count]) => ({ text: dispHash[norm] ?? norm, count: Number(count) }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 50);
+      distribution = { kind: 'responses', responses };
+      break;
+    }
+    case 'scales': {
+      const statements = (slide.statements ?? []).map((statement: string, i: number) => {
+        const sum = Number(distHash[`s${i}:sum`] ?? 0);
+        const count = Number(distHash[`s${i}:count`] ?? 0);
+        return {
+          statement,
+          average: count > 0 ? Math.round((sum / count) * 100) / 100 : 0,
+          count,
+        };
+      });
+      distribution = {
+        kind: 'scales',
+        statements,
+        scaleMax: slide.scaleMax ?? 5,
+        minLabel: slide.minLabel ?? '',
+        maxLabel: slide.maxLabel ?? '',
+      };
+      break;
+    }
+    case 'ranking': {
+      const voters = Number(distHash['voters'] ?? 0);
+      const items = (slide.items ?? [])
+        .map((text: string, i: number) => ({ text, points: Number(distHash[String(i)] ?? 0) }))
+        .sort((a, b) => b.points - a.points)
+        .map((item, i) => ({ ...item, rank: i + 1 }));
+      distribution = { kind: 'ranking', items, voters };
+      break;
+    }
+  }
+
+  return { distribution, answeredCount, participantCount };
 };
 
 const generateJoinCode = () => crypto.randomInt(100000, 1000000).toString();
@@ -350,84 +449,13 @@ export class PresentationService {
 
     await redisClient.del(k.session(presentationId)).catch(() => {});
 
-    const [distHash, dispHash, answeredCount, nameCount] = await Promise.all([
-      redisClient.hGetAll(k.dist(presentationId, slideIndex)).catch(() => ({}) as Record<string, string>),
-      redisClient.hGetAll(k.disp(presentationId, slideIndex)).catch(() => ({}) as Record<string, string>),
-      redisClient.sCard(k.answered(presentationId, slideIndex)).catch(() => 0),
-      redisClient.hLen(k.names(presentationId)).catch(() => 0),
-    ]);
-    const participantCount =
-      nameCount > 0 ? nameCount : await PresentationParticipantModel.countDocuments({ presentationId });
-
-    let distribution: Record<string, unknown>;
-    switch (slide.type) {
-      case 'select_answer': {
-        const counts = slide.options.map((_, i) => Number(distHash[String(i)] ?? 0));
-        distribution = {
-          kind: 'options',
-          counts,
-          options: slide.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })),
-        };
-        break;
-      }
-      case 'type_answer': {
-        const accepted = slide.acceptedAnswers.map(normalizeText);
-        const answers = Object.entries(distHash)
-          .map(([text, count]) => ({
-            text,
-            count: Number(count),
-            isCorrect: accepted.includes(text),
-          }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 20);
-        distribution = { kind: 'text', answers, acceptedAnswers: slide.acceptedAnswers };
-        break;
-      }
-      case 'wordcloud': {
-        const words = Object.entries(distHash)
-          .map(([norm, count]) => ({ text: dispHash[norm] ?? norm, count: Number(count) }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 100);
-        distribution = { kind: 'words', words };
-        break;
-      }
-      case 'open_ended': {
-        const responses = Object.entries(distHash)
-          .map(([norm, count]) => ({ text: dispHash[norm] ?? norm, count: Number(count) }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 50);
-        distribution = { kind: 'responses', responses };
-        break;
-      }
-      case 'scales': {
-        const statements = (slide.statements ?? []).map((statement, i) => {
-          const sum = Number(distHash[`s${i}:sum`] ?? 0);
-          const count = Number(distHash[`s${i}:count`] ?? 0);
-          return {
-            statement,
-            average: count > 0 ? Math.round((sum / count) * 100) / 100 : 0,
-            count,
-          };
-        });
-        distribution = {
-          kind: 'scales',
-          statements,
-          scaleMax: slide.scaleMax ?? 5,
-          minLabel: slide.minLabel ?? '',
-          maxLabel: slide.maxLabel ?? '',
-        };
-        break;
-      }
-      case 'ranking': {
-        const voters = Number(distHash['voters'] ?? 0);
-        const items = (slide.items ?? [])
-          .map((text, i) => ({ text, points: Number(distHash[String(i)] ?? 0) }))
-          .sort((a, b) => b.points - a.points)
-          .map((item, i) => ({ ...item, rank: i + 1 }));
-        distribution = { kind: 'ranking', items, voters };
-        break;
-      }
-    }
+    const { distribution, answeredCount, participantCount } = await computeSlideDistributionHelper(
+      'presentation',
+      presentationId,
+      slideIndex,
+      slide,
+      PresentationParticipantModel
+    );
 
     await touchTtls([
       k.answered(presentationId, slideIndex),
@@ -452,7 +480,7 @@ export class PresentationService {
   static async showLeaderboard(presentationId: string, userId: string) {
     const presentation = await PresentationService.assertOwnership(presentationId, userId);
     if (!['reveal', 'question'].includes(presentation.status)) {
-      throw ApiError.badRequest('Leaderboard can be shown after revealing a slide');
+      throw ApiError.badRequest('Leaderboard can be shown after revealing a question');
     }
 
     presentation.status = 'leaderboard';
@@ -482,6 +510,7 @@ export class PresentationService {
     const leaderboard = await getLeaderboard(presentationId, 100);
     const participantCount = await PresentationParticipantModel.countDocuments({ presentationId });
 
+    // Keep Redis state readable for final screens, then self-clean
     await touchTtls(allPresentationKeys(presentationId, presentation.slides.length));
 
     await publishPresentationEvent(presentationId, 'quiz:ended', { leaderboard, participantCount });
@@ -492,6 +521,7 @@ export class PresentationService {
     const presentation = await PresentationService.assertOwnership(presentationId, userId);
 
     let answeredCount = 0;
+    let liveDistribution: Record<string, unknown> | null = null;
     if (presentation.currentSlideIndex >= 0) {
       answeredCount = await redisClient
         .sCard(k.answered(presentationId, presentation.currentSlideIndex))
@@ -501,6 +531,20 @@ export class PresentationService {
           presentationId,
           slideIndex: presentation.currentSlideIndex,
         });
+      }
+
+      if (presentation.status === 'question' || presentation.status === 'reveal') {
+        const slide = presentation.slides[presentation.currentSlideIndex];
+        if (slide) {
+          const res = await computeSlideDistributionHelper(
+            'presentation',
+            presentationId,
+            presentation.currentSlideIndex,
+            slide,
+            PresentationParticipantModel
+          );
+          liveDistribution = res.distribution;
+        }
       }
     }
 
@@ -516,6 +560,7 @@ export class PresentationService {
         score: p.score,
       })),
       answeredCount,
+      liveDistribution,
       leaderboard: await getLeaderboard(presentationId),
     };
   }
@@ -755,6 +800,8 @@ export class PresentationService {
         JSON.stringify({ isCorrect, score, scored: session.scored })
       ),
     ]);
+
+    await redisClient.sAdd('buffer:active_presentation_distributions', presentationId).catch(() => {});
 
     await publishPresentationEvent(presentationId, 'answer:received', {
       slideIndex: data.slideIndex,

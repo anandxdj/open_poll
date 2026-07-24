@@ -40,16 +40,7 @@ import type {
 
 const ease = [0.32, 0.72, 0, 1] as const;
 
-const OPTION_COLORS = [
-  "bg-red-500/15 border-red-500/30 hover:bg-red-500/25 text-red-100",
-  "bg-blue-500/15 border-blue-500/30 hover:bg-blue-500/25 text-blue-100",
-  "bg-yellow-500/15 border-yellow-500/30 hover:bg-yellow-500/25 text-yellow-100",
-  "bg-emerald-500/15 border-emerald-500/30 hover:bg-emerald-500/25 text-emerald-100",
-  "bg-purple-500/15 border-purple-500/30 hover:bg-purple-500/25 text-purple-100",
-  "bg-orange-500/15 border-orange-500/30 hover:bg-orange-500/25 text-orange-100",
-  "bg-pink-500/15 border-pink-500/30 hover:bg-pink-500/25 text-pink-100",
-  "bg-cyan-500/15 border-cyan-500/30 hover:bg-cyan-500/25 text-cyan-100",
-];
+
 
 interface PlayViewProps {
   code: string;
@@ -368,17 +359,49 @@ export function PlayView({ code }: PlayViewProps) {
             ) : (
               <div className="space-y-3">
                 {currentSlide.type === "select_answer" && (
-                  <div className="grid gap-2">
-                    {currentSlide.options.map((opt, i) => (
-                      <button
-                        key={i}
-                        onClick={() => void doSubmit({ optionIndex: i })}
-                        disabled={submitting}
-                        className={`w-full p-4 rounded-2xl border font-bold text-sm text-left transition-all ${OPTION_COLORS[i % OPTION_COLORS.length]}`}
-                      >
-                        {opt.text}
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {currentSlide.options.map((opt, i) => {
+                      const isSelected = selectedOption === i;
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            setSelectedOption(i);
+                            void doSubmit({ optionIndex: i });
+                          }}
+                          disabled={submitting || submittedSlideIndex === currentSlide.slideIndex}
+                          className={`group relative flex w-full items-center justify-between gap-4 rounded-2xl border px-5 py-4 text-left font-semibold transition-all duration-300 active:scale-[0.98] ${
+                            isSelected
+                              ? "border-primary/60 bg-primary/10 text-foreground shadow-[0_0_20px_rgba(216,173,135,0.12)]"
+                              : "border-border bg-secondary/30 hover:border-primary/40 hover:bg-secondary/60 hover:shadow-[0_0_15px_rgba(216,173,135,0.08)] text-foreground/90"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <div
+                              className={`flex size-8 shrink-0 items-center justify-center rounded-xl border text-xs font-bold transition-all duration-300 ${
+                                isSelected
+                                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                                  : "border-border bg-secondary text-muted-foreground/70 group-hover:border-primary/40 group-hover:text-foreground"
+                              }`}
+                            >
+                              {String.fromCharCode(65 + i)}
+                            </div>
+                            <span className="text-base font-semibold leading-snug break-words">
+                              {opt.text}
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <motion.div
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                            >
+                              <CheckCircle2 className="size-5 shrink-0 text-primary" />
+                            </motion.div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 

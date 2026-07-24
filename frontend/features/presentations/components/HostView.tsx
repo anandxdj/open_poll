@@ -7,6 +7,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Eye,
+  EyeOff,
   Flag,
   Loader2,
   Play,
@@ -34,6 +35,7 @@ import type {
   LeaderboardEntry,
   Presentation,
   PresentationRealtimeEvent,
+  RevealDistribution,
   RevealPayload,
 } from "../types";
 
@@ -52,6 +54,8 @@ export function HostView({ presentationId: pid, quizId }: HostViewProps) {
   const [participants, setParticipants] = useState<{ participantId: string; name: string }[]>([]);
   const [answeredCount, setAnsweredCount] = useState(0);
   const [reveal, setReveal] = useState<RevealPayload | null>(null);
+  const [liveDistribution, setLiveDistribution] = useState<RevealDistribution | null>(null);
+  const [showLiveResults, setShowLiveResults] = useState(true);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -63,6 +67,7 @@ export function HostView({ presentationId: pid, quizId }: HostViewProps) {
       setServerNow(state.serverNow);
       setParticipants(state.participants);
       setAnsweredCount(state.answeredCount);
+      if (state.liveDistribution) setLiveDistribution(state.liveDistribution);
       if (state.leaderboard) setLeaderboard(state.leaderboard);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to load presentation host state.");
@@ -74,6 +79,15 @@ export function HostView({ presentationId: pid, quizId }: HostViewProps) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Fallback periodic polling while in lobby to ensure participant list updates reliably
+  useEffect(() => {
+    if (presentation?.status !== "lobby") return;
+    const interval = setInterval(() => {
+      void refresh();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [presentation?.status, refresh]);
 
   usePresentationSocket(
     presentationId,
@@ -89,8 +103,11 @@ export function HostView({ presentationId: pid, quizId }: HostViewProps) {
           break;
         }
         case "answer:received": {
-          const payload = event.payload as { answeredCount: number };
+          const payload = event.payload as { answeredCount: number; distribution?: RevealDistribution };
           setAnsweredCount(payload.answeredCount);
+          if (payload.distribution) {
+            setLiveDistribution(payload.distribution);
+          }
           break;
         }
         case "question:revealed": {
@@ -98,7 +115,13 @@ export function HostView({ presentationId: pid, quizId }: HostViewProps) {
           void refresh();
           break;
         }
-        case "question:started":
+        case "question:started": {
+          setLiveDistribution(null);
+          setReveal(null);
+          setAnsweredCount(0);
+          void refresh();
+          break;
+        }
         case "leaderboard:shown":
         case "lobby:opened":
         case "quiz:ended": {
@@ -231,14 +254,31 @@ export function HostView({ presentationId: pid, quizId }: HostViewProps) {
           )}
 
           {presentation.status === "question" && (
-            <Button
-              onClick={handleReveal}
-              disabled={busy}
-              variant="outline"
-              className="h-9 rounded-full px-4 text-xs font-semibold border-white/20"
-            >
-              <Eye className="size-3.5 mr-1.5" /> Reveal Answers
-            </Button>
+            <>
+              <Button
+                onClick={() => setShowLiveResults((prev) => !prev)}
+                variant="outline"
+                className="h-9 rounded-full px-4 text-xs font-semibold border-white/20"
+              >
+                {showLiveResults ? (
+                  <>
+                    <EyeOff className="size-3.5 mr-1.5" /> Hide Live View
+                  </>
+                ) : (
+                  <>
+                    <Eye className="size-3.5 mr-1.5" /> Show Live View
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleReveal}
+                disabled={busy}
+                variant="outline"
+                className="h-9 rounded-full px-4 text-xs font-semibold border-white/20"
+              >
+                <Eye className="size-3.5 mr-1.5" /> Reveal Answers
+              </Button>
+            </>
           )}
 
           {presentation.status === "reveal" && (
@@ -316,12 +356,19 @@ export function HostView({ presentationId: pid, quizId }: HostViewProps) {
             </div>
 
             {presentation.status === "question" && (
-              <PresentationTimer secondsLeft={secondsLeft} progress={progress} />
+              <>
+                <PresentationTimer secondsLeft={secondsLeft} progress={progress} />
+                {showLiveResults && liveDistribution && (
+                  <div className="pt-2">
+                    <RevealChart distribution={liveDistribution} isReveal={false} />
+                  </div>
+                )}
+              </>
             )}
 
             {presentation.status === "reveal" && (
               reveal ? (
-                <RevealChart reveal={reveal} />
+                <RevealChart reveal={reveal} isReveal={true} />
               ) : (
                 <div className="flex justify-center py-6">
                   <Loader2 className="size-6 animate-spin text-primary/60" />
@@ -345,9 +392,20 @@ export function HostView({ presentationId: pid, quizId }: HostViewProps) {
   );
 }
 
-function RevealChart({ reveal }: { reveal: RevealPayload }) {
-  if (reveal.distribution.kind === "options") {
-    const { counts, options } = reveal.distribution;
+function RevealChart({
+  reveal,
+  distribution: propDist,
+  isReveal = true,
+}: {
+  reveal?: RevealPayload | null;
+  distribution?: RevealDistribution | null;
+  isReveal?: boolean;
+}) {
+  const dist = propDist || reveal?.distribution;
+  if (!dist) return null;
+
+  if (dist.kind === "options") {
+    const { counts, options } = dist;
     const max = Math.max(...counts, 1);
     return (
       <div className="space-y-3">
@@ -380,42 +438,49 @@ function RevealChart({ reveal }: { reveal: RevealPayload }) {
             </div>
           </div>
         ))}
-        <p className="text-center text-xs text-muted-foreground/50">
-          {reveal.answeredCount}/{reveal.participantCount} answered
-        </p>
+        {reveal && (
+          <p className="text-center text-xs text-muted-foreground/50">
+            {reveal.answeredCount}/{reveal.participantCount} answered
+          </p>
+        )}
       </div>
     );
   }
 
-  if (reveal.distribution.kind === "text") {
+  if (dist.kind === "text") {
     return (
       <div className="space-y-3">
         <div className="flex flex-wrap justify-center gap-2">
-          {reveal.distribution.answers.map((answer, i) => (
-            <span
-              key={i}
-              className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
-                answer.isCorrect
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                  : "border-white/10 bg-white/[0.03] text-foreground/70"
-              }`}
-            >
-              {answer.text} <span className="opacity-60">×{answer.count}</span>
-            </span>
-          ))}
-          {reveal.distribution.answers.length === 0 && (
+          {dist.answers.map((answer, i) => {
+            const showCorrect = isReveal && answer.isCorrect;
+            return (
+              <span
+                key={i}
+                className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
+                  showCorrect
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                    : "border-white/10 bg-white/[0.03] text-foreground/70"
+                }`}
+              >
+                {answer.text} <span className="opacity-60">×{answer.count}</span>
+              </span>
+            );
+          })}
+          {dist.answers.length === 0 && (
             <p className="text-sm text-muted-foreground/50">No answers were submitted.</p>
           )}
         </div>
-        <p className="text-center text-xs text-muted-foreground/60">
-          Accepted: {reveal.distribution.acceptedAnswers.join(", ")}
-        </p>
+        {isReveal && dist.acceptedAnswers && (
+          <p className="text-center text-xs text-muted-foreground/60">
+            Accepted: {dist.acceptedAnswers.join(", ")}
+          </p>
+        )}
       </div>
     );
   }
 
-  if (reveal.distribution.kind === "words") {
-    const { words } = reveal.distribution;
+  if (dist.kind === "words") {
+    const { words } = dist;
     const max = Math.max(...words.map((w) => w.count), 1);
     return (
       <div className="space-y-4">
@@ -440,15 +505,17 @@ function RevealChart({ reveal }: { reveal: RevealPayload }) {
             <p className="text-sm text-muted-foreground/50">No words were submitted.</p>
           )}
         </div>
-        <p className="text-center text-xs text-muted-foreground/50">
-          {reveal.answeredCount}/{reveal.participantCount} answered
-        </p>
+        {reveal && (
+          <p className="text-center text-xs text-muted-foreground/50">
+            {reveal.answeredCount}/{reveal.participantCount} answered
+          </p>
+        )}
       </div>
     );
   }
 
-  if (reveal.distribution.kind === "responses") {
-    const { responses } = reveal.distribution;
+  if (dist.kind === "responses") {
+    const { responses } = dist;
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -474,15 +541,17 @@ function RevealChart({ reveal }: { reveal: RevealPayload }) {
             </p>
           )}
         </div>
-        <p className="text-center text-xs text-muted-foreground/50">
-          {reveal.answeredCount}/{reveal.participantCount} answered
-        </p>
+        {reveal && (
+          <p className="text-center text-xs text-muted-foreground/50">
+            {reveal.answeredCount}/{reveal.participantCount} answered
+          </p>
+        )}
       </div>
     );
   }
 
-  if (reveal.distribution.kind === "scales") {
-    const { statements, scaleMax, minLabel, maxLabel } = reveal.distribution;
+  if (dist.kind === "scales") {
+    const { statements, scaleMax, minLabel, maxLabel } = dist;
     return (
       <div className="space-y-3 max-w-xl mx-auto">
         {statements.map((entry, i) => (
@@ -511,15 +580,17 @@ function RevealChart({ reveal }: { reveal: RevealPayload }) {
             </div>
           </div>
         ))}
-        <p className="text-center text-xs text-muted-foreground/50">
-          {reveal.answeredCount}/{reveal.participantCount} answered
-        </p>
+        {reveal && (
+          <p className="text-center text-xs text-muted-foreground/50">
+            {reveal.answeredCount}/{reveal.participantCount} answered
+          </p>
+        )}
       </div>
     );
   }
 
   // ranking — combined order by Borda points
-  const { items, voters } = reveal.distribution;
+  const { items, voters } = dist;
   const maxPoints = Math.max(...items.map((i) => i.points), 1);
   return (
     <div className="space-y-3 max-w-xl mx-auto">
@@ -557,9 +628,15 @@ function RevealChart({ reveal }: { reveal: RevealPayload }) {
           </div>
         </div>
       ))}
-      <p className="text-center text-xs text-muted-foreground/50">
-        {voters} of {reveal.participantCount} ranked
-      </p>
+      {reveal ? (
+        <p className="text-center text-xs text-muted-foreground/50">
+          {reveal.answeredCount}/{reveal.participantCount} answered
+        </p>
+      ) : (
+        <p className="text-center text-xs text-muted-foreground/50">
+          {voters} response{voters !== 1 ? "s" : ""}
+        </p>
+      )}
     </div>
   );
 }

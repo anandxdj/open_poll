@@ -12,6 +12,7 @@ import mongoose from 'mongoose';
 import { redisClient } from './common/config/redis';
 import { setupSocketAndPubSub } from './common/realtime/socket';
 import { startAnalyticsWorker } from './modules/responses/analytics.worker';
+import { startLiveDistributionWorker } from './modules/presentations/liveDistribution.worker';
 import cookieParser from 'cookie-parser';
 import authRouter from './modules/auth/auth.route';
 import presentationsRouter from './modules/presentations/presentations.route';
@@ -102,6 +103,7 @@ const bootstrap = async () => {
   await connectRedis();
   await setupSocketAndPubSub(io);
   startAnalyticsWorker();
+  startLiveDistributionWorker();
 
   httpServer.listen(PORT, () => {
     console.log(`[Server] Running on port ${PORT}`);

@@ -188,6 +188,7 @@ export interface HostState {
   serverNow: string;
   participants: { participantId: string; name: string; score: number }[];
   answeredCount: number;
+  liveDistribution?: RevealDistribution | null;
   leaderboard: LeaderboardEntry[];
 }
 

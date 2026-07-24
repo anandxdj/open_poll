@@ -7,6 +7,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Eye,
+  EyeOff,
   Flag,
   Loader2,
   Play,
@@ -34,6 +35,7 @@ import type {
   LeaderboardEntry,
   Quiz,
   QuizRealtimeEvent,
+  RevealDistribution,
   RevealPayload,
 } from "../types";
 
@@ -50,6 +52,8 @@ export function HostView({ quizId }: HostViewProps) {
   const [participants, setParticipants] = useState<{ participantId: string; name: string }[]>([]);
   const [answeredCount, setAnsweredCount] = useState(0);
   const [reveal, setReveal] = useState<RevealPayload | null>(null);
+  const [liveDistribution, setLiveDistribution] = useState<RevealDistribution | null>(null);
+  const [showLiveResults, setShowLiveResults] = useState(true);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -61,6 +65,7 @@ export function HostView({ quizId }: HostViewProps) {
       setServerNow(state.serverNow);
       setParticipants(state.participants);
       setAnsweredCount(state.answeredCount);
+      if (state.liveDistribution) setLiveDistribution(state.liveDistribution);
       setLeaderboard(state.leaderboard);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Could not load quiz.");
@@ -74,6 +79,15 @@ export function HostView({ quizId }: HostViewProps) {
     void refresh();
   }, [refresh]);
 
+  // Fallback periodic polling while in lobby to ensure participant list updates reliably
+  useEffect(() => {
+    if (quiz?.status !== "lobby") return;
+    const interval = setInterval(() => {
+      void refresh();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [quiz?.status, refresh]);
+
   useQuizSocket(quizId, (event: QuizRealtimeEvent) => {
     if (event.type === "participant:joined") {
       const { participantId, name } = event.payload as { participantId: string; name: string };
@@ -84,10 +98,20 @@ export function HostView({ quizId }: HostViewProps) {
       );
     }
     if (event.type === "answer:received") {
-      setAnsweredCount((event.payload as { answeredCount: number }).answeredCount);
+      const payload = event.payload as { answeredCount: number; distribution?: RevealDistribution };
+      setAnsweredCount(payload.answeredCount);
+      if (payload.distribution) {
+        setLiveDistribution(payload.distribution);
+      }
     }
     if (event.type === "question:revealed") {
       setReveal(event.payload as unknown as RevealPayload);
+    }
+    if (event.type === "question:started") {
+      setLiveDistribution(null);
+      setReveal(null);
+      setAnsweredCount(0);
+      void refresh();
     }
     if (event.type === "leaderboard:shown" || event.type === "quiz:ended") {
       setLeaderboard((event.payload as { leaderboard: LeaderboardEntry[] }).leaderboard);
@@ -107,6 +131,7 @@ export function HostView({ quizId }: HostViewProps) {
       const updated = await action();
       setQuiz(updated);
       setServerNow(new Date().toISOString());
+      void refresh();
       onDone?.(updated);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Action failed.");
@@ -147,6 +172,24 @@ export function HostView({ quizId }: HostViewProps) {
           </h1>
         </div>
         <div className="flex items-center gap-4 text-xs text-muted-foreground/70">
+          {quiz.status === "question" && (
+            <Button
+              onClick={() => setShowLiveResults((prev) => !prev)}
+              variant="outline"
+              size="sm"
+              className="h-8 rounded-full px-3 text-xs font-semibold border-white/20 text-foreground"
+            >
+              {showLiveResults ? (
+                <>
+                  <EyeOff className="size-3.5 mr-1.5" /> Hide Live View
+                </>
+              ) : (
+                <>
+                  <Eye className="size-3.5 mr-1.5" /> Show Live View
+                </>
+              )}
+            </Button>
+          )}
           <span className="flex items-center gap-1.5">
             <Users className="size-3.5 text-primary/70" /> {participants.length}
           </span>
@@ -278,80 +321,75 @@ export function HostView({ quizId }: HostViewProps) {
 
               <QuizTimer secondsLeft={countdown.secondsLeft} progress={countdown.progress} />
 
-              {slide.type === "select_answer" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {slide.options.map((option, i) => (
-                    <div
-                      key={i}
-                      className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-base font-semibold text-foreground/90"
-                    >
-                      <span className="text-primary/60 mr-3 font-bold">
-                        {String.fromCharCode(65 + i)}
-                      </span>
-                      {option.text}
-                    </div>
-                  ))}
+              {showLiveResults && liveDistribution ? (
+                <div className="pt-2">
+                  <RevealChart distribution={liveDistribution} isReveal={false} />
                 </div>
-              )}
-              {slide.type === "type_answer" && (
-                <p className="text-center text-sm text-muted-foreground/60">
-                  Participants are typing their answers…
-                </p>
-              )}
-              {slide.type === "wordcloud" && (
-                <p className="text-center text-sm text-muted-foreground/60">
-                  Participants are sending words — the cloud appears at reveal…
-                </p>
-              )}
-              {slide.type === "open_ended" && (
-                <p className="text-center text-sm text-muted-foreground/60">
-                  Responses are coming in — revealed as a card wall…
-                </p>
-              )}
-              {slide.type === "scales" && (
-                <div className="space-y-2 max-w-xl mx-auto">
-                  {slide.statements.map((statement, i) => (
-                    <div
-                      key={i}
-                      className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-semibold text-foreground/85"
-                    >
-                      {statement}
+              ) : (
+                <>
+                  {slide.type === "select_answer" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {slide.options.map((option, i) => (
+                        <div
+                          key={i}
+                          className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-base font-semibold text-foreground/90"
+                        >
+                          <span className="text-primary/60 mr-3 font-bold">
+                            {String.fromCharCode(65 + i)}
+                          </span>
+                          {option.text}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                  <p className="text-center text-xs text-muted-foreground/50 pt-1">
-                    Rating 1–{slide.scaleMax} · {slide.minLabel || "Low"} → {slide.maxLabel || "High"}
-                  </p>
-                </div>
-              )}
-              {slide.type === "ranking" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-xl mx-auto">
-                  {slide.items.map((item, i) => (
-                    <div
-                      key={i}
-                      className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-semibold text-foreground/85"
-                    >
-                      {item}
+                  )}
+                  {slide.type === "type_answer" && (
+                    <p className="text-center text-sm text-muted-foreground/60">
+                      Participants are typing their answers…
+                    </p>
+                  )}
+                  {slide.type === "wordcloud" && (
+                    <p className="text-center text-sm text-muted-foreground/60">
+                      Participants are sending words — the cloud appears at reveal…
+                    </p>
+                  )}
+                  {slide.type === "open_ended" && (
+                    <p className="text-center text-sm text-muted-foreground/60">
+                      Responses are coming in — revealed as a card wall…
+                    </p>
+                  )}
+                  {slide.type === "scales" && (
+                    <div className="space-y-2 max-w-xl mx-auto">
+                      {slide.statements.map((statement, i) => (
+                        <div
+                          key={i}
+                          className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-semibold text-foreground/85"
+                        >
+                          {statement}
+                        </div>
+                      ))}
+                      <p className="text-center text-xs text-muted-foreground/50 pt-1">
+                        Rating 1–{slide.scaleMax} · {slide.minLabel || "Low"} → {slide.maxLabel || "High"}
+                      </p>
                     </div>
-                  ))}
-                </div>
+                  )}
+                  {slide.type === "ranking" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-xl mx-auto">
+                      {slide.items.map((item, i) => (
+                        <div
+                          key={i}
+                          className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-semibold text-foreground/85"
+                        >
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
 
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-muted-foreground/70 tabular-nums">
-                  {answeredCount}/{participants.length} answered
-                </span>
-                <Button
-                  onClick={() => run(() => revealAnswers(quizId))}
-                  disabled={busy}
-                  className={`h-11 rounded-full font-semibold px-6 ${
-                    countdown.expired
-                      ? "bg-primary text-primary-foreground animate-pulse"
-                      : "bg-white/10 text-foreground hover:bg-white/20"
-                  }`}
-                >
-                  <Eye className="size-4 mr-2" /> Reveal answers
-                </Button>
-              </div>
+              <p className="text-center text-xs font-semibold uppercase tracking-widest text-muted-foreground/50">
+                {answeredCount} answered
+              </p>
             </motion.div>
           )}
 
@@ -359,55 +397,53 @@ export function HostView({ quizId }: HostViewProps) {
           {quiz.status === "reveal" && (
             <motion.div
               key={`reveal-${quiz.currentSlideIndex}`}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
               transition={{ duration: 0.5, ease }}
               className="w-full max-w-3xl space-y-8"
             >
-              <div className="space-y-2 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/80">
-                  Results — Question {quiz.currentSlideIndex + 1}
+              <div className="space-y-3 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
+                  {slide?.question ? "Revealing results" : "Results"}
                 </p>
-                <h2 className="text-3xl font-bold tracking-tight">{slide?.question}</h2>
+                <h2 className="text-3xl font-bold tracking-tight">
+                  {slide?.question ?? "Results"}
+                </h2>
               </div>
 
               {reveal ? (
-                <RevealChart reveal={reveal} />
+                <RevealChart reveal={reveal} isReveal={true} />
               ) : (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="size-5 animate-spin text-primary/60" />
+                <div className="flex justify-center py-12">
+                  <Loader2 className="size-8 animate-spin text-primary" />
                 </div>
               )}
 
-              <div className="flex items-center justify-center gap-3">
+              <div className="flex justify-center gap-3">
                 <Button
                   onClick={() => run(() => showLeaderboard(quizId))}
                   disabled={busy}
-                  variant="outline"
-                  className="h-11 rounded-full px-6 font-semibold border-white/15"
+                  className="h-11 rounded-full bg-primary text-primary-foreground font-semibold px-6"
                 >
                   <Trophy className="size-4 mr-2" /> Show leaderboard
                 </Button>
-                {isLastSlide ? (
+                {!isLastSlide ? (
                   <Button
-                    onClick={() => run(() => endQuiz(quizId))}
+                    variant="outline"
+                    onClick={() => run(() => startNextQuestion(quizId))}
                     disabled={busy}
-                    className="h-11 rounded-full bg-primary text-primary-foreground font-semibold px-6"
+                    className="h-11 rounded-full px-6 font-semibold border-white/15"
                   >
-                    <Flag className="size-4 mr-2" /> Final results
+                    Next question <ArrowRight className="size-4 ml-2" />
                   </Button>
                 ) : (
                   <Button
-                    onClick={() => {
-                      setReveal(null);
-                      setAnsweredCount(0);
-                      void run(() => startNextQuestion(quizId));
-                    }}
+                    onClick={() => run(() => endQuiz(quizId))}
                     disabled={busy}
-                    className="h-11 rounded-full bg-primary text-primary-foreground font-semibold px-6"
+                    className="h-11 rounded-full bg-rose-500 hover:bg-rose-600 text-white font-semibold px-6"
                   >
-                    Next question <ArrowRight className="size-4 ml-2" />
+                    End quiz <Flag className="size-4 ml-2" />
                   </Button>
                 )}
               </div>
@@ -418,33 +454,29 @@ export function HostView({ quizId }: HostViewProps) {
           {quiz.status === "leaderboard" && (
             <motion.div
               key="leaderboard"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
               transition={{ duration: 0.5, ease }}
               className="w-full max-w-xl space-y-8"
             >
-              <Leaderboard entries={leaderboard} title="Standings" />
+              <Leaderboard entries={leaderboard} />
               <div className="flex justify-center gap-3">
-                {isLastSlide ? (
+                {!isLastSlide ? (
                   <Button
-                    onClick={() => run(() => endQuiz(quizId))}
-                    disabled={busy}
-                    className="h-11 rounded-full bg-primary text-primary-foreground font-semibold px-6"
-                  >
-                    <Flag className="size-4 mr-2" /> Final results
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={() => {
-                      setReveal(null);
-                      setAnsweredCount(0);
-                      void run(() => startNextQuestion(quizId));
-                    }}
+                    onClick={() => run(() => startNextQuestion(quizId))}
                     disabled={busy}
                     className="h-11 rounded-full bg-primary text-primary-foreground font-semibold px-6"
                   >
                     Next question <ArrowRight className="size-4 ml-2" />
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => run(() => endQuiz(quizId))}
+                    disabled={busy}
+                    className="h-11 rounded-full bg-rose-500 hover:bg-rose-600 text-white font-semibold px-6"
+                  >
+                    End quiz <Flag className="size-4 ml-2" />
                   </Button>
                 )}
               </div>
@@ -455,14 +487,16 @@ export function HostView({ quizId }: HostViewProps) {
           {quiz.status === "ended" && (
             <motion.div
               key="ended"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, ease }}
               className="w-full max-w-xl space-y-8 text-center"
             >
               <div className="space-y-2">
-                <Trophy className="size-10 text-primary mx-auto" />
-                <h2 className="text-3xl font-bold tracking-tight">Final results</h2>
+                <p className="text-xs font-bold uppercase tracking-widest text-primary">
+                  Quiz finished 🎉
+                </p>
+                <h2 className="text-4xl font-bold tracking-tight">Final Leaderboard</h2>
               </div>
               <Leaderboard entries={leaderboard} title="Final standings" />
               <div className="flex justify-center gap-3">
@@ -489,77 +523,98 @@ export function HostView({ quizId }: HostViewProps) {
   );
 }
 
-function RevealChart({ reveal }: { reveal: RevealPayload }) {
-  if (reveal.distribution.kind === "options") {
-    const { counts, options } = reveal.distribution;
+function RevealChart({
+  reveal,
+  distribution: propDist,
+  isReveal = true,
+}: {
+  reveal?: RevealPayload | null;
+  distribution?: RevealDistribution | null;
+  isReveal?: boolean;
+}) {
+  const dist = propDist || reveal?.distribution;
+  if (!dist) return null;
+
+  if (dist.kind === "options") {
+    const { counts, options } = dist;
     const max = Math.max(...counts, 1);
     return (
       <div className="space-y-3">
-        {options.map((option, i) => (
-          <div
-            key={i}
-            className={`rounded-2xl border px-5 py-4 ${
-              option.isCorrect
-                ? "border-emerald-500/40 bg-emerald-500/10"
-                : "border-white/10 bg-white/[0.03]"
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold text-foreground/90 flex items-center gap-2">
-                <span className="text-primary/60 font-bold">{String.fromCharCode(65 + i)}</span>
-                {option.text}
-                {option.isCorrect && <CheckCircle2 className="size-4 text-emerald-400" />}
-              </span>
-              <span className="text-sm font-bold tabular-nums text-muted-foreground/80">
-                {counts[i] ?? 0}
-              </span>
+        {options.map((option, i) => {
+          const showCorrect = isReveal && option.isCorrect;
+          return (
+            <div
+              key={i}
+              className={`rounded-2xl border px-5 py-4 ${
+                showCorrect
+                  ? "border-emerald-500/40 bg-emerald-500/10"
+                  : "border-white/10 bg-white/[0.03]"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-foreground/90 flex items-center gap-2">
+                  <span className="text-primary/60 font-bold">{String.fromCharCode(65 + i)}</span>
+                  {option.text}
+                  {showCorrect && <CheckCircle2 className="size-4 text-emerald-400" />}
+                </span>
+                <span className="text-sm font-bold tabular-nums text-muted-foreground/80">
+                  {counts[i] ?? 0}
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${((counts[i] ?? 0) / max) * 100}%` }}
+                  transition={{ duration: 0.7, ease }}
+                  className={`h-full rounded-full ${showCorrect ? "bg-emerald-400" : "bg-primary/50"}`}
+                />
+              </div>
             </div>
-            <div className="h-2 rounded-full bg-white/5 overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${((counts[i] ?? 0) / max) * 100}%` }}
-                transition={{ duration: 0.7, ease }}
-                className={`h-full rounded-full ${option.isCorrect ? "bg-emerald-400" : "bg-primary/50"}`}
-              />
-            </div>
-          </div>
-        ))}
-        <p className="text-center text-xs text-muted-foreground/50">
-          {reveal.answeredCount}/{reveal.participantCount} answered
-        </p>
+          );
+        })}
+        {reveal && (
+          <p className="text-center text-xs text-muted-foreground/50">
+            {reveal.answeredCount}/{reveal.participantCount} answered
+          </p>
+        )}
       </div>
     );
   }
 
-  if (reveal.distribution.kind === "text") {
+  if (dist.kind === "text") {
     return (
       <div className="space-y-3">
         <div className="flex flex-wrap justify-center gap-2">
-          {reveal.distribution.answers.map((answer, i) => (
-            <span
-              key={i}
-              className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
-                answer.isCorrect
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                  : "border-white/10 bg-white/[0.03] text-foreground/70"
-              }`}
-            >
-              {answer.text} <span className="opacity-60">×{answer.count}</span>
-            </span>
-          ))}
-          {reveal.distribution.answers.length === 0 && (
+          {dist.answers.map((answer, i) => {
+            const showCorrect = isReveal && answer.isCorrect;
+            return (
+              <span
+                key={i}
+                className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
+                  showCorrect
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                    : "border-white/10 bg-white/[0.03] text-foreground/70"
+                }`}
+              >
+                {answer.text} <span className="opacity-60">×{answer.count}</span>
+              </span>
+            );
+          })}
+          {dist.answers.length === 0 && (
             <p className="text-sm text-muted-foreground/50">No answers were submitted.</p>
           )}
         </div>
-        <p className="text-center text-xs text-muted-foreground/60">
-          Accepted: {reveal.distribution.acceptedAnswers.join(", ")}
-        </p>
+        {isReveal && dist.acceptedAnswers && (
+          <p className="text-center text-xs text-muted-foreground/60">
+            Accepted: {dist.acceptedAnswers.join(", ")}
+          </p>
+        )}
       </div>
     );
   }
 
-  if (reveal.distribution.kind === "words") {
-    const { words } = reveal.distribution;
+  if (dist.kind === "words") {
+    const { words } = dist;
     const max = Math.max(...words.map((w) => w.count), 1);
     return (
       <div className="space-y-4">
@@ -584,15 +639,17 @@ function RevealChart({ reveal }: { reveal: RevealPayload }) {
             <p className="text-sm text-muted-foreground/50">No words were submitted.</p>
           )}
         </div>
-        <p className="text-center text-xs text-muted-foreground/50">
-          {reveal.answeredCount}/{reveal.participantCount} answered
-        </p>
+        {reveal && (
+          <p className="text-center text-xs text-muted-foreground/50">
+            {reveal.answeredCount}/{reveal.participantCount} answered
+          </p>
+        )}
       </div>
     );
   }
 
-  if (reveal.distribution.kind === "responses") {
-    const { responses } = reveal.distribution;
+  if (dist.kind === "responses") {
+    const { responses } = dist;
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -618,15 +675,17 @@ function RevealChart({ reveal }: { reveal: RevealPayload }) {
             </p>
           )}
         </div>
-        <p className="text-center text-xs text-muted-foreground/50">
-          {reveal.answeredCount}/{reveal.participantCount} answered
-        </p>
+        {reveal && (
+          <p className="text-center text-xs text-muted-foreground/50">
+            {reveal.answeredCount}/{reveal.participantCount} answered
+          </p>
+        )}
       </div>
     );
   }
 
-  if (reveal.distribution.kind === "scales") {
-    const { statements, scaleMax, minLabel, maxLabel } = reveal.distribution;
+  if (dist.kind === "scales") {
+    const { statements, scaleMax, minLabel, maxLabel } = dist;
     return (
       <div className="space-y-3 max-w-xl mx-auto">
         {statements.map((entry, i) => (
@@ -655,15 +714,17 @@ function RevealChart({ reveal }: { reveal: RevealPayload }) {
             </div>
           </div>
         ))}
-        <p className="text-center text-xs text-muted-foreground/50">
-          {reveal.answeredCount}/{reveal.participantCount} answered
-        </p>
+        {reveal && (
+          <p className="text-center text-xs text-muted-foreground/50">
+            {reveal.answeredCount}/{reveal.participantCount} answered
+          </p>
+        )}
       </div>
     );
   }
 
   // ranking — combined order by Borda points
-  const { items, voters } = reveal.distribution;
+  const { items, voters } = dist;
   const maxPoints = Math.max(...items.map((i) => i.points), 1);
   return (
     <div className="space-y-3 max-w-xl mx-auto">
@@ -701,9 +762,15 @@ function RevealChart({ reveal }: { reveal: RevealPayload }) {
           </div>
         </div>
       ))}
-      <p className="text-center text-xs text-muted-foreground/50">
-        {voters} of {reveal.participantCount} ranked
-      </p>
+      {reveal ? (
+        <p className="text-center text-xs text-muted-foreground/50">
+          {voters} of {reveal.participantCount} ranked
+        </p>
+      ) : (
+        <p className="text-center text-xs text-muted-foreground/50">
+          {voters} response{voters !== 1 ? "s" : ""}
+        </p>
+      )}
     </div>
   );
 }
