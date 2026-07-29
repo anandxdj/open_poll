@@ -14,6 +14,7 @@ document what *is* built. These docs describe where we are *going* and why.
 | [`00-product-vision.md`](./00-product-vision.md) | Who we serve, how we win, the strategic reframe, the SaaS shape, success metrics. Read first. |
 | [`01-competitive-roadmap.md`](./01-competitive-roadmap.md) | Mentimeter feature-gap analysis + a phased epic roadmap through GA. |
 | [`02-security-hardening.md`](./02-security-hardening.md) | Verified vulnerabilities, severity, and a prioritized remediation plan. P0 items gate any public launch. |
+| [`03-mcp-entity-gap.md`](./03-mcp-entity-gap.md) | Why asking an AI agent to create an assessment (`pollType: 'TRIAL'`) creates a plain poll. MCP strips `pollType` and the correct-answer fields. Fix plan. |
 
 ## The one idea to internalize
 

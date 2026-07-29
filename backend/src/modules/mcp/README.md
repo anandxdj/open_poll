@@ -41,6 +41,28 @@ MCP client ──Bearer opoll_mcp_xxx──► POST /mcp
 **Excluded by design:** delete, close, publish-results, account/billing/auth.
 Deletion and closing stay web-only.
 
+### Polls vs assessments
+
+`create_poll` / `edit_poll` cover both poll types the product supports:
+
+| `pollType` | UI name | Behaviour |
+|---|---|---|
+| `POLL` (default) | Poll | Ungraded opinion poll. |
+| `TRIAL` | Assessment / Trial | Graded. Questions carry `correctOptionIndices`, `points`, `explanation`; the poll carries `passingScorePercentage`. |
+
+MCP enforces two rules the REST schema does not, so an agent cannot persist an
+assessment that could never be scored:
+
+- Every question in a `TRIAL` must declare at least one `correctOptionIndices` entry.
+- Indices must be in range for that question's `options`, and a `single`-type question
+  accepts at most one.
+
+Promoting an existing poll to a `TRIAL` via `edit_poll` requires resupplying `questions` —
+the stored ones were written as a plain `POLL` and carry no correct answers.
+
+Slide-based decks (`wordcloud`, `ranking`, `scales`, join codes, leaderboards) are the
+separate `presentations` entity and are **not** exposed via MCP.
+
 ## Security model
 
 - Only the **sha256 hash** of the token is stored (`hashToken`); raw shown once.
