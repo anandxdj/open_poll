@@ -84,10 +84,9 @@ async function main() {
 
   // Built only through MCP — nothing touches the DB or the web builder.
   const created = await rpc('tools/call', {
-    name: 'create_poll',
+    name: 'create_assessment',
     arguments: {
       title: `MCP Graded Probe ${Date.now()}`,
-      pollType: 'TRIAL',
       passingScorePercentage: 60,
       isAnonymous: true,
       questions: [

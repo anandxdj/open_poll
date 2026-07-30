@@ -11,11 +11,15 @@ export type McpScope = (typeof MCP_SCOPES)[number];
 
 export const MCP_MAX_TOKENS_PER_USER = 5;
 
+// Read by assertToolScope in mcp.tools.ts — a tool missing from this map is
+// rejected as unknown, so registering a tool without a scope fails closed.
 export const MCP_TOOL_SCOPES: Record<string, McpScope> = {
   list_polls: 'poll:read',
   get_poll: 'poll:read',
   create_poll: 'poll:create',
+  create_assessment: 'poll:create',
   edit_poll: 'poll:edit',
+  convert_poll_to_assessment: 'poll:edit',
   get_poll_analytics: 'analytics:read',
   get_share_link: 'poll:read',
 };

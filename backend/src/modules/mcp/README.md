@@ -33,8 +33,10 @@ MCP client ──Bearer opoll_mcp_xxx──► POST /mcp
 |---|---|---|
 | `list_polls` | `poll:read` | `PollService.listPollsByCreator` |
 | `get_poll` | `poll:read` | `PollService.getPollById` (+owner check) |
-| `create_poll` | `poll:create` | `PollService.createPoll` |
+| `create_poll` | `poll:create` | `PollService.createPoll` (ungraded polls only) |
+| `create_assessment` | `poll:create` | `PollService.createPoll` with `pollType: TRIAL` |
 | `edit_poll` | `poll:edit` | `PollService.updatePoll` (+owner, blocks closed) |
+| `convert_poll_to_assessment` | `poll:edit` | `PollService.updatePoll` → `pollType: TRIAL` |
 | `get_poll_analytics` | `analytics:read` | `ResponseService.getPollAnalytics` (aggregate only) |
 | `get_share_link` | `poll:read` | `${FRONTEND_URL}/p/:pollId` |
 
@@ -43,22 +45,62 @@ Deletion and closing stay web-only.
 
 ### Polls vs assessments
 
-`create_poll` / `edit_poll` cover both poll types the product supports:
+The two poll types get **separate tools**, because the tool boundary is the only
+place the "graded" contract can actually be enforced:
 
-| `pollType` | UI name | Behaviour |
-|---|---|---|
-| `POLL` (default) | Poll | Ungraded opinion poll. |
-| `TRIAL` | Assessment / Trial | Graded. Questions carry `correctOptionIndices`, `points`, `explanation`; the poll carries `passingScorePercentage`. |
+| `pollType` | UI name | Tool | Behaviour |
+|---|---|---|---|
+| `POLL` | Poll | `create_poll` | Ungraded opinion poll. The tool's schema has no answer fields at all. |
+| `TRIAL` | Assessment / Trial | `create_assessment` | Graded. Every question **must** declare `correctOptionIndices`; also takes `points`, `explanation`, and `passingScorePercentage`. |
 
-MCP enforces two rules the REST schema does not, so an agent cannot persist an
-assessment that could never be scored:
+#### Why two tools instead of one `pollType` flag
 
-- Every question in a `TRIAL` must declare at least one `correctOptionIndices` entry.
+A `.describe()` hint and a server-side `.superRefine` are both invisible to the
+thing that decides the payload. An agent validates its tool call against the
+emitted **JSON Schema**, so only `required` binds it. With one tool, the schema
+said `required: ['text','options']` and an agent could omit the answers and only
+learn the rule from a rejection. Splitting the tools puts
+`correctOptionIndices` in `required` for the graded one:
+
+```
+create_poll        → question required: ['text','options']
+create_assessment  → question required: ['text','options','correctOptionIndices']
+```
+
+An ungradeable assessment is now unrepresentable rather than merely rejected.
+(A top-level `z.discriminatedUnion` on `pollType` would emit a top-level `anyOf`;
+MCP/Anthropic `input_schema` must be `type: "object"`, so that route is closed.
+JSON Schema `if/then/required` is not expressible in zod and clients enforce it
+inconsistently.)
+
+Rules MCP enforces that the REST schema does not:
+
+- Every `create_assessment` / `convert_poll_to_assessment` question needs a
+  non-empty `correctOptionIndices` (schema-level, so a client catches it pre-flight).
 - Indices must be in range for that question's `options`, and a `single`-type question
   accepts at most one.
+- `edit_poll` on a poll **already stored** as a `TRIAL` rejects answerless questions.
+  This one cannot live in the input schema — the stored `pollType` is only known after
+  the poll is fetched — so it runs in `dispatchMcpTool` after the owner check.
 
-Promoting an existing poll to a `TRIAL` via `edit_poll` requires resupplying `questions` —
-the stored ones were written as a plain `POLL` and carry no correct answers.
+`convert_poll_to_assessment` requires the full replacement `questions` set: the stored
+ones were written as an ungraded `POLL` and carry no correct answers. Converting an
+assessment back to a plain poll is not exposed; `edit_poll` has no `pollType` field.
+
+#### Verifying the answers are right, not just present
+
+No schema can tell `correctOptionIndices: [1]` from the answer actually being at `0`.
+So every graded write returns a `grading` block resolving each index to the stored
+option text, plus `gradeable` and `maxScore`:
+
+```json
+{ "gradeable": true, "maxScore": 8,
+  "questions": [{ "text": "Which planet is closest to the Sun?",
+                  "correctAnswers": ["Mercury"], "points": 5 }] }
+```
+
+The server instructions tell agents to read it back before reporting success, which
+turns a silent off-by-one into something the user sees.
 
 Slide-based decks (`wordcloud`, `ranking`, `scales`, join codes, leaderboards) are the
 separate `presentations` entity and are **not** exposed via MCP.
@@ -111,7 +153,7 @@ mounted in `app/(dashboard)/settings/page.tsx`.
 ### Done
 - [x] Token model, service, settings endpoints (Phase 1 backend)
 - [x] Settings → MCP tab: generate / copy config / list / revoke (Phase 1 frontend)
-- [x] MCP server + 6 tools, scope + owner enforcement, per-token rate limit (Phase 2)
+- [x] MCP server + 8 tools, scope + owner enforcement, per-token rate limit (Phase 2)
 - [x] Wired into `app.ts` (`/mcp`, `/api/mcp`) and settings page
 - [x] Backend typecheck clean; MCP frontend lints clean
 - [x] `API_PUBLIC_URL` documented in `.env.example`
@@ -139,5 +181,18 @@ mounted in `app/(dashboard)/settings/page.tsx`.
       duplicate, so defaults/constraints can't silently drift.
 - [x] **pollId validation** — malformed ids rejected as `400` before hitting Mongoose.
 - [ ] **Revoke-all / rotate** convenience action (optional).
+- [x] **Schema-enforced assessments** — `create_assessment` /
+      `convert_poll_to_assessment` put `correctOptionIndices` in the emitted
+      JSON Schema `required`, so a client cannot even compose an ungradeable
+      assessment; `create_poll` has no answer fields at all.
+- [x] **Single source of truth for input shapes** — `mcp.tools.ts` exports the
+      zod shapes `mcp.server.ts` registers, so the advertised schema and the
+      executed validation cannot drift (the original `pollType` bug).
+- [x] **`MCP_TOOL_SCOPES` is live** — `assertToolScope` reads the map and fails
+      closed on an unknown tool instead of the map being dead documentation.
+- [x] **Grading echo** — every graded write returns `grading` with each correct
+      index resolved to its option text, so a wrong-but-valid index is visible.
+- [x] **AI path matches** — `AiService` generates a TRIAL against
+      `generatedTrialSchema`, which also requires `correctOptionIndices`.
 - [ ] **v2 tools** (deferred): `close_poll` behind a `poll:close` scope.
 - [ ] Rename `prefix`/`last4` display if you want a nicer masked format in the UI.

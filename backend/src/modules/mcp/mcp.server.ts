@@ -1,6 +1,13 @@
 import * as z from 'zod/v4';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { handleMcpTool, getMcpServerInstructions } from './mcp.tools.js';
+import {
+  handleMcpTool,
+  getMcpServerInstructions,
+  createPollInputShape,
+  createAssessmentInputShape,
+  editPollInputShape,
+  convertPollToAssessmentInputShape,
+} from './mcp.tools.js';
 import type { McpScope } from './mcp.constants.js';
 
 export type McpSessionContext = {
@@ -8,27 +15,6 @@ export type McpSessionContext = {
   tokenId: string;
   scopes: McpScope[];
 };
-
-// Kept in step with mcpPollQuestionInput in mcp.tools.ts. What is advertised here
-// must match what is enforced there, or agents hit validation errors they had no
-// way to predict from tools/list.
-const pollQuestionShape = z.object({
-  text: z.string().min(1).describe('Question text'),
-  options: z.array(z.string().min(1)).min(2).describe('Answer options, at least 2'),
-  isMandatory: z.boolean().optional().describe('Whether an answer is required (default true)'),
-  type: z
-    .enum(['single', 'multiple'])
-    .optional()
-    .describe('Answer mode (default "single"). Use "multiple" when more than one option is correct.'),
-  correctOptionIndices: z
-    .array(z.number().int().min(0))
-    .optional()
-    .describe(
-      'TRIAL only: 0-based indices into this question\'s options that are correct. Required for every question when pollType is "TRIAL". A "single" question accepts at most one.',
-    ),
-  explanation: z.string().optional().describe('TRIAL only: why the correct answer is correct, shown after answering'),
-  points: z.number().min(1).optional().describe('TRIAL only: score weight for this question (default 1)'),
-});
 
 export function createMcpServer(ctx: McpSessionContext): McpServer {
   const server = new McpServer(
@@ -68,7 +54,7 @@ export function createMcpServer(ctx: McpSessionContext): McpServer {
   server.registerTool(
     'list_polls',
     {
-      description: 'List all polls created by the authenticated user.',
+      description: 'List all polls and assessments created by the authenticated user.',
       annotations: { readOnlyHint: true, destructiveHint: false },
     },
     async () => runTool('list_polls', {}),
@@ -77,7 +63,7 @@ export function createMcpServer(ctx: McpSessionContext): McpServer {
   server.registerTool(
     'get_poll',
     {
-      description: 'Get a single poll by ID. Only polls you own are accessible.',
+      description: 'Get a single poll or assessment by ID. Only ones you own are accessible.',
       inputSchema: {
         pollId: z.string().describe('Poll ID'),
       },
@@ -86,54 +72,50 @@ export function createMcpServer(ctx: McpSessionContext): McpServer {
     async ({ pollId }) => runTool('get_poll', { pollId }),
   );
 
+  // The input shapes come from mcp.tools.ts, which also enforces them, so the
+  // advertised schema and the validated schema cannot drift apart.
   server.registerTool(
     'create_poll',
     {
       description:
-        'Create a poll or a graded assessment. Set pollType to "TRIAL" for an assessment (called a quiz or trial in the UI) — every question must then carry correctOptionIndices, or the call is rejected as ungradeable. Leave pollType unset or "POLL" for an ordinary ungraded poll. Defaults to published (live) unless isPublished is false. expiresAt defaults to 30 days from now.',
-      inputSchema: {
-        title: z.string().min(3).describe('Poll title, at least 3 characters'),
-        pollType: z
-          .enum(['POLL', 'TRIAL'])
-          .optional()
-          .describe('"POLL" = ungraded opinion poll (default). "TRIAL" = graded assessment with correct answers.'),
-        passingScorePercentage: z
-          .number()
-          .min(0)
-          .max(100)
-          .optional()
-          .describe('TRIAL only: score percentage needed to pass (default 70)'),
-        isAnonymous: z.boolean().optional().describe('Whether responses are anonymous (default true)'),
-        expiresAt: z.string().optional().describe('ISO expiry datetime; must be in the future. Defaults to 30 days from now.'),
-        isPublished: z.boolean().optional().describe('Whether the poll is live (default true)'),
-        questions: z.array(pollQuestionShape).min(1).describe('Poll questions, at least 1'),
-      },
+        'Create an UNGRADED opinion poll — no correct answers, no scoring. For a quiz, test, exam, or anything scored, use create_assessment instead; this tool cannot express correct answers. Defaults to published (live) unless isPublished is false. expiresAt defaults to 30 days from now.',
+      inputSchema: createPollInputShape,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (args) => runTool('create_poll', args as Record<string, unknown>),
   );
 
   server.registerTool(
+    'create_assessment',
+    {
+      description:
+        'Create a GRADED assessment (a quiz, test, trial, or exam). Every question must declare correctOptionIndices — the schema requires it, so an assessment that could never be scored cannot be submitted. Optionally set passingScorePercentage (default 70), per-question points, and an explanation shown after answering. The response echoes a "grading" summary resolving your indices to option text: check it, because a valid index can still be the wrong answer.',
+      inputSchema: createAssessmentInputShape,
+      annotations: { readOnlyHint: false, destructiveHint: false },
+    },
+    async (args) => runTool('create_assessment', args as Record<string, unknown>),
+  );
+
+  server.registerTool(
     'edit_poll',
     {
       description:
-        'Update an owned poll. Supply at least one field besides pollId. Converting a poll to a graded assessment (pollType "TRIAL") also requires resupplying questions with correctOptionIndices, since the stored questions have no correct answers. Cannot edit closed polls. Cannot delete polls via MCP.',
-      inputSchema: {
-        pollId: z.string().describe('Poll ID to update'),
-        title: z.string().min(3).optional(),
-        pollType: z
-          .enum(['POLL', 'TRIAL'])
-          .optional()
-          .describe('Switch between ungraded poll and graded assessment. "TRIAL" requires resupplying questions.'),
-        passingScorePercentage: z.number().min(0).max(100).optional().describe('TRIAL only: pass mark percentage'),
-        isAnonymous: z.boolean().optional(),
-        expiresAt: z.string().optional().describe('ISO expiry datetime; must be in the future'),
-        isPublished: z.boolean().optional(),
-        questions: z.array(pollQuestionShape).min(1).optional(),
-      },
+        'Update an owned poll or assessment. Supply at least one field besides pollId. Supplying questions replaces all stored questions; if the target is a graded assessment, every supplied question must carry correctOptionIndices or the call is rejected. To turn an ungraded poll into a graded assessment use convert_poll_to_assessment. Cannot edit closed polls. Cannot delete polls via MCP.',
+      inputSchema: editPollInputShape,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (args) => runTool('edit_poll', args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    'convert_poll_to_assessment',
+    {
+      description:
+        'Turn an existing ungraded poll into a graded assessment. Requires the full replacement question set with correctOptionIndices on every question, because the stored questions were written as an ungraded poll and carry no correct answers. Converting an assessment back to an ungraded poll is not available via MCP.',
+      inputSchema: convertPollToAssessmentInputShape,
+      annotations: { readOnlyHint: false, destructiveHint: false },
+    },
+    async (args) => runTool('convert_poll_to_assessment', args as Record<string, unknown>),
   );
 
   server.registerTool(

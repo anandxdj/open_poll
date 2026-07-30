@@ -27,6 +27,30 @@ export const generatedPollSchema = createPollSchema.pick({
   isPublished: z.boolean().default(false),
 });
 
+// generatedPollSchema inherits polls.schema.ts's `correctOptionIndices: .default([])`,
+// which serializes to a NON-required property — so Gemini can return a TRIAL with no
+// correct answers at all, the parse silently backfills [], and an ungradeable
+// assessment persists. The prompt asking for answers was the only safeguard, and a
+// prompt is not a constraint. This variant makes the field required and non-empty so
+// structured output cannot omit it.
+//
+// It has to be a separate schema rather than a .superRefine on createPollSchema:
+// generatedPollSchema above calls createPollSchema.pick(), and .superRefine returns a
+// ZodEffects with no .pick(). See docs/planning/03-mcp-entity-gap.md.
+const generatedTrialQuestionSchema = z.object({
+  text: z.string().min(3),
+  options: z.array(z.string().min(1)).min(2),
+  type: z.enum(['single', 'multiple']).default('single'),
+  correctOptionIndices: z.array(z.number().int().min(0)).min(1),
+  explanation: z.string().default(''),
+  points: z.number().min(1).default(1),
+  isMandatory: z.boolean().default(true),
+});
+
+export const generatedTrialSchema = generatedPollSchema.extend({
+  questions: z.array(generatedTrialQuestionSchema).min(1),
+});
+
 export const generateAndSavePollRequestSchema = generatePollRequestSchema.extend({
   creatorId: z.string().default('mock-creator-id-123'),
 });

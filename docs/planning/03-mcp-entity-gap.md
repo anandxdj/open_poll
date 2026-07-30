@@ -3,10 +3,12 @@
 > Created 2026-07-30. Reported symptom: via an MCP client / AI agent, asking to create an
 > assessment (quiz) creates an ordinary poll instead.
 >
-> **Status: fixed** on branch `fix/mcp-assessment-polltype`. The remediation described
-> below shipped, plus the in-range/single-answer validation and the `edit_poll` ObjectId
-> check. Still open: the `quizzes` dead-module cleanup, the REST-surface validation hole,
-> and the doc drift — all recorded below.
+> **Status: fixed** on branch `fix/mcp-assessment-polltype`, then hardened past the
+> original remediation. The schema widening described below shipped first; it was
+> superseded by a **tool split** (`create_assessment` / `convert_poll_to_assessment`)
+> because a widened single tool could still be called with the answers omitted — see
+> "Superseded: why widening was not enough". Still open: the `quizzes` dead-module
+> cleanup, the REST-surface validation hole, and the doc drift — all recorded below.
 
 ## Verdict
 
@@ -113,7 +115,11 @@ passingScorePercentage: input.passingScorePercentage || 70,
 The `isTrial` prompt branch (`ai.service.ts:115-133`) asks the LLM to set `pollType`
 itself, and `generatedPollSchema` would default it to `'POLL'` if the LLM omitted it
 (`ai.schema.ts:23`) — but the post-generation override at :146 makes that moot. The mock
-fallback (`ai.service.ts:43-46`) does the same. Correct.
+fallback (`ai.service.ts:43-46`) does the same.
+
+**Correct for `pollType` only.** Revisited later: the *answers* had the same hole as MCP,
+since `generatedPollSchema` defaults `correctOptionIndices` to `[]`. See "The AI path had
+the same hole" below.
 
 ## Remediation
 
@@ -150,6 +156,61 @@ separate refined schema applied at the route's validate middleware, or restructu
 
 No new scopes, no token migration, no new routes. `poll:create` and `poll:edit` already
 cover it.
+
+### Superseded: why widening was not enough
+
+The widening above shipped and works, but it left the actual failure mode intact. An agent
+does not read `.describe()` prose or discover a server-side `.superRefine` before calling —
+it validates its payload against the emitted JSON Schema, where only `required` binds. With
+one widened `create_poll`, `tools/list` advertised:
+
+```
+question required: ['text','options']
+```
+
+`correctOptionIndices` was optional. An agent could set `pollType: 'TRIAL'`, omit the
+answers, and only learn the rule from a rejection — or, with the refinement absent, persist
+an ungradeable assessment. Prose steers; `required` binds.
+
+**Fix: split the tools**, so the graded contract lives where the client can see it.
+
+| Tool | Scope | Emitted question `required` |
+| --- | --- | --- |
+| `create_poll` | `poll:create` | `['text','options']` — no answer fields exist at all |
+| `create_assessment` | `poll:create` | `['text','options','correctOptionIndices']` |
+| `convert_poll_to_assessment` | `poll:edit` | `['text','options','correctOptionIndices']` |
+| `edit_poll` | `poll:edit` | answers optional — enforced post-fetch against stored `pollType` |
+
+`create_poll` lost its `pollType` field entirely and pins `'POLL'`, so `TRIAL` cannot be
+smuggled through the ungraded tool. A top-level `z.discriminatedUnion` on `pollType` was
+rejected: it emits a top-level `anyOf`, and MCP/Anthropic `input_schema` must be
+`type: "object"`. JSON Schema `if/then/required` is not expressible in zod and clients
+enforce it inconsistently.
+
+Three further changes came with the split:
+
+- **Single source of truth.** `mcp.tools.ts` now exports the zod shapes that
+  `mcp.server.ts` registers. The hand-kept mirror between the two files was the original
+  bug's mechanism; it can no longer drift.
+- **`edit_poll` regression closed.** Editing a poll already stored as `TRIAL` with
+  answerless questions used to silently un-grade a live assessment. `assertQuestionsGradeable`
+  now runs after the fetch, where the stored `pollType` is known.
+- **Presence is not correctness.** No schema can tell `correctOptionIndices: [1]` from the
+  answer actually being at `0`. Every graded write returns a `grading` block resolving each
+  index to its stored option text, plus `gradeable` and `maxScore`; the server instructions
+  tell agents to read it back before reporting success.
+
+`MCP_TOOL_SCOPES` also went live (see "Other MCP issues" below) — `assertToolScope` reads
+the map and fails closed on an unknown tool.
+
+### The AI path had the same hole
+
+`ai.service.ts` generated every draft against `generatedPollSchema`, whose
+`correctOptionIndices` defaults to `[]`. The post-generation override set `pollType: 'TRIAL'`
+correctly, so a Gemini-generated assessment could be labelled graded while carrying no
+answers. Fixed in the same commit: `generatedTrialSchema` (`ai.schema.ts`) requires
+`correctOptionIndices` with `.min(1)`, and `ai.service.ts` picks it for `isTrial` in both
+`withStructuredOutput` and the final `.parse`.
 
 ### Scope check — what this fix does *not* do
 
@@ -195,31 +256,50 @@ surviving exports into the presentations module, update `ai.schema.ts:3`, and re
 
 Independent of the assessment gap:
 
-- **Advertised schema is looser than enforced schema.** `mcp.server.ts` publishes what
-  clients see; `mcp.tools.ts` re-validates more strictly. `create_poll.title` is advertised
-  as `z.string()` but enforced `.min(3)`; `questions` is advertised without `.min(1)` but
-  enforced `.min(1)`; option strings likewise. Agents hit validation errors they had no way
-  to predict from `tools/list`. Worth fixing in the same pass, since this fix touches both
-  files anyway.
-- **`edit_poll` skips ObjectId validation.** It passes `parsed.pollId` straight to
-  `assertPollOwner` without the `mongoose.isValidObjectId` check the read tools get via
-  `parsePollId` (`mcp.tools.ts:53-59`).
-- **`MCP_TOOL_SCOPES` is dead.** Declared at `mcp.constants.ts:14-21`, imported nowhere;
-  `dispatchMcpTool` hardcodes the scope string at each `case`. The map and the switch can
-  drift.
+- ~~**Advertised schema is looser than enforced schema.**~~ **Fixed.** `mcp.server.ts`
+  published what clients see while `mcp.tools.ts` re-validated more strictly —
+  `create_poll.title` advertised `z.string()` but enforced `.min(3)`, `questions`
+  advertised without `.min(1)`, option strings likewise. Agents hit validation errors they
+  had no way to predict from `tools/list`. The two files now share one exported shape.
+- ~~**`edit_poll` skips ObjectId validation.**~~ **Fixed** — routed through `parsePollId`.
+- ~~**`MCP_TOOL_SCOPES` is dead.**~~ **Fixed.** It was declared at `mcp.constants.ts:14-21`
+  and imported nowhere while `dispatchMcpTool` hardcoded the scope at each `case`.
+  `assertToolScope` now reads the map and throws on a tool missing from it.
 - **MCP and REST disagree on `isPublished`.** `createPollSchema` defaults it to `false`
   (`polls.schema.ts:22`); `create_poll` overrides to `true` (`mcp.tools.ts:118`). MCP-created
   polls go live immediately, UI-created ones start as drafts. Intentional per the tool
   description, but undocumented in the README. Sharper now: an agent creating an assessment
   publishes it live by default.
-- **Test coverage gaps.** No test for `edit_poll`, `get_share_link`, `list_polls` happy
-  path, or the transport/session layer.
+- **Test coverage gaps.** Partly closed: `backend/tests/mcp.tools.test.ts` now covers all
+  four write tools plus `get_share_link` and `list_polls`, and
+  `backend/tests/mcp.publicUrl.test.ts` covers connector-URL resolution. The
+  transport/session layer is still only exercised by the throwaway e2e probes in
+  `backend/scratch/`.
+
+## Verification
+
+Unit: `bun test` — 59 pass. E2E over the real `/mcp` Streamable HTTP transport, against a
+running backend (`backend/scratch/`, throwaway, not part of the app):
+
+- `test_mcp_trial.ts` — 50 assertions. Section [1] reads the live `tools/list` output and
+  asserts the `required` arrays directly, since that is the only thing binding an agent.
+- `test_mcp_trial_grading.ts` — 13 assertions. A TRIAL built purely through MCP is graded
+  correctly by the normal respondent path (scores, pass threshold, explanations, partial
+  multi-select earning nothing).
+
+The original fix was also negative-controlled: reverting to the pre-fix handler turned the
+probe into 8 pass / 26 fail, reproducing `pollType: "POLL"` on a TRIAL request.
 
 ## Next steps
 
-1. Branch off `security/hardening-p0-p1` for this work — that branch carries ~35 files of
-   uncommitted changes that should not be entangled with it.
-2. Decide whether the `TRIAL`-requires-correct-answers validation goes in the same commit.
-3. Ship the schema widening + description rewrite + test amendment together; a schema-only
-   change leaves the agent unaware the capability exists.
-4. Separately: `quizzes` module deletion, and the doc drift above.
+1. ~~Branch off for this work.~~ Done — `fix/mcp-assessment-polltype`.
+2. ~~Decide whether the `TRIAL`-requires-correct-answers validation goes in the same
+   commit.~~ It did, and then moved into the schema itself via the tool split.
+3. ~~Ship the schema widening + description rewrite + test amendment together.~~ Shipped,
+   then superseded by the tool split.
+4. **Manual end-to-end test with a real MCP client** (Claude Desktop via `mcp-remote`) —
+   the probes drive the transport directly, so no real agent has yet chosen a tool from
+   these descriptions unaided. That is the remaining unknown.
+5. Close the REST-surface hole (see "The REST hole remains open" above) — direct REST
+   callers can still persist an ungradeable assessment.
+6. Separately: `quizzes` module deletion, and the doc drift above.

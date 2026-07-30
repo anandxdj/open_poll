@@ -13,13 +13,16 @@ const APPLY = process.argv.includes('--delete');
 const TEST_USER_EMAIL = 'mcp-trial-test@example.com';
 
 // `<name> <Date.now()>` — exactly what the probes generate, nothing else.
-const PROBE_TITLE = /^MCP (Trial Probe|Plain Probe|Graded Probe|Trial NoAnswers|Trial OutOfRange|Trial MultiSingle) \d{13}$/;
+const PROBE_TITLE =
+  /^(MCP (Assessment Probe|Plain Probe|Smuggle Probe|Graded Probe|Trial Probe|Assessment NoAnswers|Assessment Empty|Assessment OutOfRange|Assessment MultiSingle|Trial NoAnswers|Trial OutOfRange|Trial MultiSingle) \d{13}|Street Food Assessment \(edited\))$/;
 
 async function main() {
   await mongoose.connect(process.env.MONGO_URI!);
   await redisClient.connect().catch(() => {});
 
-  const candidates = await PollModel.find({ title: /^MCP (Trial|Plain|Graded)/ }).select(
+  const candidates = await PollModel.find({
+    title: /^(MCP (Assessment|Trial|Plain|Graded|Smuggle)|Street Food Assessment)/,
+  }).select(
     '_id title pollType creatorId createdAt',
   );
 

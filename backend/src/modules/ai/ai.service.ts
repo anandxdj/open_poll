@@ -6,6 +6,7 @@ import { PollService } from '../polls/polls.service';
 import { QUIZ_SLIDE_TYPES, quizSlideSchema } from '../quizzes/quizzes.schema';
 import {
   generatedPollSchema,
+  generatedTrialSchema,
   generatedQuizSchemaForLLM,
 } from './ai.schema';
 import type {
@@ -97,9 +98,12 @@ export class AiService {
     if (!model) {
       return this.buildMockDraft(input);
     }
-    const structuredModel = model.withStructuredOutput(generatedPollSchema);
-
     const isTrial = input.pollType === 'TRIAL';
+
+    // A TRIAL is generated against a schema that REQUIRES correctOptionIndices, so
+    // the model cannot return an assessment nobody could score.
+    const outputSchema = isTrial ? generatedTrialSchema : generatedPollSchema;
+    const structuredModel = model.withStructuredOutput(outputSchema);
 
     const graph = new StateGraph<AiGraphState>({
       channels: {
@@ -166,7 +170,7 @@ export class AiService {
         throw ApiError.badRequest('AI could not generate a valid payload');
       }
 
-      return generatedPollSchema.parse(result.generated);
+      return outputSchema.parse(result.generated);
     } catch (error) {
       console.error('[AI Generation Error]', error);
       return this.buildMockDraft(input);
