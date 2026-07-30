@@ -177,40 +177,36 @@ export function PublicResultsView({ poll }: Props) {
       </header>
 
       <main className="relative z-10 mx-auto max-w-3xl px-6 py-12 space-y-12">
-        {/* Title & Stats */}
-        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-2"
-          >
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary">
-              <Trophy className="size-3" />
-              {poll.pollType === 'TRIAL' ? "Quiz Assessment Results" : "Poll Conclusion"}
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-              {poll.title}
-            </h1>
-            <div className="flex items-center gap-4 pt-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">Total Responses</span>
-                <span className="text-sm font-bold text-foreground/70 tabular-nums">{analytics?.totalResponses ?? 0}</span>
-              </div>
-              <div className="h-3 w-px bg-border" />
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">Questions</span>
-                <span className="text-sm font-bold text-foreground/70 tabular-nums">{poll.questions.length}</span>
-              </div>
-            </div>
-          </motion.div>
+        {/* Title & Header Metadata */}
+        <motion.div 
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-4 border-b border-border/60 pb-6"
+        >
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-primary shadow-sm">
+            <Trophy className="size-3 text-primary" />
+            <span>{poll.pollType === 'TRIAL' ? "Quiz Assessment Results" : "Poll Conclusion"}</span>
+          </div>
 
-          <div className="flex flex-col gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
-              Change View
-            </span>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground md:text-4xl leading-tight font-sans">
+            {poll.title}
+          </h1>
+
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+            <div className="flex items-center gap-2.5">
+              <div className="inline-flex items-center gap-2 rounded-lg border border-border/80 bg-card/40 px-3 py-1.5 text-xs shadow-sm">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Total Responses</span>
+                <span className="font-mono font-extrabold text-primary text-sm">{analytics?.totalResponses ?? 0}</span>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-lg border border-border/80 bg-card/40 px-3 py-1.5 text-xs shadow-sm">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Questions</span>
+                <span className="font-mono font-extrabold text-foreground text-sm">{poll.questions.length}</span>
+              </div>
+            </div>
+
             <VisualizationPicker value={visType} onChange={setVisType} />
           </div>
-        </div>
+        </motion.div>
 
         {/* Results Sections */}
         <div className="space-y-8">

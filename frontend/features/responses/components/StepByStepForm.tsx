@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import axios from "axios";
 import { toast } from "sonner";
-import { CheckCircle2, ChevronLeft, RotateCcw, XCircle, Award } from "lucide-react";
+import { CheckCircle2, ChevronLeft, RotateCcw, XCircle, Award, BarChart2, RefreshCw } from "lucide-react";
 
 import type { Poll } from "@/features/polls/store/useCreatorStore";
 import { apiClient } from "@/lib/api-client";
@@ -347,6 +347,23 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
         <div className="rounded-2xl border border-border bg-secondary/30 px-5 py-3 text-xs font-medium text-muted-foreground/60">
           {total} question{total !== 1 ? "s" : ""} answered · Thank you for participating
         </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="pt-2"
+        >
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all cursor-pointer active:scale-95 group"
+          >
+            <BarChart2 className="size-4 group-hover:scale-110 transition-transform" />
+            <span>View Live Results</span>
+            <RefreshCw className="size-3.5 opacity-70 group-hover:rotate-180 transition-transform duration-500" />
+          </button>
+        </motion.div>
       </motion.div>
     );
   }
@@ -463,9 +480,9 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
                       <CheckCircle2 className="size-5 text-primary" />
                     </motion.div>
                   ) : (
-                    <div className="ml-auto hidden md:inline-flex items-center justify-center rounded-lg border border-border bg-secondary/50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-muted-foreground/50 shadow-sm transition-all duration-300 group-hover:border-primary/20 group-hover:text-primary/70 group-hover:bg-primary/5 select-none uppercase">
+                    <kbd className="ml-auto hidden md:inline-flex items-center justify-center rounded-md border border-border/80 bg-secondary/60 px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-muted-foreground/60 shadow-sm transition-all duration-300 group-hover:border-primary/30 group-hover:text-primary group-hover:bg-primary/10 select-none uppercase whitespace-nowrap shrink-0">
                       Press {idx + 1}
-                    </div>
+                    </kbd>
                   )}
                 </motion.button>
               );
