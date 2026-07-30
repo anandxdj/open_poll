@@ -80,11 +80,12 @@ export class PresentationController {
     }
   }
 
-  static async startNextQuestion(req: AuthRequest, res: Response, next: NextFunction) {
+  static async advanceSlide(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const user = requireUser(req);
-      const presentation = await PresentationService.startNextQuestion(requireParam(req, 'id'), user.id);
-      return ApiResponse.ok(res, 'Question started', presentation);
+      const targetIndex = req.body?.slideIndex !== undefined ? Number(req.body.slideIndex) : undefined;
+      const presentation = await PresentationService.advanceSlide(requireParam(req, 'id'), user.id, targetIndex);
+      return ApiResponse.ok(res, 'Slide advanced', presentation);
     } catch (error) {
       next(error);
     }
@@ -93,18 +94,8 @@ export class PresentationController {
   static async reveal(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const user = requireUser(req);
-      const presentation = await PresentationService.revealAnswers(requireParam(req, 'id'), user.id);
+      const presentation = await PresentationService.revealCurrentSlide(requireParam(req, 'id'), user.id);
       return ApiResponse.ok(res, 'Answers revealed', presentation);
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async showLeaderboard(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const user = requireUser(req);
-      const presentation = await PresentationService.showLeaderboard(requireParam(req, 'id'), user.id);
-      return ApiResponse.ok(res, 'Leaderboard shown', presentation);
     } catch (error) {
       next(error);
     }

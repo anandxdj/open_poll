@@ -52,9 +52,8 @@ router.delete('/:id', authenticate(), QuizController.delete);
 // Host session controls
 router.get('/:id/host/state', authenticate(), QuizController.hostState);
 router.post('/:id/host/open-lobby', authenticate(), QuizController.openLobby);
-router.post('/:id/host/next-question', authenticate(), QuizController.startNextQuestion);
+router.post('/:id/host/advance', authenticate(), QuizController.advanceSlide);
 router.post('/:id/host/reveal', authenticate(), QuizController.reveal);
-router.post('/:id/host/leaderboard', authenticate(), QuizController.showLeaderboard);
 router.post('/:id/host/end', authenticate(), QuizController.end);
 
 export default router;

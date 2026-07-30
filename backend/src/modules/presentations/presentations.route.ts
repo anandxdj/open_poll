@@ -52,9 +52,8 @@ router.delete('/:id', authenticate(), PresentationController.delete);
 // Host session controls
 router.get('/:id/host/state', authenticate(), PresentationController.hostState);
 router.post('/:id/host/open-lobby', authenticate(), PresentationController.openLobby);
-router.post('/:id/host/next-question', authenticate(), PresentationController.startNextQuestion);
+router.post('/:id/host/advance', authenticate(), PresentationController.advanceSlide);
 router.post('/:id/host/reveal', authenticate(), PresentationController.reveal);
-router.post('/:id/host/leaderboard', authenticate(), PresentationController.showLeaderboard);
 router.post('/:id/host/end', authenticate(), PresentationController.end);
 
 export default router;

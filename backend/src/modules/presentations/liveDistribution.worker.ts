@@ -19,11 +19,11 @@ export const startLiveDistributionWorker = () => {
           const presentation = await PresentationModel.findById(pId);
           if (
             presentation &&
-            presentation.status === 'question' &&
+            presentation.status === 'active' &&
             presentation.currentSlideIndex >= 0
           ) {
             const slide = presentation.slides[presentation.currentSlideIndex];
-            if (slide) {
+            if (slide && slide.type !== 'leaderboard') {
               const { distribution, answeredCount, participantCount } =
                 await computeSlideDistributionHelper(
                   'presentation',
@@ -53,9 +53,9 @@ export const startLiveDistributionWorker = () => {
         await redisClient.del('buffer:active_quiz_distributions').catch(() => {});
         for (const qId of quizIds) {
           const quiz = await QuizModel.findById(qId);
-          if (quiz && quiz.status === 'question' && quiz.currentSlideIndex >= 0) {
+          if (quiz && quiz.status === 'active' && quiz.currentSlideIndex >= 0) {
             const slide = quiz.slides[quiz.currentSlideIndex];
-            if (slide) {
+            if (slide && slide.type !== 'leaderboard') {
               const { distribution, answeredCount, participantCount } =
                 await computeSlideDistributionHelper(
                   'quiz',

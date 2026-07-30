@@ -200,8 +200,11 @@ export const computeSlideDistributionHelper = async (
     }
     case 'ranking': {
       const voters = Number(distHash['voters'] ?? 0);
-      const items = (slide.items ?? [])
-        .map((text: string, i: number) => ({ text, points: Number(distHash[String(i)] ?? 0) }))
+      // slide is `any`, so annotate here or sort/map below infer implicit any params.
+      const ranked: { text: string; points: number }[] = (slide.items ?? []).map(
+        (text: string, i: number) => ({ text, points: Number(distHash[String(i)] ?? 0) }),
+      );
+      const items = ranked
         .sort((a, b) => b.points - a.points)
         .map((item, i) => ({ ...item, rank: i + 1 }));
       distribution = { kind: 'ranking', items, voters };
@@ -425,19 +428,56 @@ export class PresentationService {
     return presentation;
   }
 
-  static async startNextQuestion(presentationId: string, userId: string) {
+  /**
+   * Advance to a slide (forward-only during a live session). Handles both
+   * answerable slides (emits `question:started` + caches the answer session)
+   * and leaderboard slides (emits `leaderboard:shown`, no timer). Status stays
+   * `active` throughout — the answering-vs-revealed sub-state is derived from
+   * the clock on the client, not stored here.
+   */
+  static async advanceSlide(presentationId: string, userId: string, targetIndex?: number) {
     const presentation = await PresentationService.assertOwnership(presentationId, userId);
-    if (!['lobby', 'reveal', 'leaderboard'].includes(presentation.status)) {
-      throw ApiError.badRequest(`Cannot start a slide from status "${presentation.status}"`);
+    if (!['lobby', 'active'].includes(presentation.status)) {
+      throw ApiError.badRequest(`Cannot advance a slide from status "${presentation.status}"`);
     }
 
-    const nextIndex = presentation.currentSlideIndex + 1;
+    const nextIndex = targetIndex !== undefined ? targetIndex : presentation.currentSlideIndex + 1;
+    if (nextIndex < 0 || nextIndex >= presentation.slides.length) {
+      throw ApiError.badRequest('Slide index out of bounds');
+    }
+    // Forward-only: a live session never revisits a slide it already ran.
+    if (presentation.status === 'active' && nextIndex <= presentation.currentSlideIndex) {
+      throw ApiError.badRequest('Cannot navigate backwards during a live session');
+    }
     const slide = presentation.slides[nextIndex];
-    if (!slide) throw ApiError.badRequest('No more slides — end the presentation instead');
+    if (!slide) throw ApiError.badRequest('Slide missing');
 
     const now = new Date();
-    presentation.status = 'question';
+    presentation.status = 'active';
     presentation.currentSlideIndex = nextIndex;
+
+    // Leaderboard slides have no timer and accept no answers.
+    if (slide.type === 'leaderboard') {
+      presentation.questionStartedAt = null;
+      presentation.questionEndsAt = null;
+      await presentation.save();
+      await redisClient.del(k.session(presentationId)).catch(() => {});
+
+      const leaderboard = await getLeaderboard(presentationId);
+      const participantCount = await redisClient
+        .hLen(k.names(presentationId))
+        .catch(() => 0)
+        .then((n) => (n > 0 ? n : PresentationParticipantModel.countDocuments({ presentationId })));
+
+      await publishPresentationEvent(presentationId, 'leaderboard:shown', {
+        slideIndex: nextIndex,
+        leaderboard,
+        participantCount,
+        isLastSlide: nextIndex === presentation.slides.length - 1,
+      });
+      return presentation;
+    }
+
     presentation.questionStartedAt = now;
     presentation.questionEndsAt = new Date(now.getTime() + slide.timeLimit * 1000);
     await presentation.save();
@@ -457,19 +497,26 @@ export class PresentationService {
     return presentation;
   }
 
-  static async revealAnswers(presentationId: string, userId: string) {
+  /**
+   * Broadcast the correct answer + distribution for the current slide. Fired by
+   * the host client when the timer hits 0 (auto) or manually. Does NOT change
+   * status — the deck stays `active` on the same slide until the host advances.
+   * Safe to call more than once (idempotent re-broadcast).
+   */
+  static async revealCurrentSlide(presentationId: string, userId: string) {
     const presentation = await PresentationService.assertOwnership(presentationId, userId);
-    if (presentation.status !== 'question') {
+    if (presentation.status !== 'active') {
       throw ApiError.badRequest('No live slide to reveal');
     }
 
     const slideIndex = presentation.currentSlideIndex;
     const slide = presentation.slides[slideIndex];
     if (!slide) throw ApiError.internal('Current slide missing');
+    if (slide.type === 'leaderboard') {
+      throw ApiError.badRequest('Leaderboard slides have nothing to reveal');
+    }
 
-    presentation.status = 'reveal';
-    await presentation.save();
-
+    // Close the answer window so late clicks are rejected.
     await redisClient.del(k.session(presentationId)).catch(() => {});
 
     const { distribution, answeredCount, participantCount } = await computeSlideDistributionHelper(
@@ -496,29 +543,7 @@ export class PresentationService {
       answeredCount,
       participantCount,
       isLastSlide: slideIndex === presentation.slides.length - 1,
-    });
-    return presentation;
-  }
-
-  static async showLeaderboard(presentationId: string, userId: string) {
-    const presentation = await PresentationService.assertOwnership(presentationId, userId);
-    if (!['reveal', 'question'].includes(presentation.status)) {
-      throw ApiError.badRequest('Leaderboard can be shown after revealing a question');
-    }
-
-    presentation.status = 'leaderboard';
-    await presentation.save();
-
-    const leaderboard = await getLeaderboard(presentationId);
-    const participantCount = await redisClient
-      .hLen(k.names(presentationId))
-      .catch(() => 0)
-      .then((n) => (n > 0 ? n : PresentationParticipantModel.countDocuments({ presentationId })));
-
-    await publishPresentationEvent(presentationId, 'leaderboard:shown', {
-      leaderboard,
-      participantCount,
-      isLastSlide: presentation.currentSlideIndex === presentation.slides.length - 1,
+      auto: true,
     });
     return presentation;
   }
@@ -556,9 +581,9 @@ export class PresentationService {
         });
       }
 
-      if (presentation.status === 'question' || presentation.status === 'reveal') {
+      if (presentation.status === 'active') {
         const slide = presentation.slides[presentation.currentSlideIndex];
-        if (slide) {
+        if (slide && slide.type !== 'leaderboard') {
           const res = await computeSlideDistributionHelper(
             'presentation',
             presentationId,
@@ -606,12 +631,17 @@ export class PresentationService {
       serverNow: new Date().toISOString(),
     };
 
-    if (presentation.status === 'question' && presentation.currentSlideIndex >= 0) {
+    if (
+      presentation.status === 'active' &&
+      presentation.currentSlideIndex >= 0 &&
+      presentation.questionStartedAt &&
+      presentation.questionEndsAt
+    ) {
       const slide = presentation.slides[presentation.currentSlideIndex];
-      if (slide) {
+      if (slide && slide.type !== 'leaderboard') {
         result.currentSlide = sanitizeSlide(slide, presentation.currentSlideIndex, presentation.slides.length);
-        result.questionStartedAt = presentation.questionStartedAt?.toISOString();
-        result.questionEndsAt = presentation.questionEndsAt?.toISOString();
+        result.questionStartedAt = presentation.questionStartedAt.toISOString();
+        result.questionEndsAt = presentation.questionEndsAt.toISOString();
       }
     }
 
@@ -679,9 +709,9 @@ export class PresentationService {
       session = JSON.parse(raw) as LiveSession;
     } else {
       const presentation = await PresentationModel.findById(presentationId);
-      if (presentation && presentation.status === 'question' && presentation.currentSlideIndex >= 0) {
+      if (presentation && presentation.status === 'active' && presentation.currentSlideIndex >= 0) {
         const slide = presentation.slides[presentation.currentSlideIndex];
-        if (slide && presentation.questionStartedAt && presentation.questionEndsAt) {
+        if (slide && slide.type !== 'leaderboard' && presentation.questionStartedAt && presentation.questionEndsAt) {
           session = buildSession(presentation, slide);
           void redisClient
             .set(k.session(presentationId), JSON.stringify(session), { EX: PRESENTATION_KEY_TTL_SEC })
@@ -895,7 +925,14 @@ export class PresentationService {
       score: number;
       scored: boolean;
     } | null = null;
-    if (['reveal', 'leaderboard', 'ended'].includes(presentation.status) && presentation.currentSlideIndex >= 0) {
+    // Reveal is clock-derived now: expose the participant's result once the
+    // current slide's answer window has closed, or after the deck ends.
+    const answerWindowClosed =
+      presentation.status === 'ended' ||
+      (presentation.status === 'active' &&
+        !!presentation.questionEndsAt &&
+        Date.now() > presentation.questionEndsAt.getTime());
+    if (answerWindowClosed && presentation.currentSlideIndex >= 0) {
       const slideType = presentation.slides[presentation.currentSlideIndex]?.type;
       const slideScored = slideType ? isScoredSlideType(slideType) : true;
       const cached = await redisClient
