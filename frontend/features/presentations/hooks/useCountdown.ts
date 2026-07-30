@@ -11,29 +11,35 @@ export function useCountdown(
   serverNow: string | null | undefined,
   totalSeconds: number = 30
 ) {
-  const [msLeft, setMsLeft] = useState<number>(0);
+  const [, setTickState] = useState(0);
   const offsetRef = useRef(0);
 
   useEffect(() => {
-    if (!endsAt) {
-      setMsLeft(0);
-      return;
+    if (!endsAt) return;
+
+    if (serverNow) {
+      offsetRef.current = new Date(serverNow).getTime() - Date.now();
     }
-    const endMs = typeof endsAt === "number" ? endsAt : new Date(endsAt).getTime();
-    offsetRef.current = serverNow ? new Date(serverNow).getTime() - Date.now() : 0;
 
-    const tick = () => {
-      const nowOnServer = Date.now() + offsetRef.current;
-      setMsLeft(Math.max(0, endMs - nowOnServer));
-    };
+    const interval = setInterval(() => {
+      setTickState((t) => t + 1);
+    }, 100);
 
-    tick();
-    const interval = setInterval(tick, 100);
     return () => clearInterval(interval);
   }, [endsAt, serverNow]);
 
+  // Compute msLeft synchronously on every render so state transitions
+  // (e.g. lobby -> active question) never calculate a stale 0ms deadline.
+  let msLeft = 0;
+  if (endsAt) {
+    const endMs = typeof endsAt === "number" ? endsAt : new Date(endsAt).getTime();
+    const nowOnServer = Date.now() + offsetRef.current;
+    msLeft = Math.max(0, endMs - nowOnServer);
+  }
+
   const secondsLeft = Math.ceil(msLeft / 1000);
   const progress = totalSeconds > 0 ? Math.min(1, msLeft / (totalSeconds * 1000)) : 0;
+  const expired = !!endsAt && msLeft <= 0;
 
-  return { msLeft, secondsLeft, progress, expired: !!endsAt && msLeft <= 0 };
+  return { msLeft, secondsLeft, progress, expired };
 }
