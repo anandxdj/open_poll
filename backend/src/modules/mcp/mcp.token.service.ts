@@ -39,7 +39,10 @@ function toTokenMeta(doc: {
 }
 
 export class McpTokenService {
-  static async issueToken(userId: string, label: string) {
+  // baseUrl comes from the caller's request origin so the copied connector config
+  // points at this deployment rather than localhost. Omitted callers fall back to
+  // getMcpPublicUrl()'s env-based resolution.
+  static async issueToken(userId: string, label: string, baseUrl?: string) {
     const activeCount = await McpTokenModel.countDocuments({ userId });
     if (activeCount >= MCP_MAX_TOKENS_PER_USER) {
       throw ApiError.badRequest(`You can have at most ${MCP_MAX_TOKENS_PER_USER} active MCP tokens`);
@@ -62,7 +65,7 @@ export class McpTokenService {
 
     return {
       token: rawToken,
-      connectorConfig: buildMcpConnectorConfig(rawToken),
+      connectorConfig: buildMcpConnectorConfig(rawToken, baseUrl),
       meta: toTokenMeta(doc),
     };
   }

@@ -75,10 +75,19 @@ separate `presentations` entity and are **not** exposed via MCP.
 
 ## Config
 
-`API_PUBLIC_URL` — public origin of THIS backend, used to build the connector
-config users copy. **MUST be set in production** (e.g.
-`https://openpoll-backend.anands.dev`); otherwise config points at
-`http://localhost:PORT`. See `.env.example`.
+The connector config users copy needs the backend's public origin. `getMcpPublicUrl(req)`
+resolves it in this order:
+
+1. `API_PUBLIC_URL` — operator override; only needed when the public origin differs
+   from the one users reach the API on.
+2. The requesting origin (`x-forwarded-host`/`host` + `x-forwarded-proto`). `app.ts`
+   sets `trust proxy`, so this is correct behind Vercel. This is the production path —
+   no env var required.
+3. `VERCEL_PROJECT_PRODUCTION_URL`, then `VERCEL_URL`, for non-request callers.
+4. `http://localhost:PORT` in development.
+
+Vercel routes both `/mcp` and `/mcp/(.*)` to the backend service — `mcp-remote` POSTs
+to bare `/mcp`, which the `/mcp/(.*)` pattern alone does not match.
 
 ## Files
 
@@ -109,7 +118,8 @@ mounted in `app/(dashboard)/settings/page.tsx`.
 - [x] Prompt-injection containment: analytics aggregate-only + labeled
 
 ### To do
-- [ ] **Set `API_PUBLIC_URL` in production env** (else copied config points to localhost).
+- [x] Connector-config origin derived from the request, so production needs no
+      `API_PUBLIC_URL`; `/mcp` and `/mcp/(.*)` both routed in `vercel.json`
 - [ ] **Manual end-to-end test with a real MCP client** (Claude Desktop via
       `mcp-remote`): connect, list/create/edit poll, read analytics, get share link.
 - [ ] **Token expiry UX** — model supports `expiresAt`, but issue flow always
