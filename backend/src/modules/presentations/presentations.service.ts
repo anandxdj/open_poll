@@ -807,22 +807,23 @@ export class PresentationService {
         )
       : 0;
 
+    // Atomic Redis updates via MULTI — a crash mid-write can't desync
+    // leaderboard / distribution / per-participant result.
     const distKey = k.dist(presentationId, data.slideIndex);
     const dispKey = k.disp(presentationId, data.slideIndex);
-    const [answeredCount] = await Promise.all([
-      redisClient.sCard(answeredKey),
-      redisClient.zIncrBy(k.scores(presentationId), score, data.participantId),
-      isCorrect
-        ? redisClient.hIncrBy(k.correct(presentationId), data.participantId, 1)
-        : Promise.resolve(0),
-      ...distWrites.map((w) => redisClient.hIncrBy(distKey, w.field, w.by)),
-      ...dispWrites.map((w) => redisClient.hSetNX(dispKey, w.field, w.value)),
-      redisClient.hSet(
-        k.results(presentationId, data.slideIndex),
-        data.participantId,
-        JSON.stringify({ isCorrect, score, scored: session.scored })
-      ),
-    ]);
+    const pipeline = redisClient.multi();
+    pipeline.zIncrBy(k.scores(presentationId), score, data.participantId);
+    if (isCorrect) pipeline.hIncrBy(k.correct(presentationId), data.participantId, 1);
+    distWrites.forEach((w) => pipeline.hIncrBy(distKey, w.field, w.by));
+    dispWrites.forEach((w) => pipeline.hSetNX(dispKey, w.field, w.value));
+    pipeline.hSet(
+      k.results(presentationId, data.slideIndex),
+      data.participantId,
+      JSON.stringify({ isCorrect, score, scored: session.scored })
+    );
+    pipeline.sCard(answeredKey);
+    const pipelineResults = await pipeline.exec();
+    const answeredCount = Number(pipelineResults[pipelineResults.length - 1]);
 
     await redisClient.sAdd('buffer:active_presentation_distributions', presentationId).catch(() => {});
 
