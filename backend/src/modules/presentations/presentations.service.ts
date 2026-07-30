@@ -356,6 +356,29 @@ export class PresentationService {
     return presentation;
   }
 
+  // Non-throwing checks for the socket layer, which just needs a yes/no.
+  static async isOwner(presentationId: string, userId: string): Promise<boolean> {
+    try {
+      await PresentationService.assertOwnership(presentationId, userId);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  static async isAuthorizedParticipant(
+    presentationId: string,
+    participantId: string,
+    token: string
+  ): Promise<boolean> {
+    try {
+      await verifyParticipant(presentationId, participantId, token);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   static async listPresentationsByCreator(creatorId: string) {
     return PresentationModel.find({ creatorId }).sort({ createdAt: -1 });
   }

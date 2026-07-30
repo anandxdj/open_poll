@@ -257,6 +257,29 @@ export class QuizService {
     return quiz;
   }
 
+  // Non-throwing checks for the socket layer, which just needs a yes/no.
+  static async isOwner(quizId: string, userId: string): Promise<boolean> {
+    try {
+      await QuizService.assertOwnership(quizId, userId);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  static async isAuthorizedParticipant(
+    quizId: string,
+    participantId: string,
+    token: string
+  ): Promise<boolean> {
+    try {
+      await verifyParticipant(quizId, participantId, token);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   static async listQuizzesByCreator(creatorId: string) {
     return QuizModel.find({ creatorId }).sort({ createdAt: -1 });
   }
