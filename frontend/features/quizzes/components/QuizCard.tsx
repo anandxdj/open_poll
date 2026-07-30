@@ -77,7 +77,7 @@ export function QuizCard({ quiz, index = 0, onDelete }: QuizCardProps) {
 
         <div className="flex items-center gap-2 pt-1 mt-auto">
           <Button
-            onClick={() => router.push(`/quiz/host/${quiz._id}`)}
+            onClick={() => router.push(`/quiz/host/${quiz._id}?reset=true`)}
             className="h-9 rounded-full bg-primary text-primary-foreground font-semibold px-4 text-xs"
           >
             <Play className="size-3.5 mr-1.5" /> Host live

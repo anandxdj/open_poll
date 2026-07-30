@@ -1,17 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
 import {
   ArrowRight,
-  CheckCircle2,
-  Eye,
-  EyeOff,
+  Check,
+  ChevronLeft,
+  Copy,
   Flag,
   Loader2,
+  Maximize2,
+  Minimize2,
   Play,
   Radio,
+  RotateCcw,
   Trophy,
   Users,
 } from "lucide-react";
@@ -20,17 +23,18 @@ import { QRCodeSVG } from "qrcode.react";
 
 import { Button } from "@/components/ui/button";
 import {
+  advanceSlide,
   endQuiz,
   getHostState,
   openLobby,
-  revealAnswers,
-  showLeaderboard,
-  startNextQuestion,
+  revealCurrentSlide,
 } from "../api/quizApi";
 import { useQuizSocket } from "../hooks/useQuizSocket";
 import { useCountdown } from "../hooks/useCountdown";
 import { QuizTimer } from "./QuizTimer";
 import { Leaderboard } from "./Leaderboard";
+import { WordCloud } from "./WordCloud";
+import { CardFillRevealChart } from "./CardFillRevealChart";
 import type {
   LeaderboardEntry,
   Quiz,
@@ -47,741 +51,744 @@ interface HostViewProps {
 
 export function HostView({ quizId }: HostViewProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isResetRequested = searchParams?.get("reset") === "true";
+
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [serverNow, setServerNow] = useState<string | null>(null);
   const [participants, setParticipants] = useState<{ participantId: string; name: string }[]>([]);
   const [answeredCount, setAnsweredCount] = useState(0);
   const [reveal, setReveal] = useState<RevealPayload | null>(null);
   const [liveDistribution, setLiveDistribution] = useState<RevealDistribution | null>(null);
-  const [showLiveResults, setShowLiveResults] = useState(true);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const revealFiredRef = useRef(false);
+  const hasResetLobbyRef = useRef(false);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
 
   const refresh = useCallback(async () => {
     try {
       const state = await getHostState(quizId);
-      setQuiz(state.quiz);
+      let currentQuiz = state.quiz;
+
+      // On initial mount: ensure lobby is opened for draft/ended/reset requests (only run once)
+      if (!hasResetLobbyRef.current) {
+        hasResetLobbyRef.current = true;
+        if (currentQuiz.status === "draft" || currentQuiz.status === "ended" || isResetRequested) {
+          try {
+            currentQuiz = await openLobby(quizId);
+          } catch {
+            // Fallback to current state
+          }
+        }
+      }
+
+      setQuiz(currentQuiz);
       setServerNow(state.serverNow);
       setParticipants(state.participants);
       setAnsweredCount(state.answeredCount);
       if (state.liveDistribution) setLiveDistribution(state.liveDistribution);
-      setLeaderboard(state.leaderboard);
+      if (state.leaderboard) setLeaderboard(state.leaderboard);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Could not load quiz.");
-      router.push("/polls");
+      const status = err?.response?.status;
+      if (status === 404) setLoadError("Quiz not found.");
+      else if (status === 401 || status === 403) setLoadError("You are not authorized to host this quiz.");
+      else setLoadError(err?.response?.data?.message || "Could not load quiz.");
     } finally {
       setLoading(false);
     }
-  }, [quizId, router]);
+  }, [quizId, isResetRequested]);
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  useEffect(() => { void refresh(); }, [refresh]);
 
-  // Fallback periodic polling while in lobby to ensure participant list updates reliably
   useEffect(() => {
     if (quiz?.status !== "lobby") return;
-    const interval = setInterval(() => {
-      void refresh();
-    }, 3000);
+    const interval = setInterval(() => void refresh(), 3000);
     return () => clearInterval(interval);
   }, [quiz?.status, refresh]);
 
-  useQuizSocket(quizId, (event: QuizRealtimeEvent) => {
-    if (event.type === "participant:joined") {
-      const { participantId, name } = event.payload as { participantId: string; name: string };
-      setParticipants((prev) =>
-        prev.some((p) => p.participantId === participantId)
-          ? prev
-          : [...prev, { participantId, name }]
-      );
-    }
-    if (event.type === "answer:received") {
-      const payload = event.payload as { answeredCount: number; distribution?: RevealDistribution };
-      setAnsweredCount(payload.answeredCount);
-      if (payload.distribution) {
-        setLiveDistribution(payload.distribution);
+  const { connected } = useQuizSocket(
+    quizId,
+    useCallback((event: QuizRealtimeEvent) => {
+      switch (event.type) {
+        case "participant:joined": {
+          const { participantId, name } = event.payload as { participantId: string; name: string };
+          setParticipants((prev) =>
+            prev.some((p) => p.participantId === participantId)
+              ? prev
+              : [...prev, { participantId, name }]
+          );
+          break;
+        }
+        case "answer:received": {
+          const payload = event.payload as { answeredCount: number; distribution?: RevealDistribution };
+          setAnsweredCount(payload.answeredCount);
+          if (payload.distribution) setLiveDistribution(payload.distribution);
+          break;
+        }
+        case "question:revealed": {
+          setReveal(event.payload as unknown as RevealPayload);
+          revealFiredRef.current = true;
+          void refresh();
+          break;
+        }
+        case "question:started": {
+          setLiveDistribution(null);
+          setReveal(null);
+          setAnsweredCount(0);
+          revealFiredRef.current = false;
+          void refresh();
+          break;
+        }
+        case "leaderboard:shown":
+        case "quiz:ended": {
+          void refresh();
+          break;
+        }
       }
-    }
-    if (event.type === "question:revealed") {
-      setReveal(event.payload as unknown as RevealPayload);
-    }
-    if (event.type === "question:started") {
-      setLiveDistribution(null);
-      setReveal(null);
-      setAnsweredCount(0);
-      void refresh();
-    }
-    if (event.type === "leaderboard:shown" || event.type === "quiz:ended") {
-      setLeaderboard((event.payload as { leaderboard: LeaderboardEntry[] }).leaderboard);
-    }
-  });
+    }, [refresh]),
+    { role: "host" }
+  );
 
-  const slide = useMemo(() => {
-    if (!quiz || quiz.currentSlideIndex < 0) return null;
-    return quiz.slides[quiz.currentSlideIndex] ?? null;
-  }, [quiz]);
+  const activeSlideIndex = quiz?.currentSlideIndex ?? 0;
+  const isLastSlide = quiz ? activeSlideIndex >= quiz.slides.length - 1 : false;
+  const currentSlide = quiz?.slides[activeSlideIndex] ?? null;
+  const isLeaderboardSlide = currentSlide?.type === "leaderboard";
 
-  const countdown = useCountdown(quiz?.questionEndsAt, serverNow, slide?.timeLimit ?? 0);
+  const endsAt = quiz?.status === "active" ? quiz.questionEndsAt ?? null : null;
+  const { secondsLeft, progress, expired } = useCountdown(
+    endsAt,
+    serverNow,
+    currentSlide?.timeLimit ?? 30
+  );
 
-  const run = async (action: () => Promise<Quiz>, onDone?: (q: Quiz) => void) => {
+  // Auto-reveal when timer hits 0
+  useEffect(() => {
+    if (
+      quiz?.status !== "active" ||
+      !expired ||
+      !endsAt ||
+      busy ||
+      revealFiredRef.current
+    ) return;
+    const slide = quiz.slides[quiz.currentSlideIndex];
+    if (!slide || slide.type === "leaderboard") return;
+    revealFiredRef.current = true;
+    void (async () => {
+      try { await revealCurrentSlide(quizId); } catch {}
+    })();
+  }, [expired, quiz?.status, endsAt, busy, quizId]);
+
+  const handleOpenLobby = async () => {
     setBusy(true);
     try {
-      const updated = await action();
-      setQuiz(updated);
-      setServerNow(new Date().toISOString());
-      void refresh();
-      onDone?.(updated);
+      const q = await openLobby(quizId);
+      setQuiz(q);
+      setParticipants([]);
+      setAnsweredCount(0);
+      setReveal(null);
+      setLiveDistribution(null);
+      setLeaderboard([]);
+      toast.success("Lobby opened — code " + q.joinCode);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Action failed.");
+      toast.error(err?.response?.data?.message || "Failed to open lobby.");
     } finally {
       setBusy(false);
     }
   };
 
-  if (loading || !quiz) {
+  const handleAdvance = async (targetIndex?: number) => {
+    setBusy(true);
+    try {
+      const q = await advanceSlide(quizId, targetIndex);
+      setQuiz(q);
+      setServerNow(new Date().toISOString());
+      setReveal(null);
+      setAnsweredCount(0);
+      revealFiredRef.current = false;
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to advance slide.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleEnd = async () => {
+    if (!window.confirm("End quiz for all participants?")) return;
+    setBusy(true);
+    try {
+      const q = await endQuiz(quizId);
+      setQuiz(q);
+      toast.success("Quiz ended.");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to end quiz.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!quiz || quiz.status !== "active") return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if ((e.key === "ArrowRight" || e.key === "PageDown") && !isLastSlide) {
+        void handleAdvance(activeSlideIndex + 1);
+      } else if ((e.key === "ArrowLeft" || e.key === "PageUp") && activeSlideIndex > 0) {
+        void handleAdvance(activeSlideIndex - 1);
+      } else if (e.key.toLowerCase() === "f") {
+        toggleFullscreen();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [quiz, activeSlideIndex, isLastSlide]);
+
+  const playUrl = typeof window !== "undefined" && quiz?.joinCode ? `${window.location.origin}/quiz/play/${quiz.joinCode}` : "";
+
+  const handleCopyUrl = useCallback(async () => {
+    if (!playUrl) return;
+    try {
+      await navigator.clipboard.writeText(playUrl);
+      setCopiedUrl(true);
+      toast.success("Quiz join link copied to clipboard!");
+      setTimeout(() => setCopiedUrl(false), 2000);
+    } catch {
+      toast.error("Failed to copy link.");
+    }
+  }, [playUrl]);
+
+  const handleCopyCode = useCallback(async () => {
+    if (!quiz?.joinCode) return;
+    try {
+      await navigator.clipboard.writeText(quiz.joinCode);
+      setCopiedCode(true);
+      toast.success("Join code copied to clipboard!");
+      setTimeout(() => setCopiedCode(false), 2000);
+    } catch {
+      toast.error("Failed to copy code.");
+    }
+  }, [quiz?.joinCode]);
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="size-6 animate-spin text-primary/60" />
+      <div className="flex min-h-screen items-center justify-center bg-[#050505]">
+        <Loader2 className="size-8 animate-spin text-primary/60" />
       </div>
     );
   }
 
-  const isLastSlide = quiz.currentSlideIndex >= quiz.slides.length - 1;
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const joinUrl = `${origin}/quiz/join`;
-  // QR deep-links straight into the play screen with the code pre-filled
-  const playUrl = `${origin}/quiz/play/${quiz.joinCode}`;
+  if (loadError || !quiz) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#050505] px-6 text-center text-white">
+        <p className="text-sm font-semibold text-rose-400">{loadError ?? "Quiz not found."}</p>
+        <button onClick={() => router.push("/polls")} className="text-xs text-white/40 underline underline-offset-2">
+          Back to dashboard
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      {/* Ambient glow */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[40rem] h-72 bg-primary/[0.05] blur-[140px] rounded-full" />
-      </div>
-
-      {/* Top bar */}
-      <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-white/5">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 border border-red-500/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-red-400">
-            <Radio className="size-3 animate-pulse" /> Live host
-          </span>
-          <h1 className="text-sm font-bold tracking-tight text-foreground/90 truncate max-w-md">
-            {quiz.title}
-          </h1>
+    <div className="h-screen bg-[#050505] text-white flex flex-col font-sans overflow-hidden select-none">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 px-5 bg-[#0a0a0a]">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="rounded-full bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 text-rose-400 text-[10px] font-bold tracking-wider uppercase flex items-center gap-1.5 shrink-0">
+            <Radio className="size-3 animate-pulse" /> LIVE HOST
+          </div>
+          <h1 className="text-sm font-bold leading-none text-white/90 truncate">{quiz.title}</h1>
         </div>
-        <div className="flex items-center gap-4 text-xs text-muted-foreground/70">
-          {quiz.status === "question" && (
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-white/60">
+            <Users className="size-3.5" /> {participants.length}
+          </div>
+          <button
+            type="button"
+            onClick={handleCopyUrl}
+            title="Click to copy join link"
+            className="font-mono text-xs font-bold tracking-widest text-primary bg-primary/10 border border-primary/25 px-3.5 py-1 rounded-full hover:bg-primary/20 transition-all flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
+            <span>{quiz.joinCode}</span>
+            {copiedUrl ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3 text-primary/70" />}
+          </button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowLeaderboardModal((prev) => !prev)}
+            title="Toggle Leaderboard"
+            className={`h-8 rounded-full border px-3 text-xs font-bold transition-all flex items-center gap-1.5 ${
+              showLeaderboardModal
+                ? "bg-amber-400 text-slate-950 border-amber-400 shadow-md shadow-amber-400/20"
+                : "border-amber-400/30 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20"
+            }`}
+          >
+            <Trophy className="size-3.5" />
+            <span className="hidden sm:inline">Leaderboard</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleFullscreen}
+            title="Toggle Fullscreen (F)"
+            className="size-8 text-white/60 hover:text-white hover:bg-white/10"
+          >
+            {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+          </Button>
+          {quiz.status === "ended" && (
             <Button
-              onClick={() => setShowLiveResults((prev) => !prev)}
-              variant="outline"
-              size="sm"
-              className="h-8 rounded-full px-3 text-xs font-semibold border-white/20 text-foreground"
+              onClick={handleOpenLobby}
+              disabled={busy}
+              className="h-8 rounded-full bg-primary text-primary-foreground font-bold px-4 text-xs hover:opacity-90 transition-opacity"
             >
-              {showLiveResults ? (
-                <>
-                  <EyeOff className="size-3.5 mr-1.5" /> Hide Live View
-                </>
-              ) : (
-                <>
-                  <Eye className="size-3.5 mr-1.5" /> Show Live View
-                </>
-              )}
+              <RotateCcw className="size-3 mr-1.5" /> Host Again
             </Button>
-          )}
-          <span className="flex items-center gap-1.5">
-            <Users className="size-3.5 text-primary/70" /> {participants.length}
-          </span>
-          {quiz.status !== "ended" && quiz.status !== "draft" && (
-            <span className="font-mono font-bold text-primary tracking-[0.2em]">
-              {quiz.joinCode}
-            </span>
           )}
         </div>
       </header>
 
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-8">
-        <AnimatePresence mode="wait">
-          {/* ---------- DRAFT ---------- */}
-          {quiz.status === "draft" && (
-            <motion.div
-              key="draft"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.5, ease }}
-              className="text-center space-y-6 max-w-md"
-            >
-              <h2 className="text-3xl font-bold tracking-tight">Ready to go live?</h2>
-              <p className="text-sm text-muted-foreground/60">
-                Opening the lobby lets participants join with the code. {quiz.slides.length} slide
-                {quiz.slides.length !== 1 ? "s" : ""} loaded.
+      {/* Leaderboard Overlay Modal */}
+      {showLeaderboardModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="max-w-md w-full rounded-3xl border border-amber-400/20 bg-[#0d0d0d] p-6 space-y-5 shadow-2xl relative">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2 text-amber-400 font-bold text-base">
+                <Trophy className="size-5" /> Live Leaderboard
+              </div>
+              <button
+                onClick={() => setShowLeaderboardModal(false)}
+                className="size-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <Leaderboard entries={leaderboard} />
+          </div>
+        </div>
+      )}
+
+      {!connected && quiz.status !== "draft" && quiz.status !== "ended" && (
+        <div className="flex items-center justify-center gap-2 bg-rose-500/10 border-b border-rose-500/20 px-4 py-1.5 text-xs font-semibold text-rose-400 shrink-0">
+          <Radio className="size-3 animate-pulse" /> Reconnecting…
+        </div>
+      )}
+
+      <main className="relative flex-1 overflow-hidden flex flex-col items-center justify-center p-4 sm:p-6">
+        {(quiz.status === "lobby" || quiz.status === "draft") && (
+          <div className="max-w-xl w-full text-center space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 my-auto">
+            <div className="space-y-2">
+              <p className="text-xs font-mono font-bold uppercase tracking-widest text-white/50 flex items-center justify-center gap-1.5 flex-wrap">
+                <span>SCAN THE QR — OR JOIN AT</span>
+                <button
+                  type="button"
+                  onClick={handleCopyUrl}
+                  title="Click to copy join link"
+                  className="inline-flex items-center gap-1.5 text-primary font-extrabold underline font-mono hover:text-primary/80 transition-all cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-2 py-0.5 bg-primary/10 hover:bg-primary/20 border border-primary/30"
+                >
+                  <span>{playUrl ? playUrl.replace(/^https?:\/\//, "").toUpperCase() : ""}</span>
+                  {copiedUrl ? (
+                    <Check className="size-3.5 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Copy className="size-3.5 text-primary/70 group-hover:text-primary shrink-0 transition-colors" />
+                  )}
+                </button>
+                <span>WITH CODE</span>
               </p>
-              <Button
-                onClick={() => run(() => openLobby(quizId))}
-                disabled={busy}
-                className="h-12 rounded-full bg-primary text-primary-foreground font-semibold px-8 text-base"
+            </div>
+
+            {/* Large Join Code & QR Code container */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+              {/* Code Box */}
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                title="Click to copy join code"
+                className="rounded-[2.5rem] border border-white/15 bg-white/5 hover:bg-white/10 hover:border-primary/40 transition-all px-10 py-8 text-center shadow-2xl flex flex-col items-center justify-center min-w-[280px] min-h-[200px] backdrop-blur-xl group cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
-                <Play className="size-4 mr-2" /> Open lobby
-              </Button>
-            </motion.div>
-          )}
+                <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-primary/80 mb-2 flex items-center gap-1.5">
+                  JOIN CODE
+                  {copiedCode ? (
+                    <Check className="size-3 text-emerald-400" />
+                  ) : (
+                    <Copy className="size-3 opacity-60 group-hover:opacity-100 text-primary transition-opacity" />
+                  )}
+                </span>
+                <span className="text-5xl font-extrabold tracking-[0.2em] font-mono text-primary drop-shadow-md group-hover:scale-105 transition-transform">
+                  {quiz.joinCode}
+                </span>
+                <span className="text-[10px] text-white/40 mt-2 transition-opacity">
+                  {copiedCode ? "Copied code!" : "Click to copy code"}
+                </span>
+              </button>
 
-          {/* ---------- LOBBY ---------- */}
-          {quiz.status === "lobby" && (
-            <motion.div
-              key="lobby"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.5, ease }}
-              className="text-center space-y-8 w-full max-w-2xl"
-            >
-              <div className="space-y-2">
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
-                  Scan the QR — or join at <span className="text-foreground/80">{joinUrl}</span>{" "}
-                  with code
-                </p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <div className="p-1.5 rounded-[2rem] bg-white/5 border border-white/10">
-                    <div className="rounded-[calc(2rem-0.375rem)] bg-card px-10 py-6">
-                      <span className="text-6xl font-black tracking-[0.3em] text-primary tabular-nums">
-                        {quiz.joinCode}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-1.5 rounded-[2rem] bg-white/5 border border-white/10">
-                    <div className="rounded-[calc(2rem-0.375rem)] bg-white p-4">
-                      <QRCodeSVG
-                        value={playUrl}
-                        size={148}
-                        level="M"
-                        bgColor="#ffffff"
-                        fgColor="#000000"
-                      />
-                    </div>
-                  </div>
+              {/* QR Code Box */}
+              {playUrl && (
+                <div className="p-5 bg-white rounded-[2.5rem] shadow-2xl flex items-center justify-center min-h-[200px] min-w-[200px]">
+                  <QRCodeSVG value={playUrl} size={160} aria-label={`Join at ${playUrl}`} />
                 </div>
-              </div>
+              )}
+            </div>
 
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/50 flex items-center justify-center gap-2">
-                  <Users className="size-3.5" /> {participants.length} joined
-                </p>
-                <div className="flex flex-wrap justify-center gap-2 max-h-40 overflow-y-auto">
-                  <AnimatePresence>
-                    {participants.map((p) => (
-                      <motion.span
-                        key={p.participantId}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3, ease }}
-                        className="rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs font-medium text-foreground/80"
-                      >
-                        {p.name}
-                      </motion.span>
-                    ))}
-                  </AnimatePresence>
+            {/* Joined count & chips */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest text-white/50">
+                <Users className="size-4 text-primary" /> {participants.length} JOINED
+              </div>
+              {participants.length > 0 ? (
+                <div className="flex flex-wrap justify-center gap-2 max-h-36 overflow-y-auto p-2">
+                  {participants.map((p) => (
+                    <span
+                      key={p.participantId}
+                      className="rounded-full bg-white/10 border border-white/15 px-4 py-1.5 text-xs font-semibold text-white/90 shadow-sm"
+                    >
+                      {p.name}
+                    </span>
+                  ))}
                 </div>
-              </div>
+              ) : (
+                <p className="text-xs text-white/30 italic">Waiting for players to enter code...</p>
+              )}
+            </div>
 
-              <Button
-                onClick={() => {
-                  setReveal(null);
-                  setAnsweredCount(0);
-                  void run(() => startNextQuestion(quizId));
-                }}
-                disabled={busy || participants.length === 0}
-                className="h-12 rounded-full bg-primary text-primary-foreground font-semibold px-8 text-base"
-              >
-                Start quiz <ArrowRight className="size-4 ml-2" />
-              </Button>
-            </motion.div>
-          )}
+            {/* Start Quiz button */}
+            <div className="pt-2">
+              {quiz.status === "draft" ? (
+                <Button
+                  onClick={handleOpenLobby}
+                  disabled={busy}
+                  className="h-12 rounded-full bg-primary text-primary-foreground font-bold px-8 text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-[0.98]"
+                >
+                  <Radio className="size-4 mr-2 animate-pulse" /> Open Lobby & Start
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => handleAdvance()}
+                  disabled={busy || participants.length === 0}
+                  className="h-12 rounded-full bg-primary text-primary-foreground font-bold px-8 text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-40"
+                >
+                  <Play className="size-4 mr-2 fill-current" /> Start Quiz <ArrowRight className="size-4 ml-1.5" />
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
 
-          {/* ---------- LIVE QUESTION ---------- */}
-          {quiz.status === "question" && slide && (
-            <motion.div
-              key={`question-${quiz.currentSlideIndex}`}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.5, ease }}
-              className="w-full max-w-3xl space-y-8"
+        {quiz.status === "active" && currentSlide && (
+          <>
+            {/* Left Response Counter Badge */}
+            <div className="absolute left-6 bottom-5 z-10 hidden sm:flex items-center gap-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-md px-3.5 py-1.5 text-xs text-white/80 shadow-md">
+              <span className="size-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span className="font-mono font-bold text-white tracking-tight">{answeredCount}</span>
+              <span className="text-white/40 font-mono">/</span>
+              <span className="font-mono text-white/60">{participants.length}</span>
+              <span className="text-white/50 font-medium ml-0.5">answered</span>
+            </div>
+
+            {/* Right Leaderboard Icon Button */}
+            <button
+              onClick={() => setShowLeaderboardModal(true)}
+              title="View Leaderboard"
+              className="absolute right-6 bottom-5 z-10 hidden sm:flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-xs font-bold text-amber-300 backdrop-blur-md shadow-lg hover:bg-amber-400/20 transition-all hover:scale-105 active:scale-95"
             >
-              <div className="space-y-3 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-primary/60">
-                  Question {quiz.currentSlideIndex + 1} of {quiz.slides.length}
-                </p>
-                <h2 className="text-4xl font-bold tracking-tight leading-tight">
-                  {slide.question}
+              <Trophy className="size-4 text-amber-400" />
+              <span>Leaderboard</span>
+            </button>
+
+            <div className="max-w-3xl w-full space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700 my-auto font-sans">
+              <div className="text-center space-y-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-primary font-mono">
+                  SLIDE {activeSlideIndex + 1} OF {quiz.slides.length}
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight px-4 text-white leading-tight">
+                  {currentSlide.question}
                 </h2>
               </div>
 
-              <QuizTimer secondsLeft={countdown.secondsLeft} progress={countdown.progress} />
-
-              {showLiveResults && liveDistribution ? (
-                <div className="pt-2">
-                  <RevealChart distribution={liveDistribution} isReveal={false} />
+              {isLeaderboardSlide ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center gap-2 text-sm font-bold text-primary">
+                    <Trophy className="size-4" /> Leaderboard
+                  </div>
+                  <Leaderboard entries={leaderboard} />
                 </div>
               ) : (
                 <>
-                  {slide.type === "select_answer" && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {slide.options.map((option, i) => (
-                        <div
-                          key={i}
-                          className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-base font-semibold text-foreground/90"
-                        >
-                          <span className="text-primary/60 mr-3 font-bold">
-                            {String.fromCharCode(65 + i)}
-                          </span>
-                          {option.text}
-                        </div>
-                      ))}
+                  {!reveal && secondsLeft > 0 && (
+                    <QuizTimer secondsLeft={secondsLeft} progress={progress} />
+                  )}
+                  {currentSlide.type === "wordcloud" && liveDistribution?.kind === "words" ? (
+                    <WordCloud words={liveDistribution.words} showCounts />
+                  ) : liveDistribution ? (
+                    <div className="pt-2 max-h-[55vh] overflow-y-auto">
+                      <CardFillRevealChart
+                        distribution={liveDistribution}
+                        reveal={reveal}
+                        isReveal={!!reveal}
+                        totalParticipants={participants.length}
+                      />
                     </div>
-                  )}
-                  {slide.type === "type_answer" && (
-                    <p className="text-center text-sm text-muted-foreground/60">
-                      Participants are typing their answers…
-                    </p>
-                  )}
-                  {slide.type === "wordcloud" && (
-                    <p className="text-center text-sm text-muted-foreground/60">
-                      Participants are sending words — the cloud appears at reveal…
-                    </p>
-                  )}
-                  {slide.type === "open_ended" && (
-                    <p className="text-center text-sm text-muted-foreground/60">
-                      Responses are coming in — revealed as a card wall…
-                    </p>
-                  )}
-                  {slide.type === "scales" && (
-                    <div className="space-y-2 max-w-xl mx-auto">
-                      {slide.statements.map((statement, i) => (
-                        <div
-                          key={i}
-                          className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-semibold text-foreground/85"
-                        >
-                          {statement}
-                        </div>
-                      ))}
-                      <p className="text-center text-xs text-muted-foreground/50 pt-1">
-                        Rating 1–{slide.scaleMax} · {slide.minLabel || "Low"} → {slide.maxLabel || "High"}
-                      </p>
-                    </div>
-                  )}
-                  {slide.type === "ranking" && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-xl mx-auto">
-                      {slide.items.map((item, i) => (
-                        <div
-                          key={i}
-                          className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-semibold text-foreground/85"
-                        >
-                          {item}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  ) : null}
+                  <p className="sm:hidden text-center text-xs text-white/40 font-mono">
+                    {answeredCount} / {participants.length} answered
+                  </p>
                 </>
               )}
+            </div>
+          </>
+        )}
 
-              <p className="text-center text-xs font-semibold uppercase tracking-widest text-muted-foreground/50">
-                {answeredCount} answered
-              </p>
-            </motion.div>
-          )}
-
-          {/* ---------- REVEAL ---------- */}
-          {quiz.status === "reveal" && (
-            <motion.div
-              key={`reveal-${quiz.currentSlideIndex}`}
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.5, ease }}
-              className="w-full max-w-3xl space-y-8"
-            >
-              <div className="space-y-3 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-                  {slide?.question ? "Revealing results" : "Results"}
-                </p>
-                <h2 className="text-3xl font-bold tracking-tight">
-                  {slide?.question ?? "Results"}
-                </h2>
-              </div>
-
-              {reveal ? (
-                <RevealChart reveal={reveal} isReveal={true} />
-              ) : (
-                <div className="flex justify-center py-12">
-                  <Loader2 className="size-8 animate-spin text-primary" />
-                </div>
-              )}
-
-              <div className="flex justify-center gap-3">
-                <Button
-                  onClick={() => run(() => showLeaderboard(quizId))}
-                  disabled={busy}
-                  className="h-11 rounded-full bg-primary text-primary-foreground font-semibold px-6"
-                >
-                  <Trophy className="size-4 mr-2" /> Show leaderboard
-                </Button>
-                {!isLastSlide ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => run(() => startNextQuestion(quizId))}
-                    disabled={busy}
-                    className="h-11 rounded-full px-6 font-semibold border-white/15"
-                  >
-                    Next question <ArrowRight className="size-4 ml-2" />
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={() => run(() => endQuiz(quizId))}
-                    disabled={busy}
-                    className="h-11 rounded-full bg-rose-500 hover:bg-rose-600 text-white font-semibold px-6"
-                  >
-                    End quiz <Flag className="size-4 ml-2" />
-                  </Button>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* ---------- LEADERBOARD ---------- */}
-          {quiz.status === "leaderboard" && (
-            <motion.div
-              key="leaderboard"
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.5, ease }}
-              className="w-full max-w-xl space-y-8"
-            >
-              <Leaderboard entries={leaderboard} />
-              <div className="flex justify-center gap-3">
-                {!isLastSlide ? (
-                  <Button
-                    onClick={() => run(() => startNextQuestion(quizId))}
-                    disabled={busy}
-                    className="h-11 rounded-full bg-primary text-primary-foreground font-semibold px-6"
-                  >
-                    Next question <ArrowRight className="size-4 ml-2" />
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={() => run(() => endQuiz(quizId))}
-                    disabled={busy}
-                    className="h-11 rounded-full bg-rose-500 hover:bg-rose-600 text-white font-semibold px-6"
-                  >
-                    End quiz <Flag className="size-4 ml-2" />
-                  </Button>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* ---------- ENDED ---------- */}
-          {quiz.status === "ended" && (
-            <motion.div
-              key="ended"
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, ease }}
-              className="w-full max-w-xl space-y-8 text-center"
-            >
-              <div className="space-y-2">
-                <p className="text-xs font-bold uppercase tracking-widest text-primary">
-                  Quiz finished 🎉
-                </p>
-                <h2 className="text-4xl font-bold tracking-tight">Final Leaderboard</h2>
-              </div>
-              <Leaderboard entries={leaderboard} title="Final standings" />
-              <div className="flex justify-center gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => run(() => openLobby(quizId))}
-                  disabled={busy}
-                  className="h-11 rounded-full px-6 font-semibold border-white/15"
-                >
-                  <Play className="size-4 mr-2" /> Run again
-                </Button>
-                <Button
-                  onClick={() => router.push("/polls")}
-                  className="h-11 rounded-full bg-primary text-primary-foreground font-semibold px-6"
-                >
-                  Back to dashboard
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {quiz.status === "ended" && (
+          <div className="max-w-md w-full space-y-6 text-center animate-in fade-in slide-in-from-bottom-8 duration-700 my-auto">
+            <h2 className="text-2xl font-bold">Session ended</h2>
+            <Leaderboard entries={leaderboard} title="Final standings" />
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <Button
+                onClick={handleOpenLobby}
+                disabled={busy}
+                className="h-10 rounded-full bg-primary text-primary-foreground font-bold px-6 text-xs shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity"
+              >
+                <RotateCcw className="size-4 mr-2" /> Host Again
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push("/polls")}
+                className="h-10 rounded-full border-white/20 text-white font-semibold px-5 text-xs hover:bg-white/10"
+              >
+                Back to Dashboard
+              </Button>
+            </div>
+          </div>
+        )}
       </main>
+
+      <footer className="shrink-0 border-t border-white/10 bg-[#0a0a0a] px-5 py-3 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 min-w-[120px]">
+          {quiz.status === "active" && activeSlideIndex > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleAdvance(activeSlideIndex - 1)}
+              disabled={busy}
+              className="h-8 rounded-full border-white/15 bg-white/5 text-xs font-semibold text-white/80 hover:bg-white/10 hover:text-white"
+            >
+              <ChevronLeft className="size-3.5 mr-1" /> Prev Slide
+            </Button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {quiz.status === "active" && (
+            !isLastSlide ? (
+              <Button
+                onClick={() => handleAdvance()}
+                disabled={busy}
+                className="h-9 rounded-full bg-primary text-primary-foreground font-bold px-6 text-xs hover:opacity-90 shadow-md shadow-primary/20"
+              >
+                Next Slide <ArrowRight className="size-3.5 ml-1.5" />
+              </Button>
+            ) : (
+              <Button
+                onClick={handleEnd}
+                disabled={busy}
+                className="h-9 rounded-full bg-rose-500 text-white font-bold px-6 text-xs hover:bg-rose-600 shadow-md shadow-rose-500/20"
+              >
+                <Flag className="size-3.5 mr-1.5" /> End Session
+              </Button>
+            )
+          )}
+          {quiz.status === "ended" && (
+            <Button
+              onClick={handleOpenLobby}
+              disabled={busy}
+              className="h-9 rounded-full bg-primary text-primary-foreground font-bold px-6 text-xs hover:opacity-90"
+            >
+              <RotateCcw className="size-3.5 mr-1.5" /> Host Again
+            </Button>
+          )}
+        </div>
+        <div className="flex items-center gap-3 min-w-[120px] justify-end text-xs text-white/40 font-mono">
+          {quiz.status === "active" && (
+            <span>{activeSlideIndex + 1} / {quiz.slides.length}</span>
+          )}
+        </div>
+      </footer>
     </div>
   );
 }
 
 function RevealChart({
+  distribution: dist,
   reveal,
-  distribution: propDist,
-  isReveal = true,
+  isReveal,
+  totalParticipants = 0,
 }: {
+  distribution: RevealDistribution;
   reveal?: RevealPayload | null;
-  distribution?: RevealDistribution | null;
-  isReveal?: boolean;
+  isReveal: boolean;
+  totalParticipants?: number;
 }) {
-  const dist = propDist || reveal?.distribution;
-  if (!dist) return null;
-
   if (dist.kind === "options") {
-    const { counts, options } = dist;
-    const max = Math.max(...counts, 1);
+    const totalVotes = dist.counts.reduce((a, b) => a + b, 0);
+    const maxScale = Math.max(totalParticipants, totalVotes, 10);
+
     return (
-      <div className="space-y-3">
-        {options.map((option, i) => {
-          const showCorrect = isReveal && option.isCorrect;
+      <div className="space-y-2.5">
+        {dist.options.map((opt, i) => {
+          const count = dist.counts[i] ?? 0;
+          const sharePct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+          const barWidthPct = totalVotes > 0 ? Math.min(100, Math.round((count / maxScale) * 100)) : 0;
+          const highlight = isReveal && opt.isCorrect;
+
           return (
-            <div
-              key={i}
-              className={`rounded-2xl border px-5 py-4 ${
-                showCorrect
-                  ? "border-emerald-500/40 bg-emerald-500/10"
-                  : "border-white/10 bg-white/[0.03]"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold text-foreground/90 flex items-center gap-2">
-                  <span className="text-primary/60 font-bold">{String.fromCharCode(65 + i)}</span>
-                  {option.text}
-                  {showCorrect && <CheckCircle2 className="size-4 text-emerald-400" />}
-                </span>
-                <span className="text-sm font-bold tabular-nums text-muted-foreground/80">
-                  {counts[i] ?? 0}
-                </span>
+            <div key={i} className="flex items-start gap-3.5 w-full">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 text-sm font-bold text-white/80 mt-0.5">
+                {String.fromCharCode(65 + i)}
               </div>
-              <div className="h-2 rounded-full bg-white/5 overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${((counts[i] ?? 0) / max) * 100}%` }}
-                  transition={{ duration: 0.7, ease }}
-                  className={`h-full rounded-full ${showCorrect ? "bg-emerald-400" : "bg-primary/50"}`}
-                />
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-sm sm:text-base font-semibold truncate ${highlight ? "text-emerald-400 font-bold" : "text-white/90"}`}>{opt.text}</span>
+                  <span className="text-xs font-mono text-white/60 shrink-0">
+                    {count} <span className="text-white/40">({sharePct}%)</span>
+                  </span>
+                </div>
+                <div className="h-3.5 w-full rounded-full overflow-hidden bg-white/[0.02]">
+                  {barWidthPct > 0 && (
+                    <motion.div
+                      className={`h-full rounded-full ${
+                        highlight
+                          ? "bg-gradient-to-r from-emerald-400 to-teal-400 shadow-[0_0_12px_rgba(52,211,153,0.5)]"
+                          : "bg-gradient-to-r from-amber-400 to-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]"
+                      }`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${barWidthPct}%` }}
+                      transition={{ duration: 0.6, ease }}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           );
         })}
-        {reveal && (
-          <p className="text-center text-xs text-muted-foreground/50">
-            {reveal.answeredCount}/{reveal.participantCount} answered
-          </p>
-        )}
       </div>
     );
   }
 
   if (dist.kind === "text") {
-    return (
-      <div className="space-y-3">
-        <div className="flex flex-wrap justify-center gap-2">
-          {dist.answers.map((answer, i) => {
-            const showCorrect = isReveal && answer.isCorrect;
-            return (
-              <span
-                key={i}
-                className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
-                  showCorrect
-                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                    : "border-white/10 bg-white/[0.03] text-foreground/70"
-                }`}
-              >
-                {answer.text} <span className="opacity-60">×{answer.count}</span>
-              </span>
-            );
-          })}
-          {dist.answers.length === 0 && (
-            <p className="text-sm text-muted-foreground/50">No answers were submitted.</p>
-          )}
-        </div>
-        {isReveal && dist.acceptedAnswers && (
-          <p className="text-center text-xs text-muted-foreground/60">
-            Accepted: {dist.acceptedAnswers.join(", ")}
-          </p>
-        )}
-      </div>
-    );
-  }
+    const totalVotes = dist.answers.reduce((sum, a) => sum + a.count, 0);
+    const maxScale = Math.max(totalParticipants, totalVotes, 10);
 
-  if (dist.kind === "words") {
-    const { words } = dist;
-    const max = Math.max(...words.map((w) => w.count), 1);
     return (
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 py-4 max-w-2xl mx-auto">
-          {words.map((word, i) => {
-            const scale = word.count / max;
-            return (
-              <motion.span
-                key={word.text}
-                initial={{ opacity: 0, scale: 0.6 }}
-                animate={{ opacity: 0.55 + scale * 0.45, scale: 1 }}
-                transition={{ duration: 0.5, ease, delay: Math.min(i * 0.03, 0.6) }}
-                className={`font-extrabold tracking-tight leading-none ${WORD_COLORS[i % WORD_COLORS.length]}`}
-                style={{ fontSize: `${0.9 + scale * 2.4}rem` }}
-                title={`×${word.count}`}
-              >
-                {word.text}
-              </motion.span>
-            );
-          })}
-          {words.length === 0 && (
-            <p className="text-sm text-muted-foreground/50">No words were submitted.</p>
-          )}
-        </div>
-        {reveal && (
-          <p className="text-center text-xs text-muted-foreground/50">
-            {reveal.answeredCount}/{reveal.participantCount} answered
-          </p>
-        )}
+      <div className="space-y-2">
+        {dist.answers.map((a, i) => {
+          const barWidthPct = totalVotes > 0 ? Math.min(100, Math.round((a.count / maxScale) * 100)) : 0;
+          const highlight = isReveal && a.isCorrect;
+
+          return (
+            <div key={i} className="flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`text-sm font-semibold truncate ${highlight ? "text-emerald-400 font-bold" : "text-white/80"}`}>{a.text}</span>
+                  <span className="text-xs font-mono text-white/50 ml-2">{a.count}</span>
+                </div>
+                <div className="h-3 rounded-full bg-white/5 overflow-hidden p-0.5 border border-white/5">
+                  <motion.div
+                    className={`h-full rounded-full ${highlight ? "bg-emerald-400" : "bg-orange-500"}`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${barWidthPct}%` }}
+                    transition={{ duration: 0.6, ease }}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   }
 
   if (dist.kind === "responses") {
-    const { responses } = dist;
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {responses.map((response, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease, delay: Math.min(i * 0.04, 0.6) }}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
-            >
-              <p className="text-sm font-medium text-foreground/85 leading-snug">
-                {response.text}
-              </p>
-              {response.count > 1 && (
-                <p className="text-[10px] font-bold text-primary/60 mt-1.5">×{response.count}</p>
-              )}
-            </motion.div>
-          ))}
-          {responses.length === 0 && (
-            <p className="text-sm text-muted-foreground/50 col-span-full text-center">
-              No responses were submitted.
-            </p>
-          )}
-        </div>
-        {reveal && (
-          <p className="text-center text-xs text-muted-foreground/50">
-            {reveal.answeredCount}/{reveal.participantCount} answered
-          </p>
-        )}
+      <div className="flex flex-wrap gap-2 justify-center">
+        {dist.responses.map((r, i) => (
+          <span key={i} className="rounded-full bg-white/5 border border-white/10 px-3 py-1.5 text-sm font-semibold text-white/80">
+            {r.text}{r.count > 1 && <span className="ml-1.5 text-xs text-orange-400">×{r.count}</span>}
+          </span>
+        ))}
       </div>
     );
   }
 
   if (dist.kind === "scales") {
-    const { statements, scaleMax, minLabel, maxLabel } = dist;
     return (
-      <div className="space-y-3 max-w-xl mx-auto">
-        {statements.map((entry, i) => (
-          <div
-            key={i}
-            className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold text-foreground/90">{entry.statement}</span>
-              <span className="text-sm font-bold tabular-nums text-primary">
-                {entry.average.toFixed(1)} <span className="text-muted-foreground/50 font-medium">/ {scaleMax}</span>
-              </span>
+      <div className="space-y-3">
+        {dist.statements.map((s, i) => (
+          <div key={i} className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-white/80 truncate">{s.statement}</span>
+              <span className="text-xs font-mono text-orange-400 ml-2">{s.average.toFixed(1)}</span>
             </div>
-            <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+            <div className="h-3 rounded-full bg-white/5 overflow-hidden p-0.5 border border-white/5">
               <motion.div
+                className="h-full rounded-full bg-orange-500"
                 initial={{ width: 0 }}
-                animate={{ width: `${(entry.average / scaleMax) * 100}%` }}
-                transition={{ duration: 0.7, ease }}
-                className="h-full rounded-full bg-violet-400"
+                animate={{ width: `${Math.round((s.average / dist.scaleMax) * 100)}%` }}
+                transition={{ duration: 0.6, ease }}
               />
-            </div>
-            <div className="flex justify-between text-[10px] font-medium text-muted-foreground/40 mt-1.5">
-              <span>{minLabel || "1"}</span>
-              <span>{entry.count} rating{entry.count !== 1 ? "s" : ""}</span>
-              <span>{maxLabel || String(scaleMax)}</span>
             </div>
           </div>
         ))}
-        {reveal && (
-          <p className="text-center text-xs text-muted-foreground/50">
-            {reveal.answeredCount}/{reveal.participantCount} answered
-          </p>
-        )}
       </div>
     );
   }
 
-  // ranking — combined order by Borda points
-  const { items, voters } = dist;
-  const maxPoints = Math.max(...items.map((i) => i.points), 1);
-  return (
-    <div className="space-y-3 max-w-xl mx-auto">
-      {items.map((item) => (
-        <div
-          key={item.text}
-          className={`rounded-2xl border px-5 py-4 ${
-            item.rank === 1
-              ? "border-primary/40 bg-primary/10"
-              : "border-white/10 bg-white/[0.03]"
-          }`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold text-foreground/90 flex items-center gap-2.5">
-              <span
-                className={`flex size-6 items-center justify-center rounded-full text-xs font-black tabular-nums ${
-                  item.rank === 1 ? "bg-primary text-primary-foreground" : "bg-white/10 text-foreground/70"
-                }`}
-              >
-                {item.rank}
-              </span>
-              {item.text}
-            </span>
-            <span className="text-xs font-bold tabular-nums text-muted-foreground/70">
-              {item.points} pts
-            </span>
-          </div>
-          <div className="h-2 rounded-full bg-white/5 overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${(item.points / maxPoints) * 100}%` }}
-              transition={{ duration: 0.7, ease }}
-              className={`h-full rounded-full ${item.rank === 1 ? "bg-primary" : "bg-green-400/60"}`}
-            />
-          </div>
-        </div>
-      ))}
-      {reveal ? (
-        <p className="text-center text-xs text-muted-foreground/50">
-          {voters} of {reveal.participantCount} ranked
-        </p>
-      ) : (
-        <p className="text-center text-xs text-muted-foreground/50">
-          {voters} response{voters !== 1 ? "s" : ""}
-        </p>
-      )}
-    </div>
-  );
-}
+  if (dist.kind === "ranking") {
+    const maxPoints = Math.max(...dist.items.map((it) => it.points), 0);
+    const maxScale = Math.max(totalParticipants * dist.items.length, maxPoints, 10);
 
-const WORD_COLORS = [
-  "text-primary",
-  "text-rose-400",
-  "text-sky-400",
-  "text-emerald-400",
-  "text-violet-400",
-  "text-orange-400",
-  "text-pink-400",
-  "text-cyan-400",
-];
+    return (
+      <div className="space-y-2">
+        {dist.items.map((it, i) => {
+          const barWidthPct = maxPoints > 0 ? Math.min(100, Math.round((it.points / maxScale) * 100)) : 0;
+
+          return (
+            <div key={i} className="flex items-center gap-3">
+              <span className="text-xs font-bold text-yellow-400/70 tabular-nums w-5">#{it.rank}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-semibold text-white/80 truncate">{it.text}</span>
+                  <span className="text-xs font-mono text-white/50 ml-2">{it.points}</span>
+                </div>
+                <div className="h-3 rounded-full bg-white/5 overflow-hidden p-0.5 border border-white/5">
+                  <motion.div
+                    className="h-full rounded-full bg-orange-500"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${barWidthPct}%` }}
+                    transition={{ duration: 0.6, ease }}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return null;
+}

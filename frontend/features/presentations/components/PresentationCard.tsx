@@ -87,7 +87,7 @@ export function PresentationCard({ presentation, index = 0, onDelete }: Presenta
 
         <div className="flex items-center gap-2 pt-1 mt-auto">
           <Button
-            onClick={() => router.push(`/presentation/host/${presentation._id}`)}
+            onClick={() => router.push(`/presentation/host/${presentation._id}?reset=true`)}
             className="h-9 rounded-full bg-primary text-primary-foreground font-semibold px-4 text-xs"
           >
             <Play className="size-3.5 mr-1.5" /> Host live
