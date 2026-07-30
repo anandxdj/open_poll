@@ -1,4 +1,6 @@
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { ChatOpenAI } from '@langchain/openai';
 import { StateGraph } from '@langchain/langgraph';
 import { z } from 'zod';
 import { ApiError } from '../../common/utils/ApiError';
@@ -17,6 +19,13 @@ import type {
   GenerateQuizRequestInput,
 } from './ai.schema';
 
+type AiProviderCandidate = {
+  name: string;
+  model: BaseChatModel;
+  /** Forced structured-output strategy; omit to let LangChain pick per model. */
+  structuredMethod?: 'functionCalling' | 'jsonMode' | 'jsonSchema';
+};
+
 type AiGraphState = {
   topic: string;
   tone: GeneratePollRequestInput['tone'];
@@ -25,19 +34,100 @@ type AiGraphState = {
 };
 
 export class AiService {
-  private static getModel() {
-    const key = process.env.GEMINI_API_KEY;
-    const invalidKeys = ['your_gemini_api_key_here', 'dummy_gemini_key', '', undefined];
-    if (!key || (invalidKeys as (string | undefined)[]).includes(key)) {
-      console.warn('[AiService] No valid GEMINI_API_KEY found — using mock draft fallback.');
-      return null;
+  /** Env placeholders that ship in .env.example — treat them as "unset". */
+  private static isPlaceholder(value: string | undefined): boolean {
+    if (!value || !value.trim()) return true;
+    return /^(your_|dummy_|changeme)/i.test(value.trim());
+  }
+
+  /**
+   * Providers in preference order: an OpenAI-compatible endpoint (LLM_BASE_URL +
+   * LLM_API_KEY, e.g. the Open Quota proxy) first, then Gemini directly. Empty
+   * means no credentials are configured and callers fall back to a mock draft.
+   */
+  private static getModelCandidates(): AiProviderCandidate[] {
+    const candidates: AiProviderCandidate[] = [];
+
+    const proxyKey = process.env.LLM_API_KEY;
+    const proxyBaseUrl = process.env.LLM_BASE_URL;
+    if (!this.isPlaceholder(proxyKey) && !this.isPlaceholder(proxyBaseUrl)) {
+      candidates.push({
+        name: 'openai-compatible',
+        // Behind a router the served model is not guaranteed to honour
+        // response_format: json_schema — several free-tier models reply with
+        // ```-fenced JSON, which fails to parse. Tool calls are honoured.
+        structuredMethod: 'functionCalling',
+        model: new ChatOpenAI({
+          // Pinned to a fast, tool-calling model. "auto" lets the proxy's router
+          // choose instead, but it can land on a slow reasoning model.
+          // See GET <LLM_BASE_URL>/models for available ids.
+          model: process.env.LLM_MODEL || 'gemini-2.5-flash-lite',
+          temperature: 0.3,
+          apiKey: proxyKey,
+          configuration: { baseURL: proxyBaseUrl },
+          // Free-tier routes can be slow or rate-limited; cap the wait so we fail
+          // over to the next provider instead of hanging the HTTP request.
+          timeout: Number(process.env.LLM_TIMEOUT_MS) || 60_000,
+          maxRetries: 1,
+        }),
+      });
     }
 
-    return new ChatGoogleGenerativeAI({
-      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-      temperature: 0.3,
-      apiKey: key,
-    });
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!this.isPlaceholder(geminiKey)) {
+      candidates.push({
+        name: 'gemini',
+        model: new ChatGoogleGenerativeAI({
+          model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+          temperature: 0.3,
+          apiKey: geminiKey,
+          // LangChain retries 6 times with exponential backoff by default, so a
+          // free-tier quota 429 turns a 2s call into minutes of silent waiting.
+          maxRetries: 1,
+        }),
+      });
+    }
+
+    if (candidates.length === 0) {
+      console.warn(
+        '[AiService] No LLM_BASE_URL/LLM_API_KEY and no GEMINI_API_KEY — using mock draft fallback.'
+      );
+    }
+
+    return candidates;
+  }
+
+  private static hasModel(): boolean {
+    return this.getModelCandidates().length > 0;
+  }
+
+  /**
+   * Runs a structured-output prompt against each configured provider in order, so a
+   * rate-limited or unhealthy proxy degrades to the next provider instead of a mock.
+   * Throws the last error if every provider fails.
+   */
+  private static async invokeStructured<T>(schema: z.ZodType<T>, prompt: string): Promise<T> {
+    const candidates = this.getModelCandidates();
+    if (candidates.length === 0) {
+      throw ApiError.badRequest('No AI provider configured');
+    }
+
+    let lastError: unknown;
+    for (const { name, model, structuredMethod } of candidates) {
+      const startedAt = Date.now();
+      try {
+        const structured = structuredMethod
+          ? model.withStructuredOutput(schema, { method: structuredMethod })
+          : model.withStructuredOutput(schema);
+        const result = (await structured.invoke(prompt)) as T;
+        console.log(`[AiService] provider "${name}" ok in ${Date.now() - startedAt}ms`);
+        return result;
+      } catch (error) {
+        lastError = error;
+        console.error(`[AiService] provider "${name}" failed after ${Date.now() - startedAt}ms`, error);
+      }
+    }
+    throw lastError;
   }
 
   private static buildMockDraft(input: GeneratePollRequestInput): GeneratedPollOutput {
@@ -94,8 +184,7 @@ export class AiService {
   }
 
   private static async generateWithGraph(input: GeneratePollRequestInput): Promise<GeneratedPollOutput> {
-    const model = this.getModel();
-    if (!model) {
+    if (!this.hasModel()) {
       return this.buildMockDraft(input);
     }
     const isTrial = input.pollType === 'TRIAL';
@@ -103,7 +192,6 @@ export class AiService {
     // A TRIAL is generated against a schema that REQUIRES correctOptionIndices, so
     // the model cannot return an assessment nobody could score.
     const outputSchema = isTrial ? generatedTrialSchema : generatedPollSchema;
-    const structuredModel = model.withStructuredOutput(outputSchema);
 
     const graph = new StateGraph<AiGraphState>({
       channels: {
@@ -142,7 +230,7 @@ export class AiService {
               `- Maintain a ${input.tone} tone strictly throughout.`,
             ].join('\n');
 
-        const generated = await structuredModel.invoke(systemPrompt);
+        const generated = await this.invokeStructured(outputSchema, systemPrompt);
 
         return {
           generated: {
@@ -381,13 +469,11 @@ export class AiService {
   }
 
   static async generateQuizDraft(input: GenerateQuizRequestInput): Promise<GeneratedQuizDraftOutput> {
-    const model = this.getModel();
-    if (!model) {
+    if (!this.hasModel()) {
       return this.buildMockQuizDraft(input);
     }
 
     try {
-      const structuredModel = model.withStructuredOutput(generatedQuizSchemaForLLM);
       const systemPrompt = [
         `You are an expert Quiz Master and Assessment Designer.`,
         `Create an engaging ${input.tone} interactive quiz payload for topic: "${input.topic}".`,
@@ -402,7 +488,7 @@ export class AiService {
         `- For wordcloud or open_ended: provide a clear question.`,
       ].join('\n');
 
-      const result = await structuredModel.invoke(systemPrompt);
+      const result = await this.invokeStructured(generatedQuizSchemaForLLM, systemPrompt);
       return this.repairQuizSlides(result, input);
     } catch (err) {
       console.error('[AI Quiz Generation Error]', err);
