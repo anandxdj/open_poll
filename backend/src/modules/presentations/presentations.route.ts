@@ -18,6 +18,10 @@ const router = Router();
 router.get(
   '/code/:code',
   rateLimit({ prefix: 'presentation-code', windowSec: 60, max: 60 }),
+  // Per-IP alone doesn't stop enumeration spread across many IPs — cap total
+  // lookups system-wide too. 300k/hr is still far short of exhausting the
+  // 900k code space before a live session ends.
+  rateLimit({ prefix: 'presentation-code-global', windowSec: 60, max: 5000, keyBy: 'global' }),
   PresentationController.getByCode
 );
 router.post(
