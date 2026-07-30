@@ -4,7 +4,8 @@ export type PresentationSlideType =
   | "wordcloud"
   | "open_ended"
   | "scales"
-  | "ranking";
+  | "ranking"
+  | "leaderboard";
 
 export type QuizSlideType = PresentationSlideType;
 
@@ -13,13 +14,7 @@ export const SCORED_SLIDE_TYPES: PresentationSlideType[] = ["select_answer", "ty
 export const isScoredSlideType = (type: PresentationSlideType) =>
   SCORED_SLIDE_TYPES.includes(type);
 
-export type PresentationStatus =
-  | "draft"
-  | "lobby"
-  | "question"
-  | "reveal"
-  | "leaderboard"
-  | "ended";
+export type PresentationStatus = "draft" | "lobby" | "active" | "ended";
 
 export type QuizStatus = PresentationStatus;
 

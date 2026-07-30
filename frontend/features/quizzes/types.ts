@@ -4,20 +4,15 @@ export type QuizSlideType =
   | "wordcloud"
   | "open_ended"
   | "scales"
-  | "ranking";
+  | "ranking"
+  | "leaderboard";
 
 export const SCORED_SLIDE_TYPES: QuizSlideType[] = ["select_answer", "type_answer"];
 
 export const isScoredSlideType = (type: QuizSlideType) =>
   SCORED_SLIDE_TYPES.includes(type);
 
-export type QuizStatus =
-  | "draft"
-  | "lobby"
-  | "question"
-  | "reveal"
-  | "leaderboard"
-  | "ended";
+export type QuizStatus = "draft" | "lobby" | "active" | "ended";
 
 export interface QuizSlideOption {
   text: string;

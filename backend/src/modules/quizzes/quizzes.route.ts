@@ -18,6 +18,10 @@ const router = Router();
 router.get(
   '/code/:code',
   rateLimit({ prefix: 'quiz-code', windowSec: 60, max: 60 }),
+  // Per-IP alone doesn't stop enumeration spread across many IPs — cap total
+  // lookups system-wide too. 300k/hr is still far short of exhausting the
+  // 900k code space before a live quiz session ends.
+  rateLimit({ prefix: 'quiz-code-global', windowSec: 60, max: 5000, keyBy: 'global' }),
   QuizController.getByCode
 );
 router.post(
@@ -48,9 +52,8 @@ router.delete('/:id', authenticate(), QuizController.delete);
 // Host session controls
 router.get('/:id/host/state', authenticate(), QuizController.hostState);
 router.post('/:id/host/open-lobby', authenticate(), QuizController.openLobby);
-router.post('/:id/host/next-question', authenticate(), QuizController.startNextQuestion);
+router.post('/:id/host/advance', authenticate(), QuizController.advanceSlide);
 router.post('/:id/host/reveal', authenticate(), QuizController.reveal);
-router.post('/:id/host/leaderboard', authenticate(), QuizController.showLeaderboard);
 router.post('/:id/host/end', authenticate(), QuizController.end);
 
 export default router;

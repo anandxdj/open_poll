@@ -4,34 +4,175 @@ import { ApiError } from '../../common/utils/ApiError';
 import { PollService } from '../polls/polls.service';
 import { ResponseService } from '../responses/responses.service';
 import { createPollSchema, updatePollSchema } from '../polls/polls.schema';
-import type { McpScope } from './mcp.constants';
+import { MCP_TOOL_SCOPES, type McpScope } from './mcp.constants';
 
-// MCP tools only expose a subset of createPollSchema/updatePollSchema's fields
-// (no pollType/passingScorePercentage/quiz question fields); the REST schemas'
-// own zod .default()s fill in the rest so both surfaces stay in sync.
-const mcpPollQuestionInput = z.object({
-  text: z.string().min(1),
-  options: z.array(z.string().min(1)).min(2),
-  isMandatory: z.boolean().optional(),
-});
+// ---------------------------------------------------------------------------
+// Input shapes
+//
+// These raw zod shapes are exported and handed straight to server.registerTool,
+// so what an agent reads in tools/list is the same object enforced here. The
+// previous design kept a second copy in mcp.server.ts "in step by hand", which
+// is how pollType and the answer fields went missing from the advertised schema
+// in the first place.
+//
+// The load-bearing detail: an assessment's correctOptionIndices is REQUIRED and
+// non-empty at the shape level, so it lands in the emitted JSON Schema's
+// "required" array. A prose .describe() hint does not — a model can read
+// "required for TRIAL" and still omit the field, discovering the rule only when
+// the call is rejected. Required-ness is what a client validates before sending.
+// ---------------------------------------------------------------------------
 
-const createPollMcpInputSchema = z.object({
-  title: z.string().min(3),
-  isAnonymous: z.boolean().optional(),
-  expiresAt: z.string().optional(),
-  isPublished: z.boolean().optional(),
-  questions: z.array(mcpPollQuestionInput).min(1),
-});
+const questionCore = {
+  text: z.string().min(1).describe('Question text'),
+  options: z.array(z.string().min(1)).min(2).describe('Answer options, at least 2'),
+  isMandatory: z.boolean().optional().describe('Whether an answer is required (default true)'),
+  type: z
+    .enum(['single', 'multiple'])
+    .optional()
+    .describe('Answer mode (default "single"). Use "multiple" when more than one option may be picked.'),
+};
 
-const editPollMcpInputSchema = z.object({
-  pollId: z.string().min(1),
+const answerMetaFields = {
+  explanation: z
+    .string()
+    .optional()
+    .describe('Why the correct answer is correct. Shown to the respondent after they answer.'),
+  points: z.number().min(1).optional().describe('Score weight for this question (default 1)'),
+};
+
+const indicesDescription =
+  "0-based indices into this question's own options array that are correct. A \"single\" question takes exactly one index; use type \"multiple\" to accept several.";
+
+export const pollQuestionShape = { ...questionCore };
+
+export const assessmentQuestionShape = {
+  ...questionCore,
+  correctOptionIndices: z
+    .array(z.number().int().min(0))
+    .min(1)
+    .describe(`REQUIRED. ${indicesDescription}`),
+  ...answerMetaFields,
+};
+
+// edit_poll can target either kind of poll, so answers stay optional in the
+// schema and are enforced at dispatch time against the STORED poll's type —
+// something an input schema cannot know.
+export const editQuestionShape = {
+  ...questionCore,
+  correctOptionIndices: z
+    .array(z.number().int().min(0))
+    .optional()
+    .describe(`Required when editing an assessment's questions. ${indicesDescription}`),
+  ...answerMetaFields,
+};
+
+type QuestionWithAnswers = {
+  options: string[];
+  type?: 'single' | 'multiple';
+  correctOptionIndices?: number[];
+};
+
+// polls.schema.ts only bounds indices below (int().min(0)), so an index past the
+// end of options would persist and silently mark the question ungradeable.
+function checkAnswerIndices(question: QuestionWithAnswers, ctx: z.RefinementCtx) {
+  for (const index of question.correctOptionIndices ?? []) {
+    if (index >= question.options.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['correctOptionIndices'],
+        message: `correctOptionIndices contains ${index}, but this question only has ${question.options.length} options (valid range 0-${question.options.length - 1})`,
+      });
+    }
+  }
+
+  if (question.type === 'single' && (question.correctOptionIndices?.length ?? 0) > 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['correctOptionIndices'],
+      message: 'A "single" question can have at most one correct option; use type "multiple" instead',
+    });
+  }
+}
+
+const pollQuestion = z.object(pollQuestionShape);
+const assessmentQuestion = z.object(assessmentQuestionShape).superRefine(checkAnswerIndices);
+const editQuestion = z.object(editQuestionShape).superRefine(checkAnswerIndices);
+
+const envelopeShape = {
+  isAnonymous: z.boolean().optional().describe('Whether responses are anonymous (default true)'),
+  expiresAt: z
+    .string()
+    .optional()
+    .describe('ISO expiry datetime; must be in the future. Defaults to 30 days from now.'),
+  isPublished: z.boolean().optional().describe('Whether it is live immediately (default true)'),
+};
+
+export const createPollInputShape = {
+  title: z.string().min(3).describe('Poll title, at least 3 characters'),
+  ...envelopeShape,
+  questions: z.array(pollQuestion).min(1).describe('Poll questions, at least 1'),
+};
+
+export const createAssessmentInputShape = {
+  title: z.string().min(3).describe('Assessment title, at least 3 characters'),
+  passingScorePercentage: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe('Score percentage a respondent needs to pass (default 70)'),
+  ...envelopeShape,
+  questions: z
+    .array(assessmentQuestion)
+    .min(1)
+    .describe('Assessment questions, at least 1. Every question must declare correctOptionIndices.'),
+};
+
+export const editPollInputShape = {
+  pollId: z.string().min(1).describe('ID of the poll or assessment to update'),
   title: z.string().min(3).optional(),
-  isAnonymous: z.boolean().optional(),
-  expiresAt: z.string().optional(),
-  isPublished: z.boolean().optional(),
-  questions: z.array(mcpPollQuestionInput).min(1).optional(),
-}).refine((data) => Object.keys(data).length > 1, {
-  message: 'At least one field besides pollId is required',
+  passingScorePercentage: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe('Assessments only: score percentage needed to pass'),
+  ...envelopeShape,
+  questions: z
+    .array(editQuestion)
+    .min(1)
+    .optional()
+    .describe(
+      'Replaces every stored question. When the target is an assessment, each question must carry correctOptionIndices or the call is rejected.',
+    ),
+};
+
+export const convertPollToAssessmentInputShape = {
+  pollId: z.string().min(1).describe('ID of the ungraded poll to convert'),
+  passingScorePercentage: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe('Score percentage a respondent needs to pass (default 70)'),
+  questions: z
+    .array(assessmentQuestion)
+    .min(1)
+    .describe(
+      'REQUIRED. The full replacement question set, each with correctOptionIndices. The stored questions were written as an ungraded poll and carry no correct answers, so they cannot be reused.',
+    ),
+};
+
+const createPollMcpInputSchema = z.object(createPollInputShape);
+const createAssessmentMcpInputSchema = z.object(createAssessmentInputShape);
+const convertPollToAssessmentMcpInputSchema = z.object(convertPollToAssessmentInputShape);
+const editPollMcpInputSchema = z.object(editPollInputShape).superRefine((data, ctx) => {
+  if (Object.keys(data).length <= 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'At least one field besides pollId is required',
+    });
+  }
 });
 
 export type McpUserContext = {
@@ -66,9 +207,56 @@ async function assertPollOwner(pollId: string, userId: string) {
   return poll;
 }
 
-function assertScope(scopes: McpScope[], required: McpScope) {
+// Driven off MCP_TOOL_SCOPES so the map cannot drift from what is enforced. It
+// used to be dead code while each case hardcoded its own scope string.
+function assertToolScope(name: string, scopes: McpScope[]) {
+  const required = MCP_TOOL_SCOPES[name];
+  if (!required) {
+    throw ApiError.notFound(`Unknown MCP tool: ${name}`);
+  }
   if (!scopes.includes(required)) {
     throw ApiError.forbidden(`Missing required scope: ${required}`);
+  }
+}
+
+// A schema can guarantee answers are PRESENT; it cannot guarantee they are RIGHT.
+// correctOptionIndices [1] when the answer sits at 0 is a perfectly valid payload.
+// So every graded write echoes the answers back resolved to option text, letting
+// the agent — and whoever reads its output — catch an off-by-one that no amount
+// of validation would.
+function describeGrading(poll: { questions?: unknown[] }) {
+  const questions = ((poll.questions ?? []) as any[]).map((question) => {
+    const indices: number[] = question.correctOptionIndices ?? [];
+    return {
+      text: question.text,
+      correctAnswers: indices.map(
+        (index) => question.options?.[index] ?? `<no option at index ${index}>`,
+      ),
+      points: question.points ?? 1,
+    };
+  });
+
+  return {
+    gradeable: questions.length > 0 && questions.every((q) => q.correctAnswers.length > 0),
+    maxScore: questions.reduce((total, q) => total + q.points, 0),
+    questions,
+    note: 'correctAnswers are resolved from correctOptionIndices to the option text actually stored. Confirm each is the answer you intended — a valid index can still point at the wrong option.',
+  };
+}
+
+// The stored poll's type is only known after it is fetched, so this cannot live in
+// an input schema. Without it, replacing a live assessment's questions with
+// answerless ones would silently make it ungradeable.
+function assertQuestionsGradeable(questions: QuestionWithAnswers[]) {
+  const answerless = questions
+    .map((question, index) => ({ question, index }))
+    .filter(({ question }) => !question.correctOptionIndices?.length)
+    .map(({ index }) => index + 1);
+
+  if (answerless.length) {
+    throw ApiError.badRequest(
+      `This poll is a graded assessment, so every question needs correctOptionIndices. Missing on question(s): ${answerless.join(', ')}.`,
+    );
   }
 }
 
@@ -93,50 +281,85 @@ async function dispatchMcpTool(
   args: Record<string, unknown> | undefined,
   ctx: McpUserContext,
 ) {
+  assertToolScope(name, ctx.scopes);
+
   switch (name) {
     case 'list_polls': {
-      assertScope(ctx.scopes, 'poll:read');
       const polls = await PollService.listPollsByCreator(ctx.userId);
       return { polls: serialize(polls) };
     }
 
     case 'get_poll': {
-      assertScope(ctx.scopes, 'poll:read');
       const pollId = parsePollId(args?.pollId);
       const poll = await assertPollOwner(pollId, ctx.userId);
       return { poll: serialize(poll) };
     }
 
     case 'create_poll': {
-      assertScope(ctx.scopes, 'poll:create');
       const parsed = createPollMcpInputSchema.parse(args);
 
+      // Spread rather than re-listing keys, so a field added to the shape above
+      // cannot silently vanish here. pollType is pinned: this tool creates
+      // ungraded polls only, and its schema has no answer fields to grade with.
       const validated = createPollSchema.parse({
-        title: parsed.title,
+        ...parsed,
+        pollType: 'POLL',
         isAnonymous: parsed.isAnonymous ?? true,
         expiresAt: parsed.expiresAt ?? defaultExpiresAt(),
         isPublished: parsed.isPublished ?? true,
-        questions: parsed.questions,
       });
 
       const poll = await PollService.createPoll(validated, ctx.userId);
       return { poll: serialize(poll) };
     }
 
-    case 'edit_poll': {
-      assertScope(ctx.scopes, 'poll:edit');
-      const parsed = editPollMcpInputSchema.parse(args);
-      await assertPollOwner(parsed.pollId, ctx.userId);
+    case 'create_assessment': {
+      const parsed = createAssessmentMcpInputSchema.parse(args);
 
-      const { pollId, ...updates } = parsed;
+      const validated = createPollSchema.parse({
+        ...parsed,
+        pollType: 'TRIAL',
+        isAnonymous: parsed.isAnonymous ?? true,
+        expiresAt: parsed.expiresAt ?? defaultExpiresAt(),
+        isPublished: parsed.isPublished ?? true,
+      });
+
+      const poll = await PollService.createPoll(validated, ctx.userId);
+      return { poll: serialize(poll), grading: describeGrading(poll) };
+    }
+
+    case 'edit_poll': {
+      const parsed = editPollMcpInputSchema.parse(args);
+      const { pollId: rawPollId, ...updates } = parsed;
+      const pollId = parsePollId(rawPollId);
+      const existing = await assertPollOwner(pollId, ctx.userId);
+
+      if (existing.pollType === 'TRIAL' && updates.questions) {
+        assertQuestionsGradeable(updates.questions);
+      }
+
       const validated = updatePollSchema.parse(updates);
 
       const poll = await PollService.updatePoll(pollId, validated);
-      return { poll: serialize(poll) };
+      return {
+        poll: serialize(poll),
+        ...(poll.pollType === 'TRIAL' ? { grading: describeGrading(poll) } : {}),
+      };
+    }
+
+    case 'convert_poll_to_assessment': {
+      const parsed = convertPollToAssessmentMcpInputSchema.parse(args);
+      const { pollId: rawPollId, ...updates } = parsed;
+      const pollId = parsePollId(rawPollId);
+      await assertPollOwner(pollId, ctx.userId);
+
+      const validated = updatePollSchema.parse({ ...updates, pollType: 'TRIAL' });
+
+      const poll = await PollService.updatePoll(pollId, validated);
+      return { poll: serialize(poll), grading: describeGrading(poll) };
     }
 
     case 'get_poll_analytics': {
-      assertScope(ctx.scopes, 'analytics:read');
       const pollId = parsePollId(args?.pollId);
       await assertPollOwner(pollId, ctx.userId);
       const analytics = await ResponseService.getPollAnalytics(pollId);
@@ -147,7 +370,6 @@ async function dispatchMcpTool(
     }
 
     case 'get_share_link': {
-      assertScope(ctx.scopes, 'poll:read');
       const pollId = parsePollId(args?.pollId);
       const poll = await assertPollOwner(pollId, ctx.userId);
       const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -171,9 +393,13 @@ async function dispatchMcpTool(
 export function getMcpServerInstructions(): string {
   const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
   return [
-    'Open Poll MCP server — manage polls for the authenticated user.',
-    `Public poll links: ${frontendUrl}/p/:pollId (use get_share_link).`,
-    'Deletion and closing polls are not available via MCP; use the web app.',
+    'Open Poll MCP server — manage polls and graded assessments for the authenticated user.',
+    'Two different tools create things: create_poll makes an ungraded opinion poll; create_assessment makes a graded assessment (called a quiz or trial in the UI) where every question declares its correct answers.',
+    'Pick create_assessment whenever the user wants a quiz, test, exam, or anything scored. An assessment cannot be built with create_poll, which has no answer fields at all.',
+    'Use convert_poll_to_assessment to turn an existing ungraded poll into a graded one; it needs the full replacement question set with correct answers.',
+    'Graded writes echo back a "grading" summary resolving each correctOptionIndices to the option text stored. Read it and confirm the answers are the intended ones before reporting success.',
+    `Public respondent links: ${frontendUrl}/p/:pollId (use get_share_link).`,
+    'Deleting polls, closing polls, and converting an assessment back to an ungraded poll are not available via MCP; use the web app.',
     'get_poll_analytics returns aggregate counts only.',
   ].join(' ');
 }

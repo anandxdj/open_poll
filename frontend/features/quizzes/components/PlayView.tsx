@@ -35,7 +35,7 @@ import type {
   ParticipantState,
   PublicQuizInfo,
   QuizRealtimeEvent,
-  QuizStatus,
+  RevealPayload,
 } from "../types";
 
 const ease = [0.32, 0.72, 0, 1] as const;
@@ -57,10 +57,14 @@ export function PlayView({ code }: PlayViewProps) {
   const [nameDraft, setNameDraft] = useState("");
   const [joining, setJoining] = useState(false);
 
-  const [status, setStatus] = useState<QuizStatus>("lobby");
+  const [status, setStatus] = useState<PublicQuizInfo["status"]>("lobby");
   const [slide, setSlide] = useState<LiveSlide | null>(null);
   const [timing, setTiming] = useState<{ endsAt: string; serverNow: string } | null>(null);
   const [answeredSlide, setAnsweredSlide] = useState<number | null>(null);
+  // Correct-answer reveal (timer hit 0). Status stays "active".
+  const [reveal, setReveal] = useState<RevealPayload | null>(null);
+  // Leaderboard slide currently shown.
+  const [leaderboardView, setLeaderboardView] = useState<LeaderboardEntry[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [textDraft, setTextDraft] = useState("");
   // Per-type input state (wordcloud / scales / ranking)
@@ -126,13 +130,16 @@ export function PlayView({ code }: PlayViewProps) {
         };
         setSlide(payload.slide);
         setTiming({ endsAt: payload.endsAt, serverNow: payload.serverNow });
-        setStatus("question");
+        setStatus("active");
+        setReveal(null);
+        setLeaderboardView(null);
+        setAnsweredSlide(null);
         initInputs(payload.slide);
         setMyState(null);
         break;
       }
       case "question:revealed": {
-        setStatus("reveal");
+        setReveal(event.payload as unknown as RevealPayload);
         if (participant && quizId) {
           void getParticipantState(quizId, participant.participantId, participant.token)
             .then(setMyState)
@@ -141,8 +148,10 @@ export function PlayView({ code }: PlayViewProps) {
         break;
       }
       case "leaderboard:shown": {
-        setLeaderboard((event.payload as { leaderboard: LeaderboardEntry[] }).leaderboard);
-        setStatus("leaderboard");
+        setLeaderboardView((event.payload as { leaderboard: LeaderboardEntry[] }).leaderboard);
+        setSlide(null);
+        setReveal(null);
+        setStatus("active");
         break;
       }
       case "quiz:ended": {
@@ -156,9 +165,10 @@ export function PlayView({ code }: PlayViewProps) {
         break;
       }
       case "lobby:opened": {
-        // Host restarted the session — previous participants were wiped
         setStatus("lobby");
         setSlide(null);
+        setReveal(null);
+        setLeaderboardView(null);
         setMyState(null);
         setAnsweredSlide(null);
         if (quizId) localStorage.removeItem(`openpoll_quiz_participant_${quizId}`);
@@ -166,7 +176,9 @@ export function PlayView({ code }: PlayViewProps) {
         break;
       }
     }
-  });
+  }, participant
+    ? { role: "participant", participantId: participant.participantId, participantToken: participant.token }
+    : undefined);
 
   const countdown = useCountdown(timing?.endsAt, timing?.serverNow, slide?.timeLimit ?? 0);
 
@@ -219,9 +231,19 @@ export function PlayView({ code }: PlayViewProps) {
         ...payload,
       });
       setAnsweredSlide(slide.slideIndex);
+      if (participant && quizId) {
+        void getParticipantState(quizId, participant.participantId, participant.token)
+          .then(setMyState).catch(() => {});
+      }
     } catch (err: any) {
       const message = err?.response?.data?.message || "Answer not accepted.";
-      if (err?.response?.status === 409) setAnsweredSlide(slide.slideIndex);
+      if (err?.response?.status === 409) {
+        setAnsweredSlide(slide.slideIndex);
+        if (participant && quizId) {
+          void getParticipantState(quizId, participant.participantId, participant.token)
+            .then(setMyState).catch(() => {});
+        }
+      }
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -310,8 +332,23 @@ export function PlayView({ code }: PlayViewProps) {
           </Phase>
         )}
 
+        {/* ---------- LEADERBOARD SLIDE ---------- */}
+        {status === "active" && leaderboardView && (
+          <Phase key="lb-slide">
+            <div className="w-full max-w-sm space-y-4">
+              <div className="flex items-center justify-center gap-2 text-sm font-bold text-primary">
+                <Trophy className="size-4" /> Leaderboard
+              </div>
+              <Leaderboard
+                entries={leaderboardView}
+                highlightParticipantId={participant.participantId}
+              />
+            </div>
+          </Phase>
+        )}
+
         {/* ---------- QUESTION ---------- */}
-        {status === "question" && slide && (
+        {status === "active" && slide && !leaderboardView && (
           <Phase key={`q-${slide.slideIndex}`}>
             <div className="w-full max-w-md space-y-6">
               <div className="space-y-2 text-center">
@@ -321,9 +358,51 @@ export function PlayView({ code }: PlayViewProps) {
                 <h1 className="text-xl font-bold tracking-tight leading-snug">{slide.question}</h1>
               </div>
 
-              <QuizTimer secondsLeft={countdown.secondsLeft} progress={countdown.progress} />
+              {!reveal && countdown.secondsLeft > 0 && (
+                <QuizTimer secondsLeft={countdown.secondsLeft} progress={countdown.progress} />
+              )}
 
-              {hasAnswered ? (
+              {reveal && hasAnswered && myState?.lastAnswer ? (
+                <div className="text-center space-y-3 py-4">
+                  {!myState.lastAnswer.scored ? (
+                    <>
+                      <CheckCircle2 className="size-12 text-sky-400 mx-auto" />
+                      <p className="font-bold">Response received!</p>
+                    </>
+                  ) : myState.lastAnswer.isCorrect ? (
+                    <>
+                      <CheckCircle2 className="size-12 text-emerald-400 mx-auto" />
+                      <p className="text-xl font-bold text-emerald-400">Correct!</p>
+                      <p className="text-3xl font-black text-primary tabular-nums">
+                        +{myState.lastAnswer.score.toLocaleString()}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="size-12 text-red-400 mx-auto" />
+                      <p className="text-xl font-bold text-red-400">Not quite…</p>
+                      <p className="text-sm text-muted-foreground/60">No points this round.</p>
+                    </>
+                  )}
+                  {myState && (
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground/60">
+                        Rank <span className="font-bold text-foreground/90">#{myState.rank}</span>
+                      </span>
+                      <span className="font-bold text-primary tabular-nums">
+                        {myState.totalScore.toLocaleString()} pts
+                      </span>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground/50">Waiting for host to advance…</p>
+                </div>
+              ) : reveal && !hasAnswered ? (
+                <div className="text-center space-y-3 py-6">
+                  <Hourglass className="size-10 text-muted-foreground/40 mx-auto" />
+                  <p className="text-sm font-semibold text-foreground/70">Time&apos;s up!</p>
+                  <p className="text-xs text-muted-foreground/50">Waiting for host to advance…</p>
+                </div>
+              ) : hasAnswered ? (
                 <div className="text-center space-y-3 py-6">
                   <CheckCircle2 className="size-10 text-emerald-400 mx-auto" />
                   <p className="text-sm font-semibold text-foreground/80">Answer locked in!</p>
@@ -337,49 +416,55 @@ export function PlayView({ code }: PlayViewProps) {
                   <p className="text-sm font-semibold text-foreground/70">Time&apos;s up!</p>
                 </div>
               ) : slide.type === "select_answer" ? (
-                <div className="grid grid-cols-1 gap-2.5">
-                  {slide.options.map((option, i) => {
-                    const isSelected = selectedOption === i;
-                    return (
-                      <button
-                        key={i}
-                        disabled={submitting || answeredSlide === slide.slideIndex}
-                        onClick={() => {
-                          setSelectedOption(i);
-                          void sendAnswer({ optionIndex: i });
-                        }}
-                        className={`group relative flex w-full items-center justify-between gap-4 rounded-2xl border px-5 py-4 text-left font-semibold transition-all duration-300 active:scale-[0.98] ${
-                          isSelected
-                            ? "border-primary/60 bg-primary/10 text-foreground shadow-[0_0_20px_rgba(216,173,135,0.12)]"
-                            : "border-border bg-secondary/30 hover:border-primary/40 hover:bg-secondary/60 hover:shadow-[0_0_15px_rgba(216,173,135,0.08)] text-foreground/90"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3.5 min-w-0">
-                          <div
-                            className={`flex size-8 shrink-0 items-center justify-center rounded-xl border text-xs font-bold transition-all duration-300 ${
-                              isSelected
-                                ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                                : "border-border bg-secondary text-muted-foreground/70 group-hover:border-primary/40 group-hover:text-foreground"
-                            }`}
-                          >
-                            {String.fromCharCode(65 + i)}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {slide.options.map((option, i) => {
+                      const isSelected = selectedOption === i;
+                      return (
+                        <button
+                          key={i}
+                          disabled={submitting}
+                          onClick={() => setSelectedOption(i)}
+                          className={`group relative flex w-full items-center justify-between gap-4 rounded-2xl border px-5 py-4 text-left font-semibold transition-all duration-300 active:scale-[0.98] ${
+                            isSelected
+                              ? "border-primary/60 bg-primary/10 text-foreground shadow-[0_0_20px_rgba(216,173,135,0.12)]"
+                              : "border-border bg-secondary/30 hover:border-primary/40 hover:bg-secondary/60 hover:shadow-[0_0_15px_rgba(216,173,135,0.08)] text-foreground/90"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <div
+                              className={`flex size-8 shrink-0 items-center justify-center rounded-xl border text-xs font-bold transition-all duration-300 ${
+                                isSelected
+                                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                                  : "border-border bg-secondary text-muted-foreground/70 group-hover:border-primary/40 group-hover:text-foreground"
+                              }`}
+                            >
+                              {String.fromCharCode(65 + i)}
+                            </div>
+                            <span className="text-base font-semibold leading-snug break-words">
+                              {option.text}
+                            </span>
                           </div>
-                          <span className="text-base font-semibold leading-snug break-words">
-                            {option.text}
-                          </span>
-                        </div>
-                        {isSelected && (
-                          <motion.div
-                            initial={{ scale: 0, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                          >
-                            <CheckCircle2 className="size-5 shrink-0 text-primary" />
-                          </motion.div>
-                        )}
-                      </button>
-                    );
-                  })}
+                          {isSelected && (
+                            <motion.div
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                            >
+                              <CheckCircle2 className="size-5 shrink-0 text-primary" />
+                            </motion.div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    onClick={() => selectedOption !== null && void sendAnswer({ optionIndex: selectedOption })}
+                    disabled={submitting || selectedOption === null}
+                    className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-semibold"
+                  >
+                    {submitting ? <Loader2 className="size-4 animate-spin" /> : <>Submit <Send className="size-4 ml-2" /></>}
+                  </Button>
                 </div>
               ) : slide.type === "wordcloud" ? (
                 <div className="space-y-3">
@@ -567,80 +652,7 @@ export function PlayView({ code }: PlayViewProps) {
           </Phase>
         )}
 
-        {/* ---------- REVEAL (personal result) ---------- */}
-        {status === "reveal" && (
-          <Phase key="reveal">
-            <div className="text-center space-y-5 w-full max-w-sm">
-              {myState?.lastAnswer ? (
-                !myState.lastAnswer.scored ? (
-                  <>
-                    <motion.div
-                      initial={{ scale: 0.5 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 15 }}
-                    >
-                      <CheckCircle2 className="size-14 text-sky-400 mx-auto" />
-                    </motion.div>
-                    <h1 className="text-2xl font-bold text-sky-400">Response received!</h1>
-                    <p className="text-sm text-muted-foreground/60">
-                      Watch the big screen for the combined results.
-                    </p>
-                  </>
-                ) : myState.lastAnswer.isCorrect ? (
-                  <>
-                    <motion.div
-                      initial={{ scale: 0.5 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 15 }}
-                    >
-                      <CheckCircle2 className="size-14 text-emerald-400 mx-auto" />
-                    </motion.div>
-                    <h1 className="text-2xl font-bold text-emerald-400">Correct!</h1>
-                    <p className="text-4xl font-black text-primary tabular-nums">
-                      +{myState.lastAnswer.score.toLocaleString()}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="size-14 text-red-400 mx-auto" />
-                    <h1 className="text-2xl font-bold text-red-400">Not quite…</h1>
-                    <p className="text-sm text-muted-foreground/60">No points this round.</p>
-                  </>
-                )
-              ) : (
-                <>
-                  <Hourglass className="size-12 text-muted-foreground/40 mx-auto" />
-                  <h1 className="text-xl font-bold text-foreground/70">
-                    {myState ? "No answer this round" : "Checking your result…"}
-                  </h1>
-                </>
-              )}
-              {myState && (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground/60">
-                    Rank <span className="font-bold text-foreground/90">#{myState.rank}</span>
-                  </span>
-                  <span className="font-bold text-primary tabular-nums">
-                    {myState.totalScore.toLocaleString()} pts
-                  </span>
-                </div>
-              )}
-            </div>
-          </Phase>
-        )}
-
-        {/* ---------- LEADERBOARD ---------- */}
-        {status === "leaderboard" && (
-          <Phase key="leaderboard">
-            <div className="w-full max-w-sm">
-              <Leaderboard
-                entries={leaderboard}
-                highlightParticipantId={participant.participantId}
-                title="Standings"
-              />
-            </div>
-          </Phase>
-        )}
+        {/* ---------- REVEAL + LEADERBOARD status blocks removed — handled inline in active ---------- */}
 
         {/* ---------- ENDED ---------- */}
         {status === "ended" && (

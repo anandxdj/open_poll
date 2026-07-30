@@ -10,13 +10,14 @@ export class McpSettingsController {
     try {
       if (!req.user) throw ApiError.unauthorized('Not authenticated');
 
-      const issued = await McpTokenService.issueToken(req.user.id, req.body.label);
+      const baseUrl = getMcpPublicUrl(req);
+      const issued = await McpTokenService.issueToken(req.user.id, req.body.label, baseUrl);
 
       return ApiResponse.created(res, 'MCP token created successfully', {
         token: issued.token,
         connectorConfig: issued.connectorConfig,
         meta: issued.meta,
-        mcpUrl: `${getMcpPublicUrl()}/mcp`,
+        mcpUrl: `${baseUrl}/mcp`,
       });
     } catch (error) {
       next(error);
@@ -30,7 +31,7 @@ export class McpSettingsController {
       const tokens = await McpTokenService.listTokens(req.user.id);
       return ApiResponse.ok(res, 'MCP tokens fetched successfully', {
         tokens,
-        mcpUrl: `${getMcpPublicUrl()}/mcp`,
+        mcpUrl: `${getMcpPublicUrl(req)}/mcp`,
       });
     } catch (error) {
       next(error);

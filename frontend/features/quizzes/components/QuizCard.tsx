@@ -11,9 +11,10 @@ import type { Quiz, QuizStatus } from "../types";
 
 const ease = [0.32, 0.72, 0, 1] as const;
 
-const statusChip: Record<QuizStatus, { label: string; className: string }> = {
+const statusChip: Record<string, { label: string; className: string }> = {
   draft: { label: "Draft", className: "bg-white/5 text-white/50 border-white/10" },
   lobby: { label: "Lobby open", className: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  active: { label: "Live", className: "bg-red-500/10 text-red-400 border-red-500/20" },
   question: { label: "Live", className: "bg-red-500/10 text-red-400 border-red-500/20" },
   reveal: { label: "Live", className: "bg-red-500/10 text-red-400 border-red-500/20" },
   leaderboard: { label: "Live", className: "bg-red-500/10 text-red-400 border-red-500/20" },
@@ -28,9 +29,10 @@ interface QuizCardProps {
 
 export function QuizCard({ quiz, index = 0, onDelete }: QuizCardProps) {
   const router = useRouter();
-  const chip = statusChip[quiz.status];
+  const chip = (quiz?.status && statusChip[quiz.status]) || statusChip.draft;
+  const slides = quiz?.slides || [];
   // Distinct slide types in deck order, capped for display
-  const typeIcons = [...new Set(quiz.slides.map((s) => s.type))].slice(0, 6);
+  const typeIcons = [...new Set(slides.map((s) => s?.type).filter(Boolean))].slice(0, 6);
 
   return (
     <motion.div
@@ -42,7 +44,7 @@ export function QuizCard({ quiz, index = 0, onDelete }: QuizCardProps) {
       <div className="rounded-[calc(2rem-0.375rem)] bg-card p-5 space-y-4 h-full flex flex-col">
         <div className="flex items-start justify-between gap-3">
           <h2 className="text-base font-bold tracking-tight text-foreground/90 leading-snug">
-            {quiz.title}
+            {quiz?.title || "Untitled Deck"}
           </h2>
           <span
             className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${chip.className}`}
@@ -53,8 +55,8 @@ export function QuizCard({ quiz, index = 0, onDelete }: QuizCardProps) {
 
         <div className="flex items-center gap-4 text-xs text-muted-foreground/60">
           <span className="flex items-center gap-1.5">
-            <Layers className="size-3.5" /> {quiz.slides.length} slide
-            {quiz.slides.length !== 1 ? "s" : ""}
+            <Layers className="size-3.5" /> {slides.length} slide
+            {slides.length !== 1 ? "s" : ""}
           </span>
           <span className="flex items-center gap-1">
             {typeIcons.map((type) => {
@@ -62,22 +64,24 @@ export function QuizCard({ quiz, index = 0, onDelete }: QuizCardProps) {
               return <m.Icon key={type} className={`size-3.5 ${m.iconClass}`} />;
             })}
           </span>
-          <button
-            onClick={() => {
-              void navigator.clipboard.writeText(quiz.joinCode);
-              toast.success("Join code copied!");
-            }}
-            className="flex items-center gap-1.5 hover:text-foreground transition-colors ml-auto"
-            title="Copy join code"
-          >
-            <Copy className="size-3" />
-            <span className="font-mono font-bold tracking-widest">{quiz.joinCode}</span>
-          </button>
+          {quiz?.joinCode ? (
+            <button
+              onClick={() => {
+                void navigator.clipboard.writeText(quiz.joinCode);
+                toast.success("Join code copied!");
+              }}
+              className="flex items-center gap-1.5 hover:text-foreground transition-colors ml-auto"
+              title="Copy join code"
+            >
+              <Copy className="size-3" />
+              <span className="font-mono font-bold tracking-widest">{quiz.joinCode}</span>
+            </button>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2 pt-1 mt-auto">
           <Button
-            onClick={() => router.push(`/quiz/host/${quiz._id}`)}
+            onClick={() => router.push(`/quiz/host/${quiz._id}?reset=true`)}
             className="h-9 rounded-full bg-primary text-primary-foreground font-semibold px-4 text-xs"
           >
             <Play className="size-3.5 mr-1.5" /> Host live

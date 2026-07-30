@@ -257,6 +257,29 @@ export class QuizService {
     return quiz;
   }
 
+  // Non-throwing checks for the socket layer, which just needs a yes/no.
+  static async isOwner(quizId: string, userId: string): Promise<boolean> {
+    try {
+      await QuizService.assertOwnership(quizId, userId);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  static async isAuthorizedParticipant(
+    quizId: string,
+    participantId: string,
+    token: string
+  ): Promise<boolean> {
+    try {
+      await verifyParticipant(quizId, participantId, token);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   static async listQuizzesByCreator(creatorId: string) {
     return QuizModel.find({ creatorId }).sort({ createdAt: -1 });
   }
@@ -304,19 +327,56 @@ export class QuizService {
     return quiz;
   }
 
-  static async startNextQuestion(quizId: string, userId: string) {
+  /**
+   * Advance to a slide (forward-only during a live session). Handles both
+   * answerable slides (emits `question:started` + caches the answer session)
+   * and leaderboard slides (emits `leaderboard:shown`, no timer). Status stays
+   * `active` throughout — the answering-vs-revealed sub-state is derived from
+   * the clock on the client, not stored here.
+   */
+  static async advanceSlide(quizId: string, userId: string, targetIndex?: number) {
     const quiz = await QuizService.assertOwnership(quizId, userId);
-    if (!['lobby', 'reveal', 'leaderboard'].includes(quiz.status)) {
-      throw ApiError.badRequest(`Cannot start a question from status "${quiz.status}"`);
+    if (!['lobby', 'active'].includes(quiz.status)) {
+      throw ApiError.badRequest(`Cannot advance a slide from status "${quiz.status}"`);
     }
 
-    const nextIndex = quiz.currentSlideIndex + 1;
+    const nextIndex = targetIndex !== undefined ? targetIndex : quiz.currentSlideIndex + 1;
+    if (nextIndex < 0 || nextIndex >= quiz.slides.length) {
+      throw ApiError.badRequest('Slide index out of bounds');
+    }
+    // Forward-only: a live session never revisits a slide it already ran.
+    if (quiz.status === 'active' && nextIndex <= quiz.currentSlideIndex) {
+      throw ApiError.badRequest('Cannot navigate backwards during a live session');
+    }
     const slide = quiz.slides[nextIndex];
-    if (!slide) throw ApiError.badRequest('No more slides — end the quiz instead');
+    if (!slide) throw ApiError.badRequest('Slide missing');
 
     const now = new Date();
-    quiz.status = 'question';
+    quiz.status = 'active';
     quiz.currentSlideIndex = nextIndex;
+
+    // Leaderboard slides have no timer and accept no answers.
+    if (slide.type === 'leaderboard') {
+      quiz.questionStartedAt = null;
+      quiz.questionEndsAt = null;
+      await quiz.save();
+      await redisClient.del(k.session(quizId)).catch(() => {});
+
+      const leaderboard = await getLeaderboard(quizId);
+      const participantCount = await redisClient
+        .hLen(k.names(quizId))
+        .catch(() => 0)
+        .then((n) => (n > 0 ? n : QuizParticipantModel.countDocuments({ quizId })));
+
+      await publishQuizEvent(quizId, 'leaderboard:shown', {
+        slideIndex: nextIndex,
+        leaderboard,
+        participantCount,
+        isLastSlide: nextIndex === quiz.slides.length - 1,
+      });
+      return quiz;
+    }
+
     quiz.questionStartedAt = now;
     quiz.questionEndsAt = new Date(now.getTime() + slide.timeLimit * 1000);
     await quiz.save();
@@ -337,18 +397,24 @@ export class QuizService {
     return quiz;
   }
 
-  static async revealAnswers(quizId: string, userId: string) {
+  /**
+   * Broadcast the correct answer + distribution for the current slide. Fired by
+   * the host client when the timer hits 0 (auto) or manually. Does NOT change
+   * status — the deck stays `active` on the same slide until the host advances.
+   * Safe to call more than once (idempotent re-broadcast).
+   */
+  static async revealCurrentSlide(quizId: string, userId: string) {
     const quiz = await QuizService.assertOwnership(quizId, userId);
-    if (quiz.status !== 'question') {
+    if (quiz.status !== 'active') {
       throw ApiError.badRequest('No live question to reveal');
     }
 
     const slideIndex = quiz.currentSlideIndex;
     const slide = quiz.slides[slideIndex];
     if (!slide) throw ApiError.internal('Current slide missing');
-
-    quiz.status = 'reveal';
-    await quiz.save();
+    if (slide.type === 'leaderboard') {
+      throw ApiError.badRequest('Leaderboard slides have nothing to reveal');
+    }
 
     // Deleting the session immediately stops the answer fast path,
     // even when the presenter reveals before the timer runs out
@@ -378,29 +444,7 @@ export class QuizService {
       answeredCount,
       participantCount,
       isLastSlide: slideIndex === quiz.slides.length - 1,
-    });
-    return quiz;
-  }
-
-  static async showLeaderboard(quizId: string, userId: string) {
-    const quiz = await QuizService.assertOwnership(quizId, userId);
-    if (!['reveal', 'question'].includes(quiz.status)) {
-      throw ApiError.badRequest('Leaderboard can be shown after revealing a question');
-    }
-
-    quiz.status = 'leaderboard';
-    await quiz.save();
-
-    const leaderboard = await getLeaderboard(quizId);
-    const participantCount = await redisClient
-      .hLen(k.names(quizId))
-      .catch(() => 0)
-      .then((n) => (n > 0 ? n : QuizParticipantModel.countDocuments({ quizId })));
-
-    await publishQuizEvent(quizId, 'leaderboard:shown', {
-      leaderboard,
-      participantCount,
-      isLastSlide: quiz.currentSlideIndex === quiz.slides.length - 1,
+      auto: true,
     });
     return quiz;
   }
@@ -438,9 +482,9 @@ export class QuizService {
         });
       }
 
-      if (quiz.status === 'question' || quiz.status === 'reveal') {
+      if (quiz.status === 'active') {
         const slide = quiz.slides[quiz.currentSlideIndex];
-        if (slide) {
+        if (slide && slide.type !== 'leaderboard') {
           const res = await computeSlideDistributionHelper(
             'quiz',
             quizId,
@@ -487,12 +531,17 @@ export class QuizService {
     };
 
     // Late joiners / refreshes need the live question to render immediately
-    if (quiz.status === 'question' && quiz.currentSlideIndex >= 0) {
+    if (
+      quiz.status === 'active' &&
+      quiz.currentSlideIndex >= 0 &&
+      quiz.questionStartedAt &&
+      quiz.questionEndsAt
+    ) {
       const slide = quiz.slides[quiz.currentSlideIndex];
-      if (slide) {
+      if (slide && slide.type !== 'leaderboard') {
         result.currentSlide = sanitizeSlide(slide, quiz.currentSlideIndex, quiz.slides.length);
-        result.questionStartedAt = quiz.questionStartedAt?.toISOString();
-        result.questionEndsAt = quiz.questionEndsAt?.toISOString();
+        result.questionStartedAt = quiz.questionStartedAt.toISOString();
+        result.questionEndsAt = quiz.questionEndsAt.toISOString();
       }
     }
 
@@ -569,9 +618,9 @@ export class QuizService {
       session = JSON.parse(raw) as LiveSession;
     } else {
       const quiz = await QuizModel.findById(quizId);
-      if (quiz && quiz.status === 'question' && quiz.currentSlideIndex >= 0) {
+      if (quiz && quiz.status === 'active' && quiz.currentSlideIndex >= 0) {
         const slide = quiz.slides[quiz.currentSlideIndex];
-        if (slide && quiz.questionStartedAt && quiz.questionEndsAt) {
+        if (slide && slide.type !== 'leaderboard' && quiz.questionStartedAt && quiz.questionEndsAt) {
           session = buildSession(quiz, slide);
           void redisClient
             .set(k.session(quizId), JSON.stringify(session), { EX: QUIZ_KEY_TTL_SEC })
@@ -705,23 +754,23 @@ export class QuizService {
         )
       : 0;
 
-    // 5. Atomic Redis updates (leaderboard, distribution, per-participant result)
+    // 5. Atomic Redis updates via MULTI — a crash mid-write can't desync
+    //    leaderboard / distribution / per-participant result.
     const distKey = k.dist(quizId, data.slideIndex);
     const dispKey = k.disp(quizId, data.slideIndex);
-    const [answeredCount] = await Promise.all([
-      redisClient.sCard(answeredKey),
-      redisClient.zIncrBy(k.scores(quizId), score, data.participantId),
-      isCorrect
-        ? redisClient.hIncrBy(k.correct(quizId), data.participantId, 1)
-        : Promise.resolve(0),
-      ...distWrites.map((w) => redisClient.hIncrBy(distKey, w.field, w.by)),
-      ...dispWrites.map((w) => redisClient.hSetNX(dispKey, w.field, w.value)),
-      redisClient.hSet(
-        k.results(quizId, data.slideIndex),
-        data.participantId,
-        JSON.stringify({ isCorrect, score, scored: session.scored })
-      ),
-    ]);
+    const pipeline = redisClient.multi();
+    pipeline.zIncrBy(k.scores(quizId), score, data.participantId);
+    if (isCorrect) pipeline.hIncrBy(k.correct(quizId), data.participantId, 1);
+    distWrites.forEach((w) => pipeline.hIncrBy(distKey, w.field, w.by));
+    dispWrites.forEach((w) => pipeline.hSetNX(dispKey, w.field, w.value));
+    pipeline.hSet(
+      k.results(quizId, data.slideIndex),
+      data.participantId,
+      JSON.stringify({ isCorrect, score, scored: session.scored })
+    );
+    pipeline.sCard(answeredKey);
+    const pipelineResults = await pipeline.exec();
+    const answeredCount = Number(pipelineResults[pipelineResults.length - 1]);
 
     await redisClient.sAdd('buffer:active_quiz_distributions', quizId).catch(() => {});
 
@@ -797,7 +846,14 @@ export class QuizService {
       score: number;
       scored: boolean;
     } | null = null;
-    if (['reveal', 'leaderboard', 'ended'].includes(quiz.status) && quiz.currentSlideIndex >= 0) {
+    // Reveal is clock-derived now: expose the participant's result once the
+    // current slide's answer window has closed, or after the quiz ends.
+    const answerWindowClosed =
+      quiz.status === 'ended' ||
+      (quiz.status === 'active' &&
+        !!quiz.questionEndsAt &&
+        Date.now() > quiz.questionEndsAt.getTime());
+    if (answerWindowClosed && quiz.currentSlideIndex >= 0) {
       const slideType = quiz.slides[quiz.currentSlideIndex]?.type;
       const slideScored = slideType ? isScoredSlideType(slideType) : true;
       const cached = await redisClient

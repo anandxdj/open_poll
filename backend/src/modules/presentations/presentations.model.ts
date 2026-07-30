@@ -10,7 +10,8 @@ export type PresentationSlideType =
   | 'wordcloud'
   | 'open_ended'
   | 'scales'
-  | 'ranking';
+  | 'ranking'
+  | 'leaderboard';
 
 export const SCORED_SLIDE_TYPES: PresentationSlideType[] = ['select_answer', 'type_answer'];
 
@@ -48,9 +49,7 @@ export interface IPresentationSlide {
 export type PresentationStatus =
   | 'draft' // being edited, not joinable
   | 'lobby' // joinable, waiting for host to start
-  | 'question' // a question is live and accepting answers
-  | 'reveal' // current question closed, results shown
-  | 'leaderboard' // standings shown between questions
+  | 'active' // a slide is live; answering-vs-revealed is derived from the clock
   | 'ended'; // final results
 
 export interface IPresentation extends Document {
@@ -69,7 +68,7 @@ export interface IPresentation extends Document {
 const PresentationSlideSchema = new Schema<IPresentationSlide>({
   type: {
     type: String,
-    enum: ['select_answer', 'type_answer', 'wordcloud', 'open_ended', 'scales', 'ranking'],
+    enum: ['select_answer', 'type_answer', 'wordcloud', 'open_ended', 'scales', 'ranking', 'leaderboard'],
     required: true,
   },
   question: { type: String, required: true },
@@ -101,7 +100,7 @@ const PresentationSchema = new Schema<IPresentation>(
     joinCode: { type: String, required: true, unique: true },
     status: {
       type: String,
-      enum: ['draft', 'lobby', 'question', 'reveal', 'leaderboard', 'ended'],
+      enum: ['draft', 'lobby', 'active', 'ended'],
       default: 'draft',
     },
     currentSlideIndex: { type: Number, default: -1 },
@@ -116,7 +115,7 @@ const PresentationSchema = new Schema<IPresentation>(
       },
     },
   },
-  { timestamps: true }
+  { timestamps: true, optimisticConcurrency: true }
 );
 
 export const PresentationModel = mongoose.model<IPresentation>('Presentation', PresentationSchema);

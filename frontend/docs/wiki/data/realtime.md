@@ -17,6 +17,10 @@ last_updated: 2026-05-13
 ## Quiz Live Sockets
 - **Hook**: `features/quizzes/hooks/useQuizSocket.ts` — emits `quiz:join`/`quiz:leave` with
   `quizId` (backend room `quiz_{quizId}`), re-joins on reconnect, filters by quizId.
+- **Auth**: the hook takes a required third `auth` param — `{ role: "host" }` (pulls the JWT
+  access token from `useAuthStore`) or `{ role: "participant", participantId, participantToken }`.
+  The server rejects the room join without valid credentials, so pass `auth={undefined}` to skip
+  joining until a participant has actually joined (e.g. before the nickname gate resolves).
 - **Event**: single envelope `quiz:event` → `{ quizId, type, payload, emittedAt }`.
   Types: `lobby:opened`, `participant:joined`, `question:started`, `answer:received`,
   `question:revealed`, `leaderboard:shown`, `quiz:ended` (contract:

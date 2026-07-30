@@ -11,6 +11,7 @@
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": { "service": "backend" } },
+    { "source": "/mcp", "destination": { "service": "backend" } },
     { "source": "/mcp/(.*)", "destination": { "service": "backend" } },
     { "source": "/socket.io/(.*)", "destination": { "service": "backend" } },
     { "source": "/auth/callback", "destination": { "service": "backend" } },

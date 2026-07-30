@@ -53,7 +53,7 @@ export function Leaderboard({ entries, highlightParticipantId, title = "Leaderbo
                 isMe
                   ? "border-primary/40 bg-primary/10"
                   : entry.rank === 1
-                    ? "border-yellow-400/30 bg-yellow-400/5"
+                    ? "border-primary/30 bg-primary/10"
                     : "border-white/10 bg-white/[0.03]"
               }`}
             >

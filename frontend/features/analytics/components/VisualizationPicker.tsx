@@ -12,30 +12,34 @@ interface VisualizationPickerProps {
 
 export function VisualizationPicker({ value, onChange }: VisualizationPickerProps) {
   const options = [
-    { id: "bar-v", icon: BarChart2, label: "Vertical" },
-    { id: "bar-h", icon: BarChart2, label: "Horizontal", rotate: true },
-    { id: "pie", icon: PieChart, label: "Donut" },
-    { id: "list", icon: List, label: "List" },
+    { id: "bar-v", icon: BarChart2, label: "Vertical Bar" },
+    { id: "bar-h", icon: BarChart2, label: "Horizontal Bar", rotate: true },
+    { id: "pie", icon: PieChart, label: "Donut Chart" },
+    { id: "list", icon: List, label: "List View" },
   ];
 
   return (
-    <div className="flex items-center gap-1 rounded-xl border border-border bg-secondary/50 p-1">
-      {options.map((opt) => (
-        <button
-          key={opt.id}
-          onClick={() => onChange(opt.id as VisualizationType)}
-          className={cn(
-            "flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-all",
-            value === opt.id
-              ? "bg-primary text-primary-foreground shadow-lg"
-              : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
-          )}
-          title={opt.label}
-        >
-          <opt.icon className={cn("size-3.5", opt.rotate && "rotate-90")} />
-          <span className="hidden sm:inline">{opt.label}</span>
-        </button>
-      ))}
+    <div className="inline-flex items-center gap-1 rounded-xl border border-border/80 bg-secondary/60 p-1 backdrop-blur-md shadow-sm">
+      {options.map((opt) => {
+        const isActive = value === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => onChange(opt.id as VisualizationType)}
+            className={cn(
+              "flex size-8 items-center justify-center rounded-lg transition-all cursor-pointer select-none",
+              isActive
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 scale-[1.05]"
+                : "text-muted-foreground hover:bg-white/5 hover:text-foreground active:scale-[0.95]"
+            )}
+            title={opt.label}
+            aria-label={opt.label}
+          >
+            <opt.icon className={cn("size-4 shrink-0", opt.rotate && "rotate-90")} />
+          </button>
+        );
+      })}
     </div>
   );
 }

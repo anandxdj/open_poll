@@ -80,11 +80,12 @@ export class QuizController {
     }
   }
 
-  static async startNextQuestion(req: AuthRequest, res: Response, next: NextFunction) {
+  static async advanceSlide(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const user = requireUser(req);
-      const quiz = await QuizService.startNextQuestion(requireParam(req, 'id'), user.id);
-      return ApiResponse.ok(res, 'Question started', quiz);
+      const targetIndex = req.body?.slideIndex !== undefined ? Number(req.body.slideIndex) : undefined;
+      const quiz = await QuizService.advanceSlide(requireParam(req, 'id'), user.id, targetIndex);
+      return ApiResponse.ok(res, 'Slide advanced', quiz);
     } catch (error) {
       next(error);
     }
@@ -93,18 +94,8 @@ export class QuizController {
   static async reveal(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const user = requireUser(req);
-      const quiz = await QuizService.revealAnswers(requireParam(req, 'id'), user.id);
+      const quiz = await QuizService.revealCurrentSlide(requireParam(req, 'id'), user.id);
       return ApiResponse.ok(res, 'Answers revealed', quiz);
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async showLeaderboard(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const user = requireUser(req);
-      const quiz = await QuizService.showLeaderboard(requireParam(req, 'id'), user.id);
-      return ApiResponse.ok(res, 'Leaderboard shown', quiz);
     } catch (error) {
       next(error);
     }

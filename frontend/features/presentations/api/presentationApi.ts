@@ -49,14 +49,15 @@ export const getHostState = async (id: string) =>
 export const openLobby = async (id: string) =>
   (await apiClient.post<ApiOk<Presentation>>(`/presentations/${id}/host/open-lobby`)).data.data;
 
-export const startNextQuestion = async (id: string) =>
-  (await apiClient.post<ApiOk<Presentation>>(`/presentations/${id}/host/next-question`)).data.data;
+export const advanceSlide = async (id: string, slideIndex?: number) =>
+  (await apiClient.post<ApiOk<Presentation>>(`/presentations/${id}/host/advance`, { slideIndex })).data.data;
+// Backward-compatible alias
+export const startNextQuestion = advanceSlide;
 
-export const revealAnswers = async (id: string) =>
+// Broadcasts the correct answer + distribution for the current slide without
+// changing status. Host fires this when the timer hits 0 (auto-reveal).
+export const revealCurrentSlide = async (id: string) =>
   (await apiClient.post<ApiOk<Presentation>>(`/presentations/${id}/host/reveal`)).data.data;
-
-export const showLeaderboard = async (id: string) =>
-  (await apiClient.post<ApiOk<Presentation>>(`/presentations/${id}/host/leaderboard`)).data.data;
 
 export const endPresentation = async (id: string) =>
   (await apiClient.post<ApiOk<Presentation>>(`/presentations/${id}/host/end`)).data.data;

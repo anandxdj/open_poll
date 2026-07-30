@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Zap, Trophy, BarChart3, Share2, Send, Download } from "lucide-react";
+import { Zap, Trophy, BarChart3, Share2, Send, Download, Check, Copy, Link } from "lucide-react";
 import { toast } from "sonner";
 import type { Poll } from "@/features/polls/store/useCreatorStore";
 import { QuestionAnalytics } from "@/features/analytics/components/QuestionAnalytics";
@@ -22,6 +22,7 @@ export function PublicResultsView({ poll }: Props) {
   const [analytics, setAnalytics] = useState<PollAnalyticsPayload | null>(null);
   const [visType, setVisType] = useState<VisualizationType>("bar-v");
   const [loading, setLoading] = useState(true);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,10 +40,16 @@ export function PublicResultsView({ poll }: Props) {
     return () => { cancelled = true; };
   }, [poll._id]);
 
-  const handleShare = () => {
+  const handleShare = async () => {
     const url = `${window.location.origin}/p/${poll._id}`;
-    navigator.clipboard.writeText(url);
-    toast.success("Result link copied to clipboard!");
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      toast.success("Poll link copied to clipboard!");
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {
+      toast.error("Failed to copy link.");
+    }
   };
 
   const handleShareX = () => {
@@ -127,11 +134,26 @@ export function PublicResultsView({ poll }: Props) {
         </div>
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={handleShare}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:bg-secondary hover:text-foreground transition-all"
+            title="Click to copy poll link"
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer ${
+              copiedLink
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                : "border-border bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"
+            }`}
           >
-            <Share2 className="size-3" />
-            Link
+            {copiedLink ? (
+              <>
+                <Check className="size-3 text-emerald-400" />
+                <span>Copied!</span>
+              </>
+            ) : (
+              <>
+                <Link className="size-3" />
+                <span>Link</span>
+              </>
+            )}
           </button>
           <button
             onClick={handleExportCSV}
@@ -155,40 +177,36 @@ export function PublicResultsView({ poll }: Props) {
       </header>
 
       <main className="relative z-10 mx-auto max-w-3xl px-6 py-12 space-y-12">
-        {/* Title & Stats */}
-        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-2"
-          >
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary">
-              <Trophy className="size-3" />
-              {poll.pollType === 'TRIAL' ? "Quiz Assessment Results" : "Poll Conclusion"}
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-              {poll.title}
-            </h1>
-            <div className="flex items-center gap-4 pt-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">Total Responses</span>
-                <span className="text-sm font-bold text-foreground/70 tabular-nums">{analytics?.totalResponses ?? 0}</span>
-              </div>
-              <div className="h-3 w-px bg-border" />
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">Questions</span>
-                <span className="text-sm font-bold text-foreground/70 tabular-nums">{poll.questions.length}</span>
-              </div>
-            </div>
-          </motion.div>
+        {/* Title & Header Metadata */}
+        <motion.div 
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-4 border-b border-border/60 pb-6"
+        >
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-primary shadow-sm">
+            <Trophy className="size-3 text-primary" />
+            <span>{poll.pollType === 'TRIAL' ? "Quiz Assessment Results" : "Poll Conclusion"}</span>
+          </div>
 
-          <div className="flex flex-col gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
-              Change View
-            </span>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground md:text-4xl leading-tight font-sans">
+            {poll.title}
+          </h1>
+
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+            <div className="flex items-center gap-2.5">
+              <div className="inline-flex items-center gap-2 rounded-lg border border-border/80 bg-card/40 px-3 py-1.5 text-xs shadow-sm">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Total Responses</span>
+                <span className="font-mono font-extrabold text-primary text-sm">{analytics?.totalResponses ?? 0}</span>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-lg border border-border/80 bg-card/40 px-3 py-1.5 text-xs shadow-sm">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Questions</span>
+                <span className="font-mono font-extrabold text-foreground text-sm">{poll.questions.length}</span>
+              </div>
+            </div>
+
             <VisualizationPicker value={visType} onChange={setVisType} />
           </div>
-        </div>
+        </motion.div>
 
         {/* Results Sections */}
         <div className="space-y-8">

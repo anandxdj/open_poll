@@ -12,6 +12,7 @@ export const PRESENTATION_SLIDE_TYPES = [
   'open_ended',
   'scales',
   'ranking',
+  'leaderboard',
 ] as const;
 
 export const presentationSlideSchema = z
@@ -31,6 +32,7 @@ export const presentationSlideSchema = z
     scoreDependsOnTime: z.boolean().default(true),
   })
   .superRefine((slide, ctx) => {
+    if (slide.type === 'leaderboard') return; // no field validation needed for leaderboard slides
     if (slide.type === 'select_answer') {
       if (slide.options.length < 2) {
         ctx.addIssue({
