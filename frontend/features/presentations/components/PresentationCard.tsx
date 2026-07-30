@@ -22,9 +22,10 @@ import type { Presentation, PresentationStatus } from "../types";
 
 const ease = [0.32, 0.72, 0, 1] as const;
 
-const statusChip: Record<PresentationStatus, { label: string; className: string }> = {
+const statusChip: Record<string, { label: string; className: string }> = {
   draft: { label: "Draft", className: "bg-white/5 text-white/50 border-white/10" },
   lobby: { label: "Lobby open", className: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  active: { label: "Live", className: "bg-red-500/10 text-red-400 border-red-500/20" },
   question: { label: "Live", className: "bg-red-500/10 text-red-400 border-red-500/20" },
   reveal: { label: "Live", className: "bg-red-500/10 text-red-400 border-red-500/20" },
   leaderboard: { label: "Live", className: "bg-red-500/10 text-red-400 border-red-500/20" },
@@ -39,8 +40,9 @@ interface PresentationCardProps {
 
 export function PresentationCard({ presentation, index = 0, onDelete }: PresentationCardProps) {
   const router = useRouter();
-  const chip = statusChip[presentation.status];
-  const typeIcons = [...new Set(presentation.slides.map((s) => s.type))].slice(0, 6);
+  const chip = (presentation?.status && statusChip[presentation.status]) || statusChip.draft;
+  const slides = presentation?.slides || [];
+  const typeIcons = [...new Set(slides.map((s) => s?.type).filter(Boolean))].slice(0, 6);
 
   return (
     <motion.div
@@ -52,7 +54,7 @@ export function PresentationCard({ presentation, index = 0, onDelete }: Presenta
       <div className="rounded-[calc(2rem-0.375rem)] bg-card p-5 space-y-4 h-full flex flex-col">
         <div className="flex items-start justify-between gap-3">
           <h2 className="text-base font-bold tracking-tight text-foreground/90 leading-snug">
-            {presentation.title}
+            {presentation?.title || "Untitled Deck"}
           </h2>
           <span
             className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${chip.className}`}
@@ -63,8 +65,8 @@ export function PresentationCard({ presentation, index = 0, onDelete }: Presenta
 
         <div className="flex items-center gap-4 text-xs text-muted-foreground/60">
           <span className="flex items-center gap-1.5">
-            <Layers className="size-3.5" /> {presentation.slides.length} slide
-            {presentation.slides.length !== 1 ? "s" : ""}
+            <Layers className="size-3.5" /> {slides.length} slide
+            {slides.length !== 1 ? "s" : ""}
           </span>
           <span className="flex items-center gap-1">
             {typeIcons.map((type) => {
@@ -72,17 +74,19 @@ export function PresentationCard({ presentation, index = 0, onDelete }: Presenta
               return <m.Icon key={type} className={`size-3.5 ${m.iconClass}`} />;
             })}
           </span>
-          <button
-            onClick={() => {
-              void navigator.clipboard.writeText(presentation.joinCode);
-              toast.success("Join code copied!");
-            }}
-            className="flex items-center gap-1.5 hover:text-foreground transition-colors ml-auto"
-            title="Copy join code"
-          >
-            <Copy className="size-3" />
-            <span className="font-mono font-bold tracking-widest">{presentation.joinCode}</span>
-          </button>
+          {presentation?.joinCode ? (
+            <button
+              onClick={() => {
+                void navigator.clipboard.writeText(presentation.joinCode);
+                toast.success("Join code copied!");
+              }}
+              className="flex items-center gap-1.5 hover:text-foreground transition-colors ml-auto"
+              title="Copy join code"
+            >
+              <Copy className="size-3" />
+              <span className="font-mono font-bold tracking-widest">{presentation.joinCode}</span>
+            </button>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2 pt-1 mt-auto">
@@ -116,7 +120,7 @@ export function PresentationCard({ presentation, index = 0, onDelete }: Presenta
                   <Trash2 className="size-5" />
                 </div>
                 <AlertDialogTitle className="text-lg font-bold text-foreground">
-                  Delete "{presentation.title || "Untitled Deck"}"?
+                  Delete "{presentation?.title || "Untitled Deck"}"?
                 </AlertDialogTitle>
                 <AlertDialogDescription className="text-sm text-muted-foreground/80 leading-relaxed">
                   This action cannot be undone. All slides, live session history, and participant results will be permanently removed.

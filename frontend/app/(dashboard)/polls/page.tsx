@@ -69,11 +69,11 @@ export default function PollsPage() {
   );
 
   const liveQuizCount = useMemo(
-    () => quizzes.filter((q) => LIVE_STATUSES.includes(q.status)).length,
+    () => (quizzes || []).filter((q) => q?.status && LIVE_STATUSES.includes(q.status)).length,
     [quizzes]
   );
   const draftQuizCount = useMemo(
-    () => quizzes.filter((q) => q.status === "draft").length,
+    () => (quizzes || []).filter((q) => q?.status === "draft").length,
     [quizzes]
   );
 
