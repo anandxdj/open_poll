@@ -13,7 +13,7 @@ import { ProductLogo } from "@/components/ui/ProductLogo";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import axios from "@/lib/api-client";
 import { toast } from "sonner";
-import { getGoogleAuthUrl } from "@/lib/env";
+import { getAuthLoginUrl, getGoogleAuthUrl } from "@/lib/env";
 
 const GoogleIcon = (props: JSX.IntrinsicAttributes & SVGProps<SVGSVGElement>) => (
   <svg fill="currentColor" viewBox="0 0 24 24" {...props}>
@@ -154,13 +154,14 @@ export function LoginForm() {
 
             <div className="grid grid-cols-2 gap-4">
               <Button
+                asChild
                 variant="outline"
                 className="h-11 rounded-xl border-border/50 bg-secondary/5 hover:bg-secondary/10 hover:text-foreground text-muted-foreground font-medium transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
-                disabled={true}
-                title="Coming soon"
               >
-                <SSOIcon className="size-4" aria-hidden={true} />
-                <span className="text-xs">SSO</span>
+                <a href={getAuthLoginUrl()}>
+                  <SSOIcon className="size-4" aria-hidden={true} />
+                  <span className="text-xs">SSO</span>
+                </a>
               </Button>
 
               <Button

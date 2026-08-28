@@ -5,6 +5,7 @@ import { ApiResponse } from '../../common/utils/ApiResponse';
 import { ApiError } from '../../common/utils/ApiError';
 import { redisClient } from '../../common/config/redis';
 import type { AuthRequest } from './auth.middleware';
+import { OidcService, type OidcTransaction } from './oidc.service';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -16,7 +17,84 @@ const sessionCookieOptions = {
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
+const oidcCookieOptions = {
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: 'lax' as const,
+  path: '/api/auth',
+  maxAge: 10 * 60 * 1000,
+};
+
+const oidcTransactionKey = (state: string) => `auth:oidc:${state}`;
+
 export class AuthController {
+  /** Shared registered callback path: OIDC carries our one-time state cookie; legacy Google does not. */
+  static async externalOAuthCallback(req: Request, res: Response, next: NextFunction) {
+    if (req.cookies?.oidc_state && typeof req.query.state === 'string') {
+      return AuthController.oidcCallback(req, res);
+    }
+    return AuthController.googleCallback(req, res, next);
+  }
+
+  static async oidcLogin(_req: Request, res: Response, next: NextFunction) {
+    try {
+      const { url, state, transaction } = await OidcService.createAuthorizationRequest();
+      await redisClient.set(oidcTransactionKey(state), JSON.stringify(transaction), { EX: 600 });
+      res.cookie('oidc_state', state, oidcCookieOptions);
+      return res.redirect(url.toString());
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async oidcContinue(req: Request, res: Response, next: NextFunction) {
+    try {
+      const state = req.cookies?.oidc_state;
+      const raw = state ? await redisClient.get(oidcTransactionKey(state)) : null;
+      if (!state || !raw) throw ApiError.unauthorized('OIDC sign-in has expired');
+      const url = await OidcService.resumeAuthorizationRequest(state, JSON.parse(raw) as OidcTransaction);
+      return res.redirect(url.toString());
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async oidcCallback(req: Request, res: Response) {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const state = typeof req.query.state === 'string' ? req.query.state : '';
+    const cookieState = req.cookies?.oidc_state;
+
+    try {
+      if (!state || !cookieState || state !== cookieState) {
+        throw ApiError.unauthorized('Invalid OIDC state');
+      }
+      // Consuming the transaction before token exchange makes callbacks single-use,
+      // including failed exchanges (wrong secret, PKCE, or redirect URI).
+      const raw = await redisClient.getDel(oidcTransactionKey(state));
+      res.clearCookie('oidc_state', oidcCookieOptions);
+      if (!raw) throw ApiError.unauthorized('OIDC sign-in has expired or was already used');
+      const transaction = JSON.parse(raw) as OidcTransaction;
+      const callbackUrl = new URL(transaction.redirectUri);
+      for (const [key, value] of Object.entries(req.query)) {
+        if (typeof value === 'string') callbackUrl.searchParams.set(key, value);
+      }
+      const { accessToken, refreshToken } = await OidcService.finishAuthorizationRequest(callbackUrl, state, transaction);
+      res.cookie('refreshToken', refreshToken, sessionCookieOptions);
+
+      const exchangeCode = crypto.randomBytes(32).toString('hex');
+      await redisClient.set(`auth:oauth-exchange:${exchangeCode}`, accessToken, { EX: 60 });
+      const redirectUrl = new URL('/auth/callback', frontendUrl);
+      redirectUrl.searchParams.set('code', exchangeCode);
+      return res.redirect(redirectUrl.toString());
+    } catch (error: any) {
+      res.clearCookie('oidc_state', oidcCookieOptions);
+      console.error('OIDC callback failed:', error?.code || error?.message || 'unknown error');
+      const redirectUrl = new URL('/login', frontendUrl);
+      redirectUrl.searchParams.set('error', 'OpenID sign-in failed');
+      return res.redirect(redirectUrl.toString());
+    }
+  }
+
   static async register(req: Request, res: Response, next: NextFunction) {
     try {
       const user = await AuthService.register(req.body);

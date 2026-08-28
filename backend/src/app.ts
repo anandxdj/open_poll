@@ -19,6 +19,7 @@ import presentationsRouter from './modules/presentations/presentations.route';
 import mcpRouter from './modules/mcp/mcp.route';
 import mcpSettingsRouter from './modules/mcp/mcp.settings.route';
 import { mongoSanitize, securityHeaders } from './common/middlewares/security.middleware';
+import { AuthController } from './modules/auth/auth.controller';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -74,17 +75,9 @@ app.get('/ready', (req, res) => {
   });
 });
 
-// Bridge Route: Catch OAuth redirects that hit the backend root and forward to frontend
-app.get('/auth/callback', (req, res) => {
-  const { code } = req.query;
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-
-  if (!code) {
-    return res.redirect(`${frontendUrl}/login?error=Missing code`);
-  }
-
-  res.redirect(`${frontendUrl}/auth/callback?code=${encodeURIComponent(String(code))}`);
-});
+// Registered OIDC redirect URI. Token exchange and ID-token validation happen
+// here before the browser is sent back to the frontend.
+app.get('/auth/callback', AuthController.oidcCallback as any);
 
 app.use('/api/auth', authRouter);
 app.use('/api/polls', pollsRouter);

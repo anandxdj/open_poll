@@ -167,12 +167,12 @@ export function Navbar() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Link
-              href="/login"
+            <a
+              href={`${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000').replace(/\/api\/?$/, '')}/api/auth/login`}
               className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] px-4 py-2 active:translate-y-px"
             >
               Sign in
-            </Link>
+            </a>
           )}
 
           <Link
