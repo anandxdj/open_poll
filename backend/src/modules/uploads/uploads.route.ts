@@ -6,7 +6,10 @@ import { workspaceContext } from '../../common/tenancy/workspaceContext.middlewa
 import { completeUploadSchema, presignUploadSchema } from './uploads.schema';
 import { UploadsController } from './uploads.controller';
 
-/** Mounted at /api/uploads. Answers 503 STORAGE_DISABLED when S3_* is not configured. */
+/**
+ * Mounted at /api/uploads by src/http/routes.ts. Answers 503 STORAGE_DISABLED
+ * when S3_* is not configured.
+ */
 const router = Router();
 
 // Per user, after authentication: one account cannot mint unlimited URLs from many IPs.

@@ -1,59 +1,14 @@
 import { Router } from 'express';
-import { PresentationController } from './presentations.controller';
-import { validate } from '../../common/middlewares/validate.middleware';
-import {
-  createPresentationSchema,
-  updatePresentationSchema,
-  joinPresentationSchema,
-  submitPresentationAnswerSchema,
-} from './presentations.schema';
-import { authenticate } from '../auth/auth.middleware';
-import { rateLimit } from '../../common/middlewares/rateLimit.middleware';
+import participantRouter from './routes/participant.route';
+import crudRouter from './routes/crud.route';
+import hostRouter from './routes/host.route';
 
+// Mounted at /api/presentations (and /api/quizzes as a legacy alias). One
+// sub-router per concern; order is match order (public participant routes first).
 const router = Router();
 
-// Public participant flow (no auth — participants join with a nickname).
-// Rate limits are per-IP and sized for classroom NAT (many players, one IP):
-// they exist to stop bots/enumeration, not to throttle legit bursts.
-router.get(
-  '/code/:code',
-  rateLimit({ prefix: 'presentation-code', windowSec: 60, max: 60 }),
-  // Per-IP alone doesn't stop enumeration spread across many IPs — cap total
-  // lookups system-wide too. 300k/hr is still far short of exhausting the
-  // 900k code space before a live session ends.
-  rateLimit({ prefix: 'presentation-code-global', windowSec: 60, max: 5000, keyBy: 'global' }),
-  PresentationController.getByCode
-);
-router.post(
-  '/:id/join',
-  rateLimit({ prefix: 'presentation-join', windowSec: 300, max: 500 }),
-  validate(joinPresentationSchema),
-  PresentationController.join
-);
-router.post(
-  '/:id/answer',
-  rateLimit({ prefix: 'presentation-answer', windowSec: 60, max: 2000 }),
-  validate(submitPresentationAnswerSchema),
-  PresentationController.answer
-);
-router.get(
-  '/:id/me',
-  rateLimit({ prefix: 'presentation-me', windowSec: 60, max: 600 }),
-  PresentationController.participantState
-);
-
-// Creator CRUD
-router.post('/', authenticate(), validate(createPresentationSchema), PresentationController.create);
-router.get('/', authenticate(), PresentationController.listByCreator);
-router.get('/:id', authenticate(), PresentationController.getById);
-router.patch('/:id', authenticate(), validate(updatePresentationSchema), PresentationController.update);
-router.delete('/:id', authenticate(), PresentationController.delete);
-
-// Host session controls
-router.get('/:id/host/state', authenticate(), PresentationController.hostState);
-router.post('/:id/host/open-lobby', authenticate(), PresentationController.openLobby);
-router.post('/:id/host/advance', authenticate(), PresentationController.advanceSlide);
-router.post('/:id/host/reveal', authenticate(), PresentationController.reveal);
-router.post('/:id/host/end', authenticate(), PresentationController.end);
+router.use(participantRouter);
+router.use(crudRouter);
+router.use(hostRouter);
 
 export default router;

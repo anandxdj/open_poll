@@ -1,10 +1,11 @@
-"use client";
+import DashboardShell from "@/components/layouts/DashboardShell";
 
-// The overall global structure (Sidebar + main overflow) is now handled by GlobalClientLayout
+// Only routes in this group get the creator chrome (sidebar + create modals).
+// Landing, auth, live, public poll and presentation host routes sit outside it.
 export default function DashboardLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <>{children}</>;
+  return <DashboardShell>{children}</DashboardShell>;
 }
