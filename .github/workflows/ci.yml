@@ -47,7 +47,7 @@ jobs:
         run: bun test
 
   frontend:
-    name: Frontend (typecheck + lint + build)
+    name: Frontend (typecheck + lint + unit tests + build)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -73,6 +73,9 @@ jobs:
 
       - name: Lint
         run: bun run lint
+
+      - name: Unit tests
+        run: bun run test
 
       - name: Build
         run: bun run build
