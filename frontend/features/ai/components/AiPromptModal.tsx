@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,13 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  AI_TONES,
-  type AiTone,
-  type GeneratedPollDraft,
-  defaultAiExpiresAtIso,
-  generateDraft,
-} from "@/features/ai/api/generateDraft";
+import { type AiTone } from "@/features/ai/api/generateDraft";
 import { cn } from "@/lib/utils";
 import BasicDropdown from "@/components/ui/basic-dropdown";
 import { Briefcase, Coffee, GraduationCap, Laugh, Sparkles, BarChart2, Target } from "lucide-react";
@@ -62,24 +55,32 @@ export function AiPromptModal({
       setOpen(v);
     }
   };
-  const [topic, setTopic] = useState("");
-  const [pollType, setPollType] = useState<'POLL' | 'TRIAL'>(initialPollType);
+  const [topic, setTopic] = useState(() => (isOpen && initialTopic?.trim()) || "");
+  const [pollType, setPollType] = useState<'POLL' | 'TRIAL'>(initialPollType || 'POLL');
   const [passingScorePercentage, setPassingScorePercentage] = useState(initialPassingScorePercentage);
   const [tone, setTone] = useState<AiTone>("professional & casual");
   const [questionCount, setQuestionCount] = useState(5);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    setPollType(initialPollType || 'POLL');
-    if (typeof initialPassingScorePercentage === 'number') {
-      setPassingScorePercentage(initialPassingScorePercentage);
+  // Re-seed the form whenever the dialog opens, or its seed props change while
+  // it is open (adjusting state during render instead of in an effect).
+  const seedSource = { isOpen, initialTopic, initialPollType, initialPassingScorePercentage };
+  const [prevSeedSource, setPrevSeedSource] = useState(seedSource);
+  if (
+    prevSeedSource.isOpen !== isOpen ||
+    prevSeedSource.initialTopic !== initialTopic ||
+    prevSeedSource.initialPollType !== initialPollType ||
+    prevSeedSource.initialPassingScorePercentage !== initialPassingScorePercentage
+  ) {
+    setPrevSeedSource(seedSource);
+    if (isOpen) {
+      setPollType(initialPollType || 'POLL');
+      if (typeof initialPassingScorePercentage === 'number') {
+        setPassingScorePercentage(initialPassingScorePercentage);
+      }
+      const seed = initialTopic?.trim();
+      if (seed) setTopic(seed);
     }
-    const seed = initialTopic?.trim();
-    if (!seed) return;
-    void Promise.resolve().then(() => {
-      setTopic(seed);
-    });
-  }, [isOpen, initialTopic, initialPollType, initialPassingScorePercentage]);
+  }
 
   function handleAction() {
     const trimmed = topic.trim();

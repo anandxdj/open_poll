@@ -8,7 +8,6 @@ import {
   Users, 
   Search, 
   Mail, 
-  User, 
   Clock, 
   ChevronDown, 
   ChevronUp, 
@@ -24,7 +23,11 @@ import { TopChoiceHighlight } from "@/features/analytics/components/TopChoiceHig
 import { QuestionAnalytics } from "@/features/analytics/components/QuestionAnalytics";
 import { VisualizationPicker, type VisualizationType } from "@/features/analytics/components/VisualizationPicker";
 import { useSocketListener } from "@/features/analytics/hooks/useSocketListener";
-import { emptyPollAnalytics, type PollAnalyticsPayload } from "@/features/analytics/types";
+import {
+  emptyPollAnalytics,
+  type PollAnalyticsPayload,
+  type PollVoterRecord,
+} from "@/features/analytics/types";
 import type { Poll } from "@/features/polls/store/useCreatorStore";
 import { apiClient } from "@/lib/api-client";
 import { useCreatorStore } from "@/features/polls/store/useCreatorStore";
@@ -44,7 +47,7 @@ export default function AnalyticsPollPage() {
   const [visType, setVisType] = useState<VisualizationType>("bar-v");
   const [publishing, setPublishing] = useState(false);
 
-  const [voters, setVoters] = useState<any[]>([]);
+  const [voters, setVoters] = useState<PollVoterRecord[]>([]);
   const [votersLoading, setVotersLoading] = useState(false);
   const [votersError, setVotersError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"summary" | "voters">("summary");
@@ -57,7 +60,7 @@ export default function AnalyticsPollPage() {
     setVotersLoading(true);
     setVotersError(null);
     try {
-      const res = await apiClient.get<ApiOk<any[]>>(`/responses/poll/${id}/list`);
+      const res = await apiClient.get<ApiOk<PollVoterRecord[]>>(`/responses/poll/${id}/list`);
       setVoters(res.data.data);
     } catch {
       setVotersError("Failed to load voter activity list.");
@@ -66,11 +69,12 @@ export default function AnalyticsPollPage() {
     }
   }, [id]);
 
-  useEffect(() => {
-    if (activeTab === "voters") {
-      void fetchVoterList();
-    }
-  }, [activeTab, fetchVoterList]);
+  // Refetch the voter log each time the user switches to its tab.
+  const openVotersTab = () => {
+    if (activeTab === "voters") return;
+    setActiveTab("voters");
+    void fetchVoterList();
+  };
 
   const publishResults = useCreatorStore((state) => state.publishResults);
 
@@ -283,7 +287,7 @@ export default function AnalyticsPollPage() {
           <span>Overview Charts</span>
         </button>
         <button
-          onClick={() => setActiveTab("voters")}
+          onClick={openVotersTab}
           className={cn(
             "pb-4 text-xs font-bold uppercase tracking-widest transition-all relative flex items-center gap-1.5 outline-none select-none",
             activeTab === "voters"
@@ -396,7 +400,7 @@ export default function AnalyticsPollPage() {
             </div>
           ) : (
             (() => {
-              const filtered = voters.filter((v: any) => {
+              const filtered = voters.filter((v) => {
                 const name = v.voter.name || "";
                 const email = v.voter.email || "";
                 const matchesSearch =
@@ -436,7 +440,7 @@ export default function AnalyticsPollPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/[0.04]">
-                          {filtered.map((item: any) => {
+                          {filtered.map((item) => {
                             const isExpanded = expandedRow === item._id;
                             const hasAnswers = item.answers && item.answers.length > 0;
                             const dateFormatted = (() => {
@@ -526,7 +530,7 @@ export default function AnalyticsPollPage() {
                                           <Users className="size-3" /> Answers Breakdown
                                         </h4>
                                         <div className="grid gap-2.5 max-w-lg">
-                                          {item.answers.map((ans: any, aIdx: number) => (
+                                          {item.answers.map((ans, aIdx) => (
                                             <div
                                               key={ans.questionId || aIdx}
                                               className="flex flex-col gap-0.5 border-l border-white/10 pl-3 py-0.5"

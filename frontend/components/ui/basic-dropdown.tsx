@@ -2,11 +2,9 @@
 
 import { ChevronDown } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 const ROTATION_ANGLE_OPEN = 180;
-const DROPDOWN_OFFSET = 4;
 
 export interface DropdownItem {
   icon?: React.ReactNode;
@@ -30,23 +28,18 @@ export default function BasicDropdown({
   value,
 }: BasicDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<DropdownItem | null>(
+  const [uncontrolledItem, setSelectedItem] = useState<DropdownItem | null>(
     items.find((item) => item.id === value) || null
   );
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const portalRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
   const shouldReduceMotion = useReducedMotion();
 
-  // Sync with value prop
-  useEffect(() => {
-    if (value !== undefined) {
-      const item = items.find((i) => i.id === value);
-      if (item) setSelectedItem(item);
-    }
-  }, [value, items]);
+  // A `value` prop that matches an item wins; otherwise keep the last pick.
+  const controlledItem =
+    value !== undefined ? items.find((i) => i.id === value) : undefined;
+  const selectedItem = controlledItem ?? uncontrolledItem;
 
   const handleItemSelect = (item: DropdownItem, e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -84,6 +77,10 @@ export default function BasicDropdown({
     };
   }, [isOpen]);
 
+  const onKeyboardSelect = useEffectEvent((item: DropdownItem) => {
+    handleItemSelect(item);
+  });
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -112,7 +109,7 @@ export default function BasicDropdown({
         event.preventDefault();
         const item = items[focusedIndex];
         if (item) {
-          handleItemSelect(item);
+          onKeyboardSelect(item);
         }
       }
     };
@@ -181,7 +178,12 @@ export default function BasicDropdown({
               id="dropdown-items"
             >
               {items.map((item, index) => (
-                <li key={item.id} role="option" className="px-1.5">
+                <li
+                  key={item.id}
+                  role="option"
+                  aria-selected={selectedItem?.id === item.id}
+                  className="px-1.5"
+                >
                   <button
                     aria-label={item.label}
                     className={`flex min-h-[40px] w-full items-center px-3 py-2 text-left text-sm rounded-lg transition-all duration-200 hover:bg-primary/10 focus-visible:bg-primary/10 focus-visible:outline-none ${

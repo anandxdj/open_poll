@@ -34,22 +34,20 @@ function VisuallyHiddenInput<T = InputValue>(
   );
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  const prevValueRef = React.useRef<{
+  // Track the value from before the latest change (state, not a ref, so it is
+  // safe to read during render).
+  const trackedValue = isCheckInput ? checked : value;
+  const [valueHistory, setValueHistory] = React.useState<{
     value: T | boolean | undefined;
     previous: T | boolean | undefined;
-  }>({
-    value: isCheckInput ? checked : value,
-    previous: isCheckInput ? checked : value,
-  });
-
-  const prevValue = React.useMemo(() => {
-    const currentValue = isCheckInput ? checked : value;
-    if (prevValueRef.current.value !== currentValue) {
-      prevValueRef.current.previous = prevValueRef.current.value;
-      prevValueRef.current.value = currentValue;
-    }
-    return prevValueRef.current.previous;
-  }, [isCheckInput, value, checked]);
+  }>({ value: trackedValue, previous: trackedValue });
+  if (valueHistory.value !== trackedValue) {
+    setValueHistory({ value: trackedValue, previous: valueHistory.value });
+  }
+  const prevValue =
+    valueHistory.value !== trackedValue
+      ? valueHistory.value
+      : valueHistory.previous;
 
   const [controlSize, setControlSize] = React.useState<{
     width?: number;
@@ -57,11 +55,10 @@ function VisuallyHiddenInput<T = InputValue>(
   }>({});
 
   React.useLayoutEffect(() => {
-    if (!control) {
-      setControlSize({});
-      return;
-    }
+    if (!control) return;
 
+    // Measuring the control's DOM box before paint is the external sync this layout effect exists for.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setControlSize({
       width: control.offsetWidth,
       height: control.offsetHeight,
@@ -128,7 +125,9 @@ function VisuallyHiddenInput<T = InputValue>(
   const composedStyle = React.useMemo<React.CSSProperties>(() => {
     return {
       ...style,
-      ...(controlSize.width !== undefined && controlSize.height !== undefined
+      ...(control &&
+      controlSize.width !== undefined &&
+      controlSize.height !== undefined
         ? controlSize
         : {}),
       border: 0,
@@ -142,7 +141,7 @@ function VisuallyHiddenInput<T = InputValue>(
       whiteSpace: "nowrap",
       width: "1px",
     };
-  }, [style, controlSize]);
+  }, [style, control, controlSize]);
 
   return (
     <input

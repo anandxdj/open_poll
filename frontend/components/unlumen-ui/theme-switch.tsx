@@ -1,8 +1,9 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { useMounted } from "@/hooks/use-mounted";
 import { cn } from "@/lib/utils";
 
 function SunIcon({ size = 16 }: { size?: number }) {
@@ -81,10 +82,8 @@ interface ThemeSwitchProps {
 
 function ThemeSwitch({ iconSize = 16, className }: ThemeSwitchProps) {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const originRef = useRef({ x: 0, y: 0 });
-
-  useEffect(() => setMounted(true), []);
 
   const toggle = (e: React.MouseEvent<HTMLButtonElement>) => {
     originRef.current = { x: e.clientX, y: e.clientY };

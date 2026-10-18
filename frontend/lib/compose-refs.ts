@@ -55,8 +55,24 @@ function composeRefs<T>(...refs: PossibleRef<T>[]): React.RefCallback<T> {
  * Accepts callback refs and RefObject(s)
  */
 function useComposedRefs<T>(...refs: PossibleRef<T>[]): React.RefCallback<T> {
-  // biome-ignore lint/correctness/useExhaustiveDependencies: we want to memoize by all values
-  return React.useCallback(composeRefs(...refs), refs);
+  // Memoize by every ref passed in. The list is variadic, so it can't be a
+  // literal dependency array; keep the last inputs in state and rebuild the
+  // callback only when one of them changes (same identity rules as useCallback).
+  const [composed, setComposed] = React.useState(() => ({
+    refs,
+    callback: composeRefs(...refs),
+  }));
+
+  if (
+    composed.refs.length !== refs.length ||
+    composed.refs.some((ref, i) => !Object.is(ref, refs[i]))
+  ) {
+    const next = { refs, callback: composeRefs(...refs) };
+    setComposed(next);
+    return next.callback;
+  }
+
+  return composed.callback;
 }
 
 export { composeRefs, useComposedRefs };

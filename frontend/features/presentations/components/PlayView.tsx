@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Hourglass,
   Loader2,
   PartyPopper,
-  Send,
   Trophy,
   XCircle,
   Presentation as PresentationIcon,
@@ -18,7 +15,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { getApiErrorMessage, getApiErrorStatus } from "@/lib/api-error";
 import {
   getParticipantState,
   getPresentationByCode,
@@ -52,21 +49,43 @@ interface PlayViewProps {
   code: string;
 }
 
+type StoredParticipant = { participantId: string; token: string; name: string };
+
+/** Participant session saved by a previous join on this device, if any. */
+function readStoredParticipant(storageKey: string): StoredParticipant | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed.participantId && parsed.token && parsed.name) {
+        return { participantId: parsed.participantId, token: parsed.token, name: parsed.name };
+      }
+    }
+  } catch {}
+  return null;
+}
+
 export function PlayView({ code }: PlayViewProps) {
   const [info, setInfo] = useState<PublicPresentationInfo | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Participant session (stored in localStorage per code)
+  const storageKey = `openpoll_participant_${code}`;
+
+  // Participant session (stored in localStorage per code). Restored on the
+  // first client render: until the deck info loads this view only renders a
+  // loader, so server and client markup still match. `code` is a route param,
+  // so a different code mounts a fresh PlayView.
+  const [storedParticipant] = useState(() => readStoredParticipant(storageKey));
   const [nameInput, setNameInput] = useState("");
-  const [participantId, setParticipantId] = useState<string | null>(null);
-  const [participantName, setParticipantName] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [participantId, setParticipantId] = useState<string | null>(storedParticipant?.participantId ?? null);
+  const [participantName, setParticipantName] = useState<string | null>(storedParticipant?.name ?? null);
+  const [token, setToken] = useState<string | null>(storedParticipant?.token ?? null);
   const [joining, setJoining] = useState(false);
 
   // Live question state
   const [currentSlide, setCurrentSlide] = useState<LiveSlide | null>(null);
-  const [startedAt, setStartedAt] = useState<string | null>(null);
   const [endsAt, setEndsAt] = useState<string | null>(null);
   const [submittedSlideIndex, setSubmittedSlideIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -88,22 +107,6 @@ export function PlayView({ code }: PlayViewProps) {
   // Leaderboard slide currently on screen (host advanced to a leaderboard slide).
   const [leaderboardView, setLeaderboardView] = useState<LeaderboardEntry[] | null>(null);
 
-  const storageKey = `openpoll_participant_${code}`;
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.participantId && parsed.token && parsed.name) {
-          setParticipantId(parsed.participantId);
-          setToken(parsed.token);
-          setParticipantName(parsed.name);
-        }
-      }
-    } catch {}
-  }, [storageKey]);
-
   useEffect(() => {
     void (async () => {
       try {
@@ -111,7 +114,6 @@ export function PlayView({ code }: PlayViewProps) {
         setInfo(data);
         if (data.currentSlide) {
           setCurrentSlide(data.currentSlide);
-          setStartedAt(data.questionStartedAt ?? null);
           setEndsAt(data.questionEndsAt ?? null);
         }
       } catch {
@@ -121,6 +123,15 @@ export function PlayView({ code }: PlayViewProps) {
       }
     })();
   }, [code]);
+
+  const fetchMeState = async () => {
+    const presentationId = info?.presentationId || info?.quizId;
+    if (!presentationId || !participantId || !token) return;
+    try {
+      const state = await getParticipantState(presentationId, participantId, token);
+      setMeState(state);
+    } catch {}
+  };
 
   usePresentationSocket(
     info?.presentationId || info?.quizId,
@@ -139,7 +150,6 @@ export function PlayView({ code }: PlayViewProps) {
             endsAt: string;
           };
           setCurrentSlide(payload.slide);
-          setStartedAt(payload.startedAt);
           setEndsAt(payload.endsAt);
           setReveal(null);
           setLeaderboardView(null);
@@ -193,15 +203,6 @@ export function PlayView({ code }: PlayViewProps) {
     participantId && token ? { role: "participant", participantId, participantToken: token } : undefined
   );
 
-  const fetchMeState = async () => {
-    const presentationId = info?.presentationId || info?.quizId;
-    if (!presentationId || !participantId || !token) return;
-    try {
-      const state = await getParticipantState(presentationId, participantId, token);
-      setMeState(state);
-    } catch {}
-  };
-
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     const presentationId = info?.presentationId || info?.quizId;
@@ -234,8 +235,8 @@ export function PlayView({ code }: PlayViewProps) {
         })
       );
       toast.success(`Welcome, ${self.name}!`);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Could not join presentation.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) || "Could not join presentation.");
     } finally {
       setJoining(false);
     }
@@ -269,12 +270,12 @@ export function PlayView({ code }: PlayViewProps) {
       // Fetch immediate result so scored slides can show green/red on the
       // participant's own choice right away (correct answer still hidden until reveal).
       void fetchMeState();
-    } catch (err: any) {
-      if (err?.response?.status === 409) {
+    } catch (err) {
+      if (getApiErrorStatus(err) === 409) {
         setSubmittedSlideIndex(currentSlide.slideIndex);
         void fetchMeState();
       } else {
-        toast.error(err?.response?.data?.message || "Could not submit answer.");
+        toast.error(getApiErrorMessage(err) || "Could not submit answer.");
       }
     } finally {
       setSubmitting(false);

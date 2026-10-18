@@ -823,16 +823,15 @@ function TimePickerInput(props: TimePickerInputProps) {
     }
   }, [timeValue, segment, is12Hour, segmentPlaceholder]);
 
-  const [editValue, setEditValue] = React.useState(getSegmentValue());
+  const [editState, setEditValue] = React.useState(getSegmentValue);
   const [isEditing, setIsEditing] = React.useState(false);
-  const [pendingDigit, setPendingDigit] = React.useState<string | null>(null);
+  const [pendingDigitState, setPendingDigit] = React.useState<string | null>(
+    null,
+  );
 
-  React.useEffect(() => {
-    if (!isEditing) {
-      setEditValue(getSegmentValue());
-      setPendingDigit(null);
-    }
-  }, [getSegmentValue, isEditing]);
+  // Outside an edit session the segment mirrors the committed time value.
+  const editValue = isEditing ? editState : getSegmentValue();
+  const pendingDigit = isEditing ? pendingDigitState : null;
 
   const updateTimeValue = React.useCallback(
     (newSegmentValue: string | undefined, shouldCreateIfEmpty = false) => {
@@ -1125,6 +1124,7 @@ function TimePickerInput(props: TimePickerInputProps) {
       if (event.defaultPrevented) return;
 
       setIsEditing(true);
+      setEditValue(getSegmentValue());
       setPendingDigit(null);
 
       if (openOnFocus && !store.getState().open) {
@@ -1134,7 +1134,7 @@ function TimePickerInput(props: TimePickerInputProps) {
 
       queueMicrotask(() => event.target.select());
     },
-    [onFocusProp, openOnFocus, store],
+    [onFocusProp, openOnFocus, store, getSegmentValue],
   );
 
   const onKeyDown = React.useCallback(
@@ -1625,7 +1625,7 @@ function useTimePickerColumnContext(consumerName: string) {
   return context;
 }
 
-interface TimePickerColumnProps extends DivProps {}
+type TimePickerColumnProps = DivProps;
 
 function TimePickerColumn(props: TimePickerColumnProps) {
   const { children, className, ref, ...columnProps } = props;
@@ -1723,6 +1723,8 @@ function TimePickerColumnItem(props: TimePickerColumnItemProps) {
     format = "numeric",
     className,
     ref,
+    onClick: onClickProp,
+    onKeyDown: onKeyDownProp,
     ...itemProps
   } = props;
 
@@ -1744,17 +1746,17 @@ function TimePickerColumnItem(props: TimePickerColumnItemProps) {
 
   const onClick = React.useCallback(
     (event: React.MouseEvent<ColumnItemElement>) => {
-      itemProps.onClick?.(event);
+      onClickProp?.(event);
       if (event.defaultPrevented) return;
 
       itemRef.current?.focus();
     },
-    [itemProps.onClick],
+    [onClickProp],
   );
 
   const onKeyDown = React.useCallback(
     (event: React.KeyboardEvent<ColumnItemElement>) => {
-      itemProps.onKeyDown?.(event);
+      onKeyDownProp?.(event);
       if (event.defaultPrevented) return;
 
       if (event.key === "ArrowUp" || event.key === "ArrowDown") {
@@ -1822,7 +1824,7 @@ function TimePickerColumnItem(props: TimePickerColumnItemProps) {
         });
       }
     },
-    [itemProps.onKeyDown, columnContext, groupContext, value],
+    [onKeyDownProp, columnContext, groupContext, value],
   );
 
   const formattedValue =
@@ -2157,6 +2159,7 @@ function TimePickerClear(props: ButtonProps) {
     className,
     children,
     disabled: disabledProp,
+    onClick: onClickProp,
     ...clearProps
   } = props;
 
@@ -2167,14 +2170,14 @@ function TimePickerClear(props: ButtonProps) {
 
   const onClick = React.useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
-      clearProps.onClick?.(event);
+      onClickProp?.(event);
       if (event.defaultPrevented) return;
 
       event.preventDefault();
       if (disabled || readOnly) return;
       store.setState("value", "");
     },
-    [clearProps.onClick, disabled, readOnly, store],
+    [onClickProp, disabled, readOnly, store],
   );
 
   const ClearPrimitive = asChild ? SlotPrimitive.Slot : "button";

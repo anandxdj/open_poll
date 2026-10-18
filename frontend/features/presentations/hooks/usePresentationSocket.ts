@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { acquireSocket, releaseSocket } from "@/lib/socket";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import type { PresentationRealtimeEvent } from "../types";
@@ -14,22 +14,28 @@ export function usePresentationSocket(
   onEvent: (event: PresentationRealtimeEvent) => void,
   auth: PresentationSocketAuth | undefined
 ): { connected: boolean } {
-  const onEventRef = useRef(onEvent);
-  onEventRef.current = onEvent;
+  // Always calls the latest `onEvent` without resubscribing the socket.
+  const handleRealtimeEvent = useEffectEvent((event: PresentationRealtimeEvent) => {
+    onEvent(event);
+  });
   const [connected, setConnected] = useState(false);
 
+  const role = auth?.role;
   const participantId = auth?.role === "participant" ? auth.participantId : undefined;
   const participantToken = auth?.role === "participant" ? auth.participantToken : undefined;
 
   useEffect(() => {
-    if (!presentationId || !auth) return;
-    if (auth.role === "participant" && (!participantId || !participantToken)) return;
+    if (!presentationId || !role) return;
+    if (role === "participant" && (!participantId || !participantToken)) return;
 
     const socket = acquireSocket();
+    // The shared socket may already be connected (or not) — mirror its current
+    // status; later changes arrive through the listeners below.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setConnected(socket.connected);
 
     const join = () => {
-      if (auth.role === "host") {
+      if (role === "host") {
         const accessToken = useAuthStore.getState().accessToken;
         if (!accessToken) return;
         socket.emit("quiz:join", { quizId: presentationId, role: "host", accessToken });
@@ -44,7 +50,7 @@ export function usePresentationSocket(
     };
     const handleEvent = (event: PresentationRealtimeEvent) => {
       if (event?.presentationId === presentationId || event?.quizId === presentationId)
-        onEventRef.current(event);
+        handleRealtimeEvent(event);
     };
     const handleConnect = () => { setConnected(true); join(); };
     const handleDisconnect = () => setConnected(false);
@@ -64,7 +70,7 @@ export function usePresentationSocket(
       socket.off("quiz:event", handleEvent);
       releaseSocket();
     };
-  }, [presentationId, auth?.role, participantId, participantToken]);
+  }, [presentationId, role, participantId, participantToken]);
 
   return { connected };
 }
