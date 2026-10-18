@@ -172,6 +172,39 @@ host commands — retry), `NO_LIVE_SESSION` (400, host commands that need one),
 `PARTICIPANT_KICKED` (403), `PARTICIPANT_STALE` (409, answer from an ended session's participant),
 `FORBIDDEN` (403, policy), `WORKSPACE_FORBIDDEN` (403, bad `X-Workspace-Id`). Messages are for humans.
 
+## Migration 030 and deploy runbook
+
+`src/migrations/030-presentation-sessions.ts` (idempotent, raw collection operations):
+
+1. `syncIndexes()` for `presentationsessions`.
+2. Every deck with participants or answers lacking `sessionId` gets **legacy session #1**
+   (`runNumber: 1`, ended, `deckSnapshot` = the deck's current slides, `slideStates` for the
+   slides up to the last shown, `slideStats` replayed from the stored answers,
+   `finalLeaderboard`, counts, `entitlementsSnapshot`, `retainUntil`). Its participants get
+   `sessionId`; its answers get `sessionId` and `slideId = slides[slideIndex]._id` (answers on a
+   slide deleted since the run share one fresh id per index). The deck gets `sessionCount ≥ 1`,
+   `lastSessionAt`, `activeSessionId: null`.
+3. Decks left in `lobby`/`active` become `ended`.
+4. Creates `{sessionId, deviceId}` (participants) and `{sessionId, slideId, participantId}` +
+   `{sessionId, slideId}` (answers) — unique ones partial on `sessionId` — then drops
+   `presentationId_1_deviceId_1` and `presentationId_1_slideIndex_1_participantId_1`; adds the
+   deck indexes `{workspaceId, updatedAt}`, `{workspaceId, folderId, updatedAt}`,
+   `{legacy.source, legacy.sourceId}` (sparse).
+
+Runbook:
+
+- Deploy when **no session is live**: the Redis key format changes (`presentation:{pid}:*` →
+  `psess:{<sid>}:*`), so a run in progress cannot continue across the deploy; the migration ends it.
+- `bun run migrate` runs before the server starts (the container entrypoint does it). Migration
+  020 (workspaces) runs first, so legacy sessions copy the deck's `workspaceId`.
+- Development databases created before this change still carry the old unique index on
+  participants; until `bun run migrate` drops it, joining a second session from the same
+  device fails with a duplicate key.
+- Old Redis keys expire on their own within 6 h; to clear them at once:
+  `redis-cli --scan --pattern 'presentation:*' | grep -v ':active$' | xargs -r redis-cli del`.
+- Rollback: the previous release reads the same documents (new fields are additive) but its
+  per-deck unique indexes are gone; recreate them only if no deck has run twice since.
+
 ## Behaviour changes from the single-run engine
 
 - Opening the lobby again no longer wipes the previous run; it starts session N+1.

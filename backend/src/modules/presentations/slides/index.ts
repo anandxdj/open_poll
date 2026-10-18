@@ -12,3 +12,4 @@ export * from './registry';
 export * from './types';
 export * from './ops';
 export * from './fields';
+export * from './replay';

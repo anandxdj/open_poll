@@ -3,13 +3,9 @@ import { redisClient } from '../../../common/config/redis';
 import { PresentationAnswerModel } from '../models/answer.model';
 import { PresentationParticipantModel } from '../models/participant.model';
 import type { IPresentationSession, ISessionSlideStat } from '../models/session.model';
+import { replayDistribution } from '../slides';
 import type { LeaderboardEntry } from './contract';
-import {
-  FINAL_LEADERBOARD_SIZE,
-  computeSlideDistributionHelper,
-  getStoredLeaderboard,
-  replayDistribution,
-} from './distribution';
+import { FINAL_LEADERBOARD_SIZE, computeSlideDistributionHelper, getStoredLeaderboard } from './distribution';
 import { k } from './keys';
 import { lifecycleOf, slideIdOf, type StoredAnswerResult } from './state';
 import { visitedSlides } from './views';
