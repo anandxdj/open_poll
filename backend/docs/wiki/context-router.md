@@ -24,6 +24,7 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 
 ### Live presentation deck tasks (slides, scoring, leaderboard, participants)
 - `backend/docs/wiki/modules/presentations.md`
+- `backend/docs/wiki/modules/presentations-live.md` (sessions, slide phases, host/participant API, events — the live contract)
 - `backend/docs/wiki/quiz-roadmap.md` (phases / what to build next)
 - Add `backend/docs/wiki/realtime/presentations.md` only if touching events.
 
