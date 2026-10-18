@@ -22,8 +22,11 @@ docker run -d --name openpoll-test-redis -p 127.0.0.1:6390:6379 redis:7-alpine
 cd backend
 TEST_MONGO_URI='mongodb://127.0.0.1:27117/openpoll_test?directConnection=true' \
 TEST_REDIS_URL=redis://127.0.0.1:6390/5 \
-bun test tests/integration tests/spikes tests/realtime.integration.test.ts
+bun test integration tests/spikes
 ```
+
+`integration` is a path filter: it runs `tests/integration/**` and every `*.integration.test.ts`
+(the realtime and presentations-live suites). Keep new suites under one of those names.
 
 Without both variables those suites skip, so plain `bun test` stays offline. Run from `backend/`:
 `bunfig.toml` preloads `tests/preload.ts`, which copies `TEST_MONGO_URI`/`TEST_REDIS_URL` into

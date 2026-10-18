@@ -88,9 +88,10 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # The harness suites, the Redis-backed spikes and the W0-B realtime suite.
+      # Path filters: tests/integration/**, every *.integration.test.ts, and the spikes
+      # (the Redis-backed one only runs here).
       - name: Integration tests
-        run: bun test tests/integration tests/spikes tests/realtime.integration.test.ts
+        run: bun test integration tests/spikes
 
   frontend:
     name: Frontend (typecheck + lint + unit tests + build)
