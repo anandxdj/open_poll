@@ -8,6 +8,8 @@ export const PRESENTATION_EVENTS = defineLiveEvents({
   'lobby:opened': { audience: 'all' },
   'participant:joined': { audience: 'all' },
   'question:started': { audience: 'all' },
+  // Content slides (registry lifecycle `content`): shown on every screen, no answer window.
+  'slide:shown': { audience: 'all' },
   // Carries the live vote/word distribution — leaking it to participants before
   // reveal defeats the point of a scored quiz.
   'answer:received': { audience: 'host', hostOnly: true },

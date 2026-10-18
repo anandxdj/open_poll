@@ -1,4 +1,4 @@
-import type { LiveEventType, QuizRealtimeEventType } from '../../../common/realtime/events';
+import type { QuizRealtimeEventType } from '../../../common/realtime/events';
 import { publishLiveEvent } from '../../../common/realtime/publish';
 
 /**
@@ -7,17 +7,14 @@ import { publishLiveEvent } from '../../../common/realtime/publish';
  * envelope fields (sessionId, audience) can be added in one place.
  */
 
-/** `slide:shown` is new with the registry (content lifecycle); the rest are the legacy wire names. */
-export type PresentationEventType = QuizRealtimeEventType | 'slide:shown';
+export type PresentationEventType = QuizRealtimeEventType;
 
 export const publishPresentationEvent = async (
   presentationId: string,
   type: PresentationEventType,
   payload: Record<string, unknown>
 ) => {
-  // `slide:shown` is not declared in common/realtime/events/presentation.ts yet;
-  // undeclared types publish to the default `all` audience, which is what it needs.
-  await publishLiveEvent({ presentationId, type: type as LiveEventType, payload });
+  await publishLiveEvent({ presentationId, type, payload });
 };
 
 type LeaderboardEntry = {
