@@ -1,7 +1,19 @@
 import { createClient } from 'redis';
+import { env } from './env';
 
-const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
-console.log(`[Redis] Connecting to: ${redisUrl}`);
+const redisUrl = env.REDIS_URL;
+
+/** Never log the password embedded in a redis:// URL. */
+const redactUrl = (value: string) => {
+  try {
+    const url = new URL(value);
+    if (url.password) url.password = '***';
+    return url.toString();
+  } catch {
+    return '<invalid url>';
+  }
+};
+console.log(`[Redis] Connecting to: ${redactUrl(redisUrl)}`);
 
 export const redisClient = createClient({
   url: redisUrl,

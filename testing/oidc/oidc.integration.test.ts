@@ -1,9 +1,18 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 
+// Must match the running backend's OIDC_* settings; see README.md.
 const backend = process.env.OIDC_TEST_BACKEND || 'http://localhost:5000';
-const issuer = 'https://id-backend.anands.dev';
-const clientId = 'cl_TmWZBoNuD5BIonz2hEX7m3ux';
-const redirectUri = 'http://localhost:3000/api/auth/callback/id';
+const issuer = process.env.OIDC_TEST_ISSUER?.trim() || process.env.OIDC_ISSUER?.trim() || '';
+const clientId = process.env.OIDC_TEST_CLIENT_ID?.trim() || process.env.OIDC_CLIENT_ID?.trim() || '';
+const redirectUri = process.env.OIDC_TEST_REDIRECT_URI?.trim() || process.env.OIDC_REDIRECT_URI?.trim() || '';
+const missing = [
+  !issuer && 'OIDC_TEST_ISSUER',
+  !clientId && 'OIDC_TEST_CLIENT_ID',
+  !redirectUri && 'OIDC_TEST_REDIRECT_URI',
+].filter(Boolean);
+if (missing.length > 0) {
+  console.warn(`[oidc integration] skipped: set ${missing.join(', ')} (or the matching OIDC_* vars). See testing/oidc/README.md.`);
+}
 const transactions: string[] = [];
 
 function cookieValue(response: Response, name: string): string {
@@ -13,7 +22,7 @@ function cookieValue(response: Response, name: string): string {
   return decodeURIComponent(match[1]);
 }
 
-describe('OpenPoll OIDC relying party', () => {
+describe.skipIf(missing.length > 0)('OpenPoll OIDC relying party', () => {
   test('running backend emits a complete Authorization Code + PKCE S256 request', async () => {
     const health = await fetch(`${backend}/health`);
     expect(health.status).toBe(200);
@@ -24,7 +33,7 @@ describe('OpenPoll OIDC relying party', () => {
     transactions.push(state);
 
     const authorization = new URL(response.headers.get('location')!);
-    expect(authorization.origin).toBe(issuer);
+    expect(authorization.origin).toBe(new URL(issuer).origin);
     expect(authorization.pathname).toBe('/oauth/authorize');
     expect(authorization.searchParams.get('client_id')).toBe(clientId);
     expect(authorization.searchParams.get('redirect_uri')).toBe(redirectUri);
@@ -37,7 +46,9 @@ describe('OpenPoll OIDC relying party', () => {
 
     const provider = await fetch(authorization, { redirect: 'manual' });
     expect(provider.status).toBe(302);
-    expect(provider.headers.get('location')).toStartWith('https://id.anands.dev/login?return_to=');
+    // Optional: where the IdP sends unauthenticated users (e.g. https://id.anands.dev/login).
+    const loginUi = process.env.OIDC_TEST_LOGIN_URL?.trim();
+    expect(provider.headers.get('location')).toStartWith(loginUi ? `${loginUi}?return_to=` : 'http');
   }, 20_000);
 
   test('state mismatch fails closed before token exchange', async () => {
@@ -45,14 +56,25 @@ describe('OpenPoll OIDC relying party', () => {
     const state = cookieValue(start, 'oidc_state');
     transactions.push(state);
 
-    const callback = await fetch(
-      `${backend}/api/auth/google/callback?code=not-a-real-code&state=wrong-state`,
-      { headers: { cookie: `oidc_state=${state}` }, redirect: 'manual' },
-    );
-    expect(callback.status).toBe(302);
-    const destination = new URL(callback.headers.get('location')!);
-    expect(destination.pathname).toBe('/login');
-    expect(destination.searchParams.get('error')).toBe('OpenID sign-in failed');
+    // Both the OIDC callback and the shared Google path must refuse a foreign state.
+    for (const path of ['/auth/callback', '/api/auth/google/callback']) {
+      const callback = await fetch(
+        `${backend}${path}?code=not-a-real-code&state=wrong-state`,
+        { headers: { cookie: `oidc_state=${state}` }, redirect: 'manual' },
+      );
+      expect(callback.status).toBe(302);
+      const destination = new URL(callback.headers.get('location')!);
+      expect(destination.pathname).toBe('/login');
+      expect(['sso_failed', 'oauth_failed']).toContain(destination.searchParams.get('error'));
+    }
+  });
+
+  test('state cookie is scoped to / so every registered callback path receives it', async () => {
+    const response = await fetch(`${backend}/api/auth/login`, { redirect: 'manual' });
+    transactions.push(cookieValue(response, 'oidc_state'));
+    const header = response.headers.get('set-cookie') || '';
+    expect(header).toMatch(/oidc_state=[^;]+;[^,]*Path=\/(;|$)/);
+    expect(header).toMatch(/HttpOnly/i);
   });
 
   test('registered redirect URI mismatch is rejected by the provider', async () => {

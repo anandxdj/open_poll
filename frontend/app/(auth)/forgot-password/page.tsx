@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Zap, Loader2, ArrowLeft, MailCheck } from "lucide-react";
 import Link from "next/link";
+import { isAxiosError } from "axios";
 import axios from "@/lib/api-client";
 import { toast } from "sonner";
 
@@ -23,9 +24,10 @@ export default function ForgotPasswordPage() {
     try {
       await axios.post("/auth/forgot-password", { email });
       setSubmitted(true);
-      toast.success("Password reset link sent to your email.");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Something went wrong. Please try again.");
+      toast.success("Request received. Check your inbox.");
+    } catch (err) {
+      const message = isAxiosError(err) ? err.response?.data?.message : undefined;
+      toast.error(message || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -103,9 +105,10 @@ export default function ForgotPasswordPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-foreground">Email Sent!</h3>
+                  <h3 className="text-lg font-semibold text-foreground">Check your inbox</h3>
+                  {/* The API answers identically whether or not an account exists. */}
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    We have sent a password reset link to <strong>{email}</strong>. 
+                    If an account exists for <strong>{email}</strong>, we&apos;ve sent a password reset link.
                     The link will expire in 15 minutes.
                   </p>
                 </div>
@@ -113,7 +116,7 @@ export default function ForgotPasswordPage() {
                   <Link href="/login">Return to Login</Link>
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  Didn't receive the email? Check your spam folder or{" "}
+                  Didn&apos;t receive the email? Check your spam folder or{" "}
                   <button 
                     onClick={() => setSubmitted(false)}
                     className="text-primary hover:underline font-medium"
