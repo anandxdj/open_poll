@@ -158,6 +158,6 @@ export function SharePollMockup() {
 }
 
 // Helper to use cn in this file if needed, though it's usually imported
-function cn(...classes: any[]) {
+function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
