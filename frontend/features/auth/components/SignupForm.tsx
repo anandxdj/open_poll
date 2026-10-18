@@ -7,7 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { JSX, SVGProps, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { isAxiosError } from "axios";
 import { Loader2, MailCheck } from "lucide-react";
 import { ProductLogo } from "@/components/ui/ProductLogo";
 import axios from "@/lib/api-client";
@@ -27,8 +27,10 @@ const SSOIcon = (props: JSX.IntrinsicAttributes & SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+const apiErrorMessage = (err: unknown) =>
+  isAxiosError(err) ? (err.response?.data?.message as string | undefined) : undefined;
+
 export function SignupForm() {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,10 +45,10 @@ export function SignupForm() {
     setLoading(true);
     try {
       await axios.post("/auth/register", { name, email, password });
-      toast.success("Account created! Please verify your email.");
+      toast.success("Check your email to finish signing up.");
       setSignedUpEmail(email);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Registration failed. Please try again.");
+    } catch (err) {
+      toast.error(apiErrorMessage(err) || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -57,9 +59,9 @@ export function SignupForm() {
     setResending(true);
     try {
       await axios.post("/auth/resend-verification", { email: signedUpEmail });
-      toast.success("Verification email resent!");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to resend. Please try again later.");
+      toast.success("If your account still needs verification, we've sent a new link.");
+    } catch (err) {
+      toast.error(apiErrorMessage(err) || "Failed to resend. Please try again later.");
     } finally {
       setResending(false);
     }
@@ -95,7 +97,7 @@ export function SignupForm() {
             
           
           <h2 className="text-balance text-center text-xl font-semibold text-foreground">
-            {signedUpEmail ? "Verify your email" : "Create your account"}
+            {signedUpEmail ? "Check your email" : "Create your account"}
           </h2>
          
         </div>
@@ -212,8 +214,11 @@ export function SignupForm() {
                   <MailCheck className="size-8 text-primary" />
                 </div>
                 <div className="space-y-2">
+                  {/* The API answers identically whether or not the email is already registered. */}
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    We've sent a verification link to your email. Please click it to activate your account.
+                    We&apos;ve sent an email to <strong>{signedUpEmail}</strong>. If this is a new account,
+                    click the verification link to activate it. If you already have an account, the email
+                    explains how to log in or reset your password.
                   </p>
                 </div>
                 <Button 
