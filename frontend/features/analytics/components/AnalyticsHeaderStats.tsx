@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Calendar, Clock, Shield, Users } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { Poll } from "@/features/polls/store/useCreatorStore";
@@ -10,7 +11,14 @@ interface AnalyticsHeaderStatsProps {
 }
 
 export function AnalyticsHeaderStats({ poll, totalResponses }: AnalyticsHeaderStatsProps) {
-  const isExpired = new Date(poll.expiresAt).getTime() < Date.now();
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const isExpired = new Date(poll.expiresAt).getTime() < nowMs;
   const status = poll.isClosed ? "Closed" : isExpired ? "Expired" : "Live";
   
   const stats = [

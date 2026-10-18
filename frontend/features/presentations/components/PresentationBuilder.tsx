@@ -22,6 +22,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useIsomorphicLayoutEffect } from "@/hooks/use-isomorphic-layout-effect";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { createPresentation, generatePresentationDraft, getPresentation, updatePresentation } from "../api/presentationApi";
 import { slideTypeMeta } from "../slideTypeMeta";
@@ -165,6 +167,13 @@ function normalizeSlideForDraft(s: PresentationSlide): PresentationSlide {
   return { ...cleaned, question, options, acceptedAnswers, statements, items };
 }
 
+/** Payload shape for create/update: the API assigns slide ids itself. */
+function withoutSlideId(s: PresentationSlide): Omit<PresentationSlide, "_id"> {
+  const rest: Partial<PresentationSlide> = { ...s };
+  delete rest._id;
+  return rest as Omit<PresentationSlide, "_id">;
+}
+
 function isSlideDirty(s: PresentationSlide): boolean {
   return Boolean(
     s.question.trim() ||
@@ -220,6 +229,8 @@ export function PresentationBuilder() {
   const isExplicitSaveRef = useRef(false);
   const activeSlideRef = useRef<HTMLButtonElement | null>(null);
   const isMountedRef = useRef(true);
+  // Latest deck state for async saves that may finish after unmount.
+  const draftStateRef = useRef({ title, slides, editId });
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -234,6 +245,9 @@ export function PresentationBuilder() {
   useEffect(() => {
     const saved = loadDraft(draftStorageKey);
     if (saved) {
+      // Restoring from localStorage (external storage) must happen after mount,
+      // and again whenever the draft key changes (e.g. ?id= is set after a save).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTitle(saved.title);
       setSlides(saved.slides.length > 0 ? saved.slides : [blankSlide()]);
       setActive(Math.min(saved.active, Math.max(0, saved.slides.length - 1)));
@@ -316,9 +330,9 @@ export function PresentationBuilder() {
       if (isMountedRef.current) {
         toast.success(`Generated ${draft.slides.length} slides — review and tweak before saving.`, { id: toastId });
       }
-    } catch (err: any) {
+    } catch (err) {
       if (isMountedRef.current) {
-        toast.error(err?.response?.data?.message || "AI deck generation failed.", { id: toastId });
+        toast.error(getApiErrorMessage(err) || "AI deck generation failed.", { id: toastId });
       }
     } finally {
       if (isMountedRef.current) setIsAiGenerating(false);
@@ -354,7 +368,6 @@ export function PresentationBuilder() {
     };
   }, [draftStorageKey, title, slides, active]);
 
-  const draftStateRef = useRef({ title, slides, editId });
   useEffect(() => {
     draftStateRef.current = { title, slides, editId };
   }, [title, slides, editId]);
@@ -384,7 +397,7 @@ export function PresentationBuilder() {
       const normalized = s.map(normalizeSlideForDraft);
       const payload = {
         title: t.trim() || "Untitled Presentation Deck",
-        slides: normalized.map(({ _id, ...rest }) => rest),
+        slides: normalized.map(withoutSlideId),
       };
       if (id) {
         await updatePresentation(id, payload);
@@ -413,12 +426,17 @@ export function PresentationBuilder() {
     }
   };
 
-  const persistAsDraftRef = useRef<((silent: boolean) => Promise<void>) | undefined>(undefined);
-  persistAsDraftRef.current = (silent: boolean) => {
+  const persistAsDraft = (silent: boolean) => {
     const next = persistQueueRef.current.then(() => runPersistDraft(silent)).catch(() => {});
     persistQueueRef.current = next;
     return next;
   };
+  // Latest persist function for async callers and the unmount cleanup; updated
+  // after each commit instead of during render.
+  const persistAsDraftRef = useRef(persistAsDraft);
+  useIsomorphicLayoutEffect(() => {
+    persistAsDraftRef.current = persistAsDraft;
+  });
 
   const handleSaveDraft = async () => {
     setSavingDraft(true);
@@ -434,7 +452,6 @@ export function PresentationBuilder() {
       if (!draftHydratedRef.current) return;
       void persistAsDraftRef.current?.(true);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const addAcceptedAnswer = () => {
@@ -462,7 +479,7 @@ export function PresentationBuilder() {
     try {
       const payload = {
         title: title.trim(),
-        slides: cleaned.map(({ _id, ...rest }) => rest),
+        slides: cleaned.map(withoutSlideId),
       };
       if (editId) {
         await updatePresentation(editId, payload);
@@ -473,9 +490,9 @@ export function PresentationBuilder() {
       }
       clearDraft(draftStorageKey);
       router.push("/polls");
-    } catch (err: any) {
+    } catch (err) {
       isExplicitSaveRef.current = false;
-      toast.error(err?.response?.data?.message || "Failed to save presentation deck.");
+      toast.error(getApiErrorMessage(err) || "Failed to save presentation deck.");
     } finally {
       setSaving(false);
     }

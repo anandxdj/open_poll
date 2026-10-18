@@ -1,30 +1,20 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Plus, 
   Trash2, 
   ArrowLeft,
-  Settings2,
-  Check,
   ListChecks,
-  Users,
-  Layout,
-  Smartphone,
   Sparkles,
-  ChevronRight,
   Monitor,
-  Eye,
-  Clock,
-  MoreVertical,
-  X
+  Eye
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { toast } from "sonner";
 
 // --- Types ---
 interface QuestionForm {

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { generatePresentationDraft } from "../api/presentationApi";
 import { SLIDE_TYPE_META } from "../slideTypeMeta";
@@ -73,8 +74,8 @@ export function AiPresentationModal({ open, onOpenChange, initialTopic, onGenera
       onGenerated?.(draft);
       onOpenChange(false);
       toast.success(`Generated ${draft.slides.length} slides — review and tweak before saving.`);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "AI generation failed.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) || "AI generation failed.");
     } finally {
       setGenerating(false);
     }

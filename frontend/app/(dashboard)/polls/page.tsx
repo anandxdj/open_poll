@@ -13,6 +13,7 @@ import { deleteQuiz, listQuizzes } from "@/features/quizzes/api/quizApi";
 import { QuizCard } from "@/features/quizzes/components/QuizCard";
 import { useCreateQuizModal } from "@/features/quizzes/components/CreateQuizModalProvider";
 import type { Quiz } from "@/features/quizzes/types";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 
 type View = "polls" | "quizzes";
@@ -56,8 +57,8 @@ export default function PollsPage() {
       await deleteQuiz(quiz._id);
       setQuizzes((prev) => prev.filter((q) => q._id !== quiz._id));
       toast.success("Quiz deleted.");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to delete quiz.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) || "Failed to delete quiz.");
     }
   };
 

@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ListPlus,
@@ -22,11 +21,10 @@ import { PollQuestionCard } from "@/features/polls/components/create/PollQuestio
 import { PublishSettingsModal } from "@/features/polls/components/create/PublishSettingsModal";
 import type { QuestionForm } from "@/features/polls/components/create/types";
 import { LivePreview } from "@/features/polls/components/create/LivePreview";
-import { useCreatorStore } from "@/features/polls/store/useCreatorStore";
+import { useCreatorStore, type Poll } from "@/features/polls/store/useCreatorStore";
 import { type AiTone, defaultAiExpiresAtIso, generateDraft, type GeneratedPollDraft } from "@/features/ai/api/generateDraft";
 import { AiPromptModal } from "@/features/ai/components/AiPromptModal";
 import { cn } from "@/lib/utils";
-import apiClient from "@/lib/api-client";
 import axios from "axios";
 
 const emptyQuestion = (): QuestionForm => ({
@@ -69,7 +67,14 @@ export function PollBuilder() {
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [isDraftLoaded, setIsDraftLoaded] = useState(!draftIdFromUrl);
 
-  useEffect(() => {
+  // Populate the form from the stored draft whenever the store's poll list or
+  // the draft id changes (adjusting state during render instead of in an effect).
+  const [draftSyncSource, setDraftSyncSource] = useState<{
+    polls: Poll[];
+    draftId: string | null;
+  } | null>(null);
+  if (draftSyncSource?.polls !== polls || draftSyncSource.draftId !== draftIdFromUrl) {
+    setDraftSyncSource({ polls, draftId: draftIdFromUrl });
     if (draftIdFromUrl) {
       const poll = polls.find(p => p._id === draftIdFromUrl);
       if (poll) {
@@ -96,10 +101,14 @@ export function PollBuilder() {
           })
         );
         setIsDraftLoaded(true);
-      } else {
-        // If not found, maybe it hasn't been fetched yet
-        fetchPolls().catch(() => {});
       }
+    }
+  }
+
+  useEffect(() => {
+    // If the draft is not in the store, maybe it hasn't been fetched yet
+    if (draftIdFromUrl && !polls.some(p => p._id === draftIdFromUrl)) {
+      fetchPolls().catch(() => {});
     }
   }, [draftIdFromUrl, polls, fetchPolls]);
 
@@ -163,11 +172,13 @@ export function PollBuilder() {
   const isSavingRef = useRef(false);
 
   // Sync title with URL if it's a new poll and title hasn't been edited
-  useEffect(() => {
+  const [titleSyncSource, setTitleSyncSource] = useState({ nameFromUrl, draftIdFromUrl });
+  if (titleSyncSource.nameFromUrl !== nameFromUrl || titleSyncSource.draftIdFromUrl !== draftIdFromUrl) {
+    setTitleSyncSource({ nameFromUrl, draftIdFromUrl });
     if (!draftIdFromUrl && nameFromUrl) {
       setTitle(nameFromUrl);
     }
-  }, [nameFromUrl, draftIdFromUrl]);
+  }
 
   useEffect(() => {
     return () => {
@@ -201,7 +212,7 @@ export function PollBuilder() {
         const finalTitle = normalizedTitle.length >= 3 ? normalizedTitle : normalizedTitle + " Draft";
 
         const finalQuestions = s.questions.map((q) => {
-          let text = q.text.trim() || "Untitled Question";
+          const text = q.text.trim() || "Untitled Question";
           let opts = q.options.map((o) => o.trim()).filter(Boolean);
           if (opts.length === 0) opts = ["Option 1", "Option 2"];
           else if (opts.length === 1) opts.push("Option 2");
@@ -388,7 +399,7 @@ export function PollBuilder() {
     try {
       const finalTitle = title.trim() || nameFromUrl || "Untitled Draft";
       const finalQuestions = questions.map((q) => {
-        let text = q.text.trim() || "Untitled Question";
+        const text = q.text.trim() || "Untitled Question";
         let opts = q.options.map((o) => o.trim()).filter(Boolean);
         if (opts.length === 0) opts = ["Option 1", "Option 2"];
         else if (opts.length === 1) opts.push("Option 2");

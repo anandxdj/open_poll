@@ -2,21 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { 
   BarChart3, 
   Clock, 
-  ExternalLink, 
   Globe, 
   Lock, 
   Share2, 
-  X, 
   Trash2, 
   Users,
   MessageSquare,
   Target,
-  Play,
-  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,7 +28,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { Poll } from "@/features/polls/store/useCreatorStore";
 import { useCreatorStore } from "@/features/polls/store/useCreatorStore";
-import { createPresentation } from "@/features/presentations/api/presentationApi";
 import { cn } from "@/lib/utils";
 
 function pollStatus(poll: Poll): "active" | "expired" | "draft" {
@@ -73,7 +67,6 @@ const statusConfig = {
 };
 
 export function PollCardV2({ poll, liveVotes = 0 }: { poll: Poll; liveVotes?: number }) {
-  const router = useRouter();
   const { closePoll, deletePoll } = useCreatorStore();
   const status = pollStatus(poll);
   const cfg = statusConfig[status];
@@ -82,7 +75,6 @@ export function PollCardV2({ poll, liveVotes = 0 }: { poll: Poll; liveVotes?: nu
   );
   const [closing, setClosing] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [hosting, setHosting] = useState(false);
 
   useEffect(() => {
     if (status !== "active") return;
@@ -123,7 +115,6 @@ export function PollCardV2({ poll, liveVotes = 0 }: { poll: Poll; liveVotes?: nu
     toast.success(poll.pollType === 'TRIAL' ? "Quiz link copied!" : "Poll link copied!");
   }
 
-  const responseMode = poll.isAnonymous ? "anonymous" : "authenticated";
 
   return (
     <article
@@ -190,7 +181,7 @@ export function PollCardV2({ poll, liveVotes = 0 }: { poll: Poll; liveVotes?: nu
             <AlertDialogHeader>
               <AlertDialogTitle className="text-xl font-bold">Delete Poll?</AlertDialogTitle>
               <AlertDialogDescription className="text-sm text-muted-foreground">
-                This action cannot be undone. All responses and analytics for <strong>"{poll.title}"</strong> will be permanently deleted.
+                This action cannot be undone. All responses and analytics for <strong>&quot;{poll.title}&quot;</strong> will be permanently deleted.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="mt-4 gap-3">
@@ -291,7 +282,7 @@ export function PollCardV2({ poll, liveVotes = 0 }: { poll: Poll; liveVotes?: nu
               <AlertDialogHeader>
                 <AlertDialogTitle className="text-xl font-bold">Close Poll?</AlertDialogTitle>
                 <AlertDialogDescription className="text-sm text-muted-foreground">
-                  This will stop accepting new responses for <strong>"{poll.title}"</strong>. This action can be reversed by extending the expiry date later.
+                  This will stop accepting new responses for <strong>&quot;{poll.title}&quot;</strong>. This action can be reversed by extending the expiry date later.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="mt-4 gap-3">

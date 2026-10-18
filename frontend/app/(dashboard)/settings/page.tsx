@@ -1,16 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useState } from "react";
 import { User, Palette, Shield, Bell, Plug } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/features/auth";
 import { McpSettingsSection } from "@/features/mcp/components/McpSettingsSection";
-
-const ease = [0.32, 0.72, 0, 1] as const;
+import { useMounted } from "@/hooks/use-mounted";
 
 function applyWithTransition(
   origin: { x: number; y: number },
@@ -38,7 +35,7 @@ function applyWithTransition(
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { user } = useAuthStore();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const [imgError, setImgError] = useState(false);
 
   const getInitials = (name: string) => {
@@ -49,10 +46,6 @@ export default function SettingsPage() {
       .toUpperCase()
       .substring(0, 2);
   };
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const sections = [
     { id: "profile", label: "Profile", icon: User },

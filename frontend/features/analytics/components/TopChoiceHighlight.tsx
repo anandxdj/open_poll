@@ -57,7 +57,7 @@ export function TopChoiceHighlight({ poll, analytics }: TopChoiceHighlightProps)
               </span>
             </div>
             <h3 className="text-sm font-medium text-foreground/90">
-              "<span className="text-primary">{topAnswer.text}</span>" is currently the leading answer
+              &quot;<span className="text-primary">{topAnswer.text}</span>&quot; is currently the leading answer
               for <span className="italic text-muted-foreground/80">{topAnswer.questionTitle}</span>.
             </h3>
             <p className="text-xs text-muted-foreground/60">

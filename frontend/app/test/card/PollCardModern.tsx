@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, BarChart, MoreHorizontal, Users, HelpCircle } from "lucide-react";
+import { Calendar, MoreHorizontal, Users, HelpCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 import type { Poll } from "@/features/polls/store/useCreatorStore";
