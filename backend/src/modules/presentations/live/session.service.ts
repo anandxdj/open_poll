@@ -12,7 +12,7 @@ import {
   type ISessionEntitlements,
   type ISlideState,
 } from '../models/session.model';
-import { getSlideType, requireSlideType, toParticipantSlide } from '../slides';
+import { isSlideScored, requireSlideType, toParticipantSlide } from '../slides';
 import { actorUserId, authorizeDeck, getPresentationById, type Actor } from '../access';
 import {
   LIVE_ERROR_CODES,
@@ -267,7 +267,7 @@ const resultsOf = async (session: IPresentationSession, slide: Slide, slideIndex
     slideId,
     slideIndex,
     type: slide.type,
-    scored: requireSlideType(slide.type).scored,
+    scored: isSlideScored(slide),
     answeredCount,
     participantCount,
     distribution,
@@ -639,13 +639,15 @@ export const getHostState = async (
     const live = await Promise.all(responseSlides.map(({ slide, index }) => resultsOf(session, slide, index)));
     for (const results of live) distributions[results.slideId] = results;
   } else {
+    const slides = sessionSlides(session);
     for (const stat of session.slideStats ?? []) {
       const slideId = String(stat.slideId);
+      const slide = slides.find((s) => slideIdOf(s) === slideId);
       distributions[slideId] = {
         slideId,
         slideIndex: stat.slideIndex,
         type: stat.type,
-        scored: getSlideType(stat.type)?.scored ?? false,
+        scored: slide ? isSlideScored(slide) : false,
         answeredCount: stat.answeredCount,
         participantCount: session.participantCount,
         distribution: stat.distribution,

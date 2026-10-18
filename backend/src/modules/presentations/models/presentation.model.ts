@@ -208,6 +208,7 @@ const DeckSettingsSchema = sub<DeckSettings>({
         type: sub({
           enabled: { type: Boolean, default: false },
           passingScorePercentage: { type: Number, default: 70, min: 0, max: 100 },
+          // null = unlimited attempts (converted TRIAL polls let respondents retry until they pass).
           maxAttempts: { type: Number, default: 1, min: 1, max: 10 },
         }),
         default: () => ({}),

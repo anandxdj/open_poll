@@ -2,7 +2,7 @@ import { redisClient } from '../../../common/config/redis';
 import type { AnswerChannel } from '../models/answer.model';
 import type { IPresentationSlide } from '../models/presentation.model';
 import { PresentationSessionModel, type IPresentationSession, type ISlideState } from '../models/session.model';
-import { getSlideType, requireSlideType, type SlideLifecycle } from '../slides';
+import { getSlideType, isSlideScored, requireSlideType, type SlideLifecycle } from '../slides';
 import type { SlidePhase } from './contract';
 import { SESSION_KEY_TTL_SEC, k } from './keys';
 
@@ -118,7 +118,7 @@ export const buildAnswerWindow = (
     slideId: slideIdOf(slide),
     slideIndex,
     type: def.type,
-    scored: def.scored,
+    scored: isSlideScored(slide),
     open: presenting && isOpenState(state),
     startedAtMs: (state.openedAt ?? new Date(0)).getTime(),
     endsAtMs: state.endsAt ? state.endsAt.getTime() : null,

@@ -261,7 +261,8 @@ describeIntegration('library over HTTP', () => {
         pace: 'audience',
         legacy: { source: 'poll', sourceId: poll._id },
       });
-      expect(presentation.settings?.audiencePaced?.assessment).toBeUndefined();
+      // Deck settings are all defaulted since the session engine (W1-A1): a POLL leaves assessment off.
+      expect(presentation.settings.audiencePaced.assessment.enabled).toBe(false);
       expect(presentation.slides).toHaveLength(2);
       expect(presentation.slides[0]).toMatchObject({
         type: 'select_answer',

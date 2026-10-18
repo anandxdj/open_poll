@@ -210,6 +210,9 @@ Runbook:
 - Opening the lobby again no longer wipes the previous run; it starts session N+1.
 - Navigation works in both directions; revisits show stored results.
 - Reveal stops answers immediately (previously answers were accepted until `endsAt` + grace).
+- Ungraded slides — `select_answer`/`type_answer` worth 0 points or without a correct answer
+  (converted polls) — are unscored: `scored: false` on the slide, results and events, answers
+  never count as correct, and their distribution marks no option correct.
 - Unscored built-in types may be untimed (`timeLimit: 0`).
 - Host and edit routes use the workspace policy; `GET /api/presentations` lists the current
   workspace's decks (plus the caller's own decks not yet assigned to a workspace when the current

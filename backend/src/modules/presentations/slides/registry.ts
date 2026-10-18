@@ -37,6 +37,16 @@ export const listSlideTypes = (): AnySlideTypeDef[] => [...registry.values()];
 
 export const isScoredSlideType = (type: unknown) => getSlideType(type)?.scored ?? false;
 
+/**
+ * Whether answers to this slide are graded and scored: its type is scored and
+ * the type's `isScored` (if any) does not opt this slide out.
+ */
+export const isSlideScored = (slide: Pick<Slide, 'type'> & Partial<Slide>): boolean => {
+  const def = getSlideType(slide?.type);
+  if (!def?.scored) return false;
+  return def.isScored ? def.isScored(slide as Slide) : true;
+};
+
 export const slideKindOf = (type: unknown): SlideKind | undefined => getSlideType(type)?.kind;
 
 const sanitizeMedia = (media: Slide['media']) =>
@@ -57,7 +67,7 @@ export const toParticipantSlide = (slide: Slide, slideIndex: number, totalSlides
     totalSlides,
     type: def.type,
     kind: def.kind,
-    scored: def.scored,
+    scored: isSlideScored(slide),
     media: sanitizeMedia(slide.media),
     layout: slide.layout ?? null,
   };

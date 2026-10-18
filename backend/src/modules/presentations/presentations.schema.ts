@@ -69,7 +69,7 @@ export const deckSettingsPatchSchema = z
           .object({
             enabled: z.boolean(),
             passingScorePercentage: z.number().int().min(0).max(100),
-            maxAttempts: z.number().int().min(1).max(10),
+            maxAttempts: z.number().int().min(1).max(10).nullable(),
           })
           .partial()
           .strict(),

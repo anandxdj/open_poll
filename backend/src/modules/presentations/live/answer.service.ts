@@ -110,7 +110,9 @@ export const submitAnswer = async (presentationId: string, data: SubmitPresentat
     throw error;
   }
 
-  const { isCorrect, ops, persist } = accepted;
+  const { ops, persist } = accepted;
+  // Ungraded slides (unscored types, 0-point or answer-less slides) never count as correct.
+  const isCorrect = window.scored && accepted.isCorrect;
   const score = window.scored && def.score ? def.score(window.cfg, { isCorrect, elapsedMs }) : 0;
   const stored: StoredAnswerResult = {
     isCorrect,

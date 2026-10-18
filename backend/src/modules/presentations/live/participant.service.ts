@@ -6,7 +6,7 @@ import { newRandomId, signId, verifySignedId } from '../../../common/utils/signe
 import { PresentationParticipantModel } from '../models/participant.model';
 import { PresentationAnswerModel } from '../models/answer.model';
 import { PresentationSessionModel, type IPresentationSession } from '../models/session.model';
-import { getSlideType, requireSlideType, toParticipantSlide } from '../slides';
+import { isSlideScored, requireSlideType, toParticipantSlide } from '../slides';
 import { getPresentationById } from '../access';
 import type { JoinPresentationInput } from '../presentations.schema';
 import {
@@ -227,7 +227,7 @@ const lastAnswerOf = async (
   const phase = slidePhase(lifecycle, readSlideState(session, slideId), now);
   if (session.status !== 'ended' && phase === 'open') return null;
 
-  const slideScored = getSlideType(slide.type)?.scored ?? true;
+  const slideScored = isSlideScored(slide);
   const cached = await redisClient
     .hGet(k.results(String(session._id), slideId), participantId)
     .catch(() => null);
@@ -307,7 +307,7 @@ export const getParticipantLiveState = async (
         slideId,
         slideIndex: session.currentSlideIndex,
         type: slide.type,
-        scored: def.scored,
+        scored: isSlideScored(slide),
         answeredCount: stat?.answeredCount ?? live!.answeredCount,
         participantCount: stat ? session.participantCount : live!.participantCount,
         distribution: stat?.distribution ?? live!.distribution,

@@ -28,7 +28,8 @@ export interface DeckSettings {
   quiz: { leaderboard: boolean; showCorrectOnDevices: boolean };
   audiencePaced: {
     resultsVisibility: ResultsVisibility;
-    assessment: { enabled: boolean; passingScorePercentage: number; maxAttempts: number };
+    /** `maxAttempts: null` = unlimited retries. */
+    assessment: { enabled: boolean; passingScorePercentage: number; maxAttempts: number | null };
   };
   embed: { allowed: boolean };
 }

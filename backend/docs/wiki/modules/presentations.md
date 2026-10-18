@@ -59,6 +59,7 @@ Mongoose model and worker look the type up instead of switching on `slide.type`.
 | `kind` | `content` \| `interactive` \| `system` — copied onto the slide as `kind`. |
 | `lifecycle` | What `advance` does: `response` opens a timed answer window (`question:started`); `content` and `board` publish `slide:shown` with the sanitized slide, no timer, answers rejected; `system` publishes `leaderboard:shown`. Only `response` slides can be revealed. |
 | `scored` | Feeds the leaderboard; `score` is called only for scored types. |
+| `isScored?(slide)` | Per-slide opt-out for scored types (`isSlideScored(slide)` combines both). `select_answer` and `type_answer` slides worth 0 points or without a correct answer are ungraded: no points, never correct, no correct answer in the distribution, `scored: false` on the participant slide, the window and the stored result. |
 | `schema` | Zod schema for one slide of this type in create/update requests (defaults included). |
 | `sanitize(slide)` | **Explicit allow-list** of participant-facing fields. The registry's `toParticipantSlide` adds `slideIndex`, `totalSlides`, `type`, `kind`, `scored`, `media` (`{url, alt, layout}`, never `key`) and `layout`. Notes and answer keys never leave the server because nothing copies them. |
 | `acceptConfig?(slide)` | JSON snapshot cached in the answer window (answer keys, counts, points, `timeLimitMs`). |

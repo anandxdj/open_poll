@@ -1,6 +1,6 @@
 import { redisClient } from '../../../common/config/redis';
 import type { IPresentationSession, ISlideState } from '../models/session.model';
-import { getSlideType } from '../slides';
+import { isSlideScored } from '../slides';
 import type { CurrentSlideView, SessionListItem, SessionView, SlideStateView } from './contract';
 import { getParticipantCount } from './distribution';
 import { k } from './keys';
@@ -23,7 +23,7 @@ export const slideStateView = (
     slideIndex,
     type: slide.type,
     lifecycle,
-    scored: getSlideType(slide.type)?.scored ?? false,
+    scored: isSlideScored(slide),
     phase: slidePhase(lifecycle, state, now),
     openedAt: iso(state?.openedAt),
     endsAt: iso(state?.endsAt),

@@ -733,7 +733,8 @@ describe('golden: speed scoring', () => {
   it('awards flat points when speed does not matter and zero when wrong', async () => {
     expect(await scoreAt(19_000, { scoreDependsOnTime: false })).toEqual({ isCorrect: true, score: 1000, scored: true });
     expect(await scoreAt(1_000, {}, { optionIndex: 2 })).toEqual({ isCorrect: false, score: 0, scored: true });
-    expect(await scoreAt(1_000, { points: 0 })).toEqual({ isCorrect: true, score: 0, scored: true });
+    // Session engine (integrator request): a 0-point slide is ungraded — unscored and never "correct".
+    expect(await scoreAt(1_000, { points: 0 })).toEqual({ isCorrect: false, score: 0, scored: false });
   });
 
   it('participant state exposes the last result only once the window closes', async () => {
