@@ -28,6 +28,10 @@ bun test integration tests/spikes
 `integration` is a path filter: it runs `tests/integration/**` and every `*.integration.test.ts`
 (the realtime and presentations-live suites). Keep new suites under one of those names.
 
+`platform.integration.test.ts` also runs presigned uploads against an S3-compatible server
+(MinIO, RustFS) when `TEST_S3_ENDPOINT`, `TEST_S3_ACCESS_KEY_ID` and `TEST_S3_SECRET_ACCESS_KEY`
+are set (`TEST_S3_REGION` defaults to `us-east-1`); it creates and deletes its own bucket.
+
 Without both variables those suites skip, so plain `bun test` stays offline. Run from `backend/`:
 `bunfig.toml` preloads `tests/preload.ts`, which copies `TEST_MONGO_URI`/`TEST_REDIS_URL` into
 `MONGO_URI`/`REDIS_URL` before anything imports `common/config/env` or the shared Redis client.

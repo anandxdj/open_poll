@@ -18,7 +18,7 @@ Code: `backend/src/app.ts`, `backend/src/http/`. Tests: `backend/tests/http.rout
 | `src/http/routes.ts` | `mountPreParserRoutes(app)`, `mountRoutes(app)` (system routes + `MOUNTS` table), `LARGE_JSON_PATHS`. |
 | `src/http/socketServer.ts` | `createSocketServer(httpServer)`: Socket.io with CORS from `env.allowedOrigins`. |
 | `src/common/middlewares/cors.ts` | `corsMiddleware` (credentialed, `env.allowedOrigins`, no-Origin requests pass). W4-E extends it with custom domains. |
-| `src/common/jobs/start.ts` | `startJobs()`: the analytics and live-distribution interval workers. Only `app.ts` calls it. |
+| `src/common/jobs/start.ts` | `startJobs()`: the analytics and live-distribution interval workers, and `startScheduler()` for jobs registered with `registerJob()` (see `../platform/jobs.md`). Only `app.ts` calls it. |
 
 ## Middleware order (`createApp`)
 
