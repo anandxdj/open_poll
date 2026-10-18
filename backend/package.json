@@ -20,7 +20,8 @@
     "@types/papaparse": "^5.5.2",
     "@types/pdfkit": "^0.17.6",
     "socket.io-client": "^4.8.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "xml-crypto": "^6.1.2"
   },
   "dependencies": {
     "@langchain/core": "^1.2.2",
