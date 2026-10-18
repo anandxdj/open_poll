@@ -55,7 +55,8 @@ resolveWorkspaceContext(userId, requestedId?)                   // same logic wi
   sign-in flows therefore need no workspace code.
 - Type requests as `WorkspaceRequest` (extends `AuthRequest`).
 
-Not mounted on any existing route in W0-D. `POST /api/uploads/*` is the only user so far.
+Mounted on `POST /api/uploads/*` (W0-D) and on the authenticated poll routes (W1-B, see
+`modules/workspaces.md`, which also covers the workspaces API and migration 020).
 
 ## Provisioning (`modules/workspaces/provisioning.ts`)
 

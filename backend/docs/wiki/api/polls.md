@@ -1,18 +1,24 @@
 ---
 summary: Poll HTTP endpoints and request/response contracts.
 status: active
-last_updated: 2026-05-11
+last_updated: 2026-10-19
 ---
 
 # Polls API
 
 Base path: `/api/polls`
 
-- `POST /` create poll
-- `GET /` list the authenticated caller's polls
-- `GET /:id` fetch single poll
-- `PATCH /:pollId` update poll
-- `POST /:id/close` close poll
+- `POST /` create poll in the current workspace (`deck:create`)
+- `GET /` list the current workspace's polls (`deck:read`)
+- `GET /:id` fetch single poll (public when published; drafts need `deck:read`, else 404)
+- `PATCH /:pollId` update poll (`deck:edit`)
+- `POST /:id/close` close poll (`deck:host`)
+- `POST /:id/publish-results` publish results (`session:share`)
+- `DELETE /:id` delete poll (`deck:delete`)
+
+Authenticated routes act in the workspace named by `X-Workspace-Id` (else the caller's
+default); a workspace the caller is not an active member of is `403 WORKSPACE_FORBIDDEN`,
+a denied action `403 FORBIDDEN`. Details: `modules/workspaces.md`.
 
 All write endpoints use Zod schemas and standardized `ApiResponse`.
 
