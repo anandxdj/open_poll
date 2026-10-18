@@ -6,7 +6,7 @@ import { ImageIcon, ImageOff, Link2, Loader2, Trash2, Upload, X } from "lucide-r
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { useCapabilities } from "./capabilities";
+import { useStorageAvailable } from "./capabilities";
 import { RemoteImage } from "./RemoteImage";
 import { UPLOAD_RULES, useUpload } from "./useUpload";
 
@@ -42,8 +42,7 @@ export function ImagePicker({
   onChange: (next: ImageSource) => void;
   label?: string;
 }) {
-  const { capabilities, loading } = useCapabilities();
-  const storage = capabilities?.storage === true;
+  const { storage, loading } = useStorageAvailable();
   const upload = useUpload("slide_image");
   const fileRef = useRef<HTMLInputElement>(null);
   const linkId = useId();

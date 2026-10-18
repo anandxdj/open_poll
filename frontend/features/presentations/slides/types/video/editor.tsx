@@ -6,7 +6,7 @@ import { FileVideo, Link2, Loader2, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useCapabilities } from "@/features/media/capabilities";
+import { useStorageAvailable } from "@/features/media/capabilities";
 import { UPLOAD_RULES, useUpload } from "@/features/media/useUpload";
 import { canEmbed, VideoEmbed } from "@/features/media/VideoEmbed";
 import { formatStart, isVideoId, parseStart, parseVideoLink, watchUrl } from "@/features/media/video";
@@ -187,8 +187,7 @@ function StartField({ start, onChange }: { start: number; onChange: (start: numb
 
 function VideoEditor({ slide, onChange }: SlideEditorProps) {
   const video = readVideo(slide.content);
-  const { capabilities } = useCapabilities();
-  const storage = capabilities?.storage === true;
+  const { storage } = useStorageAvailable();
   const set = (patch: Partial<VideoContent>) => onChange({ content: { ...video, ...patch } });
   const source: Source = video.provider === "file" ? "file" : "link";
 

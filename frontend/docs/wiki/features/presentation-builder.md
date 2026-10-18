@@ -109,7 +109,7 @@ lives in `slide.content` (`types/content.ts`; API contract in the backend
 
 | File | Role |
 | --- | --- |
-| `capabilities.ts` | `fetchCapabilities()` (`GET /api/capabilities`, once per page load), `useCapabilities()` → `{capabilities, loading}`; null capabilities = treat optional features as off. |
+| `capabilities.ts` | `useStorageAvailable()` → `{storage, loading}` from `GET /api/capabilities` (the workspaces feature's `getCapabilities()`, fetched once per page load); unreadable capabilities count as no storage. |
 | `useUpload.ts` | `uploadFile(purpose, file)` and `useUpload(purpose)`: client-side type/size check (`UPLOAD_RULES` mirrors the backend; no SVG) → `POST /api/uploads/presign` → `PUT` to the bucket with progress (XHR) → `POST /api/uploads/complete` → `{key, url, mime, bytes}`. Cancelled on unmount. Builder-only. |
 | `ImagePicker.tsx` | With `capabilities.storage`: drop zone / "Upload image" plus "or paste an image link". Without: a short explanation and the https link field only. Value `{key, url}`. Builder-only. |
 | `RemoteImage.tsx` | Plain `<img>` for author-supplied images (no `next/image` open proxy), `referrerPolicy="no-referrer"`, fallback on error. |

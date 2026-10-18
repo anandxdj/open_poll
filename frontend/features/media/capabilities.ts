@@ -1,53 +1,40 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiClient } from "@/lib/api-client";
-
-/** `GET /api/capabilities`: optional features this deployment offers (backend env.capabilities). */
-export interface Capabilities {
-  billing: boolean;
-  storage: boolean;
-  samlSso: boolean;
-  scim: boolean;
-  pptxHighFidelity: boolean;
-  googleDriveImport: boolean;
-  customDomains: boolean;
-  metrics: boolean;
-  ai: boolean;
-}
-
-type ApiOk<T> = { success: boolean; message: string; data: T };
+import { getCapabilities } from "@/features/workspaces/api/workspaces.api";
+import type { Capabilities } from "@/features/workspaces/types";
 
 let pending: Promise<Capabilities> | null = null;
 
-/** The deployment's capabilities, fetched once per page load (a failed fetch is retried next time). */
-export function fetchCapabilities(): Promise<Capabilities> {
-  pending ??= apiClient
-    .get<ApiOk<Capabilities>>("/capabilities")
-    .then((res) => res.data.data)
-    .catch((error: unknown) => {
-      pending = null;
-      throw error;
-    });
+/** `GET /api/capabilities`, once per page load (a failed fetch is retried next time). */
+function loadCapabilities(): Promise<Capabilities> {
+  pending ??= getCapabilities().catch((error: unknown) => {
+    pending = null;
+    throw error;
+  });
   return pending;
 }
 
-export interface CapabilitiesState {
-  /** Null while loading, and when they could not be read (treat every optional feature as off). */
-  capabilities: Capabilities | null;
+export interface StorageAvailability {
+  /** Uploads to object storage work (`capabilities.storage`). False while loading or unknown. */
+  storage: boolean;
   loading: boolean;
 }
 
-export function useCapabilities(): CapabilitiesState {
-  const [state, setState] = useState<CapabilitiesState>({ capabilities: null, loading: true });
+/**
+ * Whether media pickers can upload files. When the capabilities cannot be
+ * read, uploads count as unavailable and pickers fall back to links.
+ */
+export function useStorageAvailable(): StorageAvailability {
+  const [state, setState] = useState<StorageAvailability>({ storage: false, loading: true });
   useEffect(() => {
     let active = true;
-    fetchCapabilities().then(
+    loadCapabilities().then(
       (capabilities) => {
-        if (active) setState({ capabilities, loading: false });
+        if (active) setState({ storage: capabilities.storage, loading: false });
       },
       () => {
-        if (active) setState({ capabilities: null, loading: false });
+        if (active) setState({ storage: false, loading: false });
       }
     );
     return () => {
