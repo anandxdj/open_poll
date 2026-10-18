@@ -103,7 +103,7 @@ they have their own registry (`components/builder/inspectorTabs.ts`).
 ```ts
 interface SlideRuntime {
   lifecycle: 'response' | 'system' | 'content' | 'board';
-  ParticipantView: ComponentType<{ slide: LiveSlide; mode: 'live' | 'preview'; onSubmit(payload: AnswerPayload); submitting }>;
+  ParticipantView: ComponentType<{ slide: LiveSlide; mode: 'live' | 'audience' | 'preview'; onSubmit(payload: AnswerPayload); submitting }>;
   StageView: ComponentType<{ slide: PresentationSlide; live: {distribution, answeredCount, leaderboard};
                              reveal; participants; mode: 'live' | 'reveal' | 'report' | 'thumbnail' }>;
 }
@@ -116,8 +116,22 @@ getSlideRuntime(type) // undefined for unknown types
   up / result states; `ParticipantView` is only the answer form (own state, remounted per
   question) and calls `onSubmit(payload)`. The stage draws counter, question, timer, then
   `StageView`. Anything else (`system` = leaderboard) renders its whole view.
-- `ParticipantView mode="preview"` is inert (inputs disabled). `StageView` draws revealed results
-  in `reveal`/`report`, and the empty look of the slide in `thumbnail` (no data needed).
+- Participant modes: `live` = presenter pace (interactive), `audience` = audience pace (interactive;
+  the phone is the only screen), `preview` = inert (inputs disabled). `StageView` draws revealed
+  results in `reveal`/`report`, and the empty look of the slide in `thumbnail` (no data needed).
+- `content` (heading, paragraph, bullets, image, big_number, quote, video, instructions): the type
+  renders its whole view. ParticipantView shows a localized "Look at the screen" card in `live`
+  and the slide itself in `audience`/`preview` (shared pieces in `slides/content/ContentViews.tsx`;
+  payloads read with `slides/content/payloads.ts`, so `LiveSlide` needs no new fields — the server
+  sends `{content: {…}}`). StageView is a fullscreen-quality layout inside a size container
+  (`@container`, type in `cqw`) using only `--deck-*` tokens: big heading, markdown-lite paragraph
+  (`slides/content/markdown.tsx`: bold/italic/links only, HTML shown as text), bullets that slide in
+  one by one, image in its fit mode with caption, a big number that counts up, quote, 16:9 video
+  (`features/media/VideoEmbed`; a still stand-in in thumbnails), and "go to <site>/live and enter
+  the code" + QR with the session's join code (`useLiveOptional(s => s.joinCode)`).
+- The shell already renders a non-`response` slide's ParticipantView; participants see a content
+  slide once the reducer sets `slide` from `slide:shown` (W1-A2; until then they keep their
+  previous screen while the stage shows content).
 - `components/stage/StageView.tsx` is the convenience wrapper: `<StageView slide mode="thumbnail" />`
   defaults the data props. The builder's `SlideThumbnail` renders it on a 960×540 stage scaled
   to the rail.
@@ -153,11 +167,14 @@ has a runtime.
   append-only namespace list and types every key (`i18n/global.d.ts`). Locales: `i18n/config.ts`
   (`en` only for now).
 - `live.json` holds the participant-facing strings (join page, participant shell, slide answer
-  forms, leaderboard, timer). Host chrome and stage labels are still English literals.
+  forms, leaderboard, timer, content slides: `slides.content.lookAtScreen*`,
+  `slides.{image,video,instructions}.*`). Host chrome and stage labels are still English literals.
 
 ## Tests
 
 - Unit (`bun run test`): `tests/unit/live.reducer.test.ts`, `live.store-and-slots.test.tsx`,
-  `slides.runtime.test.tsx`, `theme.tokens.test.ts`.
-- E2E (`bun run test:e2e`): `e2e/live-flow.spec.ts` — see
+  `slides.runtime.test.tsx`, `slides.content.test.tsx` (content editors, markdown-lite escaping,
+  participant modes, stage layouts), `media.test.tsx` (video links, embeds, upload checks, CSP),
+  `theme.tokens.test.ts`.
+- E2E (`bun run test:e2e`): `e2e/live-flow.spec.ts`, `e2e/content-slides.spec.ts` — see
   [`../testing/e2e.md`](../testing/e2e.md).

@@ -1,5 +1,6 @@
 import type { PresentationDraftInput } from "../../api/crud";
 import { normalizeSlideForDraft, validateSlide } from "../../slides/editor";
+import { slideTypeMeta } from "../../slides/meta";
 import type { PresentationSlide } from "../../types/deck";
 
 /** What the builder edits: deck-level fields plus the slide list. */
@@ -88,7 +89,8 @@ export function isSlideDirty(s: PresentationSlide): boolean {
       s.options.some((o) => o.text.trim()) ||
       s.acceptedAnswers.length > 0 ||
       s.statements.some((st) => st.trim()) ||
-      s.items.some((it) => it.trim())
+      s.items.some((it) => it.trim()) ||
+      slideTypeMeta(s.type).summary?.(s).trim()
   );
 }
 

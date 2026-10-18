@@ -7,26 +7,32 @@ import { blankSlide } from "@/features/presentations/slides/editor";
 import { SLIDE_META } from "@/features/presentations/slides/meta";
 import { getSlideRuntime, runtimeSlideTypes } from "@/features/presentations/slides/runtime";
 import type { LiveSlide, PresentationSlide, PresentationSlideType } from "@/features/presentations/types";
+import { isContentSlideType } from "@/features/presentations/types/content";
 
 const metaTypes = () => Object.keys(SLIDE_META) as PresentationSlideType[];
 
-const toLiveSlide = (slide: PresentationSlide): LiveSlide => ({
-  slideIndex: 0,
-  totalSlides: 1,
-  type: slide.type,
-  scored: slide.type === "select_answer" || slide.type === "type_answer",
-  question: slide.question,
-  options: slide.options.map((o) => ({ text: o.text })),
-  statements: slide.statements,
-  minLabel: slide.minLabel,
-  maxLabel: slide.maxLabel,
-  scaleMax: slide.scaleMax,
-  items: slide.items,
-  maxEntries: slide.maxEntries,
-  timeLimit: slide.timeLimit,
-  points: slide.points,
-  scoreDependsOnTime: slide.scoreDependsOnTime,
-});
+/** The participant payload of `slide` (content slides carry their `content`). */
+const toLiveSlide = (slide: PresentationSlide): LiveSlide =>
+  Object.assign(
+    {
+      slideIndex: 0,
+      totalSlides: 1,
+      type: slide.type,
+      scored: slide.type === "select_answer" || slide.type === "type_answer",
+      question: slide.question,
+      options: slide.options.map((o) => ({ text: o.text })),
+      statements: slide.statements,
+      minLabel: slide.minLabel,
+      maxLabel: slide.maxLabel,
+      scaleMax: slide.scaleMax,
+      items: slide.items,
+      maxEntries: slide.maxEntries,
+      timeLimit: slide.timeLimit,
+      points: slide.points,
+      scoreDependsOnTime: slide.scoreDependsOnTime,
+    },
+    slide.content ? { content: slide.content } : {}
+  );
 
 /** A blank slide with enough content for every view to have something to draw. */
 const sample = (type: PresentationSlideType): PresentationSlide => ({
@@ -51,14 +57,15 @@ describe("slide runtime registry", () => {
     expect(types).toEqual([...types].sort());
   });
 
-  test("lifecycles: answerable types are `response`, leaderboard is `system`", () => {
+  test("lifecycles: answerable types are `response`, leaderboard is `system`, content types are `content`", () => {
     for (const type of metaTypes()) {
-      expect(getSlideRuntime(type)?.lifecycle).toBe(type === "leaderboard" ? "system" : "response");
+      const expected = type === "leaderboard" ? "system" : isContentSlideType(type) ? "content" : "response";
+      expect(getSlideRuntime(type)?.lifecycle).toBe(expected);
     }
   });
 
   test("unknown types have no runtime", () => {
-    expect(getSlideRuntime("heading")).toBeUndefined();
+    expect(getSlideRuntime("qna")).toBeUndefined();
   });
 
   for (const type of metaTypes()) {

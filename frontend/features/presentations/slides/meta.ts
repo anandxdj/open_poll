@@ -1,19 +1,30 @@
 import type { LucideIcon } from "lucide-react";
 
-import type { PresentationSlideType } from "../types/deck";
+import type { PresentationSlide, PresentationSlideType } from "../types/deck";
+import { meta as big_number } from "./types/big_number/meta";
+import { meta as bullets } from "./types/bullets/meta";
+import { meta as heading } from "./types/heading/meta";
+import { meta as image } from "./types/image/meta";
+import { meta as instructions } from "./types/instructions/meta";
 import { meta as leaderboard } from "./types/leaderboard/meta";
 import { meta as open_ended } from "./types/open_ended/meta";
+import { meta as paragraph } from "./types/paragraph/meta";
+import { meta as quote } from "./types/quote/meta";
 import { meta as ranking } from "./types/ranking/meta";
 import { meta as scales } from "./types/scales/meta";
 import { meta as select_answer } from "./types/select_answer/meta";
 import { meta as type_answer } from "./types/type_answer/meta";
+import { meta as video } from "./types/video/meta";
 import { meta as wordcloud } from "./types/wordcloud/meta";
 
 // Light, static facts about each slide type. Safe to import from any surface
 // (dashboard, builder, live stage, participant): no editor or runtime code.
 
-/** Picker grouping. `system` types are never offered in the "New slide" picker. */
-export type SlideSection = "interactive" | "competition" | "system";
+/**
+ * Picker grouping. `content` types are shown, not answered (no question, no
+ * timer). `system` types are never offered in the "New slide" picker.
+ */
+export type SlideSection = "interactive" | "competition" | "content" | "system";
 
 export interface SlideTypeMeta {
   type: PresentationSlideType;
@@ -26,16 +37,26 @@ export interface SlideTypeMeta {
   scored: boolean;
   /** Sort key inside pickers and type lists (lower first). */
   order: number;
+  /** The slide's own text for lists (slide rail), for types without a question; "" when blank. */
+  summary?: (slide: PresentationSlide) => string;
 }
 
 /** One line per slide type, alphabetical. */
 export const SLIDE_META: Record<PresentationSlideType, SlideTypeMeta> = {
+  big_number,
+  bullets,
+  heading,
+  image,
+  instructions,
   leaderboard,
   open_ended,
+  paragraph,
+  quote,
   ranking,
   scales,
   select_answer,
   type_answer,
+  video,
   wordcloud,
 };
 
@@ -43,15 +64,30 @@ export const SLIDE_META: Record<PresentationSlideType, SlideTypeMeta> = {
 export const PICKER_SECTIONS: { id: Exclude<SlideSection, "system">; label: string }[] = [
   { id: "interactive", label: "Interactive slides" },
   { id: "competition", label: "Quiz competitions" },
+  { id: "content", label: "Content slides" },
 ];
 
-/** Types an author can add from the builder or ask the AI for, in display order. */
+/** Types an author can add from the builder, in display order. */
 export const SLIDE_TYPE_META: SlideTypeMeta[] = Object.values(SLIDE_META)
   .filter((m) => m.section !== "system")
   .sort((a, b) => a.order - b.order);
+
+/** Types the AI deck draft (`POST /api/ai/generate-quiz`) can produce, in display order. */
+export const AI_SLIDE_TYPE_META: SlideTypeMeta[] = SLIDE_TYPE_META.filter(
+  (m) => m.section === "interactive" || m.section === "competition"
+);
 
 export const slideTypeMeta = (type: PresentationSlideType): SlideTypeMeta =>
   SLIDE_META[type] ?? SLIDE_META.select_answer;
 
 export const slideMetaInSection = (section: SlideSection) =>
   SLIDE_TYPE_META.filter((m) => m.section === section);
+
+/** Content slides are shown, not answered: no question, no timer, no scoring. */
+export const isContentSlide = (type: PresentationSlideType) => slideTypeMeta(type).section === "content";
+
+/** Name of one slide in lists: its question, else its own text, else the type label. */
+export const slideLabel = (slide: PresentationSlide): string => {
+  const meta = slideTypeMeta(slide.type);
+  return slide.question.trim() || meta.summary?.(slide).trim() || meta.label;
+};

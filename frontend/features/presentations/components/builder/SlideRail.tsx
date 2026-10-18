@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, Copy, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { slideTypeMeta } from "../../slides/meta";
+import { slideLabel, slideTypeMeta } from "../../slides/meta";
 import type { PresentationSlide, PresentationSlideType } from "../../types/deck";
 import { SlideThumbnail } from "./SlideThumbnail";
 import { SlideTypePicker } from "./SlideTypePicker";
@@ -103,7 +103,7 @@ export function SlideRail({ slides, active, onSelect, onAdd, onMove, onDuplicate
         {slides.map((s, i) => {
           const meta = slideTypeMeta(s.type);
           const isActive = i === active;
-          const name = s.question.trim() || meta.label;
+          const name = slideLabel(s);
           return (
             <li
               key={i}

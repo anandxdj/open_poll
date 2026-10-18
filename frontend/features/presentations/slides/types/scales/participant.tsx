@@ -14,7 +14,7 @@ export function ScalesParticipant({ slide, mode, onSubmit, submitting }: Partici
   const [ratings, setRatings] = useState<number[]>(() =>
     (statements ?? []).map(() => Math.ceil((scaleMax || 5) / 2))
   );
-  const locked = submitting || mode !== "live";
+  const locked = submitting || mode === "preview";
 
   return (
     <div className="space-y-6 w-full">

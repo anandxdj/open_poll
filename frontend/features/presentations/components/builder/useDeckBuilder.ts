@@ -19,6 +19,7 @@ import {
   buildDraftStorageKey,
   clearDraft,
   isDeckDirty,
+  isSlideDirty,
   loadDraft,
   mergeGeneratedSlides,
   saveDraft,
@@ -176,7 +177,7 @@ export function useDeckBuilder() {
 
   useEffect(() => {
     if (!draftHydratedRef.current) return;
-    if (editId === null && !title.trim() && slides.length === 1 && !slides[0]?.question.trim()) {
+    if (editId === null && !title.trim() && slides.length === 1 && !isSlideDirty(slides[0]!)) {
       return;
     }
 

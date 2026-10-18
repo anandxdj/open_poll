@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { LiveIntlProvider } from "@/i18n/LiveIntlProvider";
-import { slideTypeMeta } from "../../slides/meta";
+import { isContentSlide, slideTypeMeta } from "../../slides/meta";
 import type { PresentationSlide } from "../../types/deck";
 import { StageView } from "../stage/StageView";
 
@@ -17,6 +17,8 @@ const STAGE_HEIGHT = 540;
 export function SlideThumbnail({ slide, className }: { slide: PresentationSlide; className?: string }) {
   const meta = slideTypeMeta(slide.type);
   const question = slide.question.trim();
+  // Content slides draw their own text; others get the question above their view.
+  const content = isContentSlide(slide.type);
   const frameRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<number | null>(null);
 
@@ -39,17 +41,22 @@ export function SlideThumbnail({ slide, className }: { slide: PresentationSlide;
     >
       {scale !== null && (
         <div
-          className="pointer-events-none absolute left-0 top-0 flex flex-col items-center gap-6 p-10 text-deck-stage-fg"
+          className={cn(
+            "pointer-events-none absolute left-0 top-0 flex flex-col items-center gap-6 p-10 text-deck-stage-fg",
+            content && "justify-center"
+          )}
           style={{ width: STAGE_WIDTH, height: STAGE_HEIGHT, transform: `scale(${scale})`, transformOrigin: "top left" }}
         >
-          <h2
-            className={cn(
-              "line-clamp-2 text-center text-3xl font-extrabold leading-tight tracking-tight",
-              !question && "text-deck-stage-fg/40"
-            )}
-          >
-            {question || meta.label}
-          </h2>
+          {!content && (
+            <h2
+              className={cn(
+                "line-clamp-2 text-center text-3xl font-extrabold leading-tight tracking-tight",
+                !question && "text-deck-stage-fg/40"
+              )}
+            >
+              {question || meta.label}
+            </h2>
+          )}
           <div className="w-full max-w-3xl">
             <LiveIntlProvider>
               <StageView slide={slide} mode="thumbnail" />

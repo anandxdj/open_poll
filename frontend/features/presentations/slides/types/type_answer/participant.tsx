@@ -11,7 +11,7 @@ import type { ParticipantViewProps } from "../../runtime";
 export function TypeAnswerParticipant({ mode, onSubmit, submitting }: ParticipantViewProps) {
   const t = useTranslations("live.slides.typeAnswer");
   const [typedText, setTypedText] = useState("");
-  const locked = submitting || mode !== "live";
+  const locked = submitting || mode === "preview";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +31,7 @@ export function TypeAnswerParticipant({ mode, onSubmit, submitting }: Participan
           value={typedText}
           onChange={(e) => setTypedText(e.target.value)}
           placeholder={t("placeholder")}
-          autoFocus={mode === "live"}
+          autoFocus={mode !== "preview"}
           disabled={locked}
           className="h-14 rounded-2xl bg-deck-surface/80 border-deck-border/80 text-center font-bold text-lg tracking-wide placeholder:text-deck-muted-fg/40 focus:ring-2 focus:ring-deck-primary/30"
         />

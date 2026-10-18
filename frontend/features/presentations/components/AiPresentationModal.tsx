@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { generatePresentationDraft } from "../api/ai";
-import { SLIDE_TYPE_META } from "../slides/meta";
+import { AI_SLIDE_TYPE_META } from "../slides/meta";
 import type { GeneratedPresentationDraft, PresentationSlideType } from "../types/deck";
 import { getApiErrorMessage } from "@/lib/api-error";
 
@@ -109,7 +109,7 @@ export function AiPresentationModal({ open, onOpenChange, initialTopic, onGenera
           <div className="grid gap-2">
             <Label>Slide types to include</Label>
             <div className="flex flex-wrap gap-1.5">
-              {SLIDE_TYPE_META.map(({ type, label, Icon, iconClass }) => {
+              {AI_SLIDE_TYPE_META.map(({ type, label, Icon, iconClass }) => {
                 const selected = types.includes(type);
                 return (
                   <button
