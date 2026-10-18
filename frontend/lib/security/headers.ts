@@ -7,6 +7,21 @@ export type HeaderRule = {
 };
 
 /**
+ * Origin of the object-storage public URL (backend `S3_PUBLIC_URL`, given to
+ * the frontend build as `NEXT_PUBLIC_STORAGE_PUBLIC_URL`), so uploaded images
+ * load even from a plain-http bucket in development. Empty when unset.
+ */
+export function storageOrigins(publicUrl: string | undefined): string[] {
+  if (!publicUrl) return [];
+  try {
+    const { protocol, origin } = new URL(publicUrl);
+    return protocol === "https:" || protocol === "http:" ? [origin] : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Content-Security-Policy directives, one line per directive. Only directives
  * listed here are enforced, so a feature that needs a new source (embedded
  * video frames, storage images, …) adds or extends its directive here.
@@ -14,6 +29,17 @@ export type HeaderRule = {
 export const CSP_DIRECTIVES: Record<string, string[]> = {
   // Clickjacking protection: only this origin may frame the app.
   "frame-ancestors": ["'self'"],
+  // Video slides embed only the privacy-enhanced YouTube and the Vimeo player.
+  "frame-src": ["'self'", "https://www.youtube-nocookie.com", "https://player.vimeo.com"],
+  // Image slides show uploads (storage) or pasted https links; data:/blob:
+  // cover inline icons and local previews.
+  "img-src": [
+    "'self'",
+    "data:",
+    "blob:",
+    "https:",
+    ...storageOrigins(process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL),
+  ],
 };
 
 export function buildCsp(directives: Record<string, string[]> = CSP_DIRECTIVES): string {
