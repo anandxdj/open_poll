@@ -24,7 +24,7 @@ export const scalesSlide = defineSlideType<ScalesConfig, z.infer<typeof answerSc
   kind: 'interactive',
   lifecycle: 'response',
   scored: false,
-  schema: builtInSlideSchema('scales').superRefine((slide, ctx) => {
+  schema: builtInSlideSchema('scales', { untimed: true }).superRefine((slide, ctx) => {
     if (slide.statements.length < 1) {
       ctx.addIssue({
         code: 'custom',

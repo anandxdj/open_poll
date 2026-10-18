@@ -23,22 +23,31 @@ const listRoutes = (stack: Layer[]): string[] =>
   });
 
 describe('presentations route table', () => {
-  it('matches the pre-split route list and middleware counts', () => {
+  // The session engine (W1-A1) added live-state, start/goto/close/reopen and the
+  // session list, and put workspaceContext() after authenticate() on every
+  // creator and host route (+1 handler each; goto/advance also validate).
+  it('matches the route list and middleware counts', () => {
     expect(listRoutes((presentationsRouter as any).stack)).toEqual([
       'GET /code/:code (3)',
       'POST /:id/join (3)',
       'POST /:id/answer (3)',
       'GET /:id/me (2)',
-      'POST / (3)',
-      'GET / (2)',
-      'GET /:id (2)',
-      'PATCH /:id (3)',
-      'DELETE /:id (2)',
-      'GET /:id/host/state (2)',
-      'POST /:id/host/open-lobby (2)',
-      'POST /:id/host/advance (2)',
-      'POST /:id/host/reveal (2)',
-      'POST /:id/host/end (2)',
+      'GET /:id/live-state (2)',
+      'POST / (4)',
+      'GET / (3)',
+      'GET /:id (3)',
+      'PATCH /:id (4)',
+      'DELETE /:id (3)',
+      'GET /:id/host/state (3)',
+      'POST /:id/host/open-lobby (3)',
+      'POST /:id/host/start (3)',
+      'POST /:id/host/goto (4)',
+      'POST /:id/host/advance (4)',
+      'POST /:id/host/close (3)',
+      'POST /:id/host/reopen (3)',
+      'POST /:id/host/reveal (3)',
+      'POST /:id/host/end (3)',
+      'GET /:id/sessions (3)',
     ]);
   });
 });

@@ -4,6 +4,7 @@ import {
   PresentationModel,
   PresentationParticipantModel,
   PresentationAnswerModel,
+  PresentationSessionModel,
 } from '../../src/modules/presentations/presentations.model';
 
 /**
@@ -181,6 +182,9 @@ export class FakeRedis {
   async sMembers(key: string) {
     return [...(this.read(key, 'set')?.value ?? [])];
   }
+  async sIsMember(key: string, member: string) {
+    return this.read(key, 'set')?.value.has(member) ? 1 : 0;
+  }
 
   // ---------- sorted sets ----------
   async zIncrBy(key: string, by: number, member: string) {
@@ -304,6 +308,7 @@ const REDIS_METHODS = [
   'sRem',
   'sCard',
   'sMembers',
+  'sIsMember',
   'zIncrBy',
   'zScore',
   'zCount',
@@ -343,12 +348,14 @@ export function installFakeRedis() {
 export interface StoredParticipant {
   _id: mongoose.Types.ObjectId;
   presentationId: string;
+  sessionId: string;
   deviceId: string;
   name: string;
   token: string;
   score: number;
   correctCount: number;
   joinedAt: Date;
+  kickedAt: Date | null;
 }
 
 const compareBy = (spec: Record<string, 1 | -1>) => (a: any, b: any) => {
@@ -361,48 +368,111 @@ const compareBy = (spec: Record<string, 1 | -1>) => (a: any, b: any) => {
   return 0;
 };
 
-/** Minimal chainable stand-in for a Mongoose Query (sort/limit/select/lean, awaitable). */
-const query = <T>(result: () => T): any => {
+/**
+ * Minimal chainable stand-in for a Mongoose Query (sort/limit/select/lean,
+ * awaitable). `single` queries (findOne) sort and limit the matches, then
+ * resolve to the first one.
+ */
+const query = <T>(result: () => T, single = false): any => {
+  const settle = () => {
+    const r = result();
+    return single && Array.isArray(r) ? (r[0] ?? null) : r;
+  };
   const q: any = {
     sort: (spec: Record<string, 1 | -1>) =>
       query(() => {
         const r = result();
         return (Array.isArray(r) ? [...r].sort(compareBy(spec)) : r) as T;
-      }),
+      }, single),
     limit: (n: number) =>
       query(() => {
         const r = result();
         return (Array.isArray(r) ? r.slice(0, n) : r) as T;
-      }),
+      }, single),
     select: () => q,
-    lean: () => Promise.resolve(result()),
+    lean: () => Promise.resolve(settle()),
     then: (resolve: (v: T) => unknown, reject: (e: unknown) => unknown) =>
-      Promise.resolve(result()).then(resolve, reject),
-    catch: (reject: (e: unknown) => unknown) => Promise.resolve(result()).catch(reject),
+      Promise.resolve(settle()).then(resolve, reject),
+    catch: (reject: (e: unknown) => unknown) => Promise.resolve(settle()).catch(reject),
   };
   return q;
 };
 
-const matches = (doc: Record<string, any>, filter: Record<string, any>) =>
+/** Equality on stringified values, plus the `null`, `$gt`, `$in` and `$or` the module uses. */
+const matches = (doc: Record<string, any>, filter: Record<string, any>): boolean =>
   Object.entries(filter).every(([key, expected]) => {
+    if (key === '$or') return (expected as Record<string, any>[]).some((branch) => matches(doc, branch));
     const actual = doc[key];
+    if (expected === null) return actual === null || actual === undefined;
     if (expected && typeof expected === 'object' && '$gt' in expected) return actual > expected.$gt;
+    if (expected && typeof expected === 'object' && '$in' in expected) {
+      return (expected.$in as unknown[]).some((value) => String(value) === String(actual));
+    }
     return String(actual) === String(expected);
   });
 
+/** The `$group` accumulators the module uses: `{$sum: 1}`, `{$sum: '$f'}`, `{$sum: {$cond: ['$f', 1, 0]}}`. */
+const accumulate = (rows: Record<string, any>[], spec: any): number =>
+  rows.reduce((sum, row) => {
+    const term = spec.$sum;
+    if (typeof term === 'number') return sum + term;
+    if (typeof term === 'string') return sum + Number(row[term.slice(1)] ?? 0);
+    const [field, yes, no] = term.$cond;
+    return sum + (row[String(field).slice(1)] ? yes : no);
+  }, 0);
+
+/** `$match` + `$group` pipelines over an in-memory collection. */
+const aggregate = (source: Record<string, any>[], pipeline: Record<string, any>[]) => {
+  let rows = source;
+  for (const stage of pipeline) {
+    if (stage.$match) rows = rows.filter((row) => matches(row, stage.$match));
+    if (stage.$group) {
+      const { _id, ...fields } = stage.$group;
+      const field = String(_id).slice(1);
+      const groups = new Map<string, Record<string, any>[]>();
+      for (const row of rows) groups.set(String(row[field]), [...(groups.get(String(row[field])) ?? []), row]);
+      rows = [...groups.values()].map((group) => ({
+        _id: group[0]![field],
+        ...Object.fromEntries(Object.entries(fields).map(([name, spec]) => [name, accumulate(group, spec)])),
+      }));
+    }
+  }
+  return Promise.resolve(rows);
+};
+
+/** The `{sessionId, slideId, participantId}` unique index of answers. */
+const answerKey = (a: Record<string, any>) => `${a.sessionId}|${a.slideId}|${a.participantId}`;
+
 export function installModelStubs() {
   const presentations: any[] = [];
+  const sessions: any[] = [];
   const participants: StoredParticipant[] = [];
   const answers: Record<string, any>[] = [];
   const participantUpdates: { filter: any; update: any }[] = [];
+  /** Set `answerCreate` to make the answer write-behind fail (simulated Mongo outage). */
+  const failures = { answerCreate: false };
   const restorers: (() => void)[] = [];
 
   const findPresentation = (id: unknown) => presentations.find((p) => String(p._id) === String(id)) ?? null;
+  const findSession = (id: unknown) => sessions.find((s) => String(s._id) === String(id)) ?? null;
+  const removeWhere = (list: any[], filter: any) => {
+    const keep = list.filter((item) => !matches(item, filter));
+    const deletedCount = list.length - keep.length;
+    list.splice(0, list.length, ...keep);
+    return { deletedCount };
+  };
 
   restorers.push(
     patch(PresentationModel, 'findById', (id: unknown) => query(() => findPresentation(id))),
     patch(PresentationModel, 'findOne', (filter: Record<string, unknown>) =>
-      query(() => presentations.find((p) => matches(p, filter)) ?? null),
+      query(() => presentations.filter((p) => matches(p, filter)), true),
+    ),
+    patch(PresentationModel, 'updateOne', (filter: any, update: any) =>
+      query(() => {
+        const doc = presentations.find((p) => matches(p, filter));
+        if (doc && update.$set) Object.assign(doc, update.$set);
+        return { acknowledged: true, matchedCount: doc ? 1 : 0 };
+      }),
     ),
     patch(PresentationModel, 'findByIdAndDelete', (id: unknown) =>
       query(() => {
@@ -410,15 +480,32 @@ export function installModelStubs() {
         return index >= 0 ? presentations.splice(index, 1)[0] : null;
       }),
     ),
+    patch(PresentationSessionModel, 'create', async (data: any) => {
+      // The one-live-session-per-deck partial unique index.
+      if (data.isLive && sessions.some((s) => s.isLive && String(s.presentationId) === String(data.presentationId))) {
+        throw Object.assign(new Error('E11000 one_live_session_per_presentation'), { code: 11000 });
+      }
+      const doc: any = new PresentationSessionModel(data);
+      doc.save = async () => doc;
+      sessions.push(doc);
+      return doc;
+    }),
+    patch(PresentationSessionModel, 'findById', (id: unknown) => query(() => findSession(id))),
+    patch(PresentationSessionModel, 'findOne', (filter: any) =>
+      query(() => sessions.filter((s) => matches(s, filter)), true),
+    ),
+    patch(PresentationSessionModel, 'find', (filter: any) => query(() => sessions.filter((s) => matches(s, filter)))),
+    patch(PresentationSessionModel, 'deleteMany', (filter: any) => query(() => removeWhere(sessions, filter))),
     patch(PresentationParticipantModel, 'findOneAndUpdate', (filter: any, update: any) =>
       query(() => {
         let participant = participants.find((p) => matches(p, filter));
         if (!participant) {
           participant = {
             _id: new mongoose.Types.ObjectId(),
-            presentationId: String(filter.presentationId),
+            sessionId: String(filter.sessionId),
             deviceId: filter.deviceId,
             ...update.$setOnInsert,
+            presentationId: String(update.$setOnInsert.presentationId),
           } as StoredParticipant;
           participants.push(participant);
         }
@@ -435,55 +522,74 @@ export function installModelStubs() {
       }
       return query(() => ({ acknowledged: true }));
     }),
+    patch(PresentationParticipantModel, 'bulkWrite', async (ops: any[]) => {
+      for (const { updateOne } of ops) {
+        const participant = participants.find((p) => matches(p, updateOne.filter));
+        if (participant && updateOne.update.$set) Object.assign(participant, updateOne.update.$set);
+      }
+      return { ok: 1 };
+    }),
     patch(PresentationParticipantModel, 'countDocuments', (filter: any) =>
       query(() => participants.filter((p) => matches(p, filter)).length),
+    ),
+    patch(PresentationParticipantModel, 'exists', (filter: any) =>
+      query(() => {
+        const found = participants.find((p) => matches(p, filter));
+        return found ? { _id: found._id } : null;
+      }),
     ),
     patch(PresentationParticipantModel, 'find', (filter: any) =>
       query(() => participants.filter((p) => matches(p, filter))),
     ),
+    patch(PresentationParticipantModel, 'findById', (id: unknown) =>
+      query(() => participants.find((p) => String(p._id) === String(id)) ?? null),
+    ),
     patch(PresentationParticipantModel, 'findOne', (filter: any) =>
-      query(() => participants.find((p) => matches(p, filter)) ?? null),
+      query(() => participants.filter((p) => matches(p, filter)), true),
     ),
-    patch(PresentationParticipantModel, 'deleteMany', (filter: any) =>
-      query(() => {
-        const keep = participants.filter((p) => !matches(p, filter));
-        const deletedCount = participants.length - keep.length;
-        participants.splice(0, participants.length, ...keep);
-        return { deletedCount };
-      }),
-    ),
+    patch(PresentationParticipantModel, 'deleteMany', (filter: any) => query(() => removeWhere(participants, filter))),
     patch(PresentationAnswerModel, 'create', (data: any) => {
-      const duplicate = answers.some(
-        (a) =>
-          String(a.presentationId) === String(data.presentationId) &&
-          a.slideIndex === data.slideIndex &&
-          String(a.participantId) === String(data.participantId),
-      );
-      if (duplicate) return Promise.reject(Object.assign(new Error('E11000'), { code: 11000 }));
+      if (failures.answerCreate) return Promise.reject(new Error('simulated write-behind failure'));
+      if (answers.some((a) => answerKey(a) === answerKey(data))) {
+        return Promise.reject(Object.assign(new Error('E11000'), { code: 11000 }));
+      }
       answers.push({ ...data });
       return Promise.resolve(data);
     }),
+    patch(PresentationAnswerModel, 'insertMany', async (docs: any[]) => {
+      const writeErrors: { code: number }[] = [];
+      for (const doc of docs) {
+        if (answers.some((a) => answerKey(a) === answerKey(doc))) writeErrors.push({ code: 11000 });
+        else answers.push({ ...doc });
+      }
+      if (writeErrors.length) throw Object.assign(new Error('E11000'), { code: 11000, writeErrors });
+      return docs;
+    }),
+    patch(PresentationAnswerModel, 'aggregate', (pipeline: any[]) => aggregate(answers, pipeline)),
+    patch(PresentationAnswerModel, 'find', (filter: any) => query(() => answers.filter((a) => matches(a, filter)))),
+    patch(PresentationAnswerModel, 'exists', (filter: any) =>
+      query(() => (answers.some((a) => matches(a, filter)) ? { _id: 'answer' } : null)),
+    ),
     patch(PresentationAnswerModel, 'countDocuments', (filter: any) =>
       query(() => answers.filter((a) => matches(a, filter)).length),
     ),
     patch(PresentationAnswerModel, 'findOne', (filter: any) =>
-      query(() => answers.find((a) => matches(a, filter)) ?? null),
+      query(() => answers.filter((a) => matches(a, filter)), true),
     ),
-    patch(PresentationAnswerModel, 'deleteMany', (filter: any) =>
-      query(() => {
-        const keep = answers.filter((a) => !matches(a, filter));
-        const deletedCount = answers.length - keep.length;
-        answers.splice(0, answers.length, ...keep);
-        return { deletedCount };
-      }),
-    ),
+    patch(PresentationAnswerModel, 'deleteMany', (filter: any) => query(() => removeWhere(answers, filter))),
   );
 
   return {
     presentations,
+    sessions,
     participants,
     answers,
     participantUpdates,
+    failures,
+    /** The deck's live session document, if any. */
+    liveSession(presentationId: string) {
+      return sessions.find((s) => s.isLive && String(s.presentationId) === presentationId) ?? null;
+    },
     /** Builds a real (unsaved) Presentation document; `save()` just resolves. */
     addPresentation(data: Record<string, unknown>) {
       const doc: any = new PresentationModel(data);
@@ -507,3 +613,7 @@ export function installModelStubs() {
 export const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 export const OWNER_ID = 'owner-user-id';
+
+/** Redis key of a session-scoped structure (`psess:{sid}:name[:slideId]`). */
+export const sessionKey = (sessionId: string, name: string, slideId?: string) =>
+  slideId === undefined ? `psess:{${sessionId}}:${name}` : `psess:{${sessionId}}:${name}:${slideId}`;

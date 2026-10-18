@@ -35,5 +35,11 @@ router.get(
   rateLimit({ prefix: 'presentation-me', windowSec: 60, max: 600 }),
   PresentationParticipantController.participantState
 );
+// Full participant resync after a reconnect (shares the /me budget).
+router.get(
+  '/:id/live-state',
+  rateLimit({ prefix: 'presentation-me', windowSec: 60, max: 600 }),
+  PresentationParticipantController.liveState
+);
 
 export default router;

@@ -1,80 +1,114 @@
+import * as access from './access';
 import * as crud from './crud.service';
 import * as session from './live/session.service';
 import * as answers from './live/answer.service';
 import * as participants from './live/participant.service';
+import type { Actor } from './access';
+import type { ListContext } from './crud.service';
 import type { IPresentation } from './presentations.model';
 import type {
   CreatePresentationInput,
   UpdatePresentationInput,
   JoinPresentationInput,
   SubmitPresentationAnswerInput,
+  GotoSlideInput,
 } from './presentations.schema';
 
 /**
  * Facade over the presentations module. Callers outside the module (socket,
- * MCP, AI, worker, controllers) use this; the work lives in `crud.service.ts`
- * and `live/*`. Signatures here are the module's stable public API.
+ * MCP, AI, worker, controllers) use this; the work lives in `access.ts`,
+ * `crud.service.ts` and `live/*`. Signatures here are the module's stable
+ * public API.
+ *
+ * `actor` is the request (policy context after `authenticate()` +
+ * `workspaceContext()`) or a bare user id (sockets, scripts, tests), which is
+ * checked against the deck's own workspace.
  */
 
 export { publishPresentationEvent } from './live/events';
 export { computeSlideDistributionHelper } from './live/distribution';
+export type { Actor } from './access';
+export type { HostCommandResult } from './live/session.service';
 
 export class PresentationService {
   // ---------- CRUD (creator) ----------
 
-  static createPresentation(data: CreatePresentationInput, creatorId: string) {
-    return crud.createPresentation(data, creatorId);
+  static createPresentation(data: CreatePresentationInput, actor: Actor) {
+    return crud.createPresentation(data, actor);
   }
 
   static getPresentationById(presentationId: string) {
-    return crud.getPresentationById(presentationId);
+    return access.getPresentationById(presentationId);
   }
 
-  static assertOwnership(presentationId: string, userId: string): Promise<IPresentation> {
-    return crud.assertOwnership(presentationId, userId);
+  /** The deck, after checking `deck:read` for the actor. */
+  static getPresentationFor(presentationId: string, actor: Actor): Promise<IPresentation> {
+    return access.authorizeDeck(presentationId, actor, 'deck:read');
   }
 
   // Non-throwing checks for the socket layer, which just needs a yes/no.
-  static isOwner(presentationId: string, userId: string): Promise<boolean> {
-    return crud.isOwner(presentationId, userId);
+  static canHost(presentationId: string, userId: string): Promise<boolean> {
+    return access.canActOnDeck(presentationId, userId, 'deck:host');
   }
 
   static isAuthorizedParticipant(presentationId: string, participantId: string, token: string): Promise<boolean> {
     return participants.isAuthorizedParticipant(presentationId, participantId, token);
   }
 
-  static listPresentationsByCreator(creatorId: string) {
-    return crud.listPresentationsByCreator(creatorId);
+  /** Decks of the request's workspace. */
+  static listPresentations(ctx: ListContext) {
+    return crud.listPresentations(ctx);
   }
 
-  static updatePresentation(presentationId: string, userId: string, data: UpdatePresentationInput) {
-    return crud.updatePresentation(presentationId, userId, data);
+  static updatePresentation(presentationId: string, actor: Actor, data: UpdatePresentationInput) {
+    return crud.updatePresentation(presentationId, actor, data);
   }
 
-  static deletePresentation(presentationId: string, userId: string) {
-    return crud.deletePresentation(presentationId, userId);
+  static deletePresentation(presentationId: string, actor: Actor) {
+    return crud.deletePresentation(presentationId, actor);
   }
 
   // ---------- Host session controls ----------
 
-  static openLobby(presentationId: string, userId: string) {
-    return session.openLobby(presentationId, userId);
+  static openLobby(presentationId: string, actor: Actor) {
+    return session.openLobby(presentationId, actor);
   }
 
-  static advanceSlide(presentationId: string, userId: string, targetIndex?: number) {
-    return session.advanceSlide(presentationId, userId, targetIndex);
+  static startSession(presentationId: string, actor: Actor) {
+    return session.startSession(presentationId, actor);
   }
 
-  static revealCurrentSlide(presentationId: string, userId: string) {
-    return session.revealCurrentSlide(presentationId, userId);
+  static gotoSlide(presentationId: string, actor: Actor, target: GotoSlideInput) {
+    return session.gotoSlide(presentationId, actor, target);
   }
 
-  static endPresentation(presentationId: string, userId: string) {
-    return session.endPresentation(presentationId, userId);
+  /** Legacy alias: `gotoSlide` to `targetIndex`, default the next slide. */
+  static advanceSlide(presentationId: string, actor: Actor, targetIndex?: number) {
+    return session.advanceSlide(presentationId, actor, targetIndex);
   }
 
-  static getHostState(presentationId: string, userId: string) {
-    return session.getHostState(presentationId, userId);
+  static closeCurrentSlide(presentationId: string, actor: Actor) {
+    return session.closeCurrentSlide(presentationId, actor);
+  }
+
+  static reopenCurrentSlide(presentationId: string, actor: Actor) {
+    return session.reopenCurrentSlide(presentationId, actor);
+  }
+
+  static revealCurrentSlide(presentationId: string, actor: Actor) {
+    return session.revealCurrentSlide(presentationId, actor);
+  }
+
+  static endPresentation(presentationId: string, actor: Actor) {
+    return session.endPresentation(presentationId, actor);
+  }
+
+  static getHostState(presentationId: string, actor: Actor) {
+    return session.getHostState(presentationId, actor);
+  }
+
+  static listSessions(presentationId: string, actor: Actor) {
+    return session.listSessions(presentationId, actor);
   }
 
   // ---------- Participant flow (public) ----------
@@ -94,5 +128,9 @@ export class PresentationService {
 
   static getParticipantState(presentationId: string, participantId: string, token: string) {
     return participants.getParticipantState(presentationId, participantId, token);
+  }
+
+  static getParticipantLiveState(presentationId: string, participantId: string, token: string) {
+    return participants.getParticipantLiveState(presentationId, participantId, token);
   }
 }

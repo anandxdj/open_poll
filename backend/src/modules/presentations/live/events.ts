@@ -1,10 +1,12 @@
 import type { QuizRealtimeEventType } from '../../../common/realtime/events';
 import { publishLiveEvent } from '../../../common/realtime/publish';
+import type { PresentationEventPayloads } from './contract';
 
 /**
  * Every live event the presentations module emits goes through one function per
  * event below, and all of them through `publishPresentationEvent`, so the
- * envelope fields (sessionId, audience) can be added in one place.
+ * envelope fields (sessionId, audience) are set in one place. Payload shapes are
+ * the contract types (`contract.ts`).
  */
 
 export type PresentationEventType = QuizRealtimeEventType;
@@ -12,73 +14,49 @@ export type PresentationEventType = QuizRealtimeEventType;
 export const publishPresentationEvent = async (
   presentationId: string,
   type: PresentationEventType,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  sessionId: string | null = null
 ) => {
-  await publishLiveEvent({ presentationId, type, payload });
+  await publishLiveEvent({ presentationId, type, payload, sessionId });
 };
 
-type LeaderboardEntry = {
-  participantId: string;
-  name: string;
-  score: number;
-  correctCount: number;
-  rank: number;
+type Payload<T extends keyof PresentationEventPayloads> = PresentationEventPayloads[T];
+
+const publisher =
+  <T extends keyof PresentationEventPayloads & PresentationEventType>(type: T) =>
+  (presentationId: string, sessionId: string, payload: Payload<T>) =>
+    publishPresentationEvent(presentationId, type, payload as Record<string, unknown>, sessionId);
+
+/** A new session opened its lobby: the new event, then its legacy copy. */
+export const publishSessionLobby = async (presentationId: string, sessionId: string, payload: Payload<'session:lobby'>) => {
+  await publisher('session:lobby')(presentationId, sessionId, payload);
+  await publisher('lobby:opened')(presentationId, sessionId, { joinCode: payload.joinCode });
 };
 
-export const publishLobbyOpened = (presentationId: string, payload: { joinCode: string }) =>
-  publishPresentationEvent(presentationId, 'lobby:opened', payload);
+export const publishParticipantJoined = publisher('participant:joined');
 
-export const publishParticipantJoined = (
-  presentationId: string,
-  payload: { participantId: string; name: string; participantCount: number }
-) => publishPresentationEvent(presentationId, 'participant:joined', payload);
-
-export const publishQuestionStarted = (
-  presentationId: string,
-  payload: { slide: Record<string, unknown>; startedAt: string; endsAt: string; serverNow: string }
-) => publishPresentationEvent(presentationId, 'question:started', payload);
+export const publishQuestionStarted = publisher('question:started');
 
 /** A slide with no answer window (content/board lifecycle) is on screen. */
-export const publishSlideShown = (
-  presentationId: string,
-  payload: { slideIndex: number; slide: Record<string, unknown>; isLastSlide: boolean; serverNow: string }
-) => publishPresentationEvent(presentationId, 'slide:shown', payload);
+export const publishSlideShown = publisher('slide:shown');
+
+export const publishSlideClosed = publisher('slide:closed');
 
 /**
  * Host-only (the socket layer never sends it to participants): the light
  * per-answer count, or the worker's coalesced count + distribution.
  */
-export const publishAnswerReceived = (
-  presentationId: string,
-  payload: {
-    slideIndex: number;
-    answeredCount: number;
-    participantCount?: number;
-    distribution?: Record<string, unknown>;
-  }
-) => publishPresentationEvent(presentationId, 'answer:received', payload);
+export const publishAnswerReceived = publisher('answer:received');
 
-export const publishQuestionRevealed = (
-  presentationId: string,
-  payload: {
-    slideIndex: number;
-    question: string;
-    type: string;
-    scored: boolean;
-    distribution: Record<string, unknown>;
-    answeredCount: number;
-    participantCount: number;
-    isLastSlide: boolean;
-    auto: boolean;
-  }
-) => publishPresentationEvent(presentationId, 'question:revealed', payload);
+export const publishQuestionRevealed = publisher('question:revealed');
 
-export const publishLeaderboardShown = (
-  presentationId: string,
-  payload: { slideIndex: number; leaderboard: LeaderboardEntry[]; participantCount: number; isLastSlide: boolean }
-) => publishPresentationEvent(presentationId, 'leaderboard:shown', payload);
+export const publishLeaderboardShown = publisher('leaderboard:shown');
 
-export const publishPresentationEnded = (
-  presentationId: string,
-  payload: { leaderboard: LeaderboardEntry[]; participantCount: number }
-) => publishPresentationEvent(presentationId, 'quiz:ended', payload);
+/** The session ended: the new event, then its legacy copy. */
+export const publishSessionEnded = async (presentationId: string, sessionId: string, payload: Payload<'session:ended'>) => {
+  await publisher('session:ended')(presentationId, sessionId, payload);
+  await publisher('quiz:ended')(presentationId, sessionId, {
+    leaderboard: payload.leaderboard,
+    participantCount: payload.participantCount,
+  });
+};

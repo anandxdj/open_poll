@@ -50,17 +50,27 @@ export const legacySlideShape = {
   scoreDependsOnTime: z.boolean().default(true),
 };
 
+/** A timer for unscored slides: 0 = untimed (open until the host closes it), else 5–300s. */
+export const untimedOrTimerSchema = z
+  .number()
+  .int()
+  .min(0)
+  .max(300)
+  .refine((value) => value === 0 || value >= 5, 'Use 0 for an untimed slide or at least 5 seconds')
+  .default(30);
+
 /**
- * Request schema for one of the built-in types: required question, a 5–300s
- * timer (the legacy engine always runs one) and the flat legacy fields. Types
+ * Request schema for one of the built-in types: required question, the flat
+ * legacy fields and a timer. Scored types keep a 5–300s timer (speed scoring
+ * needs a deadline); `untimed: true` also allows 0 for unscored types. Types
  * add their own rules with `.superRefine`.
  */
-export const builtInSlideSchema = <T extends string>(type: T) =>
+export const builtInSlideSchema = <T extends string>(type: T, options: { untimed?: boolean } = {}) =>
   z.object({
     type: z.literal(type),
     ...commonSlideShape,
     question: z.string().min(1, 'Question text is required').max(500),
-    timeLimit: z.number().int().min(5).max(300).default(30),
+    timeLimit: options.untimed ? untimedOrTimerSchema : z.number().int().min(5).max(300).default(30),
     ...legacySlideShape,
   });
 

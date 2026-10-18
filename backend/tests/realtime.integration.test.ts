@@ -48,9 +48,8 @@ const { publishLiveEvent, liveSeqKey } = await import('../src/common/realtime/pu
 const { generateAccessToken } = await import('../src/common/utils/jwt.utils');
 const { createPresentationSchema } = await import('../src/modules/presentations/presentations.schema');
 const { PresentationService } = await import('../src/modules/presentations/presentations.service');
-const { PresentationModel, PresentationParticipantModel, PresentationAnswerModel } = await import(
-  '../src/modules/presentations/presentations.model'
-);
+const { PresentationModel, PresentationParticipantModel, PresentationAnswerModel, PresentationSessionModel } =
+  await import('../src/modules/presentations/presentations.model');
 
 describe.skipIf(!enabled || inProcess)('realtime integration (isolated process)', () => {
   it('passes in a process whose Redis client points at TEST_REDIS_URL', async () => {
@@ -169,14 +168,18 @@ describe.skipIf(!inProcess)('realtime integration', () => {
         async () => (await PresentationAnswerModel.countDocuments({ presentationId })) === 3,
         'answer write-behind',
       ).catch(() => {});
+      const sessionIds = (await PresentationSessionModel.find({ presentationId }).select('_id').lean()).map((s) =>
+        String(s._id),
+      );
       await Promise.all([
         PresentationModel.deleteOne({ _id: presentationId }),
+        PresentationSessionModel.deleteMany({ presentationId }),
         PresentationParticipantModel.deleteMany({ presentationId }),
         PresentationAnswerModel.deleteMany({ presentationId }),
       ]);
       const keys: string[] = [liveSeqKey(presentationId)];
-      for await (const batch of redisClient.scanIterator({ MATCH: `presentation:${presentationId}:*` })) {
-        keys.push(...batch);
+      for (const pattern of [`presentation:${presentationId}:*`, ...sessionIds.map((sid) => `psess:{${sid}}:*`)]) {
+        for await (const batch of redisClient.scanIterator({ MATCH: pattern })) keys.push(...batch);
       }
       await redisClient.del(keys);
       await redisClient.sRem('buffer:active_presentation_distributions', presentationId);
@@ -286,15 +289,23 @@ describe.skipIf(!inProcess)('realtime integration', () => {
       'answer:received',
       'answer:received',
       'question:revealed',
+      'session:ended',
       'quiz:ended',
     ];
-    const roundForParticipant = ['question:started', 'question:revealed', 'quiz:ended'];
+    // The session engine publishes `session:ended` and then its legacy copy `quiz:ended`.
+    const roundForParticipant = ['question:started', 'question:revealed', 'session:ended', 'quiz:ended'];
 
     expect(types(hostLegacy.live)).toEqual(roundForHost);
     expect(types(hostLegacy.legacy)).toEqual(roundForHost);
     expect(types(hostHandshake.live)).toEqual(roundForHost);
     expect(types(hostHandshake.legacy)).toEqual([]);
-    expect(types(aliceLegacy.live)).toEqual(['question:started', 'question:started', 'question:revealed', 'quiz:ended']);
+    expect(types(aliceLegacy.live)).toEqual([
+      'question:started',
+      'question:started',
+      'question:revealed',
+      'session:ended',
+      'quiz:ended',
+    ]);
     expect(fresh(aliceLegacy.live)[1]!.payload).toEqual({ probe: 'alice-only' });
     expect(types(aliceLegacy.legacy)).toEqual(roundForParticipant);
     expect(types(bobLive.live)).toEqual(roundForParticipant);
@@ -319,12 +330,15 @@ describe.skipIf(!inProcess)('realtime integration', () => {
     }
     // Together the sockets saw every seq of the round, with no gaps.
     const seen = new Set(clients.flatMap((c) => fresh(c.live).map((e) => e.seq)));
-    expect([...seen].sort((a, b) => a - b)).toEqual(Array.from({ length: 8 }, (_, i) => baselineSeq + 1 + i));
+    expect([...seen].sort((a, b) => a - b)).toEqual(Array.from({ length: 9 }, (_, i) => baselineSeq + 1 + i));
 
     // The legacy copy is the same envelope, so current clients keep reading quizId/type/payload.
     const legacyEnded = fresh(hostLegacy.legacy).at(-1)!;
     expect(legacyEnded).toEqual(fresh(hostLegacy.live).at(-1)!);
-    expect(legacyEnded).toMatchObject({ v: 1, quizId: presentationId, presentationId, sessionId: null, audience: 'all' });
+    const sessionId = String((await PresentationSessionModel.findOne({ presentationId }).lean())!._id);
+    expect(legacyEnded).toMatchObject({ v: 1, quizId: presentationId, presentationId, sessionId, audience: 'all' });
+    // Every event the service published carries the session (the forged probe was published without one).
+    expect(fresh(hostLegacy.live).filter((e) => !e.payload.forged).every((e) => e.sessionId === sessionId)).toBe(true);
     expect(Array.isArray(legacyEnded.payload.leaderboard)).toBe(true);
   }, 30_000);
 
