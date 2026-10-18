@@ -7,17 +7,7 @@ import {
 } from "@/features/workspaces/store/selection";
 import type { WorkspaceDetail, WorkspaceList, WorkspaceSummary } from "@/features/workspaces/types";
 
-// The store persists to localStorage, which Bun does not have: back it with a Map
-// before the store module is first evaluated.
-const storage = new Map<string, string>();
-Object.assign(globalThis, {
-  localStorage: {
-    getItem: (key: string) => storage.get(key) ?? null,
-    setItem: (key: string, value: string) => void storage.set(key, String(value)),
-    removeItem: (key: string) => void storage.delete(key),
-    clear: () => storage.clear(),
-  },
-});
+// tests/setup/storage.ts (bunfig preload) provides localStorage before any module loads.
 const { useWorkspaceStore } = await import("@/features/workspaces/store/useWorkspaceStore");
 
 const summary = (id: string, fields: Partial<WorkspaceSummary> = {}): WorkspaceSummary => ({
@@ -162,6 +152,6 @@ describe("useWorkspaceStore", () => {
   test("persists only whose selection it is and which workspace", () => {
     store().setList("u1", list("a", "a"));
     store().setCurrent(detail("a"));
-    expect(JSON.parse(storage.get("openpoll_workspace")!).state).toEqual({ userId: "u1", currentWorkspaceId: "a" });
+    expect(JSON.parse(localStorage.getItem("openpoll_workspace")!).state).toEqual({ userId: "u1", currentWorkspaceId: "a" });
   });
 });
