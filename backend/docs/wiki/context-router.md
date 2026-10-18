@@ -1,7 +1,7 @@
 ---
 summary: Minimal-context routing guide for loading only required docs per task.
 status: active
-last_updated: 2026-10-18
+last_updated: 2026-10-19
 ---
 
 # Context Router
@@ -36,6 +36,14 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/modules/ai.md`
 - `backend/docs/wiki/ai/structured-output-contract.md`
 - `backend/docs/wiki/ai/prompting-and-graph-flow.md`
+
+### Platform primitives (load only the one you touch)
+- Workspaces, roles, `assertCan`, workspace context, provider identities: `backend/docs/wiki/platform/tenancy.md`
+- Plans, entitlements, usage quotas, `GET /api/capabilities`, env feature groups: `backend/docs/wiki/platform/plans.md`
+- Object storage and `/api/uploads`: `backend/docs/wiki/platform/storage.md`
+- Scheduled jobs: `backend/docs/wiki/platform/jobs.md`
+- Migrations (`bun run migrate`): `backend/docs/wiki/platform/migrations.md`
+- Audit events, secret encryption: `backend/docs/wiki/platform/audit-and-crypto.md`
 
 ### Setup and readiness tasks
 - `backend/docs/wiki/setup/local-dev.md`

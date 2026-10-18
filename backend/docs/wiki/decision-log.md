@@ -1,10 +1,20 @@
 ---
 summary: Concise architecture and implementation decisions by phase.
 status: active
-last_updated: 2026-10-18
+last_updated: 2026-10-19
 ---
 
 # Decision Log
+
+## 2026-10-19 (W0-D platform primitives)
+- Workspaces with roles `owner|admin|editor|presenter|viewer`; one action matrix in `common/tenancy/roles.ts`, enforced by `assertCan`. Billing is owner-only. Resources without `workspaceId` fall back to `creatorId` until migration 020.
+- The personal workspace is provisioned lazily by `workspaceContext()` (partial unique index `{ownerId, type:'personal'}`), so auth flows stay workspace-agnostic.
+- Plans are enforced with or without Stripe; numbers live only in `common/plans/plans.ts`. Monthly quotas count in Redis and mirror to Mongo (`UsageCounter`), falling back to Mongo while Redis is down.
+- Capabilities (deployment config) are separate from entitlements (workspace plan); both are explicit so the UI can explain why something is unavailable.
+- Storage is one S3-compatible bucket via `Bun.S3Client`; browsers upload to presigned PUTs and `complete` verifies type and size with a HEAD, because presigned PUTs cannot enforce them. No SVG uploads.
+- Provider links moved from the shared `user.sub` to `identities[]` (Google and OIDC overwrote each other); legacy `sub` is read once for OIDC and backfilled.
+- New collections use `autoIndex: !isProduction`; production indexes come from numbered migrations (`bun run migrate`, Mongo lock document). Existing collections keep autoIndex until a migration takes them over.
+- `ApiError` gained an optional machine-readable `code` and `details`.
 
 ## 2026-10-18 (quizzes → presentations, gradeable assessments)
 - Deleted the unmounted `quizzes` backend module; `presentations` is the only live-deck module. The `quiz:*` socket names, `quiz_{id}` rooms and the `/api/quizzes` alias stay as wire compatibility.
