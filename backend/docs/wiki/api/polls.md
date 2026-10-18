@@ -15,3 +15,7 @@ Base path: `/api/polls`
 - `POST /:id/close` close poll
 
 All write endpoints use Zod schemas and standardized `ApiResponse`.
+
+A published assessment (`pollType: 'TRIAL'`) must be gradeable: `POST /` rejects it
+per field via `createPollRequestSchema`, and `PATCH /:pollId` re-checks against the
+stored poll after fetching it. Rules in `modules/polls.md` → "Gradeability rule".

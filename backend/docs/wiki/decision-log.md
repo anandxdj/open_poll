@@ -1,10 +1,15 @@
 ---
 summary: Concise architecture and implementation decisions by phase.
 status: active
-last_updated: 2026-05-11
+last_updated: 2026-10-18
 ---
 
 # Decision Log
+
+## 2026-10-18 (quizzes → presentations, gradeable assessments)
+- Deleted the unmounted `quizzes` backend module; `presentations` is the only live-deck module. The `quiz:*` socket names, `quiz_{id}` rooms and the `/api/quizzes` alias stay as wire compatibility.
+- Folded `frontend/features/quizzes` into `features/presentations`; `/quiz/*` and `/quizzes` 308-redirect to the presentation routes, and the host QR code points at `/live/{code}`.
+- A **published** `TRIAL` poll must be gradeable on every surface (`polls/polls.grading.ts`): REST create validates with `createPollRequestSchema`, `PollService` re-checks on create/update against the stored poll. Drafts may be answerless because the web builder autosaves them; MCP stays stricter and always requires answers.
 
 ## 2026-06-10 (live quiz feature)
 - New `quizzes` module: Quiz doc holds both slide deck and live session state; presenter-paced state machine.

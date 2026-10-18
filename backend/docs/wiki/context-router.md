@@ -1,7 +1,7 @@
 ---
 summary: Minimal-context routing guide for loading only required docs per task.
 status: active
-last_updated: 2026-05-11
+last_updated: 2026-10-18
 ---
 
 # Context Router
@@ -14,7 +14,7 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 
 ## Route by task type
 
-### Poll lifecycle tasks
+### Poll lifecycle and assessment (`TRIAL`) tasks
 - `backend/docs/wiki/modules/polls.md`
 - `backend/docs/wiki/api/polls.md`
 
@@ -22,8 +22,8 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/modules/responses.md`
 - `backend/docs/wiki/api/responses.md`
 
-### Live quiz tasks (slides, scoring, leaderboard, participants)
-- `backend/docs/wiki/modules/quizzes.md`
+### Live presentation deck tasks (slides, scoring, leaderboard, participants)
+- `backend/docs/wiki/modules/presentations.md`
 - `backend/docs/wiki/quiz-roadmap.md` (phases / what to build next)
 - Add `backend/docs/wiki/realtime/socket-events.md` only if touching events.
 
