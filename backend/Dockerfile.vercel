@@ -9,4 +9,5 @@ RUN bun install --frozen-lockfile
 
 COPY . .
 
-CMD ["bun", "run", "start"]
+# Migrations are idempotent and lock-guarded, so every instance can run them on boot.
+CMD ["bun", "run", "start:prod"]
