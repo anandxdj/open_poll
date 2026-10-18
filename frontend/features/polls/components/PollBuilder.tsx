@@ -44,6 +44,20 @@ const ease = [0.32, 0.72, 0, 1] as const;
 // Module-level lock to prevent double-creation across component remounts during navigation
 let isGlobalCreating = false;
 
+/** Drops blank options and remaps the correct-answer indices onto what is left. */
+function withoutBlankOptions(q: QuestionForm): { options: string[]; correctOptionIndices: number[] } {
+  const kept: number[] = [];
+  q.options.forEach((o, i) => {
+    if (o.trim()) kept.push(i);
+  });
+  return {
+    options: kept.map((i) => q.options[i]!.trim()),
+    correctOptionIndices: (q.correctOptionIndices || [])
+      .map((c) => kept.indexOf(c))
+      .filter((c) => c >= 0),
+  };
+}
+
 export function PollBuilder() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -373,7 +387,15 @@ export function PollBuilder() {
       prev.map((q, i) => {
         if (i !== qIndex) return q;
         if (q.options.length <= 2) return q;
-        return { ...q, options: q.options.filter((_, j) => j !== optIndex) };
+        // Correct answers are stored by index, so the ones after the removed
+        // option shift down with it; a removed correct option stops being one.
+        return {
+          ...q,
+          options: q.options.filter((_, j) => j !== optIndex),
+          correctOptionIndices: (q.correctOptionIndices || [])
+            .filter((c) => c !== optIndex)
+            .map((c) => (c > optIndex ? c - 1 : c)),
+        };
       })
     );
   }
@@ -499,9 +521,8 @@ export function PollBuilder() {
           _id: q._id,
           text: q.text.trim(),
           isMandatory: q.isMandatory,
-          options: q.options.map((o) => o.trim()).filter(Boolean),
+          ...withoutBlankOptions(q),
           type: q.type || 'single',
-          correctOptionIndices: q.correctOptionIndices || [],
           explanation: q.explanation || '',
           points: q.points || 1,
         })),
