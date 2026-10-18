@@ -108,8 +108,8 @@ doesn't apply. Tabs follow the WAI-ARIA tabs pattern (arrow keys, Home/End).
   Alt+ArrowUp/Alt+ArrowDown move the slide. Moves, duplicates and deletes are announced in a
   polite live region.
 - Thumbnails come from `components/builder/SlideThumbnail.tsx`, the only thumbnail renderer the
-  builder imports. It draws a static preview from meta; it is the seam for the runtime
-  `StageView mode="thumbnail"`.
+  builder imports. It renders the slide type's runtime `<StageView mode="thumbnail" />` (see
+  [`live-surfaces.md`](./live-surfaces.md)) on a 960×540 stage scaled to the rail width.
 
 ## Saving
 
