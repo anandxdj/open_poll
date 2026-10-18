@@ -2,7 +2,8 @@ import crypto from 'crypto';
 import { ApiError } from '../../common/utils/ApiError';
 import { redisClient } from '../../common/config/redis';
 import { newRandomId, signId, verifySignedId } from '../../common/utils/signedId.utils';
-import { REALTIME_CHANNELS, type QuizRealtimeEventType } from '../../common/realtime/events';
+import type { QuizRealtimeEventType } from '../../common/realtime/events';
+import { publishLiveEvent } from '../../common/realtime/publish';
 import {
   PresentationModel,
   PresentationParticipantModel,
@@ -103,14 +104,7 @@ export const publishPresentationEvent = async (
   type: QuizRealtimeEventType,
   payload: Record<string, unknown>
 ) => {
-  try {
-    await redisClient.publish(
-      REALTIME_CHANNELS.quizEvent,
-      JSON.stringify({ quizId: presentationId, type, payload, emittedAt: new Date().toISOString() })
-    );
-  } catch (error) {
-    console.error('[Presentation] Failed to publish realtime event:', error);
-  }
+  await publishLiveEvent({ presentationId, type, payload });
 };
 
 // Live answer distribution for one slide, built from the hot-path Redis keys.
