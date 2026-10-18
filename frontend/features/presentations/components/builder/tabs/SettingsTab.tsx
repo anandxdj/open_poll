@@ -1,0 +1,86 @@
+import { Settings2, Timer, Trophy } from "lucide-react";
+
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { slideTypeMeta } from "../../../slides/meta";
+import type { InspectorTabDef, InspectorTabProps } from "../inspectorTabs";
+
+const labelClass = "text-xs font-semibold uppercase tracking-wider text-muted-foreground/60";
+const numberInputClass = "h-10 rounded-xl bg-secondary/15 border-border/40 tabular-nums";
+
+/** Timing and scoring for the selected slide. */
+function SettingsPanel({ slide, index, onChange }: InspectorTabProps) {
+  const scored = slideTypeMeta(slide.type).scored;
+  const timeId = `slide-${index}-time-limit`;
+  const pointsId = `slide-${index}-points`;
+  const speedId = `slide-${index}-speed-bonus`;
+
+  return (
+    <div className={`grid grid-cols-1 gap-4 ${scored ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+      <div className="space-y-2">
+        <Label htmlFor={timeId} className={`${labelClass} flex items-center gap-1.5`}>
+          <Timer className="size-3.5 text-primary/70" /> Time limit (s)
+        </Label>
+        <Input
+          id={timeId}
+          type="number"
+          min={5}
+          max={300}
+          value={slide.timeLimit}
+          onChange={(e) => onChange({ timeLimit: Math.min(300, Math.max(5, Number(e.target.value) || 5)) })}
+          className={numberInputClass}
+        />
+      </div>
+      {scored ? (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor={pointsId} className={`${labelClass} flex items-center gap-1.5`}>
+              <Trophy className="size-3.5 text-primary/70" /> Max points
+            </Label>
+            <Input
+              id={pointsId}
+              type="number"
+              min={0}
+              max={10000}
+              step={100}
+              value={slide.points}
+              onChange={(e) => onChange({ points: Math.min(10000, Math.max(0, Number(e.target.value) || 0)) })}
+              className={numberInputClass}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={speedId} className={labelClass}>
+              Faster = more points
+            </Label>
+            <div className="flex items-center gap-3 h-10">
+              <Switch
+                id={speedId}
+                checked={slide.scoreDependsOnTime}
+                onCheckedChange={(checked) => onChange({ scoreDependsOnTime: checked })}
+              />
+              <span className="text-xs text-muted-foreground/60">
+                {slide.scoreDependsOnTime ? "Speed bonus on (down to 50%)" : "Flat points for correct"}
+              </span>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="space-y-2">
+          <p className={labelClass}>Scoring</p>
+          <p className="text-xs text-muted-foreground/50 h-10 flex items-center">
+            Interactive slide — no points, leaderboard unaffected.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export const settingsTab: InspectorTabDef = {
+  id: "settings",
+  label: "Settings",
+  Icon: Settings2,
+  order: 20,
+  Panel: SettingsPanel,
+};

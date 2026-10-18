@@ -52,6 +52,7 @@ All joins count against the 30-per-minute per-connection budget.
 | `lobby:opened` | all | `{ joinCode }` |
 | `participant:joined` | all | `{ participantId, name, participantCount }` |
 | `question:started` | all | `{ slide (sanitized, no answer keys), startedAt, endsAt, serverNow }` |
+| `slide:shown` | all | `{ slideIndex, slide (sanitized content slide), isLastSlide, serverNow }`; content slides open no answer window |
 | `answer:received` | **host only** (forced) | per answer `{ slideIndex, answeredCount }`; every 2s from `liveDistribution.worker.ts` while answers arrive `{ slideIndex, answeredCount, participantCount, distribution }` |
 | `question:revealed` | all | `{ slideIndex, question, type, scored, distribution, answeredCount, participantCount, isLastSlide, auto }` |
 | `leaderboard:shown` | all | `{ slideIndex, leaderboard[], participantCount, isLastSlide }` |

@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { slideTypeMeta } from "../slideTypeMeta";
+import { slideTypeMeta } from "../slides/meta";
 import type { Presentation } from "../types";
 
 const ease = [0.32, 0.72, 0, 1] as const;
