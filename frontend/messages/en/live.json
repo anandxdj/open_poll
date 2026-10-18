@@ -49,6 +49,7 @@
   },
   "slides": {
     "selectAnswer": {
+      "selectAll": "Select all that apply",
       "submit": "Submit Answer"
     },
     "typeAnswer": {

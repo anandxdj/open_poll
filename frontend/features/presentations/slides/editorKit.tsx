@@ -57,9 +57,20 @@ export function padTo<T>(list: T[], min: number, make: (index: number) => T): T[
   return next;
 }
 
-export function FieldLabel({ children, className }: { children: ReactNode; className?: string }) {
+export function FieldLabel({
+  children,
+  className,
+  htmlFor,
+}: {
+  children: ReactNode;
+  className?: string;
+  htmlFor?: string;
+}) {
   return (
-    <Label className={cn("text-xs font-semibold uppercase tracking-wider text-muted-foreground/60", className)}>
+    <Label
+      htmlFor={htmlFor}
+      className={cn("text-xs font-semibold uppercase tracking-wider text-muted-foreground/60", className)}
+    >
       {children}
     </Label>
   );

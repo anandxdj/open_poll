@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import {
   toDraftPayload,
   toSavePayload,
   validateDeck,
+  withoutSlideId,
 } from "@/features/presentations/components/builder/deckDraft";
 import {
   blankSlide,
@@ -13,6 +16,7 @@ import {
   validateSlide,
 } from "@/features/presentations/slides/editor";
 import { PICKER_SECTIONS, SLIDE_META, SLIDE_TYPE_META, slideMetaInSection } from "@/features/presentations/slides/meta";
+import { selectAnswerConfig } from "@/features/presentations/slides/types/select_answer/config";
 import {
   isScoredSlideType,
   type PresentationSlide,
@@ -46,11 +50,15 @@ const FILL: Record<PresentationSlideType, (s: PresentationSlide) => Presentation
   leaderboard: (s) => s,
 };
 
-/** Mirrors the backend Zod superRefine in presentations.schema.ts. */
+/** Mirrors the backend slide type schemas (`presentations/slides/types/*.ts`). */
 function passesApiRules(s: PresentationSlide): boolean {
   if (!s.question) return false;
   if (s.type === "leaderboard") return true;
-  if (s.type === "select_answer") return s.options.length >= 2 && s.options.some((o) => o.isCorrect);
+  if (s.type === "select_answer") {
+    // A 0-point slide is ungraded and needs no correct option; the explanation is capped.
+    if ((s.config?.explanation ?? "").length > 2000) return false;
+    return s.options.length >= 2 && (s.points === 0 || s.options.some((o) => o.isCorrect));
+  }
   if (s.type === "type_answer") return s.acceptedAnswers.length >= 1;
   if (s.type === "scales") return s.statements.length >= 1;
   if (s.type === "ranking") return s.items.length >= 2;
@@ -230,5 +238,141 @@ describe("deck validation and payloads", () => {
     const draft = toDraftPayload("", [slide]);
     expect(draft.title).toBe("Untitled Presentation Deck");
     expect("_id" in draft.slides[0]).toBe(false);
+  });
+});
+
+describe("select_answer settings: graded, multi-select, explanation", () => {
+  const def = SLIDE_EDITORS.select_answer;
+  const options = (...correct: boolean[]) =>
+    correct.map((isCorrect, i) => ({ text: ["Mars", "Venus", "Earth", "Jupiter"][i], isCorrect }));
+  const slide = (patch: Partial<PresentationSlide>): PresentationSlide => ({
+    ...blankSlide("select_answer"),
+    question: "Pick",
+    ...patch,
+  });
+  const renderEditor = (s: PresentationSlide) =>
+    renderToStaticMarkup(createElement(def.Editor, { slide: s, onChange: () => {} }));
+  const switchesOn = (html: string) => html.match(/role="switch"[^>]*aria-checked="true"/g)?.length ?? 0;
+
+  test("blank() is a graded single-select slide with default settings", () => {
+    expect(blankSlide("select_answer")).toMatchObject({ points: 1000, config: null });
+    expect(selectAnswerConfig(blankSlide("select_answer"))).toEqual({ allowMultiple: false, explanation: "" });
+  });
+
+  test("selectAnswerConfig fills defaults for slides saved before the settings", () => {
+    expect(selectAnswerConfig({})).toEqual({ allowMultiple: false, explanation: "" });
+    expect(selectAnswerConfig({ config: null })).toEqual({ allowMultiple: false, explanation: "" });
+    expect(selectAnswerConfig({ config: { allowMultiple: true } })).toEqual({ allowMultiple: true, explanation: "" });
+    expect(selectAnswerConfig({ config: { explanation: "Why" } })).toEqual({ allowMultiple: false, explanation: "Why" });
+  });
+
+  test("an existing single-select graded slide round-trips unchanged", () => {
+    const saved = slide({ _id: "s1", options: options(true, false, false), config: null });
+    expect(cleanSlide(saved)).toEqual(saved);
+    expect(validateSlide(saved)).toBeNull();
+    expect(toSavePayload("Deck", [saved]).slides[0]).toEqual(withoutSlideId(saved));
+    expect(normalizeSlideForDraft(saved)).toEqual(saved);
+    // Several correct options still mean "any of them" on a single-select slide.
+    const anyOf = slide({ options: options(true, true, false), config: null });
+    expect(cleanSlide(anyOf)).toEqual(anyOf);
+  });
+
+  test("settings at their defaults are saved as null", () => {
+    const blankExplanation = slide({
+      options: options(true, false),
+      config: { allowMultiple: false, explanation: "   " },
+    });
+    expect(cleanSlide(blankExplanation).config).toBeNull();
+    expect(cleanSlide(slide({ options: options(true, false), config: undefined })).config).toBeNull();
+  });
+
+  test("graded slides need a correct option; ungraded ones do not", () => {
+    expect(validateSlide(cleanSlide(slide({ options: options(false, false) })))).toBe("mark a correct option.");
+    const ungraded = cleanSlide(slide({ points: 0, options: options(false, false) }));
+    expect(validateSlide(ungraded)).toBeNull();
+    expect(passesApiRules(ungraded)).toBe(true);
+  });
+
+  test("an ungraded slide drops its correct marks on save", () => {
+    const cleaned = cleanSlide(slide({ points: 0, options: options(true, false) }));
+    expect(cleaned.options).toEqual(options(false, false));
+    expect(def.clean(cleaned)).toEqual(cleaned);
+  });
+
+  test("graded multi-select keeps every correct option and its settings", () => {
+    const filled = slide({
+      options: options(true, false, true),
+      config: { allowMultiple: true, explanation: "  Both are planets.  " },
+    });
+    const cleaned = cleanSlide(filled);
+    expect(cleaned.options).toEqual(options(true, false, true));
+    expect(cleaned.config).toEqual({ allowMultiple: true, explanation: "Both are planets." });
+    expect(validateSlide(cleaned)).toBeNull();
+    expect(def.clean(cleaned)).toEqual(cleaned);
+    expect(passesApiRules(cleaned)).toBe(true);
+    expect(validateSlide(cleanSlide({ ...filled, options: options(false, false, false) }))).toBe(
+      "mark a correct option."
+    );
+  });
+
+  test("a converted poll (ungraded multi-select with an explanation) saves as is", () => {
+    const converted = slide({
+      _id: "c1",
+      points: 0,
+      scoreDependsOnTime: false,
+      options: options(false, false, false),
+      config: { allowMultiple: true, explanation: "From the poll" },
+    });
+    expect(cleanSlide(converted)).toEqual(converted);
+    expect(validateSlide(converted)).toBeNull();
+    expect(validateDeck("Converted", [converted])).toBeNull();
+    expect(normalizeSlideForDraft(converted)).toEqual(converted);
+    expect(passesApiRules(converted)).toBe(true);
+  });
+
+  test("draft normalization marks a correct option only on graded slides", () => {
+    expect(normalizeSlideForDraft(slide({ options: [] })).options).toEqual([
+      { text: "Option 1", isCorrect: true },
+      { text: "Option 2", isCorrect: false },
+    ]);
+    const ungraded = normalizeSlideForDraft(slide({ points: 0, options: [] }));
+    expect(ungraded.options).toEqual([
+      { text: "Option 1", isCorrect: false },
+      { text: "Option 2", isCorrect: false },
+    ]);
+    expect(passesApiRules(ungraded)).toBe(true);
+  });
+
+  test("the explanation is capped at the API limit", () => {
+    const long = slide({
+      options: options(true, false),
+      config: { allowMultiple: false, explanation: "x".repeat(2001) },
+    });
+    expect(validateSlide(cleanSlide(long))).toBe("keep the explanation under 2000 characters.");
+    const draft = normalizeSlideForDraft(long);
+    expect(draft.config?.explanation).toHaveLength(2000);
+    expect(passesApiRules(draft)).toBe(true);
+  });
+
+  test("the editor shows the graded and multi-select controls", () => {
+    const single = renderEditor(slide({ options: options(true, false) }));
+    expect(single).toContain("Graded");
+    expect(single).toContain("Allow multiple answers");
+    expect(single).toContain("Explanation (optional)");
+    expect(single).toContain("tap the circle to mark correct");
+    expect(single.match(/aria-label="Mark option \d correct"/g)).toHaveLength(2);
+    expect(switchesOn(single)).toBe(1);
+
+    const multi = renderEditor(
+      slide({ options: options(true, true), config: { allowMultiple: true, explanation: "" } })
+    );
+    expect(multi).toContain("tick every correct option");
+    expect(multi.match(/aria-pressed="true"/g)).toHaveLength(2);
+    expect(switchesOn(multi)).toBe(2);
+
+    const ungraded = renderEditor(slide({ points: 0, options: options(false, false) }));
+    expect(ungraded).not.toContain("Mark option");
+    expect(ungraded).toContain("Results only");
+    expect(switchesOn(ungraded)).toBe(0);
   });
 });

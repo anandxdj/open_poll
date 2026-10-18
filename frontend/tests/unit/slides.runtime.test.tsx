@@ -6,6 +6,8 @@ import { StageView } from "@/features/presentations/components/stage/StageView";
 import { blankSlide } from "@/features/presentations/slides/editor";
 import { SLIDE_META } from "@/features/presentations/slides/meta";
 import { getSlideRuntime, runtimeSlideTypes } from "@/features/presentations/slides/runtime";
+import { isGradedSlide } from "@/features/presentations/slides/shared";
+import { SelectAnswerParticipant } from "@/features/presentations/slides/types/select_answer/participant";
 import type { LiveSlide, PresentationSlide, PresentationSlideType } from "@/features/presentations/types";
 
 const metaTypes = () => Object.keys(SLIDE_META) as PresentationSlideType[];
@@ -90,6 +92,91 @@ describe("slide runtime registry", () => {
     expect(render("reveal")).toContain("bg-deck-correct ");
     expect(render("report")).toContain("bg-deck-correct ");
     expect(render("live")).toContain("67%");
+  });
+
+  describe("select_answer: multi-select, ungraded, explanation", () => {
+    const planets = (...correct: boolean[]) =>
+      correct.map((isCorrect, i) => ({ text: ["Mars", "Venus", "Earth"][i], isCorrect }));
+    const deckSlide = (patch: Partial<PresentationSlide>): PresentationSlide => ({
+      ...sample("select_answer"),
+      options: planets(true, false, true),
+      ...patch,
+    });
+    const liveData = (s: PresentationSlide, counts: number[], answeredCount: number) => ({
+      distribution: { kind: "options" as const, counts, options: s.options },
+      answeredCount,
+      leaderboard: [],
+    });
+    const stage = (s: PresentationSlide, mode: "live" | "reveal" | "report", counts = [2, 1, 1], answered = 2) =>
+      renderToStaticMarkup(<StageView slide={s} mode={mode} live={liveData(s, counts, answered)} />);
+    const highlighted = (html: string) => html.match(/bg-deck-correct /g)?.length ?? 0;
+    const participant = (s: PresentationSlide, allowMultiple?: boolean) =>
+      renderToStaticMarkup(
+        <LiveIntlProvider>
+          <SelectAnswerParticipant
+            slide={{ ...toLiveSlide(s), ...(allowMultiple ? { allowMultiple } : {}) }}
+            mode="preview"
+            onSubmit={() => {}}
+            submitting={false}
+          />
+        </LiveIntlProvider>
+      );
+
+    test("participants get checkboxes only on multi-select slides", () => {
+      const s = deckSlide({});
+      const multi = participant(s, true);
+      expect(multi.match(/role="checkbox"/g)).toHaveLength(3);
+      expect(multi).toContain('aria-checked="false"');
+      expect(multi).toContain("Select all that apply");
+      expect(multi).toContain("Submit Answer");
+      const single = participant(s);
+      expect(single).not.toContain('role="checkbox"');
+      expect(single).not.toContain("Select all that apply");
+    });
+
+    test("a graded multi-select reveal highlights every correct option", () => {
+      const s = deckSlide({ config: { allowMultiple: true, explanation: "" } });
+      expect(highlighted(stage(s, "live"))).toBe(0);
+      expect(highlighted(stage(s, "reveal"))).toBe(2);
+      expect(highlighted(stage(s, "report"))).toBe(2);
+      expect(stage(s, "live")).toContain("Multiple answers allowed");
+    });
+
+    test("multi-select shares are of respondents, not of picks", () => {
+      const s = deckSlide({ config: { allowMultiple: true, explanation: "" } });
+      const html = stage(s, "live", [2, 1, 0], 2);
+      expect(html).toContain("100%");
+      expect(html).toContain("50%");
+      // Single-select keeps shares of all votes.
+      expect(stage(deckSlide({}), "live", [2, 1, 1], 4)).toContain("25%");
+    });
+
+    test("an ungraded slide reveals its results without marking or dimming any option", () => {
+      const s = deckSlide({ points: 0, options: planets(false, false, false) });
+      const revealed = stage(s, "reveal");
+      expect(highlighted(revealed)).toBe(0);
+      expect(revealed).not.toContain("opacity-40");
+      expect(revealed).toContain("Mars");
+      expect(revealed).toContain("50%");
+      // Even stale correct marks stay hidden on a 0-point slide.
+      expect(highlighted(stage(deckSlide({ points: 0 }), "reveal"))).toBe(0);
+    });
+
+    test("the explanation appears after the reveal only", () => {
+      const s = deckSlide({ config: { allowMultiple: false, explanation: "Mars is red; Earth is home." } });
+      expect(stage(s, "live")).not.toContain("Mars is red");
+      expect(stage(s, "reveal")).toContain("Mars is red; Earth is home.");
+      expect(stage(s, "report")).toContain("Explanation");
+      expect(renderToStaticMarkup(<StageView slide={s} mode="thumbnail" />)).not.toContain("Mars is red");
+      expect(stage(deckSlide({}), "reveal")).not.toContain("Explanation");
+    });
+
+    test("isGradedSlide: a 0-point select answer is ungraded, other scored slides are not", () => {
+      expect(isGradedSlide({ type: "select_answer", scored: true, points: 1000 })).toBe(true);
+      expect(isGradedSlide({ type: "select_answer", scored: true, points: 0 })).toBe(false);
+      expect(isGradedSlide({ type: "type_answer", scored: true, points: 0 })).toBe(true);
+      expect(isGradedSlide({ type: "wordcloud", scored: false, points: 0 })).toBe(false);
+    });
   });
 
   test("a stage view with no matching data renders nothing", () => {

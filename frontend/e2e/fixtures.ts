@@ -19,6 +19,8 @@ export interface CreatedDeck {
 export interface Host {
   accessToken: string;
   createDeck(title: string, slides: DeckSlideInput[]): Promise<CreatedDeck>;
+  /** The deck as the API stores it (slides with answer keys and settings). */
+  getDeck(id: string): Promise<CreatedDeck & { slides: Record<string, unknown>[] }>;
   /** Opens a page signed in as the host (token seeded into the persisted auth store). */
   open(path: string): Promise<Page>;
 }
@@ -88,6 +90,7 @@ export const test = base.extend<{ host: Host; contexts: BrowserContext[] }>({
           token: accessToken,
           body: JSON.stringify({ title, slides }),
         }),
+      getDeck: (id) => api(`/presentations/${id}`, { token: accessToken }),
       open: async (path) => {
         const context = await browser.newContext();
         contexts.push(context);

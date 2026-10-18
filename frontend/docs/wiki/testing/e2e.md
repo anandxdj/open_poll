@@ -50,3 +50,7 @@ browser context per participant.
   select_answer, wordcloud and scales slides, the timer-driven reveal, a leaderboard slide, end
   screens. Asserts visible text and roles only, so markup refactors keep it green. Slides use
   10 s timers; the run takes ~40 s.
+- `e2e/select-answer.spec.ts` — a graded multi-select slide (checkboxes, exact-set scoring,
+  shares of respondents, explanation after reveal) and an ungraded 0-point slide (no right/wrong)
+  live; the builder editing and saving an ungraded multi-select slide (checked through
+  `host.getDeck`). ~30 s.

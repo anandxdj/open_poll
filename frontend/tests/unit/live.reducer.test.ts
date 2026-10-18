@@ -151,6 +151,23 @@ describe("liveReducer — host", () => {
     expect(next.timing).toEqual({ endsAt: "2026-01-01T00:00:30.000Z", serverNow: "2026-01-01T00:00:01.000Z" });
   });
 
+  test("state-loaded keeps the select_answer settings the stage reads (answer keys, config, points)", () => {
+    const converted = slide({
+      points: 0,
+      options: [
+        { text: "A", isCorrect: false },
+        { text: "B", isCorrect: false },
+      ],
+      config: { allowMultiple: true, explanation: "Why" },
+    });
+    const next = liveReducer(createInitialLiveState("host"), {
+      type: "host/state-loaded",
+      state: hostState(deck({ slides: [converted, slide({ config: null })] })),
+    });
+    expect(next.deck?.slides[0]).toEqual(converted);
+    expect(next.deck?.slides[1].config).toBeNull();
+  });
+
   test("state-loaded prefers the deck override (lobby opened after loading)", () => {
     const next = liveReducer(createInitialLiveState("host"), {
       type: "host/state-loaded",
@@ -243,6 +260,14 @@ describe("liveReducer — participant", () => {
       event("question:started", { slide: liveSlide({ slideIndex: 1 }), startedAt: "", endsAt: "E", serverNow: "S" })
     );
     expect(next).toMatchObject({ status: "active", currentSlideIndex: 1, timing: { endsAt: "E", serverNow: "S" }, reveal: null, me: null, submittedSlideIndex: null });
+  });
+
+  test("a multi-select slide arrives with allowMultiple; single-select slides keep their shape", () => {
+    const multi = run(joined(), event("question:started", { slide: liveSlide({ allowMultiple: true }), startedAt: "", endsAt: "E", serverNow: "S" }));
+    expect(multi.slide?.allowMultiple).toBe(true);
+    const single = run(joined(), event("question:started", { slide: liveSlide(), startedAt: "", endsAt: "E", serverNow: "S" }));
+    expect(single.slide).toEqual(liveSlide());
+    expect("allowMultiple" in single.slide!).toBe(false);
   });
 
   test("submitted and me-loaded record the participant's own progress", () => {

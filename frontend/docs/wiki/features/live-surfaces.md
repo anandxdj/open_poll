@@ -124,6 +124,14 @@ getSlideRuntime(type) // undefined for unknown types
 - Views use `next-intl` and the deck tokens: render them inside `LiveIntlProvider` (the live
   routes and `SlideThumbnail` do).
 
+**select_answer.** A multi-select slide arrives with `slide.allowMultiple: true`: the
+ParticipantView renders checkboxes and submits `{payload: {optionIndices}}` (`AnswerPayload.payload`
+is the server's generic answer field; `submitAnswer` posts it as is). The stage reads the deck
+slide's `config` (`selectAnswerConfig`): multi-select shares are of respondents (`answeredCount`),
+the explanation shows in `reveal`/`report`, and only graded slides (`points > 0`) mark correct
+options — an ungraded one shows plain results. `isGradedSlide(slide)` (`slides/shared.ts`) is the
+participant shell's rule: a 0-point select answer gets "response received", never right/wrong.
+
 **Adding a slide type (runtime side):** add `participant.tsx` + `stage.tsx`, one line in
 `RUNTIMES`, and its lifecycle. `tests/unit/slides.runtime.test.tsx` fails until every builder type
 has a runtime.
@@ -159,5 +167,5 @@ has a runtime.
 
 - Unit (`bun run test`): `tests/unit/live.reducer.test.ts`, `live.store-and-slots.test.tsx`,
   `slides.runtime.test.tsx`, `theme.tokens.test.ts`.
-- E2E (`bun run test:e2e`): `e2e/live-flow.spec.ts` — see
+- E2E (`bun run test:e2e`): `e2e/live-flow.spec.ts`, `e2e/select-answer.spec.ts` — see
   [`../testing/e2e.md`](../testing/e2e.md).

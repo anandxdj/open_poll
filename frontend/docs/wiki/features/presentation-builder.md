@@ -64,6 +64,20 @@ Shared pieces for editors are in `slides/editorKit.tsx`: `blankBase(meta)` (ever
 scoring from `meta.scored`), `cleanBase(slide, meta)`, `requireQuestion`, `padTo`, `FieldLabel`,
 `RemoveEntryButton`, `EditorNote`.
 
+### select_answer settings
+
+`slide.config` (`SelectAnswerConfig`, null/absent on older slides; read it with
+`selectAnswerConfig(slide)` from `types/select_answer/config.ts`, which the stage shares):
+
+- **Graded** switch = `points > 0`. Off sets `points: 0`: no correct option needed, `clean` drops
+  any correct marks (a survey question, e.g. a converted poll). On restores 1000 points.
+- **Allow multiple answers** → `config.allowMultiple`. The correct-option markers turn into
+  checkboxes; a multi-select answer is correct only on exactly the marked set. On single-select
+  slides several marked options still mean "any of them".
+- **Explanation** → `config.explanation` (≤ 2000 chars), shown on the stage after the reveal.
+- `clean` saves `config: null` while both settings are at their defaults, so single-select decks
+  keep their shape; `fillDraft` marks a correct option only on graded slides.
+
 **Adding a slide type:** create `slides/types/<type>/{meta.ts, editor.tsx}`, add one line to
 `SLIDE_META` and one to `SLIDE_EDITORS`, and add the type to `PresentationSlideType` in
 `types/deck.ts`. A new picker section is one entry in `PICKER_SECTIONS`.
