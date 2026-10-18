@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   // keeps /quiz/create?id=… and ?name=…&mode=ai working.
   async redirects() {
     return [
-      { source: "/quizzes", destination: "/polls", permanent: true },
+      { source: "/quizzes", destination: "/polls?type=presentation", permanent: true },
       { source: "/quiz/create", destination: "/presentation/create", permanent: true },
       { source: "/quiz/host/:id", destination: "/presentation/host/:id", permanent: true },
       { source: "/quiz/join", destination: "/live", permanent: true },

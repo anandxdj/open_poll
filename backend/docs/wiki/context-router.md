@@ -18,6 +18,9 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/modules/polls.md`
 - `backend/docs/wiki/api/polls.md`
 
+### Unified library, poll → deck conversion, legacy quiz copy (migration 010)
+- `backend/docs/wiki/modules/library.md`
+
 ### Response validation and analytics tasks
 - `backend/docs/wiki/modules/responses.md`
 - `backend/docs/wiki/api/responses.md`
@@ -43,6 +46,10 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/modules/ai.md`
 - `backend/docs/wiki/ai/structured-output-contract.md`
 - `backend/docs/wiki/ai/prompting-and-graph-flow.md`
+
+### Workspaces API, poll tenancy, migration 020
+- `backend/docs/wiki/modules/workspaces.md`
+- Add `backend/docs/wiki/platform/tenancy.md` only if changing the policy or workspace context.
 
 ### Platform primitives (load only the one you touch)
 - Workspaces, roles, `assertCan`, workspace context, provider identities: `backend/docs/wiki/platform/tenancy.md`

@@ -1,7 +1,7 @@
 ---
 summary: React Query, server actions, and HTTP interaction rules.
 status: active
-last_updated: 2026-05-13
+last_updated: 2026-10-19
 ---
 
 # Data Fetching
@@ -9,6 +9,11 @@ last_updated: 2026-05-13
 ## API Integration
 - Utilize standard Next.js `fetch` with App Router caching semantics, or dedicated API client abstractions built around the backend's REST contracts.
 - **Rule**: Never hallucinate backend endpoints. If unsure about the shape of the data, strictly refer to backend docs.
+
+## Workspace Scope
+- `lib/api-client.ts` adds `X-Workspace-Id` (the selected workspace) to every request; creator data
+  (polls, decks, analytics) comes back scoped to it. Don't set the header by hand unless a request must
+  target another workspace. See `frontend/docs/wiki/features/workspaces.md`.
 
 ## Implementation Flow
 - **Server Components**: Prefer native async/await `fetch()` within `page.tsx` for initial page loads with proper cache invalidation tags.

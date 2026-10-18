@@ -36,7 +36,7 @@ import { S3Storage } from '../src/common/storage/s3.storage';
 import { setStorageDriver, type StorageDriver } from '../src/common/storage/storage';
 import { resolveWorkspaceContext } from '../src/common/tenancy/workspaceContext.middleware';
 import bootstrap from '../src/migrations/001-bootstrap';
-import { MigrationLockedError, migrationStatus, runMigrations, type Migration } from '../src/migrations/runner';
+import { MigrationLockedError, loadMigrations, migrationStatus, runMigrations, type Migration } from '../src/migrations/runner';
 import { AuditEventModel } from '../src/modules/audit/audit.model';
 import { UserModel } from '../src/modules/auth/auth.model';
 import { MediaAssetModel } from '../src/modules/uploads/media.model';
@@ -90,10 +90,13 @@ describe.skipIf(!enabled)('platform integration', () => {
 
   describe('migrations', () => {
     it('applies 001 once, records it, and skips it afterwards', async () => {
+      // Later packages add their own migrations; all of them run on the empty database.
+      const ids = (await loadMigrations()).map((migration) => migration.id);
+      expect(ids[0]).toBe(1);
       const logs: string[] = [];
-      expect(await runMigrations({ log: (line) => logs.push(line) })).toEqual({ applied: [1], skipped: [] });
+      expect(await runMigrations({ log: (line) => logs.push(line) })).toEqual({ applied: ids, skipped: [] });
       expect(logs.some((line) => line.includes('001-bootstrap'))).toBe(true);
-      expect(await runMigrations()).toEqual({ applied: [], skipped: [1] });
+      expect(await runMigrations()).toEqual({ applied: [], skipped: ids });
 
       const status = await migrationStatus();
       expect(status[0]).toMatchObject({ id: 1, name: 'bootstrap' });
