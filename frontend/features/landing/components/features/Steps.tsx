@@ -36,7 +36,7 @@ export function Steps() {
             Three steps to live
           </h2>
           <p className="max-w-2xl mx-auto text-muted-foreground text-base sm:text-lg leading-relaxed">
-            Building an audience connection doesn't need to be complicated. Here is exactly how your first poll comes to life in minutes.
+            Building an audience connection doesn&apos;t need to be complicated. Here is exactly how your first poll comes to life in minutes.
           </p>
         </div>
 

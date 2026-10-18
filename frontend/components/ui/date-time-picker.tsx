@@ -36,7 +36,7 @@ export function DateTimePicker({ value, onChange, disabled }: DateTimePickerProp
     if (!value) return undefined
     try {
       return parse(value, "yyyy-MM-dd'T'HH:mm", new Date())
-    } catch (e) {
+    } catch {
       return undefined
     }
   }, [value])
@@ -46,7 +46,7 @@ export function DateTimePicker({ value, onChange, disabled }: DateTimePickerProp
     try {
       const d = parse(value, "yyyy-MM-dd'T'HH:mm", new Date())
       return format(d, "HH:mm")
-    } catch (e) {
+    } catch {
       return "12:00"
     }
   }, [value])

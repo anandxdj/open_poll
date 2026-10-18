@@ -18,7 +18,6 @@ type PollQuestionsPanelProps = {
 
 export function PollQuestionsPanel({
   questions,
-  activeIndex,
   onAddQuestion,
   onRemoveQuestion,
   onUpdateQuestion,
