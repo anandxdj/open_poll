@@ -26,7 +26,7 @@ last_updated: 2026-05-13
 - **Event**: single envelope `quiz:event` → `{ quizId, type, payload, emittedAt }`.
   Types: `lobby:opened`, `participant:joined`, `question:started`, `answer:received`,
   `question:revealed`, `leaderboard:shown`, `quiz:ended` (contract:
-  `backend/docs/wiki/realtime/socket-events.md`).
+  `backend/docs/wiki/realtime/presentations.md`).
 - **Timer sync**: `question:started` carries `endsAt` + `serverNow`; `useCountdown`
   computes a server-clock offset so client clock skew can't shift deadlines. Pass the
   `serverNow` that arrived *with* that `endsAt` — reusing the page-load value inflates every
