@@ -61,9 +61,13 @@ async function rpc(method: string, params: any) {
 }
 
 async function submit(pollId: string, deviceId: string, answers: any[]) {
+  // Every submission spends a fresh server-issued ballot.
+  const ballot = await axios.post(`${API_URL}/responses/poll/${pollId}/ballot`, {}, {
+    validateStatus: () => true,
+  });
   const res = await axios.post(
     `${API_URL}/responses`,
-    { pollId, deviceId, respondentId: deviceId, answers },
+    { pollId, ballotToken: ballot.data?.data?.ballotToken, deviceId, answers },
     { validateStatus: () => true },
   );
   return { status: res.status, body: res.data };

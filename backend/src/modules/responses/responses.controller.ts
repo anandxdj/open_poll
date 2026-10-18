@@ -4,11 +4,32 @@ import { ApiResponse } from '../../common/utils/ApiResponse';
 import { ResponseService } from './responses.service';
 
 export class ResponsesController {
+  static async issueBallot(req: Request, res: Response, next: NextFunction) {
+    try {
+      const pollId = req.params.pollId;
+      if (!pollId) throw ApiError.badRequest('pollId is required');
+      const ballot = await ResponseService.issueBallot(String(pollId));
+      return ApiResponse.ok(res, 'Ballot issued', ballot);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async issueGuestToken(req: Request, res: Response, next: NextFunction) {
+    try {
+      const token = ResponseService.issueGuestIdentity(req.body);
+      return ApiResponse.ok(res, 'Guest token issued', token);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async submit(req: Request, res: Response, next: NextFunction) {
     try {
-      const response = await ResponseService.submitResponse({
-        ...req.body,
-        respondentId: (req as any).user?.id || req.body.respondentId
+      // Identity comes only from the verified session — never from the body.
+      const response = await ResponseService.submitResponse(req.body, {
+        userId: (req as any).user?.id,
+        clientIp: req.ip,
       });
       return ApiResponse.created(res, 'Response submitted successfully', response);
     } catch (error) {
