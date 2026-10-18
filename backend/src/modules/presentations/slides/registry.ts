@@ -39,10 +39,15 @@ export const isScoredSlideType = (type: unknown) => getSlideType(type)?.scored ?
 
 export const slideKindOf = (type: unknown): SlideKind | undefined => getSlideType(type)?.kind;
 
+const sanitizeMedia = (media: Slide['media']) =>
+  media && media.url
+    ? { url: media.url, alt: media.alt ?? '', layout: media.layout ?? null }
+    : null;
+
 /**
  * The participant-facing payload for one slide: the type's explicit allow-list
- * plus the registry-owned envelope. Used by `question:started` and the
- * join-code lookup, so both agree.
+ * plus the registry-owned envelope. Used by `question:started`, `slide:shown`
+ * and the join-code lookup, so all three agree.
  */
 export const toParticipantSlide = (slide: Slide, slideIndex: number, totalSlides: number) => {
   const def = requireSlideType(slide.type);
@@ -51,6 +56,9 @@ export const toParticipantSlide = (slide: Slide, slideIndex: number, totalSlides
     slideIndex,
     totalSlides,
     type: def.type,
+    kind: def.kind,
     scored: def.scored,
+    media: sanitizeMedia(slide.media),
+    layout: slide.layout ?? null,
   };
 };

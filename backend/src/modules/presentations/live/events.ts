@@ -1,4 +1,4 @@
-import type { QuizRealtimeEventType } from '../../../common/realtime/events';
+import type { LiveEventType, QuizRealtimeEventType } from '../../../common/realtime/events';
 import { publishLiveEvent } from '../../../common/realtime/publish';
 
 /**
@@ -7,14 +7,17 @@ import { publishLiveEvent } from '../../../common/realtime/publish';
  * envelope fields (sessionId, audience) can be added in one place.
  */
 
-export type PresentationEventType = QuizRealtimeEventType;
+/** `slide:shown` is new with the registry (content lifecycle); the rest are the legacy wire names. */
+export type PresentationEventType = QuizRealtimeEventType | 'slide:shown';
 
 export const publishPresentationEvent = async (
   presentationId: string,
   type: PresentationEventType,
   payload: Record<string, unknown>
 ) => {
-  await publishLiveEvent({ presentationId, type, payload });
+  // `slide:shown` is not declared in common/realtime/events/presentation.ts yet;
+  // undeclared types publish to the default `all` audience, which is what it needs.
+  await publishLiveEvent({ presentationId, type: type as LiveEventType, payload });
 };
 
 type LeaderboardEntry = {
@@ -37,6 +40,12 @@ export const publishQuestionStarted = (
   presentationId: string,
   payload: { slide: Record<string, unknown>; startedAt: string; endsAt: string; serverNow: string }
 ) => publishPresentationEvent(presentationId, 'question:started', payload);
+
+/** A slide with no answer window (content/board lifecycle) is on screen. */
+export const publishSlideShown = (
+  presentationId: string,
+  payload: { slideIndex: number; slide: Record<string, unknown>; isLastSlide: boolean; serverNow: string }
+) => publishPresentationEvent(presentationId, 'slide:shown', payload);
 
 /**
  * Host-only (the socket layer never sends it to participants): the light

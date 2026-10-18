@@ -88,11 +88,23 @@ export interface ExportAnswer {
   score: number;
 }
 
+export interface SlideMedia {
+  key: string | null;
+  url: string;
+  alt: string;
+  layout: string | null;
+}
+
 /** Output of a type's request `schema` (what `PATCH`/`POST` store on the slide). */
 export interface ParsedSlide {
   type: string;
   question: string;
+  notes: string;
+  media: SlideMedia | null;
+  layout: string | null;
   timeLimit: number;
+  content?: unknown;
+  config?: unknown;
   options?: { text: string; isCorrect: boolean }[];
   acceptedAnswers?: string[];
   statements?: string[];
@@ -121,8 +133,9 @@ export interface SlideTypeDef<Cfg = unknown, Payload = unknown> {
   schema: z.ZodType<ParsedSlide>;
   /**
    * Participant-facing fields, as an explicit allow-list: anything not copied
-   * here (answer keys, future fields) never reaches participants. The registry
-   * adds `slideIndex`, `totalSlides`, `type` and `scored`.
+   * here (notes, answer keys, future fields) never reaches participants. The
+   * registry adds `slideIndex`, `totalSlides`, `type`, `kind`, `scored`,
+   * `media` and `layout`.
    */
   sanitize(slide: Slide): Record<string, unknown>;
   /** JSON-safe snapshot cached in Redis when the answer window opens. */

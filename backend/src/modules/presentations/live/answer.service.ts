@@ -12,8 +12,12 @@ import { publishAnswerReceived } from './events';
 // Answers arriving slightly after the deadline (network latency) are still accepted
 const ANSWER_GRACE_MS = 750;
 
-/** The answer a slide type grades: the per-type request fields gathered into one object. */
+/**
+ * The answer a slide type grades: the generic `payload` when sent, else the
+ * legacy per-type request fields gathered into one object.
+ */
 const answerPayloadOf = (data: SubmitPresentationAnswerInput): Record<string, unknown> => {
+  if (data.payload !== undefined) return data.payload;
   const legacy: Record<string, unknown> = {};
   if (data.optionIndex !== undefined) legacy.optionIndex = data.optionIndex;
   if (data.text !== undefined) legacy.text = data.text;

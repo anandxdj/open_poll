@@ -3,7 +3,7 @@ import { redisClient } from '../../../common/config/redis';
 import { PresentationModel, type IPresentation, type IPresentationSlide } from '../models/presentation.model';
 import { PresentationParticipantModel } from '../models/participant.model';
 import { PresentationAnswerModel } from '../models/answer.model';
-import { getSlideType, requireSlideType, toParticipantSlide } from '../slides';
+import { getSlideType, hasSlideType, requireSlideType, toParticipantSlide } from '../slides';
 import { assertOwnership } from '../crud.service';
 import { PRESENTATION_KEY_TTL_SEC, allPresentationKeys, k, slideKeys, touchTtls } from './keys';
 import { computeSlideDistributionHelper, getLeaderboard, getParticipantCount } from './distribution';
@@ -13,6 +13,7 @@ import {
   publishPresentationEnded,
   publishQuestionRevealed,
   publishQuestionStarted,
+  publishSlideShown,
 } from './events';
 
 // ---------------------------------------------------------------------------
@@ -98,9 +99,12 @@ export const openLobby = async (presentationId: string, userId: string) => {
 
 /**
  * Advance to a slide (forward-only during a live session). What happens next
- * is the slide type's lifecycle: `response` opens a timed answer window and
- * emits `question:started`; `system` (leaderboard) emits `leaderboard:shown`
- * with no timer and accepts no answers. Status stays `active` throughout — the answering-vs-revealed sub-state is
+ * is the slide type's lifecycle:
+ * - `response` opens a timed answer window and emits `question:started`;
+ * - `system` (leaderboard) emits `leaderboard:shown`, no timer;
+ * - `content` / `board` emit `slide:shown` with the sanitized slide, no timer,
+ *   and answers are rejected.
+ * Status stays `active` throughout — the answering-vs-revealed sub-state is
  * derived from the clock on the client, not stored here.
  */
 export const advanceSlide = async (presentationId: string, userId: string, targetIndex?: number) => {
@@ -132,14 +136,23 @@ export const advanceSlide = async (presentationId: string, userId: string, targe
     await presentation.save();
     await redisClient.del(k.session(presentationId)).catch(() => {});
 
-    const leaderboard = await getLeaderboard(presentationId);
-    const participantCount = await getParticipantCount(presentationId);
-    await publishLeaderboardShown(presentationId, {
-      slideIndex: nextIndex,
-      leaderboard,
-      participantCount,
-      isLastSlide,
-    });
+    if (def.lifecycle === 'system') {
+      const leaderboard = await getLeaderboard(presentationId);
+      const participantCount = await getParticipantCount(presentationId);
+      await publishLeaderboardShown(presentationId, {
+        slideIndex: nextIndex,
+        leaderboard,
+        participantCount,
+        isLastSlide,
+      });
+    } else {
+      await publishSlideShown(presentationId, {
+        slideIndex: nextIndex,
+        slide: toParticipantSlide(slide, nextIndex, presentation.slides.length),
+        isLastSlide,
+        serverNow: new Date().toISOString(),
+      });
+    }
     return presentation;
   }
 
@@ -268,7 +281,10 @@ export const getHostState = async (presentationId: string, userId: string) => {
 
 // ---------- Participant-facing deck lookup (public) ----------
 
-/** Resolves a join code; includes the live slide + timing for late joiners. */
+/**
+ * Resolves a join code. While a slide is live the sanitized current slide is
+ * included whatever its lifecycle; timing fields only when it has an answer window.
+ */
 export const getPresentationByCode = async (joinCode: string) => {
   const presentation = await PresentationModel.findOne({ joinCode: joinCode.trim() });
   if (!presentation || presentation.status === 'draft') {
@@ -285,17 +301,14 @@ export const getPresentationByCode = async (joinCode: string) => {
     serverNow: new Date().toISOString(),
   };
 
-  if (
-    presentation.status === 'active' &&
-    presentation.currentSlideIndex >= 0 &&
-    presentation.questionStartedAt &&
-    presentation.questionEndsAt
-  ) {
+  if (presentation.status === 'active' && presentation.currentSlideIndex >= 0) {
     const slide = presentation.slides[presentation.currentSlideIndex];
-    if (slide && opensAnswerWindow(slide.type)) {
+    if (slide && hasSlideType(slide.type)) {
       result.currentSlide = toParticipantSlide(slide, presentation.currentSlideIndex, presentation.slides.length);
-      result.questionStartedAt = presentation.questionStartedAt.toISOString();
-      result.questionEndsAt = presentation.questionEndsAt.toISOString();
+      if (presentation.questionStartedAt && presentation.questionEndsAt) {
+        result.questionStartedAt = presentation.questionStartedAt.toISOString();
+        result.questionEndsAt = presentation.questionEndsAt.toISOString();
+      }
     }
   }
 

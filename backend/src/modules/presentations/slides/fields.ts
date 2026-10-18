@@ -3,6 +3,34 @@ import type { Slide } from './types';
 
 /** Shared Zod fragments for slide type schemas. */
 
+const isHttpUrl = (value: string) => {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'https:' || protocol === 'http:';
+  } catch {
+    return false;
+  }
+};
+
+export const slideMediaSchema = z.object({
+  /** Storage key when the file was uploaded (lets cleanup find it). */
+  key: z.string().max(512).nullable().default(null),
+  url: z.string().max(2048).refine(isHttpUrl, 'Media URL must be an http(s) URL'),
+  alt: z.string().max(500).default(''),
+  layout: z.string().max(40).nullable().default(null),
+});
+
+/** Fields every slide carries, whatever its type. */
+export const commonSlideShape = {
+  question: z.string().max(500).default(''),
+  /** Speaker notes — host only, never in participant payloads. */
+  notes: z.string().max(5000).default(''),
+  media: slideMediaSchema.nullable().default(null),
+  layout: z.string().max(40).nullable().default(null),
+  /** Seconds; 0 = untimed. Types with an answer window require at least 5. */
+  timeLimit: z.number().int().min(0).max(300).default(30),
+};
+
 export const optionSchema = z.object({
   text: z.string().min(1, 'Option text is required').max(200),
   isCorrect: z.boolean().default(false),
@@ -30,6 +58,7 @@ export const legacySlideShape = {
 export const builtInSlideSchema = <T extends string>(type: T) =>
   z.object({
     type: z.literal(type),
+    ...commonSlideShape,
     question: z.string().min(1, 'Question text is required').max(500),
     timeLimit: z.number().int().min(5).max(300).default(30),
     ...legacySlideShape,

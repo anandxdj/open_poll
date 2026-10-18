@@ -65,6 +65,9 @@ export const submitPresentationAnswerSchema = z
     ratings: z.array(z.number().int().min(1).max(10)).min(1).max(10).optional(),
     // ranking — item indices in the participant's chosen order (a permutation)
     ranking: z.array(z.number().int().min(0).max(9)).min(2).max(10).optional(),
+    // Generic answer for any registered type, validated by the type's `answerSchema`.
+    // When present it is used instead of the legacy fields above.
+    payload: z.record(z.string(), z.unknown()).optional(),
   })
   .refine(
     (v) =>
@@ -72,7 +75,8 @@ export const submitPresentationAnswerSchema = z
       v.text !== undefined ||
       v.entries !== undefined ||
       v.ratings !== undefined ||
-      v.ranking !== undefined,
+      v.ranking !== undefined ||
+      v.payload !== undefined,
     { message: 'Provide an answer payload' }
   );
 

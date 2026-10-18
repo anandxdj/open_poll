@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { hasSlideType, type BuiltInSlideType } from '../slides';
+import { hasSlideType, slideKindOf, type BuiltInSlideType, type SlideKind, type SlideMedia } from '../slides';
 
 // ---------- Slide ----------
 
@@ -15,7 +15,17 @@ export interface IPresentationSlide {
   _id?: mongoose.Types.ObjectId;
   /** Registry key (`slides/registry.ts`). */
   type: string;
+  /** Derived from the registry on validate; not client-settable. */
+  kind: SlideKind;
   question: string;
+  /** Speaker notes — host only, stripped from every participant payload. */
+  notes: string;
+  media: SlideMedia | null;
+  layout: string | null;
+  /** Type-specific payload for registry types without flat fields (validated by the type schema). */
+  content: unknown;
+  /** Type-specific settings for registry types (validated by the type schema). */
+  config: unknown;
   // select_answer only
   options: IPresentationSlideOption[];
   // type_answer only — any of these (case/whitespace-insensitive) counts as correct
@@ -29,7 +39,7 @@ export interface IPresentationSlide {
   items: string[];
   // wordcloud only — entries allowed per participant (1-3)
   maxEntries: number;
-  timeLimit: number; // seconds
+  timeLimit: number; // seconds; 0 = untimed (the registry requires ≥5 where an answer window runs)
   points: number; // max points for a correct answer (scored types only)
   scoreDependsOnTime: boolean;
 }
@@ -55,6 +65,16 @@ export interface IPresentation extends Document {
   updatedAt: Date;
 }
 
+const SlideMediaSchema = new Schema<SlideMedia>(
+  {
+    key: { type: String, default: null },
+    url: { type: String, required: true },
+    alt: { type: String, default: '' },
+    layout: { type: String, default: null },
+  },
+  { _id: false }
+);
+
 const PresentationSlideSchema = new Schema<IPresentationSlide>({
   type: {
     type: String,
@@ -64,7 +84,21 @@ const PresentationSlideSchema = new Schema<IPresentationSlide>({
       message: (props: { value: unknown }) => `Unknown slide type "${String(props.value)}"`,
     },
   },
-  question: { type: String, required: true },
+  kind: {
+    type: String,
+    enum: ['content', 'interactive', 'system'],
+    // Function defaults run after the provided values are set, and on load for
+    // documents saved before this field existed.
+    default: function (this: IPresentationSlide) {
+      return slideKindOf(this.type) ?? 'interactive';
+    },
+  },
+  question: { type: String, default: '' },
+  notes: { type: String, default: '', maxlength: 5000 },
+  media: { type: SlideMediaSchema, default: null },
+  layout: { type: String, default: null },
+  content: { type: Schema.Types.Mixed, default: null },
+  config: { type: Schema.Types.Mixed, default: null },
   options: {
     type: [
       {
@@ -81,9 +115,15 @@ const PresentationSlideSchema = new Schema<IPresentationSlide>({
   scaleMax: { type: Number, default: 5, min: 2, max: 10 },
   items: { type: [String], default: [] },
   maxEntries: { type: Number, default: 3, min: 1, max: 3 },
-  timeLimit: { type: Number, default: 30, min: 5, max: 300 },
+  timeLimit: { type: Number, default: 30, min: 0, max: 300 },
   points: { type: Number, default: 1000, min: 0, max: 10000 },
   scoreDependsOnTime: { type: Boolean, default: true },
+});
+
+// `kind` always follows `type`, even when a slide's type is edited in place.
+PresentationSlideSchema.pre('validate', function () {
+  const kind = slideKindOf(this.type);
+  if (kind) this.kind = kind;
 });
 
 const PresentationSchema = new Schema<IPresentation>(
