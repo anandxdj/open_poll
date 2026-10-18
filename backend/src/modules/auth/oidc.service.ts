@@ -3,6 +3,7 @@ import { UserModel } from './auth.model';
 import { ApiError } from '../../common/utils/ApiError';
 import { env } from '../../common/config/env';
 import { resetUnverifiedAccount } from './auth.service';
+import { identityFilter, linkedIdentity, linkIdentity } from './identities';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -115,8 +116,10 @@ export class OidcService {
   }
 
   /**
-   * Resolves the local account for validated ID-token claims: by `sub`, else by
-   * email (linking), else a new user. Changes are saved by the caller.
+   * Resolves the local account for validated ID-token claims: by the `oidc`
+   * identity, else by the legacy `sub` field (accounts linked before
+   * identities[] existed), else by email (linking), else a new user. Changes
+   * are saved by the caller.
    */
   static async findOrLinkUser(claims: OidcIdentityClaims) {
     // Require the application identity claims too.
@@ -128,26 +131,32 @@ export class OidcService {
     const name = typeof claims.name === 'string' && claims.name.trim()
       ? claims.name.trim()
       : email.split('@')[0]!;
-    let user = await UserModel.findOne({ sub: claims.sub });
+    const identity = { provider: 'oidc', subject: claims.sub } as const;
+    let user = await UserModel.findOne(identityFilter(identity));
+    if (!user) user = await UserModel.findOne({ sub: claims.sub });
     if (!user) user = await UserModel.findOne({ email });
 
     if (!user) {
       return UserModel.create({
-        sub: claims.sub,
         email,
         name,
         isVerified: true,
         role: 'user',
+        identities: [identity],
       });
     }
 
-    if (user.sub && user.sub !== claims.sub) {
+    // Only an existing OIDC link can conflict. The legacy `sub` field is not
+    // consulted here: Google sign-in used to write it too, so a mismatch there
+    // says nothing about which OIDC subject owns the account.
+    const linked = linkedIdentity(user, 'oidc');
+    if (linked && linked.subject !== claims.sub) {
       throw ApiError.conflict('This email is already linked to another identity');
     }
     // Linking a verified local account is safe; an unverified one may have been
     // pre-registered by someone else, so it must not keep their password.
     if (!user.isVerified) resetUnverifiedAccount(user);
-    user.sub = claims.sub;
+    linkIdentity(user, identity);
     user.email = email;
     user.name = name;
     user.isVerified = true;

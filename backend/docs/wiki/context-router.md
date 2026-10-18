@@ -1,7 +1,7 @@
 ---
 summary: Minimal-context routing guide for loading only required docs per task.
 status: active
-last_updated: 2026-10-18
+last_updated: 2026-10-19
 ---
 
 # Context Router
@@ -32,10 +32,25 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/realtime/presentations.md` or `realtime/polls.md` (the module you touch)
 - `backend/docs/wiki/realtime/redis-channels.md`
 
+### HTTP app, middleware order and route mounting tasks
+- `backend/docs/wiki/http/app-and-routes.md` (app factory, special mounts, mount table, route snapshot)
+
+### Integration tests, fixtures and dependency spikes
+- `backend/docs/wiki/testing/integration.md`
+- Add `backend/docs/wiki/http/app-and-routes.md` only if the test touches mounts or middleware.
+
 ### AI generation tasks
 - `backend/docs/wiki/modules/ai.md`
 - `backend/docs/wiki/ai/structured-output-contract.md`
 - `backend/docs/wiki/ai/prompting-and-graph-flow.md`
+
+### Platform primitives (load only the one you touch)
+- Workspaces, roles, `assertCan`, workspace context, provider identities: `backend/docs/wiki/platform/tenancy.md`
+- Plans, entitlements, usage quotas, `GET /api/capabilities`, env feature groups: `backend/docs/wiki/platform/plans.md`
+- Object storage and `/api/uploads`: `backend/docs/wiki/platform/storage.md`
+- Scheduled jobs: `backend/docs/wiki/platform/jobs.md`
+- Migrations (`bun run migrate`): `backend/docs/wiki/platform/migrations.md`
+- Audit events, secret encryption: `backend/docs/wiki/platform/audit-and-crypto.md`
 
 ### Setup and readiness tasks
 - `backend/docs/wiki/setup/local-dev.md`

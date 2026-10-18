@@ -21,4 +21,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD bun -e "fetch('http://127.0.0.1:8080/health').then(r => process.exit(r.status === 200 ? 0 : 1)).catch(() => process.exit(1))"
 
 # Start app
-CMD ["bun", "run", "start"]
+# Migrations are idempotent and lock-guarded, so every instance can run them on boot.
+CMD ["bun", "run", "start:prod"]

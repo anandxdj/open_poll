@@ -43,8 +43,55 @@ jobs:
         run: bun x tsc --noEmit
 
       # Only backend/tests/**; the OIDC integration suite in testing/oidc needs a live IdP and is not run here.
+      # Suites that need TEST_MONGO_URI/TEST_REDIS_URL skip here and run in the integration job.
       - name: Test
         run: bun test
+
+  integration:
+    name: Backend (integration)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      NODE_ENV: test
+      # tests/preload.ts (bunfig.toml) also points the app's MONGO_URI/REDIS_URL at these.
+      TEST_MONGO_URI: mongodb://127.0.0.1:27017/openpoll_ci?directConnection=true
+      TEST_REDIS_URL: redis://127.0.0.1:6379/0
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Path filters: tests/integration/**, every *.integration.test.ts, and the spikes
+      # (the Redis-backed one only runs here).
+      - name: Integration tests
+        run: bun test integration tests/spikes
 
   frontend:
     name: Frontend (typecheck + lint + unit tests + build)
