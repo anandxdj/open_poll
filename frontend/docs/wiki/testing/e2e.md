@@ -50,3 +50,12 @@ browser context per participant.
   select_answer, wordcloud and scales slides, the timer-driven reveal, a leaderboard slide, end
   screens. Asserts visible text and roles only, so markup refactors keep it green. Slides use
   10 s timers; the run takes ~40 s.
+- `e2e/content-slides.spec.ts` — content slides: a deck of all eight content types presented
+  fullscreen (F key, arrow-key and button navigation, each stage layout, end), and a mixed deck
+  (heading → word cloud → select answer) clicked through with two participants (~30 s). Image and
+  YouTube requests are answered with `page.route`, so the run needs no network. One participant
+  joins first because the lobby's Start needs someone in the room (no-lobby start is W1-A1).
+
+Run against your own database and ports when other suites share the machine, e.g.
+`E2E_MONGO_URI=mongodb://127.0.0.1:27117/openpoll_mine?directConnection=true
+E2E_REDIS_URL=redis://127.0.0.1:6390/11 E2E_BACKEND_PORT=5111 E2E_FRONTEND_PORT=3111 bun run test:e2e`.
