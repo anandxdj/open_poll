@@ -26,6 +26,9 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Managing local storage, device IDs, or global state.
 - **Action**: Read `frontend/docs/wiki/core/state.md`
 
+- **Task**: Changing the deck builder, slide editors, slide types, or inspector tabs.
+- **Action**: Read `frontend/docs/wiki/features/presentation-builder.md`
+
 ## 4. API & Data
 
 - **Task**: Writing fetch calls, React Query hooks, or API integrations.
