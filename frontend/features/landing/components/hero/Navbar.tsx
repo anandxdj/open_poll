@@ -6,6 +6,7 @@ import { ProductLogo } from "@/components/ui/ProductLogo";
 import { useState, useEffect } from "react";
 import { ThemeSwitch } from "@/components/unlumen-ui/theme-switch";
 import { useAuthStore } from "@/features/auth";
+import { getAuthLoginUrl } from "@/lib/env";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +15,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -168,7 +168,7 @@ export function Navbar() {
             </DropdownMenu>
           ) : (
             <a
-              href={`${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000').replace(/\/api\/?$/, '')}/api/auth/login`}
+              href={getAuthLoginUrl()}
               className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] px-4 py-2 active:translate-y-px"
             >
               Sign in

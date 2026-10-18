@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { JSX, SVGProps, useState } from "react";
+import { JSX, SVGProps, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { isAxiosError } from "axios";
 import { Loader2 } from "lucide-react";
 import { ProductLogo } from "@/components/ui/ProductLogo";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
@@ -21,6 +22,15 @@ const GoogleIcon = (props: JSX.IntrinsicAttributes & SVGProps<SVGSVGElement>) =>
   </svg>
 );
 
+// The backend redirects failed SSO/Google sign-ins to /login?error=<code>.
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  sso_unavailable: "Single sign-on is unavailable right now. Please try again later.",
+  sso_expired: "Your sign-in session expired. Please try again.",
+  sso_failed: "Single sign-on failed. Please try again.",
+  google_unavailable: "Google sign-in is unavailable right now.",
+  google_failed: "Google sign-in failed. Please try again.",
+};
+
 const SSOIcon = (props: JSX.IntrinsicAttributes & SVGProps<SVGSVGElement>) => (
   <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" {...props}>
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -30,10 +40,20 @@ const SSOIcon = (props: JSX.IntrinsicAttributes & SVGProps<SVGSVGElement>) => (
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const authError = searchParams.get("error");
+  const shownAuthError = useRef(false);
   const { setToken, setUser } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!authError || shownAuthError.current) return;
+    shownAuthError.current = true;
+    toast.error(AUTH_ERROR_MESSAGES[authError] ?? "Sign-in failed. Please try again.");
+    router.replace("/login");
+  }, [authError, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,8 +69,9 @@ export function LoginForm() {
       
       toast.success("Welcome back!");
       router.push("/polls");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Login failed. Please try again.");
+    } catch (err) {
+      const message = isAxiosError(err) ? err.response?.data?.message : undefined;
+      toast.error(message || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }

@@ -20,7 +20,7 @@ export default function GlobalClientLayout({ children }: { children: React.React
     pathname === "/" || 
     pathname === "/login" || 
     pathname === "/signup" ||
-    pathname === "/auth/callback" ||
+    pathname === "/auth/complete" ||
     pathname?.startsWith("/test") ||
     pathname?.startsWith("/p/") ||
     pathname?.startsWith("/live") ||

@@ -14,12 +14,11 @@ export interface AuthRequest extends Request {
 
 export const authenticate = (optional = false) => async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    // Bearer only: an ambient auth cookie would make every route CSRF-able.
     let token;
 
     if (req.headers.authorization?.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
-    } else if (req.cookies?.token) {
-      token = req.cookies.token;
     }
 
     if (!token) {

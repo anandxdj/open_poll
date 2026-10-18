@@ -29,6 +29,8 @@ export interface PublishedEvent {
   quizId: string;
   type: string;
   payload: Record<string, any>;
+  audience?: string;
+  seq?: number;
 }
 
 const toArray = (value: string | string[]) => (Array.isArray(value) ? value : [value]);
@@ -97,8 +99,25 @@ export class FakeRedis {
   }
   async publish(channel: string, message: string) {
     const parsed = JSON.parse(message);
-    this.published.push({ channel, quizId: parsed.quizId, type: parsed.type, payload: parsed.payload });
+    this.published.push({
+      channel,
+      quizId: parsed.quizId,
+      type: parsed.type,
+      payload: parsed.payload,
+      audience: parsed.audience,
+      seq: parsed.seq,
+    });
     return 0;
+  }
+  /** Only the realtime publish script (INCR the seq key, then PUBLISH the envelope) is supported. */
+  async eval(script: string, options: { keys?: string[]; arguments?: string[] } = {}) {
+    if (!script.includes("redis.call('PUBLISH'")) throw new Error('FakeRedis.eval: unsupported script');
+    const [seqKey] = options.keys ?? [];
+    const [before, after, ttl, channel] = options.arguments ?? [];
+    const seq = await this.incr(seqKey!);
+    await this.expire(seqKey!, Number(ttl));
+    await this.publish(channel!, `${before}${seq}${after}`);
+    return seq;
   }
 
   // ---------- hashes ----------
@@ -274,6 +293,7 @@ const REDIS_METHODS = [
   'expire',
   'incr',
   'publish',
+  'eval',
   'hGet',
   'hSet',
   'hSetNX',

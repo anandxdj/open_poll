@@ -1,16 +1,59 @@
 ---
 summary: Verified vulnerability findings and a prioritized remediation plan. P0 items gate any public launch.
-status: draft
-last_updated: 2026-07-16
+status: active
+last_updated: 2026-10-19
 ---
 
 # Security Hardening Plan
 
-> **Remediation status (2026-07-16, branch `security/hardening-p0-p1`):**
-> P0 #1–#4 and P1 #5–#9 are fixed. #10 fixed alongside #1. Remaining open: #11–#14 (P2).
-> Key new primitives: `backend/src/common/utils/signedId.utils.ts` (HMAC-signed ballot /
-> guest / device tokens) and `backend/src/common/middlewares/security.middleware.ts`
-> (security headers + Mongo-operator sanitization).
+> **Remediation status (2026-10-19):** all items #1–#14 are closed on `main`-bound work, plus the
+> extra findings in "Round 2" below.
+>
+> - **Regression, now restored.** The original P0 fixes (#1, #2, #4, #10) landed in `0550084`
+>   (2026-07-16) and were silently overwritten on 2026-07-24 by the presentation-feature commit
+>   `5e63f87`, which replaced `backend/src/modules/responses/*` and the ballot-fetching code in
+>   `StepByStepForm.tsx` with pre-fix copies. They were re-applied on top of the current code
+>   (assessments, multi-select, retries) and are now pinned by `backend/tests/responses.security.test.ts`
+>   (rotating `deviceId`, concurrent submits, body `respondentId`, forged guest strings, TRIAL retries).
+>   The same commit had dropped auth + rate limit from `POST /api/ai/generate-quiz`; restored and
+>   pinned by `backend/tests/ai.routes.test.ts`.
+> - **CI now runs on every push and PR** (`.github/workflows/ci.yml`), so a revert like `5e63f87`
+>   fails the build instead of shipping.
+> - Key primitives: `common/utils/signedId.utils.ts` (HMAC-signed ballot / guest / device tokens),
+>   `common/middlewares/security.middleware.ts` (headers + Mongo-operator sanitization),
+>   `common/middlewares/origin.middleware.ts` (Origin/Referer allow-list for cookie-authenticated
+>   endpoints), `common/config/env.ts` (boot-time env validation), and the identity-keyed,
+>   fail-mode-aware `common/middlewares/rateLimit.middleware.ts`.
+
+## Round 2 findings (2026-10-18), all fixed
+
+| Finding | Fix |
+| --- | --- |
+| Self-registration as admin (`register.schema.ts` accepted `role`) | Field removed; always `user`. |
+| OIDC/Google account pre-hijack: sign-in linked to an existing **unverified** account by email and kept the attacker's password | Linking an unverified account wipes password, tokens, refresh token and role first. |
+| OIDC state cookie scoped to `/api/auth` but default redirect URI is root `/auth/callback` | Cookie path `/`. |
+| OIDC discovery failure cached until restart | Rejected discovery is not cached. |
+| Google OAuth sent no `state` (login CSRF) | State bound to an httpOnly cookie + single-use Redis entry; shared callback picks the provider by matching state. |
+| Browser auth errors returned JSON | Redirect to `/login?error=<code>`. |
+| `POST /api/ai/generate`, `/generate-and-save`, `/generate-quiz` reachable anonymously; generate-and-save took `creatorId` from the body | All require auth + share an `ai` rate limit; owner from `req.user`. |
+| verify-email also matched the stored hash as a raw token | Hash-only match. |
+| zod 4 `.lowercase()` rejected mixed-case emails | Emails trimmed + lowercased. |
+| Express CORS allowed `localhost:3000` in production; Socket.io only `FRONTEND_URL` | Both use `env.allowedOrigins` (dev origins outside production only). |
+| Finished OAuth logins redirected to frontend `/auth/callback`, which `vercel.json` rewrites to the backend | Frontend landing page moved to `/auth/complete`. |
+| REST could persist a published `TRIAL` with no correct answers | `polls.grading.ts` shared by REST, service and MCP. |
+
+## Known residual risks
+
+- **Pre-hijack via the verification link:** if a victim clicks the verification link from an
+  attacker's registration, the attacker's password becomes active. Inherent to verify-after-register;
+  mitigated by the "account already exists" email and by password reset marking the email verified
+  and revoking sessions.
+- **Per-email login limit (20 / 15 min)** lets someone temporarily block password login for a known
+  email. SSO and Google still work.
+- **Shared `User.sub`** is written by both Google and OIDC; replaced by `identities[]` in plan
+  package W0-D (`04-implementation-plan.md`).
+- **Anonymous-poll per-IP cap** is 50 votes per IP per poll per day (`ANON_VOTES_PER_IP`); large
+  venues on one NAT should use auth-required or guest mode.
 
 Findings below were verified by reading the cited source on 2026-06-10. Each has a file:line
 anchor, the exploit, and the fix. **P0 = launch-gating.** For a polling/voting product, result

@@ -1,19 +1,12 @@
 import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
+import { env } from '../config/env';
 
-const isProduction = process.env.NODE_ENV === 'production';
-
-const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || (isProduction ? '' : 'access-secret');
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || (isProduction ? '' : 'refresh-secret');
-
-if (!JWT_ACCESS_SECRET || !JWT_REFRESH_SECRET) {
-  if (isProduction) {
-    throw new Error('JWT secrets must be set in production!');
-  }
-}
-
-const JWT_ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
-const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
+// Presence of production secrets is enforced at boot by common/config/env.
+const JWT_ACCESS_SECRET = env.jwt.accessSecret;
+const JWT_REFRESH_SECRET = env.jwt.refreshSecret;
+const JWT_ACCESS_EXPIRES_IN = env.jwt.accessExpiresIn;
+const JWT_REFRESH_EXPIRES_IN = env.jwt.refreshExpiresIn;
 
 export const generateAccessToken = (payload: object) => {
   return jwt.sign(payload, JWT_ACCESS_SECRET, {
