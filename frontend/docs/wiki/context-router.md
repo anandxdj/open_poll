@@ -29,6 +29,9 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Changing the deck builder, slide editors, slide types, or inspector tabs.
 - **Action**: Read `frontend/docs/wiki/features/presentation-builder.md`
 
+- **Task**: Workspaces (switcher, selected workspace, `X-Workspace-Id`) or any `/settings` page or section.
+- **Action**: Read `frontend/docs/wiki/features/workspaces.md`
+
 ## 4. API & Data
 
 - **Task**: Writing fetch calls, React Query hooks, or API integrations.

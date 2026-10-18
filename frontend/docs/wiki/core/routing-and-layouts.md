@@ -25,6 +25,7 @@ The frontend follows a feature-driven, Server-Component-first architecture using
 
 - **Kinetic Sidebar**: Resides in `app/(dashboard)/layout.tsx` (via `components/layouts/DashboardShell.tsx`, which also mounts the create-poll and create-deck modal providers). Does not re-render on nested page navigation. A page gets the sidebar only by living in `(dashboard)`; landing, auth, `/live`, `/p/[id]`, `/presentation/host`, `/privacy`, `/terms` and `/test` sit outside it and render without chrome. `components/layouts/GlobalClientLayout.tsx` (root layout) only restores the session.
 - **Double-Bezel Shell**: Pages define the inner content padding, while the layouts define the rounded outer containment shell (`rounded-2xl`).
+- **Settings**: `app/(dashboard)/settings/layout.tsx` owns the title and the section nav; each section is its own page at `/settings/<id>` and `/settings` redirects to `/settings/profile`. Adding a section: `frontend/docs/wiki/features/workspaces.md`.
 
 ## Proxy and Security Headers
 
