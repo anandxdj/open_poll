@@ -42,8 +42,9 @@ export default defineConfig({
         MONGO_URI: e2eEnv.mongoUri,
         REDIS_URL: e2eEnv.redisUrl,
         FRONTEND_URL: e2eEnv.frontendUrl,
-        JWT_SECRET: "e2e-access-secret",
+        JWT_ACCESS_SECRET: "e2e-access-secret",
         JWT_REFRESH_SECRET: "e2e-refresh-secret",
+        ID_SIGNING_SECRET: "e2e-id-signing-secret",
         JWT_ACCESS_EXPIRES_IN: "2h",
         // Empty AI and mail keys: drafts are mocked and mail is logged.
         LLM_BASE_URL: "",
