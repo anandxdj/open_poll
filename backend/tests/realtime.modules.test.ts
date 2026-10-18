@@ -59,7 +59,7 @@ describe('socket module registry', () => {
 
 describe('presentations socket module', () => {
   const original = {
-    isOwner: PresentationService.isOwner,
+    canHost: PresentationService.canHost,
     isAuthorizedParticipant: PresentationService.isAuthorizedParticipant,
   };
   const ownerCalls: Array<[string, string]> = [];
@@ -68,7 +68,7 @@ describe('presentations socket module', () => {
   beforeEach(() => {
     ownerCalls.length = 0;
     participantCalls.length = 0;
-    (PresentationService as any).isOwner = async (presentationId: string, userId: string) => {
+    (PresentationService as any).canHost = async (presentationId: string, userId: string) => {
       ownerCalls.push([presentationId, userId]);
       return userId === HOST_ID;
     };
@@ -83,7 +83,7 @@ describe('presentations socket module', () => {
   });
 
   afterEach(() => {
-    (PresentationService as any).isOwner = original.isOwner;
+    (PresentationService as any).canHost = original.canHost;
     (PresentationService as any).isAuthorizedParticipant = original.isAuthorizedParticipant;
   });
 

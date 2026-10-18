@@ -4,6 +4,7 @@ import { BUILT_IN_SLIDE_TYPES, isScoredSlideType } from './slides';
 export * from './models/presentation.model';
 export * from './models/participant.model';
 export * from './models/answer.model';
+export * from './models/session.model';
 
 export { isScoredSlideType };
 

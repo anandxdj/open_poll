@@ -5,16 +5,22 @@ import { defineLiveEvents } from './envelope';
 // take a module prefix (`slide:`, `session:`, `qna:`, `reaction:`, ...).
 
 export const PRESENTATION_EVENTS = defineLiveEvents({
+  // A new session opened its lobby (`lobby:opened` is the legacy copy).
+  'session:lobby': { audience: 'all' },
   'lobby:opened': { audience: 'all' },
   'participant:joined': { audience: 'all' },
   'question:started': { audience: 'all' },
   // Content slides (registry lifecycle `content`): shown on every screen, no answer window.
   'slide:shown': { audience: 'all' },
+  // The current response slide stopped accepting answers (results not revealed).
+  'slide:closed': { audience: 'all' },
   // Carries the live vote/word distribution — leaking it to participants before
   // reveal defeats the point of a scored quiz.
   'answer:received': { audience: 'host', hostOnly: true },
   'question:revealed': { audience: 'all' },
   'leaderboard:shown': { audience: 'all' },
+  // The session ended (`quiz:ended` is the legacy copy).
+  'session:ended': { audience: 'all' },
   'quiz:ended': { audience: 'all' },
 });
 

@@ -42,6 +42,10 @@ const answerSchema = z.object({
 
 const label = questionLabel('Select answer');
 
+/** Graded: worth points and has a correct option. Otherwise a survey question (no score, no correct answer shown). */
+const isGraded = (slide: Pick<Slide, 'points' | 'options'>) =>
+  (slide.points == null || slide.points > 0) && (slide.options ?? []).some((o) => o.isCorrect);
+
 /**
  * Multiple choice with one or more correct options; speed scored. A slide worth
  * 0 points is ungraded (a survey question, e.g. a converted poll) and needs no
@@ -53,6 +57,7 @@ export const selectAnswerSlide = defineSlideType<SelectAnswerConfig, z.infer<typ
   kind: 'interactive',
   lifecycle: 'response',
   scored: true,
+  isScored: isGraded,
   schema: builtInSlideSchema('select_answer')
     .extend({ config: selectAnswerSettingsSchema.nullable().default(null) })
     .superRefine((slide, ctx) => {
@@ -111,11 +116,14 @@ export const selectAnswerSlide = defineSlideType<SelectAnswerConfig, z.infer<typ
   },
   score: (cfg, { isCorrect, elapsedMs }) =>
     speedScore(cfg.points, cfg.scoreDependsOnTime, cfg.timeLimitMs, isCorrect, elapsedMs),
-  distribution: (slide, { dist }) => ({
-    kind: 'options',
-    counts: slide.options.map((_, i) => Number(dist[String(i)] ?? 0)),
-    options: slide.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })),
-  }),
+  distribution: (slide, { dist }) => {
+    const graded = isGraded(slide);
+    return {
+      kind: 'options',
+      counts: slide.options.map((_, i) => Number(dist[String(i)] ?? 0)),
+      options: slide.options.map((o) => ({ text: o.text, isCorrect: graded && o.isCorrect })),
+    };
+  },
   exportColumns: (slide) => [label(slide)],
   exportCells: (slide, answer) => {
     const picks = (answer?.payload as { optionIndices?: unknown } | null | undefined)?.optionIndices;

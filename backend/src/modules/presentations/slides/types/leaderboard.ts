@@ -8,7 +8,7 @@ export const leaderboardSlide = defineSlideType<never, never>({
   kind: 'system',
   lifecycle: 'system',
   scored: false,
-  schema: builtInSlideSchema('leaderboard'),
+  schema: builtInSlideSchema('leaderboard', { untimed: true }),
   sanitize: builtInParticipantFields,
   label: questionLabel('Leaderboard'),
 });

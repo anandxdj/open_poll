@@ -52,9 +52,8 @@ const { REALTIME_CHANNELS } = await import('../../src/common/realtime/events');
 const { liveSeqKey } = await import('../../src/common/realtime/publish');
 const { generateAccessToken } = await import('../../src/common/utils/jwt.utils');
 const { UserModel } = await import('../../src/modules/auth/auth.model');
-const { PresentationModel, PresentationParticipantModel, PresentationAnswerModel } = await import(
-  '../../src/modules/presentations/presentations.model'
-);
+const { PresentationModel, PresentationParticipantModel, PresentationAnswerModel, PresentationSessionModel } =
+  await import('../../src/modules/presentations/presentations.model');
 const { commonSlideShape, defineSlideType, registerSlideType } = await import(
   '../../src/modules/presentations/slides'
 );
@@ -188,14 +187,18 @@ describe.skipIf(!inProcess)('presentations live lifecycle (Mongo + Redis)', () =
     await new Promise<void>((resolve) => http?.close(() => resolve()));
     if (subscriber?.isOpen) await subscriber.close();
     for (const presentationId of presentationIds) {
+      const sessionIds = (await PresentationSessionModel.find({ presentationId }).select('_id').lean()).map((s) =>
+        String(s._id)
+      );
       await Promise.all([
         PresentationModel.deleteOne({ _id: presentationId }),
+        PresentationSessionModel.deleteMany({ presentationId }),
         PresentationParticipantModel.deleteMany({ presentationId }),
         PresentationAnswerModel.deleteMany({ presentationId }),
       ]);
       const keys: string[] = [liveSeqKey(presentationId)];
-      for await (const batch of redisClient.scanIterator({ MATCH: `presentation:${presentationId}:*` })) {
-        keys.push(...batch);
+      for (const pattern of [`presentation:${presentationId}:*`, ...sessionIds.map((sid) => `psess:{${sid}}:*`)]) {
+        for await (const batch of redisClient.scanIterator({ MATCH: pattern })) keys.push(...batch);
       }
       await redisClient.del(keys);
       await redisClient.sRem('buffer:active_presentation_distributions', presentationId);

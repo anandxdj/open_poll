@@ -35,8 +35,9 @@ export type LiveJoinAck = { ok: true; role: LiveRole } | { ok: false; error: Liv
 type JoinGrant = { role: 'host' } | { role: 'participant'; participantId: string };
 
 /**
- * Decides whether a socket may follow a deck, without touching rooms. Hosts must
- * own the deck; participants must present the token issued by `POST /:id/join`.
+ * Decides whether a socket may follow a deck, without touching rooms. Hosts need
+ * `deck:host` on the deck (its creator, or a member of its workspace whose role
+ * allows hosting); participants must present the token issued by `POST /:id/join`.
  */
 const authorizeJoin = async (
   socket: Socket,
@@ -46,8 +47,8 @@ const authorizeJoin = async (
   if (credentials.role === 'host') {
     const userId = resolveSocketUserId(socket, credentials.accessToken);
     if (!userId) return 'UNAUTHENTICATED';
-    const owner = await PresentationService.isOwner(presentationId, userId).catch(() => false);
-    return owner ? { role: 'host' } : 'FORBIDDEN';
+    const allowed = await PresentationService.canHost(presentationId, userId).catch(() => false);
+    return allowed ? { role: 'host' } : 'FORBIDDEN';
   }
 
   if (credentials.role === 'participant') {

@@ -129,6 +129,12 @@ export interface SlideTypeDef<Cfg = unknown, Payload = unknown> {
   lifecycle: SlideLifecycle;
   /** Scored types feed the leaderboard and must keep a timer of at least 5s. */
   scored: boolean;
+  /**
+   * Per-slide override for scored types: false makes this slide ungraded (no
+   * points, no correct count, no correct answer revealed), e.g. a 0-point
+   * survey question. Omitted = every slide of the type follows `scored`.
+   */
+  isScored?(slide: Slide): boolean;
   /** Validates and defaults one slide of this type in create/update requests. */
   schema: z.ZodType<ParsedSlide>;
   /**

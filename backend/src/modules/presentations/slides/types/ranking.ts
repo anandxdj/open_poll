@@ -23,7 +23,7 @@ export const rankingSlide = defineSlideType<RankingConfig, z.infer<typeof answer
   kind: 'interactive',
   lifecycle: 'response',
   scored: false,
-  schema: builtInSlideSchema('ranking').superRefine((slide, ctx) => {
+  schema: builtInSlideSchema('ranking', { untimed: true }).superRefine((slide, ctx) => {
     if (slide.items.length < 2) {
       ctx.addIssue({
         code: 'custom',

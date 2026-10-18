@@ -7,7 +7,7 @@ import {
   createPresentationSchema,
   submitPresentationAnswerSchema,
 } from '../../src/modules/presentations/presentations.schema';
-import { flush, installFakeRedis, installModelStubs, OWNER_ID, type FakeRedis } from './harness';
+import { flush, installFakeRedis, installModelStubs, OWNER_ID, sessionKey, type FakeRedis } from './harness';
 
 /**
  * Golden (characterization) tests for the seven built-in slide types.
@@ -22,6 +22,13 @@ import { flush, installFakeRedis, installModelStubs, OWNER_ID, type FakeRedis } 
  * Additive fields the registry plan introduces are allowed but must be the only
  * difference: participant slides may gain `kind`, `media`, `layout`; parsed
  * slides may gain `notes`, `media`, `layout`, `content`, `config`.
+ *
+ * Deliberate changes from the session engine (W1-A1), each marked "session
+ * engine" below: Redis keys are session-scoped (`psess:{sid}:…:{slideId}`) and
+ * the results hash keeps the full answer; events and lookups gain `slideId` /
+ * `sessionId`; navigation goes both ways; reveal stops answers at once;
+ * open-lobby starts a new session instead of wiping the last one; the policy
+ * replaces the owner check; unscored types may be untimed.
  */
 
 const T0 = new Date('2026-03-02T09:00:00.000Z').getTime();
@@ -187,8 +194,29 @@ afterEach(async () => {
   setSystemTime();
 });
 
-const key = (pid: string, name: string, slide?: number) =>
-  slide === undefined ? `presentation:${pid}:${name}` : `presentation:${pid}:${name}:${slide}`;
+/** Session engine: the newest session of the deck. */
+const sessionOf = (pid: string) => {
+  const session = models.sessions.filter((s) => String(s.presentationId) === pid).at(-1);
+  if (!session) throw new Error(`No session for ${pid}`);
+  return session;
+};
+
+/** Session engine: the slide's id in the session snapshot. */
+const slideIdAt = (pid: string, slideIndex: number) => String(sessionOf(pid).deckSnapshot[slideIndex]._id);
+
+/** Session engine: keys are session-scoped and per slide id. */
+const key = (pid: string, name: string, slide?: number) => {
+  const sid = String(sessionOf(pid)._id);
+  return slide === undefined ? sessionKey(sid, name) : sessionKey(sid, name, slideIdAt(pid, slide));
+};
+
+/** Session engine: the results hash keeps the full answer; the legacy trio is pinned here. */
+const resultOf = (pid: string, slide: number, participantId: string) => {
+  const raw = redis.hash(key(pid, 'results', slide))[participantId];
+  if (!raw) return undefined;
+  const { isCorrect, score, scored } = JSON.parse(raw);
+  return { isCorrect, score, scored };
+};
 
 /** Opens the lobby on a fresh copy of DECK and joins Ada then Linus. */
 async function liveDeck(overrides: Partial<typeof DECK> = {}) {
@@ -248,13 +276,28 @@ describe('golden: full deck run through the facade', () => {
     at(6_000);
     expect(await answer(pid, linus, 0, { optionIndex: 1 })).toEqual({ accepted: true });
     expect(redis.hash(key(pid, 'dist', 0))).toEqual({ '0': '1', '1': '1' });
-    expect(redis.hash(key(pid, 'results', 0))).toEqual({
-      [ada.participantId]: JSON.stringify({ isCorrect: true, score: 875, scored: true }),
-      [linus.participantId]: JSON.stringify({ isCorrect: false, score: 0, scored: true }),
+    expect(Object.keys(redis.hash(key(pid, 'results', 0))).sort()).toEqual(
+      [ada.participantId, linus.participantId].sort(),
+    );
+    expect(resultOf(pid, 0, ada.participantId)).toEqual({ isCorrect: true, score: 875, scored: true });
+    expect(resultOf(pid, 0, linus.participantId)).toEqual({ isCorrect: false, score: 0, scored: true });
+    // Session engine: the stored result is the whole answer (reconciliation rebuilds documents from it).
+    expect(JSON.parse(redis.hash(key(pid, 'results', 0))[ada.participantId]!)).toEqual({
+      isCorrect: true,
+      score: 875,
+      scored: true,
+      slideIndex: 0,
+      optionIndex: 0,
+      text: null,
+      payload: null,
+      timeMs: 5_000,
+      answeredAt: new Date(T0 + 5_000).toISOString(),
+      clientAnswerId: null,
+      via: 'rest',
     });
     expect(redis.events('answer:received').map((e) => e.payload)).toEqual([
-      { slideIndex: 0, answeredCount: 1 },
-      { slideIndex: 0, answeredCount: 2 },
+      { slideId: slideIdAt(pid, 0), slideIndex: 0, answeredCount: 1 },
+      { slideId: slideIdAt(pid, 0), slideIndex: 0, answeredCount: 2 },
     ]);
     expect(redis.members('buffer:active_presentation_distributions')).toEqual([pid]);
 
@@ -278,6 +321,11 @@ describe('golden: full deck run through the facade', () => {
       participantCount: 2,
       isLastSlide: false,
       auto: true,
+      // Session engine: additive fields.
+      slideId: slideIdAt(pid, 0),
+      slide: started0.slide,
+      revealedAt: new Date(T0 + 21_000).toISOString(),
+      revisit: false,
     });
 
     // ---- 1: type_answer (flat points) ----
@@ -292,7 +340,7 @@ describe('golden: full deck run through the facade', () => {
     await answer(pid, ada, 1, { text: 'JUPITER' });
     await answer(pid, linus, 1, { text: 'Saturn' });
     expect(redis.hash(key(pid, 'dist', 1))).toEqual({ jupiter: '1', saturn: '1' });
-    expect(JSON.parse(redis.hash(key(pid, 'results', 1))[ada.participantId]!)).toEqual({
+    expect(resultOf(pid, 1, ada.participantId)).toEqual({
       isCorrect: true,
       score: 500,
       scored: true,
@@ -319,7 +367,7 @@ describe('golden: full deck run through the facade', () => {
     await answer(pid, linus, 2, { text: 'COFFEE' });
     expect(redis.hash(key(pid, 'dist', 2))).toEqual({ coffee: '2' });
     expect(redis.hash(key(pid, 'disp', 2))).toEqual({ coffee: 'Coffee' });
-    expect(JSON.parse(redis.hash(key(pid, 'results', 2))[linus.participantId]!)).toEqual({
+    expect(resultOf(pid, 2, linus.participantId)).toEqual({
       isCorrect: false,
       score: 0,
       scored: false,
@@ -417,6 +465,9 @@ describe('golden: full deck run through the facade', () => {
       leaderboard: standings,
       participantCount: 2,
       isLastSlide: true,
+      // Session engine: additive fields.
+      slideId: slideIdAt(pid, 6),
+      slide: expect.objectContaining({ slideIndex: 6, type: 'leaderboard', kind: 'system' }),
     });
     await expectApiError(answer(pid, ada, 6, { optionIndex: 0 }), 400, 'This slide is no longer accepting answers');
     await expectApiError(
@@ -426,9 +477,18 @@ describe('golden: full deck run through the facade', () => {
     );
 
     // ---- end ----
+    await flush();
     await PresentationService.endPresentation(pid, OWNER_ID);
     expect(redis.lastEvent('quiz:ended')!.payload).toEqual({ leaderboard: standings, participantCount: 2 });
     expect(deck.status).toBe('ended');
+    // Session engine: `session:ended` precedes the legacy copy, with the run's totals.
+    expect(redis.lastEvent('session:ended')!.payload).toEqual({
+      runNumber: 1,
+      endedAt: new Date(T0 + 240_000).toISOString(),
+      leaderboard: standings,
+      participantCount: 2,
+      answerCount: 12,
+    });
 
     // ---- write-behind: answers + participant totals ----
     await flush();
@@ -489,6 +549,9 @@ describe('golden: participant slide payload (sanitize)', () => {
       totalSlides: 7,
       currentSlideIndex: -1,
       serverNow: new Date(T0).toISOString(),
+      // Session engine: additive fields.
+      sessionId: String(sessionOf(pid)._id),
+      pace: 'presenter',
     });
 
     await PresentationService.advanceSlide(pid, OWNER_ID, 4);
@@ -498,6 +561,8 @@ describe('golden: participant slide payload (sanitize)', () => {
     expect(live.questionEndsAt).toBe(new Date(T0 + 30_000).toISOString());
     expect(live.status).toBe('active');
     expect(live.currentSlideIndex).toBe(4);
+    expect(live.currentSlideId).toBe(slideIdAt(pid, 4));
+    expect(live.currentSlidePhase).toBe('open');
   });
 
   it('never leaks answer keys, notes or unknown fields', async () => {
@@ -594,19 +659,24 @@ describe('golden: answer acceptance and validation', () => {
     expect(redis.members(key(pid, 'answered', 0))).toEqual([ada.participantId]);
   });
 
-  // Characterizes a known gap rather than an intended rule: reveal deletes the
-  // Redis session key, but the answer path rebuilds it from Mongo while the
-  // clock window is still open, so an early manual reveal does not stop answers
-  // until `questionEndsAt` + grace. Session-engine work (explicit close) owns
-  // changing this; the refactor must not.
-  it('an early reveal leaves the window open until the deadline (current behaviour)', async () => {
+  // Session engine: this used to pin a known gap (an early manual reveal kept
+  // accepting answers until `questionEndsAt` + grace, because the answer path
+  // rebuilt the deleted window from Mongo). Reveal now closes the slide, and the
+  // rebuild reads the closed state, so nothing is accepted after a reveal.
+  it('an early reveal stops answers at once, even after Redis loses the window', async () => {
     const { pid, ada, linus } = await liveDeck();
     await PresentationService.advanceSlide(pid, OWNER_ID, 2);
+    await answer(pid, linus, 2, { text: 'first' });
     await PresentationService.revealCurrentSlide(pid, OWNER_ID);
     at(1_000);
-    expect(await answer(pid, ada, 2, { text: 'early' })).toEqual({ accepted: true });
-    at(30_000 + 751);
-    await expectApiError(answer(pid, linus, 2, { text: 'late' }), 400, "Time's up — response not accepted");
+    await expectApiError(answer(pid, ada, 2, { text: 'early' }), 400, 'This slide is no longer accepting answers');
+    for (const k of [...redis.store.keys()]) if (k.endsWith(':slides') || k.endsWith(':current')) redis.store.delete(k);
+    await expectApiError(answer(pid, ada, 2, { text: 'early' }), 400, 'This slide is no longer accepting answers');
+    expect(redis.members(key(pid, 'answered', 2))).toEqual([linus.participantId]);
+    expect(redis.lastEvent('question:revealed')!.payload.distribution).toEqual({
+      kind: 'words',
+      words: [{ text: 'first', count: 1 }],
+    });
   });
 
   it('accepts inside the 750ms grace window', async () => {
@@ -614,20 +684,21 @@ describe('golden: answer acceptance and validation', () => {
     await PresentationService.advanceSlide(pid, OWNER_ID, 0);
     at(20_000 + 750);
     await answer(pid, ada, 0, { optionIndex: 0 });
-    expect(JSON.parse(redis.hash(key(pid, 'results', 0))[ada.participantId]!)).toEqual({
+    expect(resultOf(pid, 0, ada.participantId)).toEqual({
       isCorrect: true,
       score: 500,
       scored: true,
     });
   });
 
-  it('rebuilds the answer window from Mongo when the Redis session key is gone', async () => {
+  it('rebuilds the answer window from Mongo when the Redis window keys are gone', async () => {
     const { pid, ada } = await liveDeck();
     await PresentationService.advanceSlide(pid, OWNER_ID, 1);
-    for (const k of [...redis.store.keys()]) if (k.endsWith(':session')) redis.store.delete(k);
+    // Session engine: the window lives in the session's `slides` hash and `current` pointer.
+    for (const k of [...redis.store.keys()]) if (k.endsWith(':slides') || k.endsWith(':current')) redis.store.delete(k);
     at(3_000);
     await answer(pid, ada, 1, { text: 'the jupiter' });
-    expect(JSON.parse(redis.hash(key(pid, 'results', 1))[ada.participantId]!)).toEqual({
+    expect(resultOf(pid, 1, ada.participantId)).toEqual({
       isCorrect: true,
       score: 500,
       scored: true,
@@ -649,20 +720,21 @@ describe('golden: speed scoring', () => {
     await PresentationService.advanceSlide(pid, OWNER_ID, 0);
     at(elapsedMs);
     await answer(pid, ada, 0, body);
-    return JSON.parse(redis.hash(key(pid, 'results', 0))[ada.participantId]!);
+    return resultOf(pid, 0, ada.participantId);
   };
 
   it('scales points from 100% to 50% across the time limit', async () => {
-    expect((await scoreAt(0, {})).score).toBe(1000);
-    expect((await scoreAt(10_000, {})).score).toBe(750);
-    expect((await scoreAt(20_500, {})).score).toBe(500);
-    expect((await scoreAt(1_000, { points: 999 })).score).toBe(974);
+    expect((await scoreAt(0, {}))!.score).toBe(1000);
+    expect((await scoreAt(10_000, {}))!.score).toBe(750);
+    expect((await scoreAt(20_500, {}))!.score).toBe(500);
+    expect((await scoreAt(1_000, { points: 999 }))!.score).toBe(974);
   });
 
   it('awards flat points when speed does not matter and zero when wrong', async () => {
     expect(await scoreAt(19_000, { scoreDependsOnTime: false })).toEqual({ isCorrect: true, score: 1000, scored: true });
     expect(await scoreAt(1_000, {}, { optionIndex: 2 })).toEqual({ isCorrect: false, score: 0, scored: true });
-    expect(await scoreAt(1_000, { points: 0 })).toEqual({ isCorrect: true, score: 0, scored: true });
+    // Session engine (integrator request): a 0-point slide is ungraded — unscored and never "correct".
+    expect(await scoreAt(1_000, { points: 0 })).toEqual({ isCorrect: false, score: 0, scored: false });
   });
 
   it('participant state exposes the last result only once the window closes', async () => {
@@ -672,9 +744,11 @@ describe('golden: speed scoring', () => {
     await answer(pid, ada, 0, { optionIndex: 0 });
     await answer(pid, linus, 0, { optionIndex: 2 });
 
+    const sessionId = String(sessionOf(pid)._id);
     const during = await PresentationService.getParticipantState(pid, linus.participantId, linus.token);
     expect(during).toEqual({
       participantId: linus.participantId,
+      sessionId, // Session engine: additive.
       name: 'Linus',
       totalScore: 0,
       correctCount: 0,
@@ -688,11 +762,13 @@ describe('golden: speed scoring', () => {
     const after = await PresentationService.getParticipantState(pid, ada.participantId, ada.token);
     expect(after).toEqual({
       participantId: ada.participantId,
+      sessionId,
       name: 'Ada',
       totalScore: 950,
       correctCount: 1,
       rank: 1,
-      lastAnswer: { slideIndex: 0, isCorrect: true, score: 950, scored: true },
+      // Session engine: `slideId` is additive.
+      lastAnswer: { slideId: slideIdAt(pid, 0), slideIndex: 0, isCorrect: true, score: 950, scored: true },
       quizStatus: 'active',
       presentationStatus: 'active',
     });
@@ -710,17 +786,19 @@ describe('golden: speed scoring', () => {
 // ---------------------------------------------------------------------------
 
 describe('golden: computeSlideDistributionHelper', () => {
-  const PID = '64b7f0c2a1b2c3d4e5f60718';
+  // Session engine: the helper reads one session's keys for one slide id.
+  const SID = '64b7f0c2a1b2c3d4e5f60718';
+  const slideId = (slideIndex: number) => `slide-${slideIndex}`;
   const seed = async (slideIndex: number, dist: Record<string, string>, disp: Record<string, string> = {}) => {
-    if (Object.keys(dist).length) await redis.hSet(key(PID, 'dist', slideIndex), dist);
-    if (Object.keys(disp).length) await redis.hSet(key(PID, 'disp', slideIndex), disp);
-    await redis.sAdd(key(PID, 'answered', slideIndex), ['a', 'b', 'c']);
-    await redis.hSet(key(PID, 'names'), { a: 'A', b: 'B', c: 'C', d: 'D' });
+    if (Object.keys(dist).length) await redis.hSet(sessionKey(SID, 'dist', slideId(slideIndex)), dist);
+    if (Object.keys(disp).length) await redis.hSet(sessionKey(SID, 'disp', slideId(slideIndex)), disp);
+    await redis.sAdd(sessionKey(SID, 'answered', slideId(slideIndex)), ['a', 'b', 'c']);
+    await redis.hSet(sessionKey(SID, 'names'), { a: 'A', b: 'B', c: 'C', d: 'D' });
   };
 
   it('select_answer counts every option, zero-filled', async () => {
     await seed(0, { '2': '3' });
-    const result = await computeSlideDistributionHelper(PID, 0, DECK.slides[0]);
+    const result = await computeSlideDistributionHelper(SID, slideId(0), DECK.slides[0]);
     expect(wire(result)).toEqual({
       distribution: {
         kind: 'options',
@@ -739,7 +817,7 @@ describe('golden: computeSlideDistributionHelper', () => {
   it('type_answer keeps the top 20 by count', async () => {
     const dist = Object.fromEntries(Array.from({ length: 25 }, (_, i) => [`w${i}`, String(i + 1)]));
     await seed(1, dist);
-    const { distribution } = (await computeSlideDistributionHelper(PID, 1, {
+    const { distribution } = (await computeSlideDistributionHelper(SID, slideId(1), {
       ...DECK.slides[1],
       acceptedAnswers: ['W24 '],
     })) as any;
@@ -752,14 +830,14 @@ describe('golden: computeSlideDistributionHelper', () => {
   it('wordcloud keeps the top 100 with display casing; open_ended the top 50', async () => {
     const dist = Object.fromEntries(Array.from({ length: 120 }, (_, i) => [`w${i}`, String(i + 1)]));
     await seed(2, dist, { w119: 'W119!' });
-    const words = ((await computeSlideDistributionHelper(PID, 2, DECK.slides[2])) as any).distribution;
+    const words = ((await computeSlideDistributionHelper(SID, slideId(2), DECK.slides[2])) as any).distribution;
     expect(words.kind).toBe('words');
     expect(words.words).toHaveLength(100);
     expect(words.words[0]).toEqual({ text: 'W119!', count: 120 });
     expect(words.words[1]).toEqual({ text: 'w118', count: 119 });
 
     await seed(3, dist);
-    const responses = ((await computeSlideDistributionHelper(PID, 3, DECK.slides[3])) as any).distribution;
+    const responses = ((await computeSlideDistributionHelper(SID, slideId(3), DECK.slides[3])) as any).distribution;
     expect(responses.kind).toBe('responses');
     expect(responses.responses).toHaveLength(50);
     expect(responses.responses[49]).toEqual({ text: 'w70', count: 71 });
@@ -767,7 +845,7 @@ describe('golden: computeSlideDistributionHelper', () => {
 
   it('scales averages round to two decimals and default labels are empty', async () => {
     await seed(4, { 's0:sum': '10', 's0:count': '3' });
-    const { distribution } = await computeSlideDistributionHelper(PID, 4, {
+    const { distribution } = await computeSlideDistributionHelper(SID, slideId(4), {
       type: 'scales',
       statements: ['One', 'Two'],
     });
@@ -785,7 +863,7 @@ describe('golden: computeSlideDistributionHelper', () => {
 
   it('ranking sorts by Borda points with stable ties', async () => {
     await seed(5, { '0': '4', '1': '9', '2': '4', voters: '3' });
-    const { distribution } = await computeSlideDistributionHelper(PID, 5, DECK.slides[5]);
+    const { distribution } = await computeSlideDistributionHelper(SID, slideId(5), DECK.slides[5]);
     expect(distribution).toEqual({
       kind: 'ranking',
       items: [
@@ -799,7 +877,7 @@ describe('golden: computeSlideDistributionHelper', () => {
 
   it('leaderboard has an empty distribution', async () => {
     await seed(6, {});
-    const { distribution } = await computeSlideDistributionHelper(PID, 6, DECK.slides[6]);
+    const { distribution } = await computeSlideDistributionHelper(SID, slideId(6), DECK.slides[6]);
     expect(distribution).toEqual({});
   });
 });
@@ -820,9 +898,16 @@ describe('golden: host state and transitions', () => {
     expect(state.presentation).toBe(deck);
     expect(state.serverNow).toBe(new Date(T0 + 1_000).toISOString());
     expect(state.answeredCount).toBe(1);
-    expect(wire(state.participants)).toEqual([
+    await flush();
+    const after = await PresentationService.getHostState(pid, OWNER_ID);
+    // Session engine: participants gain correctCount, joinedAt and kicked.
+    expect(wire(after.participants).map(({ participantId, name, score }: any) => ({ participantId, name, score }))).toEqual([
       { participantId: ada.participantId, name: 'Ada', score: 0 },
       { participantId: linus.participantId, name: 'Linus', score: 975 },
+    ]);
+    expect(after.participants.map((p) => [p.correctCount, p.kicked])).toEqual([
+      [0, false],
+      [1, false],
     ]);
     expect(state.liveDistribution).toMatchObject({ kind: 'options', counts: [1, 0, 0] });
     expect(state.leaderboard[0]).toEqual({
@@ -834,35 +919,43 @@ describe('golden: host state and transitions', () => {
     });
   });
 
-  it('enforces forward-only navigation, bounds and ownership', async () => {
+  // Session engine: navigation used to be forward-only; the policy replaced the owner check.
+  it('navigates both directions and enforces bounds and the host policy', async () => {
     const { pid } = await liveDeck();
     await expectApiError(PresentationService.advanceSlide(pid, OWNER_ID, 7), 400, 'Slide index out of bounds');
     await PresentationService.advanceSlide(pid, OWNER_ID, 2);
-    await expectApiError(
-      PresentationService.advanceSlide(pid, OWNER_ID, 1),
-      400,
-      'Cannot navigate backwards during a live session',
-    );
+    await PresentationService.advanceSlide(pid, OWNER_ID, 1);
+    expect(sessionOf(pid).currentSlideIndex).toBe(1);
     await expectApiError(
       PresentationService.advanceSlide(pid, 'someone-else'),
       403,
-      'You do not have permission to manage this presentation',
+      'You do not have permission to perform this action',
     );
-    expect(await PresentationService.isOwner(pid, OWNER_ID)).toBe(true);
-    expect(await PresentationService.isOwner(pid, 'someone-else')).toBe(false);
+    expect(await PresentationService.canHost(pid, OWNER_ID)).toBe(true);
+    expect(await PresentationService.canHost(pid, 'someone-else')).toBe(false);
   });
 
-  it('open-lobby wipes the previous run and rejoins are idempotent per device', async () => {
+  // Session engine: open-lobby used to wipe the previous run.
+  it('open-lobby starts a new session, keeps the previous run, and rejoins are idempotent per device', async () => {
     const { deck, pid, ada } = await liveDeck();
     await PresentationService.advanceSlide(pid, OWNER_ID, 0);
     await answer(pid, ada, 0, { optionIndex: 0 });
+    await flush();
+    const firstRun = sessionOf(pid);
+    const firstKeys = [...redis.store.keys()].filter((k) => k.startsWith(`psess:{${firstRun._id}}`));
 
     await PresentationService.openLobby(pid, OWNER_ID);
     expect(deck.status).toBe('lobby');
     expect(deck.currentSlideIndex).toBe(-1);
-    expect([...redis.store.keys()].filter((k) => k.startsWith(`presentation:${pid}:`))).toEqual([]);
-    expect(models.participants).toEqual([]);
-    expect(await PresentationService.isAuthorizedParticipant(pid, ada.participantId, ada.token)).toBe(false);
+    expect(firstRun.status).toBe('ended');
+    expect(firstRun.isLive).toBe(false);
+    expect(sessionOf(pid).runNumber).toBe(2);
+    expect(String(deck.activeSessionId)).toBe(String(sessionOf(pid)._id));
+    expect([...redis.store.keys()].filter((k) => k.startsWith(`psess:{${firstRun._id}}`))).toEqual(firstKeys);
+    expect(models.participants.map((p) => p.name)).toEqual(['Ada', 'Linus']);
+    expect(models.answers).toHaveLength(1);
+    // The old credentials still identify the old participant, but cannot answer in the new run.
+    expect(await PresentationService.isAuthorizedParticipant(pid, ada.participantId, ada.token)).toBe(true);
 
     const first = await PresentationService.joinPresentation(pid, { name: 'Grace' });
     const again = await PresentationService.joinPresentation(pid, { name: 'Renamed', deviceToken: first.deviceToken });
@@ -946,9 +1039,18 @@ describe('golden: slide and answer request schemas', () => {
     expect(issuesOf({ type: 'wordcloud', question: '' })).toEqual([
       { path: ['slides', 0, 'question'], message: 'Question text is required' },
     ]);
-    for (const type of ['select_answer', 'type_answer', 'wordcloud', 'open_ended', 'scales', 'ranking', 'leaderboard']) {
-      const issues = issuesOf({ type, question: 'Q', timeLimit: 4, options: [{ text: 'a', isCorrect: true }, { text: 'b' }], acceptedAnswers: ['a'], statements: ['s'], items: ['i', 'j'] });
-      expect(issues).toEqual([{ path: ['slides', 0, 'timeLimit'], message: 'Too small: expected number to be >=5' }]);
+    const withTimer = (type: string, timeLimit: number) =>
+      issuesOf({ type, question: 'Q', timeLimit, options: [{ text: 'a', isCorrect: true }, { text: 'b' }], acceptedAnswers: ['a'], statements: ['s'], items: ['i', 'j'] });
+    for (const type of ['select_answer', 'type_answer']) {
+      expect(withTimer(type, 4)).toEqual([{ path: ['slides', 0, 'timeLimit'], message: 'Too small: expected number to be >=5' }]);
+      expect(withTimer(type, 0)).toEqual([{ path: ['slides', 0, 'timeLimit'], message: 'Too small: expected number to be >=5' }]);
+    }
+    // Session engine: unscored types may be untimed (0), otherwise still at least 5 seconds.
+    for (const type of ['wordcloud', 'open_ended', 'scales', 'ranking', 'leaderboard']) {
+      expect(withTimer(type, 4)).toEqual([
+        { path: ['slides', 0, 'timeLimit'], message: 'Use 0 for an untimed slide or at least 5 seconds' },
+      ]);
+      expect(withTimer(type, 0)).toEqual([]);
     }
     const unknown = issuesOf({ type: 'bogus', question: 'Q' });
     expect(unknown).toHaveLength(1);

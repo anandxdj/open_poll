@@ -23,7 +23,7 @@ the quizzes module was folded in; `quizId` carries the presentation id.
 | `live:leave` | `{ presentationId }` (or the bare id) | leaves every room of that presentation | ack `{ ok }` |
 
 Authorization (same for both protocols):
-- **host** — the user must own the deck (`PresentationService.isOwner`). The user comes from
+- **host** — the user needs `deck:host` on the deck (`PresentationService.canHost`: its creator, or an active member of the deck's workspace whose role allows hosting). The user comes from
   `accessToken` when sent (it must be valid), otherwise from the handshake token
   (`handshake.auth.token`, see `envelope.md`).
 - **participant** — `participantId` + `participantToken` issued by `POST /:id/join`
@@ -47,16 +47,24 @@ All joins count against the 30-per-minute per-connection budget.
 
 ## Event types
 
+Every event carries the live session's id in the envelope's `sessionId`; clients ignore events
+of other sessions. Payload types: `PresentationEventPayloads` in
+`modules/presentations/live/contract.ts`; when each is published:
+[`../modules/presentations-live.md`](../modules/presentations-live.md#events).
+
 | Type | Audience | Payload |
 | --- | --- | --- |
-| `lobby:opened` | all | `{ joinCode }` |
+| `session:lobby` | all | `{ runNumber, joinCode, pace }` — a new session opened its lobby |
+| `lobby:opened` | all | `{ joinCode }` — legacy copy of `session:lobby` |
 | `participant:joined` | all | `{ participantId, name, participantCount }` |
-| `question:started` | all | `{ slide (sanitized, no answer keys), startedAt, endsAt, serverNow }` |
-| `slide:shown` | all | `{ slideIndex, slide (sanitized content slide), isLastSlide, serverNow }`; content slides open no answer window |
-| `answer:received` | **host only** (forced) | per answer `{ slideIndex, answeredCount }`; every 2s from `liveDistribution.worker.ts` while answers arrive `{ slideIndex, answeredCount, participantCount, distribution }` |
-| `question:revealed` | all | `{ slideIndex, question, type, scored, distribution, answeredCount, participantCount, isLastSlide, auto }` |
-| `leaderboard:shown` | all | `{ slideIndex, leaderboard[], participantCount, isLastSlide }` |
-| `quiz:ended` | all | `{ leaderboard[], participantCount }` |
+| `question:started` | all | `{ slideId, slideIndex, slide (sanitized, no answer keys), startedAt, endsAt (null = untimed), serverNow, isLastSlide, reopened }` |
+| `slide:shown` | all | `{ slideId, slideIndex, slide (sanitized content slide), isLastSlide, serverNow }`; content slides open no answer window |
+| `slide:closed` | all | `{ slideId, slideIndex, slide, closedAt, answeredCount, participantCount, isLastSlide, revisit, serverNow }` — answers stopped, results not revealed |
+| `answer:received` | **host only** (forced) | per answer `{ slideId, slideIndex, answeredCount }`; every 2s from `liveDistribution.worker.ts` while answers arrive `{ slideId, slideIndex, answeredCount, participantCount, distribution }` |
+| `question:revealed` | all | `{ slideId, slideIndex, slide, question, type, scored, distribution, answeredCount, participantCount, isLastSlide, auto, revealedAt, revisit }` |
+| `leaderboard:shown` | all | `{ slideId, slideIndex, slide, leaderboard[], participantCount, isLastSlide }` |
+| `session:ended` | all | `{ runNumber, endedAt, leaderboard[] (≤100), participantCount, answerCount }` |
+| `quiz:ended` | all | `{ leaderboard[], participantCount }` — legacy copy of `session:ended` |
 
 `distribution.kind`: `options` (select) | `text` (type) | `words` (wordcloud) | `responses`
 (open_ended) | `scales` (per-statement averages) | `ranking` (Borda items + voters).

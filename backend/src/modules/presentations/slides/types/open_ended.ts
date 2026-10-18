@@ -14,7 +14,7 @@ export const openEndedSlide = defineSlideType<null, z.infer<typeof answerSchema>
   kind: 'interactive',
   lifecycle: 'response',
   scored: false,
-  schema: builtInSlideSchema('open_ended'),
+  schema: builtInSlideSchema('open_ended', { untimed: true }),
   sanitize: builtInParticipantFields,
   answerSchema,
   accept: (_cfg, { text }) => {

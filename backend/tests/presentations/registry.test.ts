@@ -15,7 +15,7 @@ import {
   registerSlideType,
   requireSlideType,
 } from '../../src/modules/presentations/slides';
-import { flush, installFakeRedis, installModelStubs, OWNER_ID, type FakeRedis } from './harness';
+import { flush, installFakeRedis, installModelStubs, OWNER_ID, sessionKey, type FakeRedis } from './harness';
 
 const T0 = new Date('2026-03-02T09:00:00.000Z').getTime();
 const at = (ms: number) => setSystemTime(new Date(T0 + ms));
@@ -162,6 +162,7 @@ describe('content lifecycle (test fixture type)', () => {
     const shown = redis.lastEvent('slide:shown')!;
     expect(shown.audience).toBe('all');
     expect(shown.payload).toEqual({
+      slideId: String(deck.slides[0]._id),
       slideIndex: 0,
       isLastSlide: false,
       serverNow: new Date(T0).toISOString(),
@@ -181,7 +182,8 @@ describe('content lifecycle (test fixture type)', () => {
     expect(redis.events('question:started')).toEqual([]);
     expect(deck.questionStartedAt).toBeNull();
     expect(deck.questionEndsAt).toBeNull();
-    expect(await redis.get(`presentation:${pid}:session`)).toBeNull();
+    const sid = String(models.liveSession(pid)._id);
+    expect(await redis.hGet(sessionKey(sid, 'slides'), String(deck.slides[0]._id))).toBeNull();
 
     await expectApiError(
       PresentationService.submitAnswer(pid, {
@@ -217,7 +219,7 @@ describe('content lifecycle (test fixture type)', () => {
       slideIndex: 1,
       optionIndex: 0,
     });
-    expect(redis.hash(`presentation:${pid}:dist:1`)).toEqual({ '0': '1' });
+    expect(redis.hash(sessionKey(sid, 'dist', String(deck.slides[1]._id)))).toEqual({ '0': '1' });
   });
 
   it('code lookup returns the current slide for system slides too', async () => {
@@ -312,7 +314,7 @@ describe('generic answer payload', () => {
 
 describe('lpush_trim ops and the feed', () => {
   it('keeps the newest entries and hands them to distribution', async () => {
-    const { pid, ada } = await liveDeck([{ type: 'test_feed', question: 'Say something', timeLimit: 30 }]);
+    const { deck, pid, ada } = await liveDeck([{ type: 'test_feed', question: 'Say something', timeLimit: 30 }]);
     const bob = await PresentationService.joinPresentation(pid, { name: 'Bob' });
     const cy = await PresentationService.joinPresentation(pid, { name: 'Cy' });
     await PresentationService.advanceSlide(pid, OWNER_ID);
@@ -328,7 +330,8 @@ describe('lpush_trim ops and the feed', () => {
         payload: { text },
       });
     }
-    expect(await redis.lRange(`presentation:${pid}:feed:0`, 0, -1)).toEqual(['third', 'second']);
+    const sid = String(models.liveSession(pid)._id);
+    expect(await redis.lRange(sessionKey(sid, 'feed', String(deck.slides[0]._id)), 0, -1)).toEqual(['third', 'second']);
     await PresentationService.revealCurrentSlide(pid, OWNER_ID);
     expect(redis.lastEvent('question:revealed')!.payload.distribution).toEqual({
       kind: 'feed',
@@ -371,7 +374,7 @@ describe('export columns and cells', () => {
 
 describe('live distribution worker', () => {
   it('pushes the host-only distribution for response slides and drains the buffer', async () => {
-    const { pid, ada } = await liveDeck([SELECT, NOTE_FOR_WORKER]);
+    const { deck, pid, ada } = await liveDeck([SELECT, NOTE_FOR_WORKER]);
     await PresentationService.advanceSlide(pid, OWNER_ID);
     await PresentationService.submitAnswer(pid, {
       participantId: ada.participantId,
@@ -385,6 +388,7 @@ describe('live distribution worker', () => {
     expect(pushed).toHaveLength(1);
     expect(pushed[0]!.audience).toBe('host');
     expect(pushed[0]!.payload).toEqual({
+      slideId: String(deck.slides[0]._id),
       slideIndex: 0,
       answeredCount: 1,
       participantCount: 1,

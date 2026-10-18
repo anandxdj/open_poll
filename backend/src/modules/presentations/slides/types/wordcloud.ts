@@ -27,7 +27,7 @@ export const wordcloudSlide = defineSlideType<WordcloudConfig, z.infer<typeof an
   kind: 'interactive',
   lifecycle: 'response',
   scored: false,
-  schema: builtInSlideSchema('wordcloud'),
+  schema: builtInSlideSchema('wordcloud', { untimed: true }),
   sanitize: builtInParticipantFields,
   acceptConfig: (slide) => ({ maxEntries: slide.maxEntries ?? 3 }),
   answerSchema,

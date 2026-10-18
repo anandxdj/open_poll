@@ -55,3 +55,9 @@ export default migration;
 `syncIndexes()` for `workspaces`, `workspacemembers`, `workspaceinvites`, `workspacegroups`,
 `resourceshares`, `usagecounters`, `mediaassets`, `auditevents`; creates the
 `{identities.provider, identities.subject}` index on `users`.
+
+## 030-presentation-sessions
+
+Moves each deck's stored run into legacy session #1, backfills `sessionId`/`slideId`, ends
+decks left live, swaps the per-deck unique indexes for session-scoped ones. Details and the
+deploy runbook (no live sessions during the deploy): `modules/presentations-live.md`.

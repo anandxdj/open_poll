@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { defineSlideType, registerSlideType } from '../registry';
 import { builtInParticipantFields, builtInSlideSchema, questionLabel } from '../fields';
 import { hincrby, normalizeText, rejectAnswer, speedScore } from '../ops';
+import type { Slide } from '../types';
 
 interface TypeAnswerConfig {
   acceptedNormalized: string[];
@@ -14,6 +15,10 @@ const answerSchema = z.object({ text: z.string().max(500).optional() });
 
 const label = questionLabel('Type answer');
 
+/** Graded: worth points and has an accepted answer. Otherwise no score and no answer revealed. */
+const isGraded = (slide: Pick<Slide, 'points' | 'acceptedAnswers'>) =>
+  (slide.points == null || slide.points > 0) && (slide.acceptedAnswers ?? []).length > 0;
+
 /** Free-text answer matched case/whitespace-insensitively; speed scored. */
 export const typeAnswerSlide = defineSlideType<TypeAnswerConfig, z.infer<typeof answerSchema>>({
   type: 'type_answer',
@@ -21,6 +26,7 @@ export const typeAnswerSlide = defineSlideType<TypeAnswerConfig, z.infer<typeof 
   kind: 'interactive',
   lifecycle: 'response',
   scored: true,
+  isScored: isGraded,
   schema: builtInSlideSchema('type_answer').superRefine((slide, ctx) => {
     if (slide.acceptedAnswers.length < 1) {
       ctx.addIssue({
@@ -50,12 +56,13 @@ export const typeAnswerSlide = defineSlideType<TypeAnswerConfig, z.infer<typeof 
   score: (cfg, { isCorrect, elapsedMs }) =>
     speedScore(cfg.points, cfg.scoreDependsOnTime, cfg.timeLimitMs, isCorrect, elapsedMs),
   distribution: (slide, { dist }) => {
-    const accepted = (slide.acceptedAnswers || []).map(normalizeText);
+    const graded = isGraded(slide);
+    const accepted = graded ? (slide.acceptedAnswers || []).map(normalizeText) : [];
     const answers = Object.entries(dist)
       .map(([text, count]) => ({ text, count: Number(count), isCorrect: accepted.includes(text) }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 20);
-    return { kind: 'text', answers, acceptedAnswers: slide.acceptedAnswers };
+    return { kind: 'text', answers, acceptedAnswers: graded ? slide.acceptedAnswers : [] };
   },
   exportColumns: (slide) => [label(slide)],
   exportCells: (_slide, answer) => [answer?.text ?? null],
