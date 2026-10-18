@@ -1,7 +1,7 @@
 ---
 summary: Minimal-context routing guide for loading only required docs per task.
 status: active
-last_updated: 2026-10-18
+last_updated: 2026-10-19
 ---
 
 # Context Router
@@ -31,6 +31,13 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/realtime/envelope.md` (core: registry, auth, envelope, rooms, delivery)
 - `backend/docs/wiki/realtime/presentations.md` or `realtime/polls.md` (the module you touch)
 - `backend/docs/wiki/realtime/redis-channels.md`
+
+### HTTP app, middleware order and route mounting tasks
+- `backend/docs/wiki/http/app-and-routes.md` (app factory, special mounts, mount table, route snapshot)
+
+### Integration tests, fixtures and dependency spikes
+- `backend/docs/wiki/testing/integration.md`
+- Add `backend/docs/wiki/http/app-and-routes.md` only if the test touches mounts or middleware.
 
 ### AI generation tasks
 - `backend/docs/wiki/modules/ai.md`
