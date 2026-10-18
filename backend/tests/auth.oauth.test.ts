@@ -126,8 +126,10 @@ describe('OIDC account linking', () => {
     });
 
   const findBy = (byEmail: unknown) => {
-    (UserModel as any).findOne = async (filter: Record<string, unknown>) => ('sub' in filter ? null : byEmail);
+    (UserModel as any).findOne = async (filter: Record<string, unknown>) => ('email' in filter ? byEmail : null);
   };
+  const oidcSubjects = (user: any) =>
+    user.identities.filter((entry: any) => entry.provider === 'oidc').map((entry: any) => entry.subject);
 
   it('wipes a pre-registered attacker password when claiming an unverified account', async () => {
     findBy(localAccount({ isVerified: false }));
@@ -138,7 +140,7 @@ describe('OIDC account linking', () => {
     expect(user.resetPasswordToken).toBeUndefined();
     expect(user.role).toBe('user');
     expect(user.isVerified).toBe(true);
-    expect(user.sub).toBe('idp|victim');
+    expect(oidcSubjects(user)).toEqual(['idp|victim']);
     // The removal is persisted, not just hidden on the in-memory doc.
     expect(user.$getChanges().$unset).toMatchObject({ password: 1, verificationToken: 1, resetPasswordToken: 1 });
   });
@@ -147,7 +149,12 @@ describe('OIDC account linking', () => {
     findBy(localAccount({ isVerified: true, role: 'user' }));
     const user: any = await OidcService.findOrLinkUser(claims);
     expect(user.password).toBe(ATTACKER_HASH);
-    expect(user.sub).toBe('idp|victim');
+    expect(oidcSubjects(user)).toEqual(['idp|victim']);
+  });
+
+  it('refuses an email already linked to a different OIDC subject', async () => {
+    findBy(localAccount({ isVerified: true, role: 'user', identities: [{ provider: 'oidc', subject: 'idp|other' }] }));
+    await expect(OidcService.findOrLinkUser(claims)).rejects.toMatchObject({ statusCode: 409 });
   });
 
   it('refuses claims without a verified email', async () => {

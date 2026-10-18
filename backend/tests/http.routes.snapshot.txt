@@ -99,6 +99,7 @@ ROUTER /api/audit
 ROUTER /api/billing
 ROUTER /api/brand-kits
 ROUTER /api/capabilities
+GET /api/capabilities
 ROUTER /api/embeds
 ROUTER /api/folders
 ROUTER /api/imports
@@ -115,5 +116,7 @@ ROUTER /api/sso
 ROUTER /api/templates
 ROUTER /api/themes
 ROUTER /api/uploads
+POST /api/uploads/presign
+POST /api/uploads/complete
 ROUTER /api/workspaces
 USE / errorHandler

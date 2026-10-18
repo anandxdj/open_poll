@@ -17,6 +17,18 @@ import {
   sendResetPasswordEmail,
   sendAccountExistsEmail,
 } from '../../common/config/email';
+import { identityFilter, linkIdentity } from './identities';
+
+/** The Google userinfo (v3) fields account linking relies on. */
+export interface GoogleProfile {
+  sub?: string;
+  email?: string;
+  email_verified?: boolean;
+  verified_email?: boolean;
+  name?: string;
+  given_name?: string;
+  picture?: string;
+}
 
 /**
  * bcrypt hash (cost 12, same as auth.model) of a throwaway string. Compared
@@ -272,6 +284,47 @@ export class AuthService {
     return `${rootUrl}?${qs.toString()}`;
   }
 
+  /**
+   * Resolves the local account for a Google userinfo profile: by the `google`
+   * identity, else by email (linking), else a new user. Changes are saved by
+   * the caller. Never touches the OIDC link or the legacy `sub` field.
+   */
+  static async findOrLinkGoogleUser(profile: GoogleProfile) {
+    if (!profile.email_verified && !profile.verified_email) {
+      throw ApiError.forbidden('Google account is not verified');
+    }
+    if (!profile.sub || typeof profile.email !== 'string') {
+      throw ApiError.unauthorized('Google account is missing an identifier or email');
+    }
+
+    const email = profile.email.toLowerCase();
+    const name = profile.name || profile.given_name || email.split('@')[0]!;
+    const identity = { provider: 'google', subject: profile.sub } as const;
+    let user = await UserModel.findOne(identityFilter(identity));
+    if (!user) user = await UserModel.findOne({ email });
+
+    if (!user) {
+      return UserModel.create({
+        email,
+        name,
+        picture: profile.picture,
+        isVerified: true,
+        role: 'user',
+        identities: [identity],
+      });
+    }
+
+    if (!user.isVerified) resetUnverifiedAccount(user);
+    // Google vouches for the address, so a different Google account now holding
+    // it replaces the previous Google link (as matching by email always did).
+    linkIdentity(user, identity);
+    user.name = name;
+    user.picture = profile.picture;
+    user.isVerified = true;
+    user.lastLogin = new Date();
+    return user;
+  }
+
   static async handleGoogleCallback(code: string) {
     if (!env.google) throw ApiError.unauthorized('Google sign-in is not configured');
     const url = 'https://oauth2.googleapis.com/token';
@@ -302,32 +355,7 @@ export class AuthService {
         }
       );
 
-      const googleUser = googleUserRes.data;
-
-      if (!googleUser.email_verified && !googleUser.verified_email) {
-        throw ApiError.forbidden('Google account is not verified');
-      }
-
-      let user = await UserModel.findOne({ email: googleUser.email });
-
-      if (!user) {
-        user = await UserModel.create({
-          email: googleUser.email,
-          name: googleUser.name || googleUser.given_name,
-          picture: googleUser.picture,
-          isVerified: true,
-          role: 'user',
-          sub: googleUser.sub,
-        });
-      } else {
-        if (!user.isVerified) resetUnverifiedAccount(user);
-        user.name = googleUser.name || googleUser.given_name;
-        user.picture = googleUser.picture;
-        user.isVerified = true;
-        user.lastLogin = new Date();
-        user.sub = googleUser.sub;
-        await user.save();
-      }
+      const user = await AuthService.findOrLinkGoogleUser(googleUserRes.data);
 
       const accessToken = generateAccessToken({
         id: user._id,
