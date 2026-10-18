@@ -78,7 +78,47 @@ Built-in types (`kind`/`lifecycle`): `select_answer`, `type_answer` (scored),
 `wordcloud`, `open_ended`, `scales`, `ranking` — all `interactive`/`response`;
 `leaderboard` — `system`/`system`. They share one flat participant shape
 (`builtInParticipantFields`) and one request base (`builtInSlideSchema`, 5–300s timer,
-question required).
+question required). The eight content types are below.
+
+### Content slide types (`slides/types/content/`)
+
+`kind: 'content'`, `lifecycle: 'content'` (advancing publishes `slide:shown`, no answer
+window, answers and reveal rejected), never scored. The request schema
+(`contentSlideSchema(type, content)` in `content/shared.ts`) is the common fields plus a
+`content` object; `timeLimit` is always stored as 0 and `question` stays `''`. Unknown
+`content` keys are stripped. Text is trimmed and stored as typed: markup in a title is
+**text**, the clients never render it as HTML.
+
+| Type | `content` (request) | Rules |
+| --- | --- | --- |
+| `heading` | `{title, subtitle}` | title 1–150, subtitle ≤300 |
+| `paragraph` | `{title?, body}` | body 1–2000, markdown-lite (`**bold**`, `*italic*`/`_italic_`, `[text](url)`); link targets must be `https:`, `http:` or `mailto:` |
+| `bullets` | `{title?, items}` | 1–10 items, each 1–200 |
+| `image` | `{key\|url, alt, fit, caption}` | `alt` required (≤500); `url` must be `https://` (no credentials); `fit` `contain`\|`cover`; caption ≤300 |
+| `big_number` | `{value, label, prefix, suffix}` | `value` a finite number, \|value\| ≤ 1e15; prefix/suffix ≤12 |
+| `quote` | `{text, attribution}` | text 1–500, attribution ≤150 |
+| `video` | `{provider, id\|key, start}` | `youtube` id `^[A-Za-z0-9_-]{11}$`, `vimeo` id `^[1-9][0-9]{5,11}$`, `file` → `key` of an mp4/webm upload; `start` 0–86400 s; fields of other providers are dropped |
+| `instructions` | `{showQr, showCode, text}` | both flags default true, text ≤300 |
+
+**Media (`content/media.ts`).** An image (or `file` video) points at an upload by storage
+`key`; the schema then pins `url` to `storage.publicUrl(key)`, whatever URL the client sent.
+Keys must be well-formed storage keys with an image (png/jpg/jpeg/gif/webp/avif) or video
+(mp4/webm) extension, and are refused while storage is off ("File uploads are not configured
+on this server; use a link instead"). An image or video with neither source is a placeholder
+(builder drafts, outlines); the builder requires a source for an explicit save.
+`assertContentMediaInWorkspace(slides, workspaceId)` (async) checks that every key is a
+`MediaAsset` of the deck's workspace with a matching `image/*` / `video/*` type (one query),
+else 400 `MEDIA_NOT_FOUND` (`STORAGE_DISABLED` when storage is off). The request schema is
+synchronous and cannot query, so deck create/update must await it with the deck's workspace
+once the schema ran.
+
+**Participant payload.** `sanitize` returns `{content: {…}}` with only the fields above, read
+defensively from the stored Mixed value: never `key`, `notes` or unknown keys. Images and
+`file` videos carry `url` (resolved from the key against the current storage base URL, else
+the stored URL); videos re-check the stored id on the way out (`id: null` when malformed) and
+clamp `start`. Labels come from the content (heading title, paragraph title or body start,
+first bullet, caption/alt, `prefix+value+suffix label`, quote text, "YouTube video",
+instructions text or "How to join").
 
 ## Models (`presentations.model.ts` barrel)
 
@@ -219,6 +259,10 @@ it takes the default `all` audience. Socket handlers live in `presentations.sock
 - `tests/presentations/routes.test.ts` — route table snapshot (order + middleware count).
 - `tests/presentations/registry.test.ts` — registry contract, content lifecycle via a
   test-only type, additive fields, generic payload, `lpush_trim`, exports, worker.
+- `tests/presentations/content.test.ts` — the eight content types: schema accept/reject
+  (script-ish text kept as text, unsafe link/image URLs, strict video ids, upload keys with
+  and without storage), the `sanitize` allow-list, labels, `assertContentMediaInWorkspace`,
+  and a content-only deck run live (`slide:shown` only).
 - `tests/presentations/live.integration.test.ts` — full HTTP lifecycle against real Mongo +
   Redis; skipped unless `TEST_MONGO_URI` and `TEST_REDIS_URL` are set (header has the command).
 

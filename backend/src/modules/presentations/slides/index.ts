@@ -1,5 +1,13 @@
 // Slide type registry entry point. Each type file registers itself on import;
 // add one import line per type, alphabetical (content types live in types/content/).
+import './types/content/big_number';
+import './types/content/bullets';
+import './types/content/heading';
+import './types/content/image';
+import './types/content/instructions';
+import './types/content/paragraph';
+import './types/content/quote';
+import './types/content/video';
 import './types/leaderboard';
 import './types/open_ended';
 import './types/ranking';
