@@ -1,75 +1,36 @@
 import { z } from 'zod';
+import { BUILT_IN_SLIDE_TYPES, getSlideType, listSlideTypes, type ParsedSlide } from './slides';
 
-const optionSchema = z.object({
-  text: z.string().min(1, 'Option text is required').max(200),
-  isCorrect: z.boolean().default(false),
-});
+/** The built-in slide types, in their historical order (AI drafting offers these). */
+export const PRESENTATION_SLIDE_TYPES = BUILT_IN_SLIDE_TYPES;
 
-export const PRESENTATION_SLIDE_TYPES = [
-  'select_answer',
-  'type_answer',
-  'wordcloud',
-  'open_ended',
-  'scales',
-  'ranking',
-  'leaderboard',
-] as const;
-
+/**
+ * One slide in a create/update request. Dispatches on `type` to the registered
+ * type's own schema at parse time, so types registered later (content types,
+ * test fixtures) validate without rebuilding this schema. Issues keep the
+ * type schema's paths, prefixed by the slide's position.
+ */
 export const presentationSlideSchema = z
-  .object({
-    type: z.enum(PRESENTATION_SLIDE_TYPES),
-    question: z.string().min(1, 'Question text is required').max(500),
-    options: z.array(optionSchema).max(8).default([]),
-    acceptedAnswers: z.array(z.string().min(1).max(200)).max(20).default([]),
-    statements: z.array(z.string().min(1).max(200)).max(10).default([]),
-    minLabel: z.string().max(40).default(''),
-    maxLabel: z.string().max(40).default(''),
-    scaleMax: z.number().int().min(2).max(10).default(5),
-    items: z.array(z.string().min(1).max(200)).max(10).default([]),
-    maxEntries: z.number().int().min(1).max(3).default(3),
-    timeLimit: z.number().int().min(5).max(300).default(30),
-    points: z.number().int().min(0).max(10000).default(1000),
-    scoreDependsOnTime: z.boolean().default(true),
-  })
-  .superRefine((slide, ctx) => {
-    if (slide.type === 'leaderboard') return; // no field validation needed for leaderboard slides
-    if (slide.type === 'select_answer') {
-      if (slide.options.length < 2) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['options'],
-          message: 'Select-answer slides need at least 2 options',
-        });
-      }
-      if (!slide.options.some((o) => o.isCorrect)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['options'],
-          message: 'Mark at least one option as correct',
-        });
-      }
-    }
-    if (slide.type === 'type_answer' && slide.acceptedAnswers.length < 1) {
+  .object({ type: z.unknown() })
+  .loose()
+  .transform((slide, ctx): ParsedSlide => {
+    const def = getSlideType(slide.type);
+    if (!def) {
       ctx.addIssue({
         code: 'custom',
-        path: ['acceptedAnswers'],
-        message: 'Type-answer slides need at least one accepted answer',
+        path: ['type'],
+        message: `Invalid option: expected one of ${listSlideTypes()
+          .map((d) => `"${d.type}"`)
+          .join('|')}`,
       });
+      return z.NEVER;
     }
-    if (slide.type === 'scales' && slide.statements.length < 1) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['statements'],
-        message: 'Scales slides need at least one statement',
-      });
+    const result = def.schema.safeParse(slide);
+    if (!result.success) {
+      for (const issue of result.error.issues) ctx.addIssue({ ...issue });
+      return z.NEVER;
     }
-    if (slide.type === 'ranking' && slide.items.length < 2) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['items'],
-        message: 'Ranking slides need at least 2 items',
-      });
-    }
+    return result.data;
   });
 
 export const createPresentationSchema = z.object({
