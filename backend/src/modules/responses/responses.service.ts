@@ -13,6 +13,7 @@ import type { IssueGuestTokenInput, SubmitResponseInput } from './responses.sche
 import { AnalyticsModel } from './analytics.model';
 import type { PollAnalyticsUpdateEvent } from '../../common/realtime/events';
 import { UserModel } from '../auth/auth.model';
+import { assertCan, type PolicyContext } from '../../common/tenancy/policy';
 
 // Dedup markers outlive the voting window by this much. Ballot tokens carry no
 // expiry of their own, so a marker that lapsed while the poll is still open
@@ -373,15 +374,14 @@ export class ResponseService {
     return analytics;
   }
 
-  static async getPollResponsesList(pollId: string, userId: string) {
+  /** `context`: the caller in their current workspace (a request after workspaceContext()). */
+  static async getPollResponsesList(pollId: string, context: PolicyContext) {
     const poll = await PollModel.findById(pollId);
     if (!poll) {
       throw ApiError.notFound('Poll not found');
     }
 
-    if (String(poll.creatorId) !== String(userId)) {
-      throw ApiError.forbidden('You are not authorized to view individual responses for this poll');
-    }
+    assertCan(context, 'session:read', poll);
 
     const responses = await ResponseModel.find({
       pollId: new mongoose.Types.ObjectId(pollId),

@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { ApiError } from '../../common/utils/ApiError';
 import { ApiResponse } from '../../common/utils/ApiResponse';
 import { ResponseService } from './responses.service';
+import type { WorkspaceRequest } from '../../common/tenancy/workspaceContext.middleware';
 
 export class ResponsesController {
   static async issueBallot(req: Request, res: Response, next: NextFunction) {
@@ -49,14 +50,13 @@ export class ResponsesController {
     }
   }
 
-  static async getResponsesList(req: Request, res: Response, next: NextFunction) {
+  static async getResponsesList(req: WorkspaceRequest, res: Response, next: NextFunction) {
     try {
       const pollId = req.params.pollId;
-      const userId = (req as any).user?.id;
       if (!pollId) throw ApiError.badRequest('pollId is required');
-      if (!userId) throw ApiError.unauthorized('Not authenticated');
+      if (!req.user) throw ApiError.unauthorized('Not authenticated');
 
-      const list = await ResponseService.getPollResponsesList(String(pollId), userId);
+      const list = await ResponseService.getPollResponsesList(String(pollId), req);
       return ApiResponse.ok(res, 'Poll responses list fetched successfully', list);
     } catch (error) {
       next(error);

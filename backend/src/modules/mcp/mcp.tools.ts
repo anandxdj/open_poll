@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import mongoose from 'mongoose';
 import { ApiError } from '../../common/utils/ApiError';
+import { assertCan, can } from '../../common/tenancy/policy';
+import type { Action } from '../../common/tenancy/roles';
+import { resolveWorkspaceContext } from '../../common/tenancy/workspaceContext.middleware';
 import { PollService } from '../polls/polls.service';
 import { ResponseService } from '../responses/responses.service';
 import { createPollSchema, updatePollSchema } from '../polls/polls.schema';
@@ -186,9 +189,18 @@ function parsePollId(raw: unknown): string {
   return pollId;
 }
 
-async function assertPollOwner(pollId: string, userId: string) {
+/**
+ * MCP requests carry no X-Workspace-Id: a token acts in its owner's default
+ * workspace (the one last switched to in the app), provisioned on first use.
+ */
+async function workspaceScope(ctx: McpUserContext) {
+  const { workspace, membership } = await resolveWorkspaceContext(ctx.userId);
+  return { user: { id: ctx.userId }, workspace, membership };
+}
+
+async function assertPollAccess(pollId: string, ctx: McpUserContext, action: Action) {
   const poll = await PollService.getPollById(pollId);
-  if (String(poll.creatorId) !== userId) {
+  if (!can(await workspaceScope(ctx), action, poll)) {
     throw ApiError.forbidden('You do not have permission to access this poll');
   }
   return poll;
@@ -256,13 +268,15 @@ async function dispatchMcpTool(
 
   switch (name) {
     case 'list_polls': {
-      const polls = await PollService.listPollsByCreator(ctx.userId);
+      const scope = await workspaceScope(ctx);
+      assertCan(scope, 'deck:read');
+      const polls = await PollService.listPolls({ userId: ctx.userId, workspace: scope.workspace });
       return { polls: serialize(polls) };
     }
 
     case 'get_poll': {
       const pollId = parsePollId(args?.pollId);
-      const poll = await assertPollOwner(pollId, ctx.userId);
+      const poll = await assertPollAccess(pollId, ctx, 'deck:read');
       return { poll: serialize(poll) };
     }
 
@@ -280,6 +294,7 @@ async function dispatchMcpTool(
         isPublished: parsed.isPublished ?? true,
       });
 
+      // No workspace argument: the poll lands in the token owner's default workspace.
       const poll = await PollService.createPoll(validated, ctx.userId);
       return { poll: serialize(poll) };
     }
@@ -303,7 +318,7 @@ async function dispatchMcpTool(
       const parsed = editPollMcpInputSchema.parse(args);
       const { pollId: rawPollId, ...updates } = parsed;
       const pollId = parsePollId(rawPollId);
-      const existing = await assertPollOwner(pollId, ctx.userId);
+      const existing = await assertPollAccess(pollId, ctx, 'deck:edit');
 
       // The stored poll's type is only known after the fetch, so this cannot live in
       // the input schema. Stricter than PollService's own check, which only guards
@@ -325,7 +340,7 @@ async function dispatchMcpTool(
       const parsed = convertPollToAssessmentMcpInputSchema.parse(args);
       const { pollId: rawPollId, ...updates } = parsed;
       const pollId = parsePollId(rawPollId);
-      await assertPollOwner(pollId, ctx.userId);
+      await assertPollAccess(pollId, ctx, 'deck:edit');
 
       const validated = updatePollSchema.parse({ ...updates, pollType: 'TRIAL' });
 
@@ -335,7 +350,7 @@ async function dispatchMcpTool(
 
     case 'get_poll_analytics': {
       const pollId = parsePollId(args?.pollId);
-      await assertPollOwner(pollId, ctx.userId);
+      await assertPollAccess(pollId, ctx, 'session:read');
       const analytics = await ResponseService.getPollAnalytics(pollId);
       return {
         analytics,
@@ -345,7 +360,7 @@ async function dispatchMcpTool(
 
     case 'get_share_link': {
       const pollId = parsePollId(args?.pollId);
-      const poll = await assertPollOwner(pollId, ctx.userId);
+      const poll = await assertPollAccess(pollId, ctx, 'deck:read');
       const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
       const shareUrl = `${frontendUrl}/p/${pollId}`;
 

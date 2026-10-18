@@ -256,12 +256,14 @@ See `realtime/presentations.md` for the event contract.
 
 ## Frontend
 
-`frontend/features/presentations/` (types, api, hooks, components, slideTypeMeta):
-- `/polls` — dashboard "Decks" tab (`PresentationCard`); sidebar "Create Deck" opens
-  `CreatePresentationModal` (title → manual or AI)
-- `/presentation/create` — `PresentationBuilder` (`?id=` edit, `?name=&mode=ai|manual`)
-- `/presentation/host/[id]` — `HostView`: lobby with join code + QR to `/live/{joinCode}`,
-  timer, live/reveal charts, leaderboard
+`frontend/features/presentations/` (slide registries, builder, live store, stage/host/participant
+components; see `frontend/docs/wiki/features/live-surfaces.md`):
+- `/polls` — the unified library (`frontend/features/library`), decks under `?type=presentation`;
+  sidebar "Create Deck" opens `CreatePresentationModal` (title → manual or AI)
+- `/presentation/create` — `PresentationBuilder` shell over `components/builder/`
+  (`?id=` edit, `?name=&mode=ai|manual`)
+- `/presentation/host/[id]` — `components/host/HostConsole`: lobby with join code + QR to
+  `/live/{joinCode}`, timer, live/reveal charts, leaderboard
 - `/live` + `/live/[code]` — participant join + `PlayView` (no app shell)
 
 Old `/quiz/*` and `/quizzes` URLs redirect to these (`frontend/next.config.ts`).

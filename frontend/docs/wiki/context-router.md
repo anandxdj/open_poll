@@ -28,6 +28,14 @@ Before generating any code, identify your task type and read the corresponding s
 
 - **Task**: Changing the deck builder, slide editors, slide types, or inspector tabs.
 - **Action**: Read `frontend/docs/wiki/features/presentation-builder.md`
+- **Task**: Changing the live host console, participant view, stage, slide runtime views, the live store/slots, deck theme tokens, or live i18n.
+- **Action**: Read `frontend/docs/wiki/features/live-surfaces.md`
+
+- **Task**: Workspaces (switcher, selected workspace, `X-Workspace-Id`) or any `/settings` page or section.
+- **Action**: Read `frontend/docs/wiki/features/workspaces.md`
+
+- **Task**: Changing the library at `/polls` (poll + deck cards, filters, convert to presentation).
+- **Action**: Read `frontend/docs/wiki/features/library.md`
 
 ## 4. API & Data
 
@@ -40,5 +48,7 @@ Before generating any code, identify your task type and read the corresponding s
 
 - **Task**: Checking the `/test` dashboard layout, or isolated component tests.
 - **Action**: Read `frontend/docs/wiki/testing/app-test-page.md`
+- **Task**: Running or writing Playwright end-to-end tests (`e2e/**`).
+- **Action**: Read `frontend/docs/wiki/testing/e2e.md`
 
 Remember: **Spec-Driven Development** means no assumptions. Check the spec first.

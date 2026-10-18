@@ -14,6 +14,8 @@ export interface IQuestion {
 
 export interface IPoll extends Document {
   creatorId: string; // Mocked for now, will be User ID later
+  /** Owning workspace. Missing on polls created before migration 020 (policy falls back to creatorId). */
+  workspaceId?: mongoose.Types.ObjectId | null;
   title: string;
   pollType: 'POLL' | 'TRIAL';
   passingScorePercentage: number;
@@ -25,6 +27,8 @@ export interface IPoll extends Document {
   isResultsPublished: boolean;
   resultsPublishedAt?: Date | null;
   questions: IQuestion[];
+  /** The deck made by "Convert to presentation" (library module); null until converted. */
+  convertedPresentationId?: mongoose.Types.ObjectId | null;
 }
 
 // Embedded Question Schema
@@ -48,6 +52,7 @@ const QuestionSchema = new Schema<IQuestion>({
 // Core Poll Schema
 const PollSchema = new Schema<IPoll>({
   creatorId: { type: String, required: true },
+  workspaceId: { type: Schema.Types.ObjectId, ref: 'Workspace' },
   title: { type: String, required: true },
   pollType: { type: String, enum: ['POLL', 'TRIAL'], default: 'POLL' },
   passingScorePercentage: { type: Number, default: 70 },
@@ -65,9 +70,13 @@ const PollSchema = new Schema<IPoll>({
       validator: (v: IQuestion[]) => v.length > 0,
       message: "A poll must contain at least one question."
     }
-  }
+  },
+  convertedPresentationId: { type: Schema.Types.ObjectId, ref: 'Presentation', default: null }
 }, {
   timestamps: true // Automatically adds createdAt and updatedAt
 });
+
+// Workspace poll list, newest first. Production gets it from migration 020.
+PollSchema.index({ workspaceId: 1, createdAt: -1 });
 
 export const PollModel = mongoose.model<IPoll>('Poll', PollSchema);

@@ -24,6 +24,7 @@ import { useCreatePollModal } from "@/features/polls/components/CreatePollModalP
 import { useCreatePresentationModal } from "@/features/presentations/components/CreatePresentationModalProvider";
 import { useTheme } from "next-themes";
 import { useAuthStore } from "@/features/auth";
+import { WorkspaceSwitcher } from "@/features/workspaces/components/WorkspaceSwitcher";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -70,7 +71,7 @@ export default function Sidebar() {
   const { user, logout } = useAuthStore();
 
   const navItems = [
-    { href: "/polls", label: "Dashboard", Icon: LayoutDashboard },
+    { href: "/polls", label: "Library", Icon: LayoutDashboard },
     { href: "/create", label: "Create Poll", Icon: ListPlus },
     { href: "/presentation/create", label: "Create Deck", Icon: Presentation },
     { href: "/analytics", label: "Analytics", Icon: BarChart2 },
@@ -151,6 +152,11 @@ export default function Sidebar() {
           <PanelLeftOpen className="size-3.5" />
         </button>
       )}
+
+      {/* Current workspace */}
+      <div className={cn("shrink-0 px-2 pt-2", !navOpen && "flex justify-center px-0")}>
+        <WorkspaceSwitcher collapsed={!navOpen} />
+      </div>
 
       <div className="h-px bg-sidebar-border mx-3 mt-3 mb-3 shrink-0" />
 
