@@ -1,3 +1,5 @@
+import axios from "axios";
+
 import { apiClient } from "@/lib/api-client";
 import type {
   GeneratedPresentationDraft,
@@ -11,6 +13,17 @@ import type {
 } from "../types";
 
 type ApiOk<T> = { success: boolean; message: string; data: T };
+
+/** The backend's error message for a failed call, when it sent one. */
+export function apiErrorMessage(err: unknown): string | undefined {
+  if (!axios.isAxiosError(err)) return undefined;
+  const data = err.response?.data as { message?: unknown } | undefined;
+  return typeof data?.message === "string" ? data.message : undefined;
+}
+
+export function apiErrorStatus(err: unknown): number | undefined {
+  return axios.isAxiosError(err) ? err.response?.status : undefined;
+}
 
 export interface PresentationDraftInput {
   title: string;

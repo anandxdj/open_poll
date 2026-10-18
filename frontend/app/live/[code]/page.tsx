@@ -8,5 +8,5 @@ export default function LivePlayPage() {
   const code = typeof params?.code === "string" ? params.code : undefined;
 
   if (!code) return null;
-  return <PlayView code={code} />;
+  return <PlayView key={code} code={code} />;
 }
