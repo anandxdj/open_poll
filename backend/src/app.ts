@@ -28,7 +28,7 @@ app.set('trust proxy', 1);
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: env.FRONTEND_URL,
+    origin: env.allowedOrigins,
     methods: ['GET', 'POST'],
   },
 });
@@ -37,13 +37,9 @@ const io = new Server(httpServer, {
 app.use(securityHeaders);
 app.use(cors({
   origin: (origin, callback) => {
-    const allowedOrigins = [
-      ...env.allowedOrigins,
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-    ];
+    // env.allowedOrigins already adds the local dev frontends outside production.
     // Allow requests with no origin (e.g. curl, Postman, server-side)
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || env.allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error(`CORS: Origin ${origin} not allowed`));

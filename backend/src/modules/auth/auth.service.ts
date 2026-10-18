@@ -191,11 +191,9 @@ export class AuthService {
 
     const hashedInput = hashToken(trimmedToken);
 
-    // Check both hashed and raw (for flexibility during development)
-    let user = await UserModel.findOne({ verificationToken: hashedInput }).select('+verificationToken');
-    if (!user) {
-      user = await UserModel.findOne({ verificationToken: trimmedToken }).select('+verificationToken');
-    }
+    // Only the hash is stored, so only the hash may match: accepting the raw
+    // value too would let anyone holding the stored hash verify the account.
+    const user = await UserModel.findOne({ verificationToken: hashedInput }).select('+verificationToken');
 
     if (!user) {
       throw ApiError.badRequest('Invalid or expired verification token');

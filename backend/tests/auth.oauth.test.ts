@@ -211,7 +211,7 @@ describe('Google OAuth state', () => {
     const first = mockRes();
     await AuthController.googleCallback(req(), first as any);
     expect(exchanges).toEqual(['good-code']);
-    expect(first.redirects[0]).toStartWith(`${env.FRONTEND_URL}/auth/callback?code=`);
+    expect(first.redirects[0]).toStartWith(`${env.FRONTEND_URL}/auth/complete?code=`);
     expect(first.cookies.refreshToken?.value).toBe('refresh');
 
     const replay = mockRes();

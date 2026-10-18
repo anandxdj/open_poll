@@ -74,7 +74,7 @@ const redirectWithExchangeCode = async (res: Response, accessToken: string, refr
   res.cookie('refreshToken', refreshToken, sessionCookieOptions);
   const exchangeCode = crypto.randomBytes(32).toString('hex');
   await redisClient.set(`auth:oauth-exchange:${exchangeCode}`, accessToken, { EX: 60 });
-  return res.redirect(`${env.FRONTEND_URL}/auth/callback?code=${exchangeCode}`);
+  return res.redirect(`${env.FRONTEND_URL}/auth/complete?code=${exchangeCode}`);
 };
 
 export class AuthController {
