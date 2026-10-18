@@ -21,7 +21,7 @@ Unit tests are separate: `bun run test` (`bun test tests/unit`, no services).
 
 | Service | Command | Default |
 | --- | --- | --- |
-| Backend | `bun src/app.ts` in `../backend` | `http://localhost:5103`, ready at `/ready` |
+| Backend | `bun scripts/migrate.ts && bun src/app.ts` in `../backend` | `http://localhost:5103`, ready at `/ready` |
 | Frontend | `bun x next dev --port 3103` | `http://localhost:3103` |
 
 Against dedicated test containers — never the dev Mongo/Redis on 27017/6379:

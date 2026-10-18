@@ -29,7 +29,8 @@ export default defineConfig({
   webServer: [
     {
       name: "backend",
-      command: "bun src/app.ts",
+      // Migrate first, as the container entrypoint does (idempotent).
+      command: "bun scripts/migrate.ts && bun src/app.ts",
       cwd: e2eEnv.backendDir,
       url: `${e2eEnv.apiOrigin}/ready`,
       reuseExistingServer: !process.env.CI,
