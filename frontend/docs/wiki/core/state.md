@@ -1,7 +1,7 @@
 ---
 summary: Local storage, device tracking, and React state constraints.
 status: active
-last_updated: 2026-05-13
+last_updated: 2026-10-19
 ---
 
 # Client State & Context
@@ -9,6 +9,11 @@ last_updated: 2026-05-13
 ## Device Identity
 - **Anonymous Tracking**: `deviceId` is stored under `openpoll_device_id` in `localStorage` for anonymous/guest tracking.
 - Do not rely on server sessions for unauthenticated users voting on public polls. All voting must send this stored `deviceId`.
+
+## Selected Workspace
+- `features/workspaces/store/useWorkspaceStore.ts` holds the workspace the app acts in, persisted under
+  `openpoll_workspace` as `{ userId, currentWorkspaceId }`; the API client sends it as `X-Workspace-Id`.
+  Details: `frontend/docs/wiki/features/workspaces.md`.
 
 ## React State
 - Prefer localized component state (`useState`, `useReducer`) over heavy global stores.
