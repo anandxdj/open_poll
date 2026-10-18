@@ -67,3 +67,28 @@ export const sendResetPasswordEmail = async (email: string, token: string) => {
     `
   );
 };
+
+/**
+ * Sent instead of a verification email when someone registers with an address
+ * that already has an account, so the signup response can stay identical.
+ */
+export const sendAccountExistsEmail = async (email: string) => {
+  const loginUrl = `${env.FRONTEND_URL}/login`;
+  const resetUrl = `${env.FRONTEND_URL}/forgot-password`;
+  await sendEmail(
+    email,
+    'You already have an OpenPoll account',
+    `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+      <h2 style="color: #d8ad87;">You already have an account</h2>
+      <p>Someone, hopefully you, tried to sign up for OpenPoll with this email address. An account already exists for it, so nothing was changed.</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${loginUrl}" style="background-color: #d8ad87; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Log in</a>
+      </div>
+      <p>Forgot your password? <a href="${resetUrl}" style="color: #d8ad87;">Reset it here</a>.</p>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+      <p style="font-size: 12px; color: #999;">If this wasn't you, you can safely ignore this email.</p>
+    </div>
+    `
+  );
+};

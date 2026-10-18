@@ -17,12 +17,11 @@ import { setupSocketAndPubSub } from './common/realtime/socket';
 import { startAnalyticsWorker } from './modules/responses/analytics.worker';
 import { startLiveDistributionWorker } from './modules/presentations/liveDistribution.worker';
 import cookieParser from 'cookie-parser';
-import authRouter from './modules/auth/auth.route';
+import authRouter, { oidcCallbackHandlers } from './modules/auth/auth.route';
 import presentationsRouter from './modules/presentations/presentations.route';
 import mcpRouter from './modules/mcp/mcp.route';
 import mcpSettingsRouter from './modules/mcp/mcp.settings.route';
 import { mongoSanitize, securityHeaders } from './common/middlewares/security.middleware';
-import { AuthController } from './modules/auth/auth.controller';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -80,7 +79,7 @@ app.get('/ready', (req, res) => {
 
 // Registered OIDC redirect URI. Token exchange and ID-token validation happen
 // here before the browser is sent back to the frontend.
-app.get('/auth/callback', AuthController.oidcCallback as any);
+app.get('/auth/callback', ...oidcCallbackHandlers);
 
 app.use('/api/auth', authRouter);
 app.use('/api/polls', pollsRouter);
