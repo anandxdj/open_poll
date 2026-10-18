@@ -1,0 +1,139 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Deck theme tokens.
+
+   Every stage (projected screen, host console) and participant surface
+   colours itself through these `--deck-*` variables, via the `deck-*`
+   Tailwind colours registered below (`bg-deck-stage-bg`, `text-deck-accent/40`…).
+   The defaults reproduce the built-in look exactly: audience surfaces follow
+   the app theme (light/dark), the stage is always dark, accents are the
+   Tailwind palette values the UI used before.
+
+   A deck theme overrides any subset on <DeckThemeProvider> (inline style);
+   inside that scope the app's shadcn tokens are remapped to the deck ones so
+   Button/Input/Textarea follow the theme too.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Audience surfaces — follow the app theme */
+  --deck-bg: var(--background);
+  --deck-fg: var(--foreground);
+  --deck-surface: var(--card);
+  --deck-secondary: var(--secondary);
+  --deck-muted-fg: var(--muted-foreground);
+  --deck-border: var(--border);
+  --deck-input: var(--input);
+  --deck-ring: var(--ring);
+  --deck-primary: var(--primary);
+  --deck-primary-fg: var(--primary-foreground);
+
+  /* Stage — always dark */
+  --deck-stage-bg: #050505;
+  --deck-stage-chrome: #0a0a0a;
+  --deck-stage-panel: #0d0d0d;
+  --deck-stage-fg: #fff;
+  --deck-stage-scrim: #000;
+  --deck-stage-ink: oklch(12.9% 0.042 264.695); /* slate-950: text on accent fills */
+  --deck-qr-bg: #fff; /* QR codes need a light quiet zone to scan */
+
+  /* Semantic accents */
+  --deck-accent: oklch(82.8% 0.189 84.429); /* amber-400 */
+  --deck-accent-strong: oklch(76.9% 0.188 70.08); /* amber-500 */
+  --deck-accent-soft: oklch(87.9% 0.169 91.605); /* amber-300 */
+  --deck-correct: oklch(69.6% 0.17 162.48); /* emerald-500 */
+  --deck-correct-soft: oklch(76.5% 0.177 163.223); /* emerald-400 */
+  --deck-correct-deep: oklch(26.2% 0.051 172.552); /* emerald-950 */
+  --deck-correct-alt: oklch(77.7% 0.152 181.912); /* teal-400 */
+  --deck-live: oklch(76.5% 0.177 163.223); /* emerald-400: "answers coming in" dot */
+  --deck-danger: oklch(64.5% 0.246 16.439); /* rose-500 */
+  --deck-danger-strong: oklch(58.6% 0.253 17.585); /* rose-600 */
+  --deck-danger-soft: oklch(71.2% 0.194 13.428); /* rose-400 */
+  --deck-wrong: oklch(70.4% 0.191 22.216); /* red-400: wrong answer, urgent timer */
+  --deck-info: oklch(74.6% 0.16 232.661); /* sky-400: unscored response received */
+  --deck-bar: oklch(70.5% 0.213 47.604); /* orange-500: free-text answer bars */
+  --deck-rank-1: oklch(85.2% 0.199 91.936); /* yellow-400 */
+  --deck-rank-2: oklch(87.1% 0.006 286.286); /* zinc-300 */
+  --deck-rank-3: oklch(66.6% 0.179 58.318); /* amber-600 */
+  --deck-glow-correct: rgb(16 185 129);
+  --deck-glow-accent: rgb(245 158 11);
+
+  /* Word cloud palette */
+  --deck-cloud-1: oklch(74.6% 0.16 232.661); /* sky-400 */
+  --deck-cloud-2: oklch(76.5% 0.177 163.223); /* emerald-400 */
+  --deck-cloud-3: oklch(85.2% 0.199 91.936); /* yellow-400 */
+  --deck-cloud-4: oklch(75% 0.183 55.934); /* orange-400 */
+  --deck-cloud-5: oklch(71.2% 0.194 13.428); /* rose-400 */
+  --deck-cloud-6: oklch(71.4% 0.203 305.504); /* purple-400 */
+  --deck-cloud-7: oklch(78.9% 0.154 211.53); /* cyan-400 */
+  --deck-cloud-8: oklch(70.2% 0.183 293.541); /* violet-400 */
+  --deck-cloud-9: oklch(74% 0.238 322.16); /* fuchsia-400 */
+  --deck-cloud-10: oklch(84.1% 0.238 128.85); /* lime-400 */
+  --deck-cloud-11: oklch(87.9% 0.169 91.605); /* amber-300 */
+  --deck-cloud-12: oklch(85.5% 0.138 181.071); /* teal-300 */
+}
+
+/* Inside a deck scope the shadcn primitives read the deck tokens. The deck
+   values are inherited (already computed), so this never forms a cycle. */
+[data-deck-theme] {
+  --background: var(--deck-bg);
+  --foreground: var(--deck-fg);
+  --card: var(--deck-surface);
+  --secondary: var(--deck-secondary);
+  --muted-foreground: var(--deck-muted-fg);
+  --border: var(--deck-border);
+  --input: var(--deck-input);
+  --ring: var(--deck-ring);
+  --primary: var(--deck-primary);
+  --primary-foreground: var(--deck-primary-fg);
+}
+
+/* `inline` so utilities read the variable where they are used — a deck scope
+   overriding `--deck-*` then recolours everything inside it. */
+@theme inline {
+  --color-deck-bg: var(--deck-bg);
+  --color-deck-fg: var(--deck-fg);
+  --color-deck-surface: var(--deck-surface);
+  --color-deck-secondary: var(--deck-secondary);
+  --color-deck-muted-fg: var(--deck-muted-fg);
+  --color-deck-border: var(--deck-border);
+  --color-deck-primary: var(--deck-primary);
+  --color-deck-primary-fg: var(--deck-primary-fg);
+
+  --color-deck-stage-bg: var(--deck-stage-bg);
+  --color-deck-stage-chrome: var(--deck-stage-chrome);
+  --color-deck-stage-panel: var(--deck-stage-panel);
+  --color-deck-stage-fg: var(--deck-stage-fg);
+  --color-deck-stage-scrim: var(--deck-stage-scrim);
+  --color-deck-stage-ink: var(--deck-stage-ink);
+  --color-deck-qr-bg: var(--deck-qr-bg);
+
+  --color-deck-accent: var(--deck-accent);
+  --color-deck-accent-strong: var(--deck-accent-strong);
+  --color-deck-accent-soft: var(--deck-accent-soft);
+  --color-deck-correct: var(--deck-correct);
+  --color-deck-correct-soft: var(--deck-correct-soft);
+  --color-deck-correct-deep: var(--deck-correct-deep);
+  --color-deck-correct-alt: var(--deck-correct-alt);
+  --color-deck-live: var(--deck-live);
+  --color-deck-danger: var(--deck-danger);
+  --color-deck-danger-strong: var(--deck-danger-strong);
+  --color-deck-danger-soft: var(--deck-danger-soft);
+  --color-deck-wrong: var(--deck-wrong);
+  --color-deck-info: var(--deck-info);
+  --color-deck-bar: var(--deck-bar);
+  --color-deck-rank-1: var(--deck-rank-1);
+  --color-deck-rank-2: var(--deck-rank-2);
+  --color-deck-rank-3: var(--deck-rank-3);
+
+  --color-deck-cloud-1: var(--deck-cloud-1);
+  --color-deck-cloud-2: var(--deck-cloud-2);
+  --color-deck-cloud-3: var(--deck-cloud-3);
+  --color-deck-cloud-4: var(--deck-cloud-4);
+  --color-deck-cloud-5: var(--deck-cloud-5);
+  --color-deck-cloud-6: var(--deck-cloud-6);
+  --color-deck-cloud-7: var(--deck-cloud-7);
+  --color-deck-cloud-8: var(--deck-cloud-8);
+  --color-deck-cloud-9: var(--deck-cloud-9);
+  --color-deck-cloud-10: var(--deck-cloud-10);
+  --color-deck-cloud-11: var(--deck-cloud-11);
+  --color-deck-cloud-12: var(--deck-cloud-12);
+}
