@@ -38,6 +38,10 @@ This document tracks the features we have already implemented and the features w
   sub-reducers, slots, the slide runtime registry (`participant.tsx`/`stage.tsx` per type,
   builder thumbnails via `StageView mode="thumbnail"`), `--deck-*` theme tokens, next-intl
   for live routes, Playwright e2e + unit tests. Detail: `live-surfaces.md`.
+- **Unified library (`/polls`)**: `features/library/` — polls and decks as one card list from
+  `GET /api/library` (type tabs, status filter, search, URL filters, infinite scroll), per-card
+  actions, "Convert to presentation" for polls; `/presentations` redirects to
+  `?type=presentation`; sidebar item renamed "Library".
 
 ## 🚧 Features In Progress / To Implement
 

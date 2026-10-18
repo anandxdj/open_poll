@@ -71,7 +71,7 @@ export default function Sidebar() {
   const { user, logout } = useAuthStore();
 
   const navItems = [
-    { href: "/polls", label: "Dashboard", Icon: LayoutDashboard },
+    { href: "/polls", label: "Library", Icon: LayoutDashboard },
     { href: "/create", label: "Create Poll", Icon: ListPlus },
     { href: "/presentation/create", label: "Create Deck", Icon: Presentation },
     { href: "/analytics", label: "Analytics", Icon: BarChart2 },

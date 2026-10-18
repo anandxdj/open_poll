@@ -27,6 +27,8 @@ export interface IPoll extends Document {
   isResultsPublished: boolean;
   resultsPublishedAt?: Date | null;
   questions: IQuestion[];
+  /** The deck made by "Convert to presentation" (library module); null until converted. */
+  convertedPresentationId?: mongoose.Types.ObjectId | null;
 }
 
 // Embedded Question Schema
@@ -68,7 +70,8 @@ const PollSchema = new Schema<IPoll>({
       validator: (v: IQuestion[]) => v.length > 0,
       message: "A poll must contain at least one question."
     }
-  }
+  },
+  convertedPresentationId: { type: Schema.Types.ObjectId, ref: 'Presentation', default: null }
 }, {
   timestamps: true // Automatically adds createdAt and updatedAt
 });

@@ -18,6 +18,9 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/modules/polls.md`
 - `backend/docs/wiki/api/polls.md`
 
+### Unified library, poll → deck conversion, legacy quiz copy (migration 010)
+- `backend/docs/wiki/modules/library.md`
+
 ### Response validation and analytics tasks
 - `backend/docs/wiki/modules/responses.md`
 - `backend/docs/wiki/api/responses.md`

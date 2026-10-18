@@ -34,6 +34,9 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Workspaces (switcher, selected workspace, `X-Workspace-Id`) or any `/settings` page or section.
 - **Action**: Read `frontend/docs/wiki/features/workspaces.md`
 
+- **Task**: Changing the library at `/polls` (poll + deck cards, filters, convert to presentation).
+- **Action**: Read `frontend/docs/wiki/features/library.md`
+
 ## 4. API & Data
 
 - **Task**: Writing fetch calls, React Query hooks, or API integrations.

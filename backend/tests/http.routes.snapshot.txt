@@ -105,6 +105,8 @@ ROUTER /api/folders
 ROUTER /api/imports
 ROUTER /api/insights
 ROUTER /api/library
+GET /api/library
+POST /api/library/convert/poll/:pollId
 ROUTER /api/me
 ROUTER /api/oembed
 ROUTER /api/plans
