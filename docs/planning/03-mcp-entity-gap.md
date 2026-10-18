@@ -7,8 +7,9 @@
 > original remediation. The schema widening described below shipped first; it was
 > superseded by a **tool split** (`create_assessment` / `convert_poll_to_assessment`)
 > because a widened single tool could still be called with the answers omitted — see
-> "Superseded: why widening was not enough". Still open: the `quizzes` dead-module
-> cleanup, the REST-surface validation hole, and the doc drift — all recorded below.
+> "Superseded: why widening was not enough". The leftovers recorded below — the REST
+> validation hole, the `quizzes` dead module, the undocumented MCP publish default and
+> the doc drift — were closed on 2026-10-18; see "Follow-up: leftovers closed".
 
 ## Verdict
 
@@ -290,6 +291,27 @@ running backend (`backend/scratch/`, throwaway, not part of the app):
 The original fix was also negative-controlled: reverting to the pre-fix handler turned the
 probe into 8 pass / 26 fail, reproducing `pollType: "POLL"` on a TRIAL request.
 
+## Follow-up: leftovers closed (2026-10-18)
+
+- **REST hole.** `polls/polls.grading.ts` now holds the gradeability rules (answers
+  present, indices in range, at most one for `single`), shared by REST, `PollService` and
+  MCP. `POST /api/polls` validates with `createPollRequestSchema` (a refined copy, so
+  `createPollSchema.pick()` in `ai.schema.ts` still works); `PollService.updatePoll`
+  checks the post-update poll against the stored `pollType`/`isPublished`/`questions`.
+  Scope: **published** assessments only — the web builder autosaves `TRIAL` drafts before
+  answers are marked. MCP stays stricter. Tests: `backend/tests/polls.grading.test.ts`.
+- **`quizzes` module.** Deleted. It was not just dead code: `socket.ts` checked every
+  `quiz:join` against `QuizService` before `PresentationService` (a wasted lookup on a
+  collection nothing writes, not an auth hole), and the live distribution worker drained a
+  buffer only the unreachable `QuizService` filled. Both now use presentations only; the
+  AI module imports `PRESENTATION_SLIDE_TYPES`/`presentationSlideSchema`. On the frontend,
+  `features/quizzes` was still live (host view, QR target, dashboard decks tab) and was
+  folded into `features/presentations`; `/quiz/*` URLs redirect.
+- **MCP publish default.** Stated in the `isPublished` field description, both create
+  tool descriptions, the server instructions and the MCP README.
+- **Doc drift.** `backend/docs/wiki/modules/presentations.md` replaces `quizzes.md`;
+  `polls.md` documents assessments; `01-competitive-roadmap.md` corrected.
+
 ## Next steps
 
 1. ~~Branch off for this work.~~ Done — `fix/mcp-assessment-polltype`.
@@ -300,6 +322,5 @@ probe into 8 pass / 26 fail, reproducing `pollType: "POLL"` on a TRIAL request.
 4. **Manual end-to-end test with a real MCP client** (Claude Desktop via `mcp-remote`) —
    the probes drive the transport directly, so no real agent has yet chosen a tool from
    these descriptions unaided. That is the remaining unknown.
-5. Close the REST-surface hole (see "The REST hole remains open" above) — direct REST
-   callers can still persist an ungradeable assessment.
-6. Separately: `quizzes` module deletion, and the doc drift above.
+5. ~~Close the REST-surface hole.~~ Done — see "Follow-up: leftovers closed".
+6. ~~Separately: `quizzes` module deletion, and the doc drift above.~~ Done.

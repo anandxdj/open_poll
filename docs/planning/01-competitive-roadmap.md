@@ -23,7 +23,7 @@ is the *why*. Phases here are **product epics**, higher-altitude than
 
 | Capability | State | Notes |
 | --- | --- | --- |
-| Unified **Presentation** (mixed content + interactive slides) | ❌ | Two silos (`polls`, `quizzes`). The #1 gap. |
+| Unified **Presentation** (mixed content + interactive slides) | 🟡 | `presentations` module is live and replaced `quizzes` (interactive + leaderboard slides only). Still two silos (`polls`, `presentations`) and no content slides. The #1 gap. |
 | Content slide types (heading, paragraph, bullets, image, big number, quote, video) | ❌ | Needed so a whole talk lives in the tool. |
 | Presenter-paced flow | ✅ | Quiz state machine already does this. |
 | Audience-paced / self-paced flow | 🟡 | Async poll flow exists but disconnected from decks. |

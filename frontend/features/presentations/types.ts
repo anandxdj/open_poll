@@ -7,8 +7,6 @@ export type PresentationSlideType =
   | "ranking"
   | "leaderboard";
 
-export type QuizSlideType = PresentationSlideType;
-
 export const SCORED_SLIDE_TYPES: PresentationSlideType[] = ["select_answer", "type_answer"];
 
 export const isScoredSlideType = (type: PresentationSlideType) =>
@@ -16,13 +14,10 @@ export const isScoredSlideType = (type: PresentationSlideType) =>
 
 export type PresentationStatus = "draft" | "lobby" | "active" | "ended";
 
-export type QuizStatus = PresentationStatus;
-
 export interface PresentationSlideOption {
   text: string;
   isCorrect: boolean;
 }
-export type QuizSlideOption = PresentationSlideOption;
 
 export interface PresentationSlide {
   _id?: string;
@@ -45,7 +40,6 @@ export interface PresentationSlide {
   points: number;
   scoreDependsOnTime: boolean;
 }
-export type QuizSlide = PresentationSlide;
 
 export interface Presentation {
   _id: string;
@@ -60,7 +54,6 @@ export interface Presentation {
   createdAt: string;
   updatedAt: string;
 }
-export type Quiz = Presentation;
 
 /** Slide as broadcast to participants — answer keys stripped */
 export interface LiveSlide {
@@ -141,8 +134,6 @@ export type PresentationRealtimeEventType =
   | "leaderboard:shown"
   | "quiz:ended";
 
-export type QuizRealtimeEventType = PresentationRealtimeEventType;
-
 export interface PresentationRealtimeEvent {
   quizId: string;
   presentationId?: string;
@@ -150,7 +141,6 @@ export interface PresentationRealtimeEvent {
   payload: Record<string, unknown>;
   emittedAt: string;
 }
-export type QuizRealtimeEvent = PresentationRealtimeEvent;
 
 export interface PresentationParticipantSelf {
   participantId: string;
@@ -159,7 +149,6 @@ export interface PresentationParticipantSelf {
   token: string;
   deviceToken: string;
 }
-export type QuizParticipantSelf = PresentationParticipantSelf;
 
 export interface ParticipantState {
   participantId: string;
@@ -199,7 +188,6 @@ export interface PublicPresentationInfo {
   questionStartedAt?: string;
   questionEndsAt?: string;
 }
-export type PublicQuizInfo = PublicPresentationInfo;
 
 // ---------- AI generation ----------
 
@@ -209,10 +197,8 @@ export interface GeneratePresentationInput {
   slideTypes: PresentationSlideType[];
   tone?: string;
 }
-export type GenerateQuizInput = GeneratePresentationInput;
 
 export interface GeneratedPresentationDraft {
   title: string;
   slides: PresentationSlide[];
 }
-export type GeneratedQuizDraft = GeneratedPresentationDraft;

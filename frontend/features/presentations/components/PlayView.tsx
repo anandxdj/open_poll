@@ -15,7 +15,6 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getApiErrorMessage, getApiErrorStatus } from "@/lib/api-error";
 import {
   getParticipantState,
   getPresentationByCode,
@@ -40,30 +39,47 @@ import type {
   PresentationRealtimeEvent,
   RevealPayload,
 } from "../types";
+import { getApiErrorMessage, getApiErrorStatus } from "@/lib/api-error";
 
 const ease = [0.32, 0.72, 0, 1] as const;
 
+interface StoredParticipant {
+  participantId: string;
+  name: string;
+  token: string;
+}
 
+interface StoredSession extends Partial<StoredParticipant> {
+  /** Server-signed device identity, presented on rejoin after a refresh */
+  deviceToken?: string;
+}
+
+const storageKeyFor = (code: string) => `openpoll_participant_${code}`;
+
+function readSession(code: string): StoredSession {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(storageKeyFor(code)) ?? "{}") as StoredSession;
+  } catch {
+    return {};
+  }
+}
+
+function writeSession(code: string, session: StoredSession) {
+  try {
+    localStorage.setItem(storageKeyFor(code), JSON.stringify(session));
+  } catch {
+    // Private mode / quota: the session just won't survive a refresh.
+  }
+}
+
+function readParticipant(code: string): StoredParticipant | null {
+  const { participantId, name, token } = readSession(code);
+  return participantId && name && token ? { participantId, name, token } : null;
+}
 
 interface PlayViewProps {
   code: string;
-}
-
-type StoredParticipant = { participantId: string; token: string; name: string };
-
-/** Participant session saved by a previous join on this device, if any. */
-function readStoredParticipant(storageKey: string): StoredParticipant | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const stored = localStorage.getItem(storageKey);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (parsed.participantId && parsed.token && parsed.name) {
-        return { participantId: parsed.participantId, token: parsed.token, name: parsed.name };
-      }
-    }
-  } catch {}
-  return null;
 }
 
 export function PlayView({ code }: PlayViewProps) {
@@ -71,22 +87,21 @@ export function PlayView({ code }: PlayViewProps) {
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const storageKey = `openpoll_participant_${code}`;
-
-  // Participant session (stored in localStorage per code). Restored on the
-  // first client render: until the deck info loads this view only renders a
-  // loader, so server and client markup still match. `code` is a route param,
-  // so a different code mounts a fresh PlayView.
-  const [storedParticipant] = useState(() => readStoredParticipant(storageKey));
+  // Participant session, persisted in localStorage per join code. Read lazily:
+  // the first render is the loading spinner either way, so the server/client
+  // difference never reaches the markup. The page keys this view by code, so
+  // a different code remounts it rather than reusing this state.
   const [nameInput, setNameInput] = useState("");
-  const [participantId, setParticipantId] = useState<string | null>(storedParticipant?.participantId ?? null);
-  const [participantName, setParticipantName] = useState<string | null>(storedParticipant?.name ?? null);
-  const [token, setToken] = useState<string | null>(storedParticipant?.token ?? null);
+  const [participant, setParticipant] = useState<StoredParticipant | null>(() => readParticipant(code));
+  const participantId = participant?.participantId ?? null;
+  const participantName = participant?.name ?? null;
+  const token = participant?.token ?? null;
   const [joining, setJoining] = useState(false);
 
-  // Live question state
+  // Live question state. serverNow travels with each deadline so the countdown
+  // re-syncs its clock offset per question rather than reusing the page-load one.
   const [currentSlide, setCurrentSlide] = useState<LiveSlide | null>(null);
-  const [endsAt, setEndsAt] = useState<string | null>(null);
+  const [timing, setTiming] = useState<{ endsAt: string; serverNow: string } | null>(null);
   const [submittedSlideIndex, setSubmittedSlideIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -107,14 +122,29 @@ export function PlayView({ code }: PlayViewProps) {
   // Leaderboard slide currently on screen (host advanced to a leaderboard slide).
   const [leaderboardView, setLeaderboardView] = useState<LeaderboardEntry[] | null>(null);
 
+  // Fresh inputs for a slide. Also runs for the slide a late joiner (or a
+  // refresh) lands on, or scales/ranking would submit empty answers.
+  const resetInputs = (slide: LiveSlide) => {
+    setSubmittedSlideIndex(null);
+    setSelectedOption(null);
+    setTypedText("");
+    setWordCloudEntries([]);
+    setEntryDraft("");
+    setRatings((slide.statements ?? []).map(() => Math.ceil((slide.scaleMax || 5) / 2)));
+    setRankingOrder((slide.items ?? []).map((_, i) => i));
+  };
+
+  const presentationId = info?.presentationId || info?.quizId;
+
   useEffect(() => {
     void (async () => {
       try {
         const data = await getPresentationByCode(code);
         setInfo(data);
-        if (data.currentSlide) {
+        if (data.currentSlide && data.questionEndsAt) {
           setCurrentSlide(data.currentSlide);
-          setEndsAt(data.questionEndsAt ?? null);
+          setTiming({ endsAt: data.questionEndsAt, serverNow: data.serverNow });
+          resetInputs(data.currentSlide);
         }
       } catch {
         setNotFound(true);
@@ -125,34 +155,46 @@ export function PlayView({ code }: PlayViewProps) {
   }, [code]);
 
   const fetchMeState = async () => {
-    const presentationId = info?.presentationId || info?.quizId;
     if (!presentationId || !participantId || !token) return;
     try {
-      const state = await getParticipantState(presentationId, participantId, token);
-      setMeState(state);
-    } catch {}
+      setMeState(await getParticipantState(presentationId, participantId, token));
+    } catch {
+      // Score panel just stays as it was.
+    }
   };
 
   usePresentationSocket(
-    info?.presentationId || info?.quizId,
+    presentationId,
     (event: PresentationRealtimeEvent) => {
       switch (event.type) {
         case "lobby:opened": {
+          // (Re)opening the lobby wipes every participant server-side, so the
+          // stored credentials are dead: drop them and show the nickname gate.
+          // The device token is kept so the rejoin stays one identity.
           setInfo((prev) => (prev ? { ...prev, status: "lobby", currentSlideIndex: -1 } : prev));
           setCurrentSlide(null);
+          setTiming(null);
+          setReveal(null);
+          setLeaderboardView(null);
+          setMeState(null);
           setSubmittedSlideIndex(null);
+          if (participant) {
+            writeSession(code, { deviceToken: readSession(code).deviceToken });
+            setParticipant(null);
+          }
           break;
         }
         case "question:started": {
           const payload = event.payload as {
             slide: LiveSlide;
-            startedAt: string;
             endsAt: string;
+            serverNow: string;
           };
           setCurrentSlide(payload.slide);
-          setEndsAt(payload.endsAt);
+          setTiming({ endsAt: payload.endsAt, serverNow: payload.serverNow });
           setReveal(null);
           setLeaderboardView(null);
+          setMeState(null);
           setInfo((prev) =>
             prev
               ? {
@@ -162,18 +204,7 @@ export function PlayView({ code }: PlayViewProps) {
                 }
               : prev
           );
-          // Reset form state for new question
-          setSubmittedSlideIndex(null);
-          setSelectedOption(null);
-          setTypedText("");
-          setWordCloudEntries([]);
-          setEntryDraft("");
-          if (payload.slide.type === "scales") {
-            setRatings(new Array(payload.slide.statements.length).fill(Math.ceil(payload.slide.scaleMax / 2)));
-          }
-          if (payload.slide.type === "ranking") {
-            setRankingOrder(payload.slide.items.map((_, i) => i));
-          }
+          resetInputs(payload.slide);
           break;
         }
         case "question:revealed": {
@@ -205,7 +236,6 @@ export function PlayView({ code }: PlayViewProps) {
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const presentationId = info?.presentationId || info?.quizId;
     if (!presentationId) return;
     const trimmed = nameInput.trim();
     if (!trimmed) {
@@ -213,39 +243,23 @@ export function PlayView({ code }: PlayViewProps) {
       return;
     }
 
-    let existingDeviceToken: string | undefined;
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) existingDeviceToken = JSON.parse(stored).deviceToken;
-    } catch {}
-
     setJoining(true);
     try {
-      const self = await joinPresentation(presentationId, trimmed, existingDeviceToken);
-      setParticipantId(self.participantId);
-      setParticipantName(self.name);
-      setToken(self.token);
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          participantId: self.participantId,
-          token: self.token,
-          name: self.name,
-          deviceToken: self.deviceToken,
-        })
-      );
+      const self = await joinPresentation(presentationId, trimmed, readSession(code).deviceToken);
+      const joined = { participantId: self.participantId, name: self.name, token: self.token };
+      setParticipant(joined);
+      writeSession(code, { ...joined, deviceToken: self.deviceToken });
       toast.success(`Welcome, ${self.name}!`);
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(getApiErrorMessage(err) || "Could not join presentation.");
     } finally {
       setJoining(false);
     }
   };
 
-  const targetMs = endsAt ? new Date(endsAt).getTime() : null;
   const { secondsLeft, progress, expired } = useCountdown(
-    targetMs,
-    info?.serverNow,
+    timing?.endsAt,
+    timing?.serverNow,
     currentSlide?.timeLimit ?? 30
   );
 
@@ -256,7 +270,6 @@ export function PlayView({ code }: PlayViewProps) {
     ratings?: number[];
     ranking?: number[];
   }) => {
-    const presentationId = info?.presentationId || info?.quizId;
     if (!presentationId || !participantId || !token || currentSlide === null) return;
     setSubmitting(true);
     try {
@@ -270,7 +283,7 @@ export function PlayView({ code }: PlayViewProps) {
       // Fetch immediate result so scored slides can show green/red on the
       // participant's own choice right away (correct answer still hidden until reveal).
       void fetchMeState();
-    } catch (err) {
+    } catch (err: unknown) {
       if (getApiErrorStatus(err) === 409) {
         setSubmittedSlideIndex(currentSlide.slideIndex);
         void fetchMeState();

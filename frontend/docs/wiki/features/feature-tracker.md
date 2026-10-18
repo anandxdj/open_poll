@@ -26,6 +26,12 @@ This document tracks the features we have already implemented and the features w
   (title → manual or AI); `AiQuizModal` calls `POST /api/ai/generate-quiz` and fills the
   builder. `/polls` dashboard unified with a Polls/Quizzes switcher (quiz stats + shared
   `QuizCard`).
+- **Quiz UI folded into presentation decks**: `features/quizzes/` and the `/quiz/*` +
+  `/quizzes` routes are gone; everything above now lives in `features/presentations/`
+  (`PresentationBuilder`, `HostView`, `PlayView`, `PresentationCard`,
+  `CreatePresentationModal`) at `/presentation/create`, `/presentation/host/[id]`, `/live`
+  and `/live/[code]`. The host QR code points at `/live/{joinCode}`. Old `/quiz/...` URLs
+  308-redirect to their equivalents (`next.config.ts`), query string included.
 
 ## 🚧 Features In Progress / To Implement
 

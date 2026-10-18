@@ -128,4 +128,4 @@ reflected on all clients within 1s.
 - All realtime via `quiz:event` envelope on Redis pub/sub — no direct `io.emit` from services.
 - Every new public endpoint gets a rate limit; every new participant action requires the
   participant token.
-- Update this file + `modules/quizzes.md` + `realtime/socket-events.md` when a phase ships.
+- Update this file + `modules/presentations.md` + `realtime/socket-events.md` when a phase ships.

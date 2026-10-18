@@ -2,9 +2,16 @@ import { PollModel } from './polls.model';
 import type { CreatePollInput, UpdatePollInput } from './polls.schema';
 import { ApiError } from '../../common/utils/ApiError';
 import { AnalyticsModel } from '../responses/analytics.model';
+import { assertQuestionsGradeable } from './polls.grading';
 
 export class PollService {
   static async createPoll(payload: CreatePollInput, creatorId: string) {
+    // The REST route already rejects this field-by-field (createPollRequestSchema);
+    // repeated here so no caller can persist a live assessment nobody can score.
+    if (payload.pollType === 'TRIAL' && payload.isPublished) {
+      assertQuestionsGradeable(payload.questions);
+    }
+
     const newPoll = await PollModel.create({
       ...payload,
       expiresAt: new Date(payload.expiresAt),
@@ -40,6 +47,19 @@ export class PollService {
 
     if (poll.isClosed) {
       throw ApiError.badRequest('Closed polls cannot be updated');
+    }
+
+    // Judge gradeability on the poll as it will be AFTER this update, which needs
+    // the stored values: a PATCH carrying only { isPublished: true } can put an
+    // answerless TRIAL draft live, and one carrying only questions can strip the
+    // answers from a live assessment. Updates that touch none of these fields are
+    // left alone so an unrelated edit is never blocked by pre-existing data.
+    const nextType = payload.pollType ?? poll.pollType;
+    const nextPublished = payload.isPublished ?? poll.isPublished;
+    const touchesGrading =
+      payload.questions !== undefined || payload.pollType !== undefined || payload.isPublished !== undefined;
+    if (nextType === 'TRIAL' && nextPublished && touchesGrading) {
+      assertQuestionsGradeable(payload.questions ?? poll.questions);
     }
 
     if (payload.title !== undefined) poll.title = payload.title;

@@ -113,31 +113,22 @@ export const publishPresentationEvent = async (
   }
 };
 
+// Live answer distribution for one slide, built from the hot-path Redis keys.
+// Shared by reveal, host state, and the live distribution worker.
 export const computeSlideDistributionHelper = async (
-  prefix: 'presentation' | 'quiz',
-  id: string,
+  presentationId: string,
   slideIndex: number,
-  slide: any,
-  ParticipantModel: any
+  slide: any
 ) => {
-  const distKey = `${prefix}:${id}:dist:${slideIndex}`;
-  const dispKey = `${prefix}:${id}:disp:${slideIndex}`;
-  const answeredKey = `${prefix}:${id}:answered:${slideIndex}`;
-  const namesKey = `${prefix}:${id}:names`;
-
   const [distHash, dispHash, answeredCount, nameCount] = await Promise.all([
-    redisClient.hGetAll(distKey).catch(() => ({}) as Record<string, string>),
-    redisClient.hGetAll(dispKey).catch(() => ({}) as Record<string, string>),
-    redisClient.sCard(answeredKey).catch(() => 0),
-    redisClient.hLen(namesKey).catch(() => 0),
+    redisClient.hGetAll(k.dist(presentationId, slideIndex)).catch(() => ({}) as Record<string, string>),
+    redisClient.hGetAll(k.disp(presentationId, slideIndex)).catch(() => ({}) as Record<string, string>),
+    redisClient.sCard(k.answered(presentationId, slideIndex)).catch(() => 0),
+    redisClient.hLen(k.names(presentationId)).catch(() => 0),
   ]);
 
   const participantCount =
-    nameCount > 0
-      ? nameCount
-      : await ParticipantModel.countDocuments(
-          prefix === 'presentation' ? { presentationId: id } : { quizId: id }
-        );
+    nameCount > 0 ? nameCount : await PresentationParticipantModel.countDocuments({ presentationId });
 
   let distribution: Record<string, unknown> = {};
   switch (slide.type) {
@@ -520,11 +511,9 @@ export class PresentationService {
     await redisClient.del(k.session(presentationId)).catch(() => {});
 
     const { distribution, answeredCount, participantCount } = await computeSlideDistributionHelper(
-      'presentation',
       presentationId,
       slideIndex,
-      slide,
-      PresentationParticipantModel
+      slide
     );
 
     await touchTtls([
@@ -585,11 +574,9 @@ export class PresentationService {
         const slide = presentation.slides[presentation.currentSlideIndex];
         if (slide && slide.type !== 'leaderboard') {
           const res = await computeSlideDistributionHelper(
-            'presentation',
             presentationId,
             presentation.currentSlideIndex,
-            slide,
-            PresentationParticipantModel
+            slide
           );
           liveDistribution = res.distribution;
         }

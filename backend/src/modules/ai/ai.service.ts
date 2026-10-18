@@ -5,7 +5,7 @@ import { StateGraph } from '@langchain/langgraph';
 import { z } from 'zod';
 import { ApiError } from '../../common/utils/ApiError';
 import { PollService } from '../polls/polls.service';
-import { QUIZ_SLIDE_TYPES, quizSlideSchema } from '../quizzes/quizzes.schema';
+import { PRESENTATION_SLIDE_TYPES, presentationSlideSchema } from '../presentations/presentations.schema';
 import {
   generatedPollSchema,
   generatedTrialSchema,
@@ -282,13 +282,13 @@ export class AiService {
     input?: GenerateQuizRequestInput
   ): GeneratedQuizDraftOutput {
     const rawSlides = Array.isArray(draft?.slides) ? draft.slides : [];
-    const repairedSlides: z.infer<typeof quizSlideSchema>[] = [];
+    const repairedSlides: z.infer<typeof presentationSlideSchema>[] = [];
 
     for (const rawItem of rawSlides) {
       if (!rawItem || typeof rawItem !== 'object') continue;
       const raw = { ...(rawItem as Record<string, any>) };
 
-      if (!QUIZ_SLIDE_TYPES.includes(raw.type)) continue;
+      if (!PRESENTATION_SLIDE_TYPES.includes(raw.type)) continue;
       const type = raw.type;
 
       if (typeof raw.question !== 'string' || !raw.question.trim()) continue;
@@ -370,7 +370,7 @@ export class AiService {
         scoreDependsOnTime: true,
       };
 
-      const finalParse = quizSlideSchema.safeParse(candidate);
+      const finalParse = presentationSlideSchema.safeParse(candidate);
       if (finalParse.success) {
         repairedSlides.push(finalParse.data);
       }
@@ -391,13 +391,13 @@ export class AiService {
 
   private static buildMockQuizDraft(input: GenerateQuizRequestInput): GeneratedQuizDraftOutput {
     const types = input.slideTypes.length > 0 ? input.slideTypes : ['select_answer', 'type_answer'];
-    const slides: z.infer<typeof quizSlideSchema>[] = [];
+    const slides: z.infer<typeof presentationSlideSchema>[] = [];
 
     for (let i = 0; i < input.slideCount; i++) {
       const type = types[i % types.length]!;
       if (type === 'select_answer') {
         slides.push(
-          quizSlideSchema.parse({
+          presentationSlideSchema.parse({
             type: 'select_answer',
             question: `Question ${i + 1}: What is a fundamental aspect of ${input.topic}?`,
             options: [
@@ -411,7 +411,7 @@ export class AiService {
         );
       } else if (type === 'type_answer') {
         slides.push(
-          quizSlideSchema.parse({
+          presentationSlideSchema.parse({
             type: 'type_answer',
             question: `Question ${i + 1}: What key term relates to ${input.topic}?`,
             acceptedAnswers: [input.topic.trim().split(' ')[0] || 'core'],
@@ -421,7 +421,7 @@ export class AiService {
         );
       } else if (type === 'wordcloud') {
         slides.push(
-          quizSlideSchema.parse({
+          presentationSlideSchema.parse({
             type: 'wordcloud',
             question: `Question ${i + 1}: What words come to mind for ${input.topic}?`,
             points: 0,
@@ -430,7 +430,7 @@ export class AiService {
         );
       } else if (type === 'open_ended') {
         slides.push(
-          quizSlideSchema.parse({
+          presentationSlideSchema.parse({
             type: 'open_ended',
             question: `Question ${i + 1}: Describe your experience with ${input.topic}.`,
             points: 0,
@@ -439,7 +439,7 @@ export class AiService {
         );
       } else if (type === 'scales') {
         slides.push(
-          quizSlideSchema.parse({
+          presentationSlideSchema.parse({
             type: 'scales',
             question: `Question ${i + 1}: Rate the following statements about ${input.topic}:`,
             statements: [`I am knowledgeable about ${input.topic}`, `I find ${input.topic} engaging`],
@@ -451,7 +451,7 @@ export class AiService {
         );
       } else if (type === 'ranking') {
         slides.push(
-          quizSlideSchema.parse({
+          presentationSlideSchema.parse({
             type: 'ranking',
             question: `Question ${i + 1}: Rank these elements of ${input.topic} by priority:`,
             items: ['Core Principles', 'Practical Application', 'Advanced Topics'],

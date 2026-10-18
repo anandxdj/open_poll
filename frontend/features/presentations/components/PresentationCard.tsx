@@ -120,7 +120,7 @@ export function PresentationCard({ presentation, index = 0, onDelete }: Presenta
                   <Trash2 className="size-5" />
                 </div>
                 <AlertDialogTitle className="text-lg font-bold text-foreground">
-                  Delete &quot;{presentation?.title || "Untitled Deck"}&quot;?
+                  Delete &ldquo;{presentation?.title || "Untitled Deck"}&rdquo;?
                 </AlertDialogTitle>
                 <AlertDialogDescription className="text-sm text-muted-foreground/80 leading-relaxed">
                   This action cannot be undone. All slides, live session history, and participant results will be permanently removed.
@@ -144,5 +144,3 @@ export function PresentationCard({ presentation, index = 0, onDelete }: Presenta
     </motion.div>
   );
 }
-
-export const QuizCard = PresentationCard;

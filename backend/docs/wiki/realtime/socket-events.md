@@ -19,13 +19,16 @@ Server events:
 - `questionSummaries[]` with per-option counts
 - `emittedAt`
 
-## Quiz events (live quiz competitions)
+## Presentation deck events
+
+The live-deck entity is `presentations`; the `quiz` naming below is the wire protocol
+kept from before the quizzes module was folded in. `quizId` carries the presentation id.
 
 Client events:
 - `quiz:join` with `{ quizId, role, ... }` to subscribe to room `quiz_{quizId}` (host + participants).
   The server verifies the caller before joining the room — unauthenticated/unauthorized joins are
   silently dropped (no ack, no error event):
-  - `role: "host"` — requires `accessToken` (JWT access token); verified against the quiz/presentation's `creatorId`.
+  - `role: "host"` — requires `accessToken` (JWT access token); verified against the presentation's `creatorId`.
   - `role: "participant"` — requires `participantId` + `participantToken` (issued by `POST /:id/join`).
 - `quiz:leave` with `quizId` to unsubscribe.
 
@@ -39,7 +42,8 @@ Server event:
 - `lobby:opened` — `{ joinCode }`
 - `participant:joined` — `{ participantId, name, participantCount }`
 - `question:started` — `{ slide (sanitized, no answer keys), startedAt, endsAt, serverNow }`
-- `answer:received` (host-only room) — `{ slideIndex, answeredCount, participantCount, distribution }`
+- `answer:received` (host-only room) — per answer `{ slideIndex, answeredCount }`; plus every 2s
+  from `liveDistribution.worker.ts` while answers arrive, `{ slideIndex, answeredCount, participantCount, distribution }`
 - `question:revealed` — `{ slideIndex, question, type, scored, distribution, answeredCount, participantCount, isLastSlide }`
   — `distribution.kind`: `options` (select) | `text` (type) | `words` (wordcloud) |
   `responses` (open_ended) | `scales` (per-statement averages) | `ranking` (Borda items + voters)

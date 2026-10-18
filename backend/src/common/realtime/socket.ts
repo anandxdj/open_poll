@@ -9,7 +9,6 @@ import {
 } from './events';
 import { verifyAccessToken } from '../utils/jwt.utils';
 import { PollModel } from '../../modules/polls/polls.model';
-import { QuizService } from '../../modules/quizzes/quizzes.service';
 import { PresentationService } from '../../modules/presentations/presentations.service';
 
 interface QuizJoinPayload {
@@ -72,8 +71,8 @@ export const setupSocketAndPubSub = async (io: Server) => {
       const quizId = data?.quizId;
       if (!isValidObjectId(quizId) || !data?.role) return;
 
-      // Quizzes and presentations live in separate collections but share this room
-      // namespace and the `quiz:event` channel, so every check runs against both.
+      // Live decks are presentations; the `quiz_*` room names and `quiz:*` events are
+      // the wire protocol the clients already speak, not a separate entity.
       if (data.role === 'host') {
         if (!data.accessToken) return;
         let userId: string;
@@ -82,9 +81,7 @@ export const setupSocketAndPubSub = async (io: Server) => {
         } catch {
           return;
         }
-        const authorized =
-          (await QuizService.isOwner(quizId, userId).catch(() => false)) ||
-          (await PresentationService.isOwner(quizId, userId).catch(() => false));
+        const authorized = await PresentationService.isOwner(quizId, userId).catch(() => false);
         if (!authorized) return;
         socket.join(`quiz_${quizId}`);
         // Host-only room: carries pre-reveal answer distributions that must
@@ -95,9 +92,11 @@ export const setupSocketAndPubSub = async (io: Server) => {
 
       if (data.role === 'participant') {
         if (!data.participantId || !data.participantToken) return;
-        const authorized =
-          (await QuizService.isAuthorizedParticipant(quizId, data.participantId, data.participantToken).catch(() => false)) ||
-          (await PresentationService.isAuthorizedParticipant(quizId, data.participantId, data.participantToken).catch(() => false));
+        const authorized = await PresentationService.isAuthorizedParticipant(
+          quizId,
+          data.participantId,
+          data.participantToken,
+        ).catch(() => false);
         if (!authorized) return;
         socket.join(`quiz_${quizId}`);
       }

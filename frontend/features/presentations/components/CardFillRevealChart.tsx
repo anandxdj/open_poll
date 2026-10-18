@@ -2,20 +2,18 @@
 
 import { motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
-import type { RevealDistribution, RevealPayload } from "../types";
+import type { RevealDistribution } from "../types";
 
 const ease = [0.32, 0.72, 0, 1] as const;
 
 interface CardFillRevealChartProps {
   distribution: RevealDistribution;
-  reveal?: RevealPayload | null;
   isReveal: boolean;
   totalParticipants?: number;
 }
 
 export function CardFillRevealChart({
   distribution: dist,
-  reveal,
   isReveal,
   totalParticipants = 0,
 }: CardFillRevealChartProps) {

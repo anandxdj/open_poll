@@ -4,6 +4,7 @@ import { ApiError } from '../../common/utils/ApiError';
 import { PollService } from '../polls/polls.service';
 import { ResponseService } from '../responses/responses.service';
 import { createPollSchema, updatePollSchema } from '../polls/polls.schema';
+import { assertQuestionsGradeable, checkAnswerIndices } from '../polls/polls.grading';
 import { MCP_TOOL_SCOPES, type McpScope } from './mcp.constants';
 
 // ---------------------------------------------------------------------------
@@ -66,45 +67,28 @@ export const editQuestionShape = {
   ...answerMetaFields,
 };
 
-type QuestionWithAnswers = {
-  options: string[];
-  type?: 'single' | 'multiple';
-  correctOptionIndices?: number[];
-};
-
-// polls.schema.ts only bounds indices below (int().min(0)), so an index past the
-// end of options would persist and silently mark the question ungradeable.
-function checkAnswerIndices(question: QuestionWithAnswers, ctx: z.RefinementCtx) {
-  for (const index of question.correctOptionIndices ?? []) {
-    if (index >= question.options.length) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['correctOptionIndices'],
-        message: `correctOptionIndices contains ${index}, but this question only has ${question.options.length} options (valid range 0-${question.options.length - 1})`,
-      });
-    }
-  }
-
-  if (question.type === 'single' && (question.correctOptionIndices?.length ?? 0) > 1) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['correctOptionIndices'],
-      message: 'A "single" question can have at most one correct option; use type "multiple" instead',
-    });
-  }
-}
-
+// checkAnswerIndices (shared with the REST surface via polls.grading.ts) rejects
+// out-of-range indices and multi-answer "single" questions at the schema level.
 const pollQuestion = z.object(pollQuestionShape);
 const assessmentQuestion = z.object(assessmentQuestionShape).superRefine(checkAnswerIndices);
 const editQuestion = z.object(editQuestionShape).superRefine(checkAnswerIndices);
 
+// Create-time defaults deliberately differ from the REST API, which requires
+// expiresAt and creates drafts (isPublished false): an agent asked to "make a
+// poll" is expected to hand back a link that already works. The descriptions say
+// so because the agent cannot otherwise tell it is about to publish something.
 const envelopeShape = {
   isAnonymous: z.boolean().optional().describe('Whether responses are anonymous (default true)'),
   expiresAt: z
     .string()
     .optional()
     .describe('ISO expiry datetime; must be in the future. Defaults to 30 days from now.'),
-  isPublished: z.boolean().optional().describe('Whether it is live immediately (default true)'),
+  isPublished: z
+    .boolean()
+    .optional()
+    .describe(
+      'Defaults to TRUE: it goes live immediately and anyone with the link can respond. Pass false to create an unpublished draft instead (the web app creates drafts by default; this tool does not).',
+    ),
 };
 
 export const createPollInputShape = {
@@ -138,6 +122,9 @@ export const editPollInputShape = {
     .optional()
     .describe('Assessments only: score percentage needed to pass'),
   ...envelopeShape,
+  // Edits have no defaults; override the create-time wording spread in above.
+  expiresAt: z.string().optional().describe('New ISO expiry datetime; must be in the future'),
+  isPublished: z.boolean().optional().describe('true publishes (goes live), false unpublishes back to a draft'),
   questions: z
     .array(editQuestion)
     .min(1)
@@ -244,22 +231,6 @@ function describeGrading(poll: { questions?: unknown[] }) {
   };
 }
 
-// The stored poll's type is only known after it is fetched, so this cannot live in
-// an input schema. Without it, replacing a live assessment's questions with
-// answerless ones would silently make it ungradeable.
-function assertQuestionsGradeable(questions: QuestionWithAnswers[]) {
-  const answerless = questions
-    .map((question, index) => ({ question, index }))
-    .filter(({ question }) => !question.correctOptionIndices?.length)
-    .map(({ index }) => index + 1);
-
-  if (answerless.length) {
-    throw ApiError.badRequest(
-      `This poll is a graded assessment, so every question needs correctOptionIndices. Missing on question(s): ${answerless.join(', ')}.`,
-    );
-  }
-}
-
 export async function handleMcpTool(
   name: string,
   args: Record<string, unknown> | undefined,
@@ -334,6 +305,9 @@ async function dispatchMcpTool(
       const pollId = parsePollId(rawPollId);
       const existing = await assertPollOwner(pollId, ctx.userId);
 
+      // The stored poll's type is only known after the fetch, so this cannot live in
+      // the input schema. Stricter than PollService's own check, which only guards
+      // PUBLISHED assessments: over MCP, an assessment always carries answers.
       if (existing.pollType === 'TRIAL' && updates.questions) {
         assertQuestionsGradeable(updates.questions);
       }
@@ -397,6 +371,7 @@ export function getMcpServerInstructions(): string {
     'Two different tools create things: create_poll makes an ungraded opinion poll; create_assessment makes a graded assessment (called a quiz or trial in the UI) where every question declares its correct answers.',
     'Pick create_assessment whenever the user wants a quiz, test, exam, or anything scored. An assessment cannot be built with create_poll, which has no answer fields at all.',
     'Use convert_poll_to_assessment to turn an existing ungraded poll into a graded one; it needs the full replacement question set with correct answers.',
+    'create_poll and create_assessment publish immediately by default, so respondents can use the link straight away; pass isPublished: false when the user wants a draft to review first.',
     'Graded writes echo back a "grading" summary resolving each correctOptionIndices to the option text stored. Read it and confirm the answers are the intended ones before reporting success.',
     `Public respondent links: ${frontendUrl}/p/:pollId (use get_share_link).`,
     'Deleting polls, closing polls, and converting an assessment back to an ungraded poll are not available via MCP; use the web app.',

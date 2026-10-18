@@ -35,5 +35,3 @@ export function PresentationTimer({ secondsLeft, progress }: PresentationTimerPr
     </div>
   );
 }
-
-export const QuizTimer = PresentationTimer;
