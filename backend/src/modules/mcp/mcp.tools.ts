@@ -4,6 +4,7 @@ import { ApiError } from '../../common/utils/ApiError';
 import { PollService } from '../polls/polls.service';
 import { ResponseService } from '../responses/responses.service';
 import { createPollSchema, updatePollSchema } from '../polls/polls.schema';
+import { assertQuestionsGradeable, checkAnswerIndices } from '../polls/polls.grading';
 import { MCP_TOOL_SCOPES, type McpScope } from './mcp.constants';
 
 // ---------------------------------------------------------------------------
@@ -66,34 +67,8 @@ export const editQuestionShape = {
   ...answerMetaFields,
 };
 
-type QuestionWithAnswers = {
-  options: string[];
-  type?: 'single' | 'multiple';
-  correctOptionIndices?: number[];
-};
-
-// polls.schema.ts only bounds indices below (int().min(0)), so an index past the
-// end of options would persist and silently mark the question ungradeable.
-function checkAnswerIndices(question: QuestionWithAnswers, ctx: z.RefinementCtx) {
-  for (const index of question.correctOptionIndices ?? []) {
-    if (index >= question.options.length) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['correctOptionIndices'],
-        message: `correctOptionIndices contains ${index}, but this question only has ${question.options.length} options (valid range 0-${question.options.length - 1})`,
-      });
-    }
-  }
-
-  if (question.type === 'single' && (question.correctOptionIndices?.length ?? 0) > 1) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['correctOptionIndices'],
-      message: 'A "single" question can have at most one correct option; use type "multiple" instead',
-    });
-  }
-}
-
+// checkAnswerIndices (shared with the REST surface via polls.grading.ts) rejects
+// out-of-range indices and multi-answer "single" questions at the schema level.
 const pollQuestion = z.object(pollQuestionShape);
 const assessmentQuestion = z.object(assessmentQuestionShape).superRefine(checkAnswerIndices);
 const editQuestion = z.object(editQuestionShape).superRefine(checkAnswerIndices);
@@ -244,22 +219,6 @@ function describeGrading(poll: { questions?: unknown[] }) {
   };
 }
 
-// The stored poll's type is only known after it is fetched, so this cannot live in
-// an input schema. Without it, replacing a live assessment's questions with
-// answerless ones would silently make it ungradeable.
-function assertQuestionsGradeable(questions: QuestionWithAnswers[]) {
-  const answerless = questions
-    .map((question, index) => ({ question, index }))
-    .filter(({ question }) => !question.correctOptionIndices?.length)
-    .map(({ index }) => index + 1);
-
-  if (answerless.length) {
-    throw ApiError.badRequest(
-      `This poll is a graded assessment, so every question needs correctOptionIndices. Missing on question(s): ${answerless.join(', ')}.`,
-    );
-  }
-}
-
 export async function handleMcpTool(
   name: string,
   args: Record<string, unknown> | undefined,
@@ -334,6 +293,9 @@ async function dispatchMcpTool(
       const pollId = parsePollId(rawPollId);
       const existing = await assertPollOwner(pollId, ctx.userId);
 
+      // The stored poll's type is only known after the fetch, so this cannot live in
+      // the input schema. Stricter than PollService's own check, which only guards
+      // PUBLISHED assessments: over MCP, an assessment always carries answers.
       if (existing.pollType === 'TRIAL' && updates.questions) {
         assertQuestionsGradeable(updates.questions);
       }
