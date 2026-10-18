@@ -1,7 +1,7 @@
 ---
 summary: Response submission and summary API contracts.
 status: active
-last_updated: 2026-05-11
+last_updated: 2026-10-19
 ---
 
 # Responses API
@@ -9,7 +9,9 @@ last_updated: 2026-05-11
 Base path: `/api/responses`
 
 - `POST /` submit poll responses
-- `GET /poll/:pollId/summary` fetch aggregate analytics summary
+- `GET /poll/:pollId/summary` fetch aggregate analytics summary (public)
+- `GET /poll/:pollId/list` individual responses with voter identities: authenticated, runs
+  `workspaceContext()`, needs `session:read` on the poll (`modules/workspaces.md`)
 
 Submission payload shape:
 - `pollId: string`

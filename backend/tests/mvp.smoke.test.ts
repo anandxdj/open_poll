@@ -14,6 +14,7 @@ describe('backend mvp smoke tests', () => {
     const originalAnalyticsCreate = AnalyticsModel.create;
     (PollModel as any).create = async (data: unknown) => data;
     (AnalyticsModel as any).create = async (data: unknown) => data;
+    const workspaceId = new mongoose.Types.ObjectId();
 
     const created = await PollService.createPoll(
       {
@@ -36,9 +37,11 @@ describe('backend mvp smoke tests', () => {
         ],
       },
       'mock-creator-id-123',
+      workspaceId,
     );
 
     expect((created as any).creatorId).toBe('mock-creator-id-123');
+    expect((created as any).workspaceId).toBe(workspaceId);
     (PollModel as any).create = originalCreate;
     (AnalyticsModel as any).create = originalAnalyticsCreate;
   });

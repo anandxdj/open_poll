@@ -89,10 +89,11 @@ describe.skipIf(!enabled)('platform integration', () => {
   });
 
   describe('migrations', () => {
-    it('applies 001 (and every later migration) once, records it, and skips it afterwards', async () => {
-      const logs: string[] = [];
+    it('applies 001 once, records it, and skips it afterwards', async () => {
+      // Later packages add their own migrations; all of them run on the empty database.
       const ids = (await loadMigrations()).map((migration) => migration.id);
       expect(ids[0]).toBe(1);
+      const logs: string[] = [];
       expect(await runMigrations({ log: (line) => logs.push(line) })).toEqual({ applied: ids, skipped: [] });
       expect(logs.some((line) => line.includes('001-bootstrap'))).toBe(true);
       expect(await runMigrations()).toEqual({ applied: [], skipped: ids });

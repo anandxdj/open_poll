@@ -121,4 +121,9 @@ ROUTER /api/uploads
 POST /api/uploads/presign
 POST /api/uploads/complete
 ROUTER /api/workspaces
+GET /api/workspaces
+POST /api/workspaces
+GET /api/workspaces/:id
+PATCH /api/workspaces/:id
+POST /api/workspaces/:id/switch
 USE / errorHandler

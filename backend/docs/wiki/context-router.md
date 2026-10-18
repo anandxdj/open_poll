@@ -47,6 +47,10 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/ai/structured-output-contract.md`
 - `backend/docs/wiki/ai/prompting-and-graph-flow.md`
 
+### Workspaces API, poll tenancy, migration 020
+- `backend/docs/wiki/modules/workspaces.md`
+- Add `backend/docs/wiki/platform/tenancy.md` only if changing the policy or workspace context.
+
 ### Platform primitives (load only the one you touch)
 - Workspaces, roles, `assertCan`, workspace context, provider identities: `backend/docs/wiki/platform/tenancy.md`
 - Plans, entitlements, usage quotas, `GET /api/capabilities`, env feature groups: `backend/docs/wiki/platform/plans.md`

@@ -11,7 +11,8 @@ Express app. No cookies/JWT for the MCP surface; PAT only.
 3. User pastes config into their MCP client.
 4. Client calls `POST /mcp` with `Authorization: Bearer opoll_mcp_...`.
 5. Server resolves token → user, exposes scoped tools, every query scoped to
-   that user's `creatorId`.
+   that user's default workspace (the one last switched to in the app) and
+   authorized with the workspace policy on top of the token scopes.
 
 ```
 MCP client ──Bearer opoll_mcp_xxx──► POST /mcp
@@ -31,11 +32,11 @@ MCP client ──Bearer opoll_mcp_xxx──► POST /mcp
 
 | Tool | Scope | Maps to |
 |---|---|---|
-| `list_polls` | `poll:read` | `PollService.listPollsByCreator` |
-| `get_poll` | `poll:read` | `PollService.getPollById` (+owner check) |
+| `list_polls` | `poll:read` | `PollService.listPolls` (default workspace) |
+| `get_poll` | `poll:read` | `PollService.getPollById` (+`deck:read`) |
 | `create_poll` | `poll:create` | `PollService.createPoll` (ungraded polls only) |
 | `create_assessment` | `poll:create` | `PollService.createPoll` with `pollType: TRIAL` |
-| `edit_poll` | `poll:edit` | `PollService.updatePoll` (+owner, blocks closed) |
+| `edit_poll` | `poll:edit` | `PollService.updatePoll` (+`deck:edit`, blocks closed) |
 | `convert_poll_to_assessment` | `poll:edit` | `PollService.updatePoll` → `pollType: TRIAL` |
 | `get_poll_analytics` | `analytics:read` | `ResponseService.getPollAnalytics` (aggregate only) |
 | `get_share_link` | `poll:read` | `${FRONTEND_URL}/p/:pollId` |
