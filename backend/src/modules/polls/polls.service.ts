@@ -1,11 +1,28 @@
+import type { Types } from 'mongoose';
 import { PollModel } from './polls.model';
 import type { CreatePollInput, UpdatePollInput } from './polls.schema';
 import { ApiError } from '../../common/utils/ApiError';
+import { assertCan } from '../../common/tenancy/policy';
+import { resolveWorkspaceContext } from '../../common/tenancy/workspaceContext.middleware';
 import { AnalyticsModel } from '../responses/analytics.model';
 import { assertQuestionsGradeable } from './polls.grading';
 
+type IdLike = Types.ObjectId | string;
+
+/** The workspace a poll list is read from, and who is reading it. */
+export interface PollListScope {
+  userId: string;
+  workspace: { _id: IdLike; type: string; ownerId: IdLike };
+}
+
 export class PollService {
-  static async createPoll(payload: CreatePollInput, creatorId: string) {
+  /**
+   * Creates a poll in `workspaceId` (REST passes `req.workspace`, already
+   * authorized). Callers without a request workspace (MCP, AI generate-and-save)
+   * omit it: the poll lands in the creator's default workspace, provided their
+   * role there may create content.
+   */
+  static async createPoll(payload: CreatePollInput, creatorId: string, workspaceId?: IdLike) {
     // The REST route already rejects this field-by-field (createPollRequestSchema);
     // repeated here so no caller can persist a live assessment nobody can score.
     if (payload.pollType === 'TRIAL' && payload.isPublished) {
@@ -16,6 +33,7 @@ export class PollService {
       ...payload,
       expiresAt: new Date(payload.expiresAt),
       creatorId,
+      workspaceId: workspaceId ?? (await this.defaultCreateWorkspace(creatorId)),
     });
 
     await AnalyticsModel.create({
@@ -38,8 +56,23 @@ export class PollService {
     return poll;
   }
 
-  static async listPollsByCreator(creatorId: string) {
-    return PollModel.find({ creatorId }).sort({ createdAt: -1 });
+  /**
+   * Polls of one workspace, newest first. Polls from before migration 020 have
+   * no workspace yet; their creator sees them in their personal workspace,
+   * where the migration puts them.
+   */
+  static async listPolls({ userId, workspace }: PollListScope) {
+    const isOwnPersonal = workspace.type === 'personal' && String(workspace.ownerId) === userId;
+    const filter = isOwnPersonal
+      ? { $or: [{ workspaceId: workspace._id }, { workspaceId: null, creatorId: userId }] }
+      : { workspaceId: workspace._id };
+    return PollModel.find(filter).sort({ createdAt: -1 });
+  }
+
+  private static async defaultCreateWorkspace(creatorId: string) {
+    const context = await resolveWorkspaceContext(creatorId);
+    assertCan({ user: { id: creatorId }, ...context }, 'deck:create');
+    return context.workspace._id;
   }
 
   static async updatePoll(pollId: string, payload: UpdatePollInput) {

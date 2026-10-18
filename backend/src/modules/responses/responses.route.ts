@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { validate } from '../../common/middlewares/validate.middleware';
 import { rateLimit } from '../../common/middlewares/rateLimit.middleware';
 import { authenticate } from '../auth/auth.middleware';
+import { workspaceContext } from '../../common/tenancy/workspaceContext.middleware';
 import { ResponsesController } from './responses.controller';
 import { issueGuestTokenSchema, submitResponseSchema } from './responses.schema';
 
@@ -32,6 +33,7 @@ router.post(
   ResponsesController.submit,
 );
 router.get('/poll/:pollId/summary', ResponsesController.getSummary);
-router.get('/poll/:pollId/list', authenticate() as any, ResponsesController.getResponsesList);
+// Individual responses (voter identities): workspace members allowed to read the poll's sessions.
+router.get('/poll/:pollId/list', authenticate() as any, workspaceContext() as any, ResponsesController.getResponsesList);
 
 export default router;

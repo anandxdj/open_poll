@@ -1,13 +1,21 @@
 ---
 summary: Poll module responsibilities, lifecycle states, graded assessments (TRIAL), and key rules.
 status: active
-last_updated: 2026-10-18
+last_updated: 2026-10-19
 ---
 
 # Polls Module
 
 `modules/polls` manages poll definition and lifecycle, for both ungraded polls and
 graded assessments.
+
+## Workspace tenancy
+
+Every poll belongs to a workspace (`workspaceId`, set on create from the caller's workspace;
+backfilled by migration 020). Authenticated routes run `workspaceContext()` and authorize with
+`assertCan` (`deck:create|read|edit|delete|host`, `session:share|read`); the public read and the
+voting paths stay open. Route-by-route table, the unmigrated-poll fallback and MCP behaviour:
+`modules/workspaces.md` → "Poll tenancy".
 
 ## Lifecycle State
 - `isPublished`: controls whether respondents can submit. REST creates drafts by default
