@@ -32,6 +32,10 @@ This document tracks the features we have already implemented and the features w
   `CreatePresentationModal`) at `/presentation/create`, `/presentation/host/[id]`, `/live`
   and `/live/[code]`. The host QR code points at `/live/{joinCode}`. Old `/quiz/...` URLs
   308-redirect to their equivalents (`next.config.ts`), query string included.
+- **Unified library (`/polls`)**: `features/library/` — polls and decks as one card list from
+  `GET /api/library` (type tabs, status filter, search, URL filters, infinite scroll), per-card
+  actions, "Convert to presentation" for polls; `/presentations` redirects to
+  `?type=presentation`; sidebar item renamed "Library".
 
 ## 🚧 Features In Progress / To Implement
 

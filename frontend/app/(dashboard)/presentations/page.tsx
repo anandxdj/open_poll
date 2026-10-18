@@ -1,14 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-
+// Decks live in the unified library; this keeps old /presentations links working.
 export default function PresentationsPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace("/polls");
-  }, [router]);
-
-  return null;
+  redirect("/polls?type=presentation");
 }
