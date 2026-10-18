@@ -9,16 +9,21 @@ import { toast } from "sonner";
 import { PollCardV2 } from "@/features/polls/components/PollCardV2";
 import { useCreatePollModal } from "@/features/polls/components/CreatePollModalProvider";
 import { useCreatorStore, type Poll } from "@/features/polls/store/useCreatorStore";
-import { deleteQuiz, listQuizzes } from "@/features/quizzes/api/quizApi";
-import { QuizCard } from "@/features/quizzes/components/QuizCard";
-import { useCreateQuizModal } from "@/features/quizzes/components/CreateQuizModalProvider";
-import type { Quiz } from "@/features/quizzes/types";
+import {
+  apiErrorMessage,
+  deletePresentation,
+  listPresentations,
+} from "@/features/presentations/api/presentationApi";
+import { PresentationCard } from "@/features/presentations/components/PresentationCard";
+import { useCreatePresentationModal } from "@/features/presentations/components/CreatePresentationModalProvider";
+import type { Presentation } from "@/features/presentations/types";
 import { cn } from "@/lib/utils";
 
 type View = "polls" | "quizzes";
 type Tab = "all" | "active" | "draft" | "expired";
 
-const LIVE_STATUSES = ["lobby", "question", "reveal", "leaderboard"];
+// The backend collapsed question/reveal/leaderboard into a single "active" status.
+const LIVE_STATUSES: Presentation["status"][] = ["lobby", "active"];
 
 function isPollActive(poll: Poll) {
   if (!poll.isPublished || poll.isClosed) return false;
@@ -28,11 +33,11 @@ function isPollActive(poll: Poll) {
 export default function PollsPage() {
   const { polls, isLoading, error, fetchPolls } = useCreatorStore();
   const { open: openCreatePollModal } = useCreatePollModal();
-  const { open: openCreateQuizModal } = useCreateQuizModal();
+  const { open: openCreateQuizModal } = useCreatePresentationModal();
   const [view, setView] = useState<View>("polls");
   const [activeTab, setActiveTab] = useState<Tab>("all");
 
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [quizzes, setQuizzes] = useState<Presentation[]>([]);
   const [quizzesLoading, setQuizzesLoading] = useState(true);
 
   useEffect(() => {
@@ -42,7 +47,7 @@ export default function PollsPage() {
   useEffect(() => {
     void (async () => {
       try {
-        setQuizzes(await listQuizzes());
+        setQuizzes(await listPresentations());
       } catch {
         // Quiz section degrades silently; polls remain usable
       } finally {
@@ -51,13 +56,13 @@ export default function PollsPage() {
     })();
   }, []);
 
-  const handleDeleteQuiz = async (quiz: Quiz) => {
+  const handleDeleteQuiz = async (quiz: Presentation) => {
     try {
-      await deleteQuiz(quiz._id);
+      await deletePresentation(quiz._id);
       setQuizzes((prev) => prev.filter((q) => q._id !== quiz._id));
-      toast.success("Quiz deleted.");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to delete quiz.");
+      toast.success("Deck deleted.");
+    } catch (err: unknown) {
+      toast.error(apiErrorMessage(err) || "Failed to delete deck.");
     }
   };
 
@@ -350,9 +355,9 @@ export default function PollsPage() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
                 {quizzes.map((quiz, i) => (
-                  <QuizCard
+                  <PresentationCard
                     key={quiz._id}
-                    quiz={quiz}
+                    presentation={quiz}
                     index={i}
                     onDelete={(q) => void handleDeleteQuiz(q)}
                   />

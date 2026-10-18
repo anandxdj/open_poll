@@ -47,13 +47,6 @@ export const updatePresentation = async (id: string, input: Partial<Presentation
 export const deletePresentation = async (id: string) =>
   (await apiClient.delete<ApiOk<null>>(`/presentations/${id}`)).data;
 
-// Backward compatible aliases
-export const createQuiz = createPresentation;
-export const listQuizzes = listPresentations;
-export const getQuiz = getPresentation;
-export const updateQuiz = updatePresentation;
-export const deleteQuiz = deletePresentation;
-
 // ---------- Host controls ----------
 
 export const getHostState = async (id: string) =>
@@ -64,8 +57,6 @@ export const openLobby = async (id: string) =>
 
 export const advanceSlide = async (id: string, slideIndex?: number) =>
   (await apiClient.post<ApiOk<Presentation>>(`/presentations/${id}/host/advance`, { slideIndex })).data.data;
-// Backward-compatible alias
-export const startNextQuestion = advanceSlide;
 
 // Broadcasts the correct answer + distribution for the current slide without
 // changing status. Host fires this when the timer hits 0 (auto-reveal).
@@ -74,13 +65,11 @@ export const revealCurrentSlide = async (id: string) =>
 
 export const endPresentation = async (id: string) =>
   (await apiClient.post<ApiOk<Presentation>>(`/presentations/${id}/host/end`)).data.data;
-export const endQuiz = endPresentation;
 
 // ---------- Participant (public) ----------
 
 export const getPresentationByCode = async (code: string) =>
   (await apiClient.get<ApiOk<PublicPresentationInfo>>(`/presentations/code/${code}`)).data.data;
-export const getQuizByCode = getPresentationByCode;
 
 export const joinPresentation = async (presentationId: string, name: string, deviceToken?: string) =>
   (
@@ -89,7 +78,6 @@ export const joinPresentation = async (presentationId: string, name: string, dev
       deviceToken,
     })
   ).data.data;
-export const joinQuiz = joinPresentation;
 
 export const submitAnswer = async (
   presentationId: string,
@@ -109,7 +97,6 @@ export const submitAnswer = async (
 
 export const generatePresentationDraft = async (input: GeneratePresentationInput) =>
   (await apiClient.post<ApiOk<GeneratedPresentationDraft>>("/ai/generate-quiz", input)).data.data;
-export const generateQuizDraft = generatePresentationDraft;
 
 export const getParticipantState = async (presentationId: string, participantId: string, token: string) =>
   (

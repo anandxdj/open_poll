@@ -181,7 +181,7 @@ export default function Sidebar() {
             );
           }
 
-          if (href === "/presentation/create" || href === "/quiz/create") {
+          if (href === "/presentation/create") {
             return (
               <button
                 key={href}
