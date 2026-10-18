@@ -1,38 +1,18 @@
 import { apiClient } from "@/lib/api-client";
 import type {
-  GeneratedPresentationDraft,
-  GeneratePresentationInput,
   HostState,
   ParticipantState,
   PublicPresentationInfo,
   Presentation,
   PresentationParticipantSelf,
-  PresentationSlide,
 } from "../types";
 
+// Creator CRUD and AI calls live in ./crud and ./ai; re-exported here so
+// existing imports of this module keep working.
+export * from "./crud";
+export * from "./ai";
+
 type ApiOk<T> = { success: boolean; message: string; data: T };
-
-export interface PresentationDraftInput {
-  title: string;
-  slides: Omit<PresentationSlide, "_id">[];
-}
-
-// ---------- Creator ----------
-
-export const createPresentation = async (input: PresentationDraftInput) =>
-  (await apiClient.post<ApiOk<Presentation>>("/presentations", input)).data.data;
-
-export const listPresentations = async () =>
-  (await apiClient.get<ApiOk<Presentation[]>>("/presentations")).data.data;
-
-export const getPresentation = async (id: string) =>
-  (await apiClient.get<ApiOk<Presentation>>(`/presentations/${id}`)).data.data;
-
-export const updatePresentation = async (id: string, input: Partial<PresentationDraftInput>) =>
-  (await apiClient.patch<ApiOk<Presentation>>(`/presentations/${id}`, input)).data.data;
-
-export const deletePresentation = async (id: string) =>
-  (await apiClient.delete<ApiOk<null>>(`/presentations/${id}`)).data;
 
 // ---------- Host controls ----------
 
@@ -79,11 +59,6 @@ export const submitAnswer = async (
     ranking?: number[];
   }
 ) => (await apiClient.post<ApiOk<{ accepted: boolean }>>(`/presentations/${presentationId}/answer`, input)).data.data;
-
-// ---------- AI ----------
-
-export const generatePresentationDraft = async (input: GeneratePresentationInput) =>
-  (await apiClient.post<ApiOk<GeneratedPresentationDraft>>("/ai/generate-quiz", input)).data.data;
 
 export const getParticipantState = async (presentationId: string, participantId: string, token: string) =>
   (

@@ -126,9 +126,10 @@ Creator (JWT):
 
 ## Realtime
 
-Every state change publishes to Redis channel `quiz:event`; the socket subscriber
-re-emits to room `quiz_{presentationId}` (and `answer:received` only to
-`quiz_{presentationId}_host`). See `realtime/socket-events.md` for the event contract.
+Every state change goes through `publishLiveEvent` (Redis channel `live:event`); each
+instance delivers `live:event` to the `live:{presentationId}` rooms and the legacy `quiz:event`
+copy to `quiz_{presentationId}` (`answer:received` only to the host rooms). Socket handlers live
+in `presentations.socket.ts`. See `realtime/presentations.md` for the event contract.
 
 ## Frontend
 

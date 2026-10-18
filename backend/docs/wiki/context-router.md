@@ -25,10 +25,11 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 ### Live presentation deck tasks (slides, scoring, leaderboard, participants)
 - `backend/docs/wiki/modules/presentations.md`
 - `backend/docs/wiki/quiz-roadmap.md` (phases / what to build next)
-- Add `backend/docs/wiki/realtime/socket-events.md` only if touching events.
+- Add `backend/docs/wiki/realtime/presentations.md` only if touching events.
 
 ### Realtime Socket/Redis tasks
-- `backend/docs/wiki/realtime/socket-events.md`
+- `backend/docs/wiki/realtime/envelope.md` (core: registry, auth, envelope, rooms, delivery)
+- `backend/docs/wiki/realtime/presentations.md` or `realtime/polls.md` (the module you touch)
 - `backend/docs/wiki/realtime/redis-channels.md`
 
 ### AI generation tasks

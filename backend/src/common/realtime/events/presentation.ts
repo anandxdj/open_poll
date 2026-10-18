@@ -1,0 +1,33 @@
+import { defineLiveEvents } from './envelope';
+
+// ---------- Presentation (live deck) events ----------
+// The type names are the wire protocol the clients already speak. New types
+// take a module prefix (`slide:`, `session:`, `qna:`, `reaction:`, ...).
+
+export const PRESENTATION_EVENTS = defineLiveEvents({
+  'lobby:opened': { audience: 'all' },
+  'participant:joined': { audience: 'all' },
+  'question:started': { audience: 'all' },
+  // Carries the live vote/word distribution — leaking it to participants before
+  // reveal defeats the point of a scored quiz.
+  'answer:received': { audience: 'host', hostOnly: true },
+  'question:revealed': { audience: 'all' },
+  'leaderboard:shown': { audience: 'all' },
+  'quiz:ended': { audience: 'all' },
+});
+
+export type PresentationEventType = keyof typeof PRESENTATION_EVENTS;
+
+/** Name the presentations service publishes with. */
+export type QuizRealtimeEventType = PresentationEventType;
+
+export type LiveRole = 'host' | 'participant';
+
+export const PRESENTATION_SOCKET_EVENTS = {
+  // Legacy protocol: `quiz:join` joins both the `quiz_*` and the `live:*` rooms.
+  quizJoin: 'quiz:join',
+  quizLeave: 'quiz:leave',
+  quizEvent: 'quiz:event',
+  liveJoin: 'live:join',
+  liveLeave: 'live:leave',
+} as const;

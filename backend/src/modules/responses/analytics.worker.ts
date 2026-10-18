@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { redisClient } from '../../common/config/redis';
-import { REALTIME_CHANNELS, type ResponseAcceptedEvent } from '../../common/realtime/events';
+import type { ResponseAcceptedEvent } from '../../common/realtime/events';
+import { publishPollAnalytics } from '../../common/realtime/publish';
 import { AnalyticsModel } from './analytics.model';
 import { ResponseService } from './responses.service';
 
@@ -91,7 +92,7 @@ export const startAnalyticsWorker = () => {
 
       const analytics = await ResponseService.getPollAnalytics(pollId);
       const event: ResponseAcceptedEvent = { pollId, analytics };
-      await redisClient.publish(REALTIME_CHANNELS.analyticsUpdate, JSON.stringify(event));
+      await publishPollAnalytics(event);
     } catch (error: unknown) {
       console.error('[Analytics Worker Error]', error);
     }

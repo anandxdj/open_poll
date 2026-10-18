@@ -16,9 +16,9 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { generatePresentationDraft } from "../api/presentationApi";
-import { SLIDE_TYPE_META } from "../slideTypeMeta";
-import type { GeneratedPresentationDraft, PresentationSlideType } from "../types";
+import { generatePresentationDraft } from "../api/ai";
+import { SLIDE_TYPE_META } from "../slides/meta";
+import type { GeneratedPresentationDraft, PresentationSlideType } from "../types/deck";
 import { getApiErrorMessage } from "@/lib/api-error";
 
 type Props = {
