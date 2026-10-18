@@ -12,7 +12,7 @@ const MAX_LENGTH = 500;
 export function OpenEndedParticipant({ mode, onSubmit, submitting }: ParticipantViewProps) {
   const t = useTranslations("live.slides.openEnded");
   const [typedText, setTypedText] = useState("");
-  const locked = submitting || mode !== "live";
+  const locked = submitting || mode === "preview";
 
   return (
     <div className="space-y-4 w-full">

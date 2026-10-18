@@ -12,14 +12,22 @@ import {
   SLIDE_EDITORS,
   validateSlide,
 } from "@/features/presentations/slides/editor";
-import { PICKER_SECTIONS, SLIDE_META, SLIDE_TYPE_META, slideMetaInSection } from "@/features/presentations/slides/meta";
+import {
+  AI_SLIDE_TYPE_META,
+  PICKER_SECTIONS,
+  SLIDE_META,
+  SLIDE_TYPE_META,
+  slideMetaInSection,
+} from "@/features/presentations/slides/meta";
+import { CONTENT_SLIDE_TYPES } from "@/features/presentations/types/content";
 import {
   isScoredSlideType,
   type PresentationSlide,
   type PresentationSlideType,
 } from "@/features/presentations/types/deck";
 
-const ALL_TYPES: PresentationSlideType[] = [
+/** The types with a question (content types are covered by slides.content.test.tsx). */
+const QUESTION_TYPES = [
   "select_answer",
   "type_answer",
   "wordcloud",
@@ -27,10 +35,14 @@ const ALL_TYPES: PresentationSlideType[] = [
   "scales",
   "ranking",
   "leaderboard",
-];
+] as const satisfies readonly PresentationSlideType[];
+
+type QuestionType = (typeof QUESTION_TYPES)[number];
+
+const ALL_TYPES: PresentationSlideType[] = [...QUESTION_TYPES, ...CONTENT_SLIDE_TYPES];
 
 /** Smallest edit that makes a blank slide of each type saveable. */
-const FILL: Record<PresentationSlideType, (s: PresentationSlide) => PresentationSlide> = {
+const FILL: Record<QuestionType, (s: PresentationSlide) => PresentationSlide> = {
   select_answer: (s) => ({
     ...s,
     options: [
@@ -63,20 +75,17 @@ describe("slide meta registry", () => {
     for (const type of ALL_TYPES) expect(SLIDE_META[type].type).toBe(type);
   });
 
+  test("registry entries are listed alphabetically (append-only file)", () => {
+    const types = Object.keys(SLIDE_META);
+    expect(types).toEqual([...types].sort());
+  });
+
   test("scored flag matches isScoredSlideType", () => {
     for (const type of ALL_TYPES) expect(SLIDE_META[type].scored).toBe(isScoredSlideType(type));
   });
 
-  test("picker offers the six authorable types in the original order, never leaderboard", () => {
-    expect(SLIDE_TYPE_META.map((m) => m.type)).toEqual([
-      "select_answer",
-      "type_answer",
-      "wordcloud",
-      "open_ended",
-      "scales",
-      "ranking",
-    ]);
-    expect(PICKER_SECTIONS.map((s) => s.id)).toEqual(["interactive", "competition"]);
+  test("picker offers the interactive, quiz and content types in order, never leaderboard", () => {
+    expect(PICKER_SECTIONS.map((s) => s.id)).toEqual(["interactive", "competition", "content"]);
     expect(slideMetaInSection("interactive").map((m) => m.type)).toEqual([
       "wordcloud",
       "open_ended",
@@ -84,6 +93,20 @@ describe("slide meta registry", () => {
       "ranking",
     ]);
     expect(slideMetaInSection("competition").map((m) => m.type)).toEqual(["select_answer", "type_answer"]);
+    expect(slideMetaInSection("content").map((m) => m.type)).toEqual([...CONTENT_SLIDE_TYPES]);
+    expect(SLIDE_TYPE_META.map((m) => m.type)).not.toContain("leaderboard");
+    expect(SLIDE_TYPE_META).toHaveLength(14);
+  });
+
+  test("the AI draft offers only the six types the generate endpoint accepts, in the original order", () => {
+    expect(AI_SLIDE_TYPE_META.map((m) => m.type)).toEqual([
+      "select_answer",
+      "type_answer",
+      "wordcloud",
+      "open_ended",
+      "scales",
+      "ranking",
+    ]);
   });
 });
 
@@ -125,7 +148,7 @@ describe("slide editor registry", () => {
     expect(blankSlide("select_answer").options[0].text).toBe("");
   });
 
-  for (const type of ALL_TYPES) {
+  for (const type of QUESTION_TYPES) {
     test(`${type}: blank → validate → clean round trip`, () => {
       const def = SLIDE_EDITORS[type];
       const blank = def.blank();
@@ -145,6 +168,14 @@ describe("slide editor registry", () => {
       expect(validateSlide(cleaned)).toBeNull();
     });
 
+    test(`${type}: a blank slide normalized for a draft passes the API rules`, () => {
+      const normalized = normalizeSlideForDraft(blankSlide(type));
+      expect(normalized.question).toBe("Untitled Question");
+      expect(passesApiRules(normalized)).toBe(true);
+    });
+  }
+
+  for (const type of ALL_TYPES) {
     test(`${type}: clean drops fields that belong to other types`, () => {
       const polluted: PresentationSlide = {
         ...SLIDE_EDITORS[type].blank(),
@@ -166,12 +197,6 @@ describe("slide editor registry", () => {
       expect(cleaned.items.length > 0).toBe(type === "ranking");
       expect(cleaned.points).toBe(isScoredSlideType(type) ? 500 : 0);
       expect(cleaned.scoreDependsOnTime).toBe(isScoredSlideType(type));
-    });
-
-    test(`${type}: a blank slide normalized for a draft passes the API rules`, () => {
-      const normalized = normalizeSlideForDraft(blankSlide(type));
-      expect(normalized.question).toBe("Untitled Question");
-      expect(passesApiRules(normalized)).toBe(true);
     });
   }
 
@@ -218,6 +243,7 @@ describe("deck validation and payloads", () => {
     const ok = { ...FILL.ranking(blankSlide("ranking")), question: "Q" };
     expect(validateDeck("  ", [ok])).toBe("Give your presentation deck a title.");
     expect(validateDeck("Deck", [ok, blankSlide("wordcloud")])).toBe("Slide 2: question text is missing.");
+    expect(validateDeck("Deck", [ok, blankSlide("heading")])).toBe("Slide 2: add a title.");
     expect(validateDeck("Deck", [ok])).toBeNull();
   });
 

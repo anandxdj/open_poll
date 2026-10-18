@@ -3,7 +3,7 @@ import { Settings2, Timer, Trophy } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { slideTypeMeta } from "../../../slides/meta";
+import { isContentSlide, slideTypeMeta } from "../../../slides/meta";
 import type { InspectorTabDef, InspectorTabProps } from "../inspectorTabs";
 
 const labelClass = "text-xs font-semibold uppercase tracking-wider text-muted-foreground/60";
@@ -82,5 +82,7 @@ export const settingsTab: InspectorTabDef = {
   label: "Settings",
   Icon: Settings2,
   order: 20,
+  // Content slides have no timer and no scoring.
+  appliesTo: (slide) => !isContentSlide(slide.type),
   Panel: SettingsPanel,
 };

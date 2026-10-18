@@ -5,7 +5,8 @@ type ApiOk<T> = { success: boolean; message: string; data: T };
 
 export interface DeckSlideInput {
   type: string;
-  question: string;
+  /** Required by the question types; content slides carry `content` instead. */
+  question?: string;
   timeLimit?: number;
   [field: string]: unknown;
 }

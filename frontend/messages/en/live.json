@@ -74,6 +74,26 @@
     "ranking": {
       "hint": "Use arrows to order items from top (#1) to bottom",
       "submit": "Submit Ranking"
+    },
+    "content": {
+      "lookAtScreen": "Look at the screen",
+      "lookAtScreenHint": "The presenter is showing this slide on the main screen."
+    },
+    "image": {
+      "missing": "No image yet",
+      "unavailable": "This image could not be loaded."
+    },
+    "video": {
+      "title": "{provider} video",
+      "uploaded": "Uploaded",
+      "missing": "No video yet"
+    },
+    "instructions": {
+      "goTo": "Go to",
+      "useCode": "and enter the code",
+      "scan": "Scan to join",
+      "code": "Join code",
+      "connected": "You're connected to this session."
     }
   }
 }

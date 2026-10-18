@@ -9,10 +9,24 @@ import type {
   RevealDistribution,
   RevealPayload,
 } from "../types";
+import { BigNumberParticipant } from "./types/big_number/participant";
+import { BigNumberStage } from "./types/big_number/stage";
+import { BulletsParticipant } from "./types/bullets/participant";
+import { BulletsStage } from "./types/bullets/stage";
+import { HeadingParticipant } from "./types/heading/participant";
+import { HeadingStage } from "./types/heading/stage";
+import { ImageParticipant } from "./types/image/participant";
+import { ImageStage } from "./types/image/stage";
+import { InstructionsParticipant } from "./types/instructions/participant";
+import { InstructionsStage } from "./types/instructions/stage";
 import { LeaderboardParticipant } from "./types/leaderboard/participant";
 import { LeaderboardStage } from "./types/leaderboard/stage";
 import { OpenEndedParticipant } from "./types/open_ended/participant";
 import { OpenEndedStage } from "./types/open_ended/stage";
+import { ParagraphParticipant } from "./types/paragraph/participant";
+import { ParagraphStage } from "./types/paragraph/stage";
+import { QuoteParticipant } from "./types/quote/participant";
+import { QuoteStage } from "./types/quote/stage";
 import { RankingParticipant } from "./types/ranking/participant";
 import { RankingStage } from "./types/ranking/stage";
 import { ScalesParticipant } from "./types/scales/participant";
@@ -21,6 +35,8 @@ import { SelectAnswerParticipant } from "./types/select_answer/participant";
 import { SelectAnswerStage } from "./types/select_answer/stage";
 import { TypeAnswerParticipant } from "./types/type_answer/participant";
 import { TypeAnswerStage } from "./types/type_answer/stage";
+import { VideoParticipant } from "./types/video/participant";
+import { VideoStage } from "./types/video/stage";
 import { WordcloudParticipant } from "./types/wordcloud/participant";
 import { WordcloudStage } from "./types/wordcloud/stage";
 
@@ -30,8 +46,13 @@ import { WordcloudStage } from "./types/wordcloud/stage";
  * participants never download it.
  */
 
-/** `live`: interactive. `preview`: inert render of the same UI (builder, presenter preview). */
-export type ParticipantMode = "live" | "preview";
+/**
+ * `live`: interactive, presenter-paced (the stage shows the slide; content
+ * slides only point there). `audience`: interactive, audience-paced (the
+ * phone is the only screen, so content slides render in full). `preview`:
+ * inert render of the slide (builder, presenter preview).
+ */
+export type ParticipantMode = "live" | "audience" | "preview";
 
 export interface ParticipantViewProps {
   slide: LiveSlide;
@@ -66,8 +87,9 @@ export interface StageViewProps {
  * How the shell treats the slide. `response`: question + timer + one answer
  * per participant (the shell owns the timer, submitted and result states;
  * ParticipantView is only the answer form). `system`: the type renders its
- * whole participant view (leaderboard). `content` / `board` arrive with W1-D
- * and W2-B.
+ * whole participant view (leaderboard). `content`: shown, never answered —
+ * the type renders its whole view ("Look at the screen" in `live` mode, the
+ * slide itself in `audience`/`preview`). `board` arrives with W2-B.
  */
 export type SlideLifecycle = "response" | "system" | "content" | "board";
 
@@ -79,12 +101,20 @@ export interface SlideRuntime {
 
 /** Append-only, one entry per type, alphabetical. */
 const RUNTIMES: Partial<Record<PresentationSlideType | (string & {}), SlideRuntime>> = {
+  big_number: { lifecycle: "content", ParticipantView: BigNumberParticipant, StageView: BigNumberStage },
+  bullets: { lifecycle: "content", ParticipantView: BulletsParticipant, StageView: BulletsStage },
+  heading: { lifecycle: "content", ParticipantView: HeadingParticipant, StageView: HeadingStage },
+  image: { lifecycle: "content", ParticipantView: ImageParticipant, StageView: ImageStage },
+  instructions: { lifecycle: "content", ParticipantView: InstructionsParticipant, StageView: InstructionsStage },
   leaderboard: { lifecycle: "system", ParticipantView: LeaderboardParticipant, StageView: LeaderboardStage },
   open_ended: { lifecycle: "response", ParticipantView: OpenEndedParticipant, StageView: OpenEndedStage },
+  paragraph: { lifecycle: "content", ParticipantView: ParagraphParticipant, StageView: ParagraphStage },
+  quote: { lifecycle: "content", ParticipantView: QuoteParticipant, StageView: QuoteStage },
   ranking: { lifecycle: "response", ParticipantView: RankingParticipant, StageView: RankingStage },
   scales: { lifecycle: "response", ParticipantView: ScalesParticipant, StageView: ScalesStage },
   select_answer: { lifecycle: "response", ParticipantView: SelectAnswerParticipant, StageView: SelectAnswerStage },
   type_answer: { lifecycle: "response", ParticipantView: TypeAnswerParticipant, StageView: TypeAnswerStage },
+  video: { lifecycle: "content", ParticipantView: VideoParticipant, StageView: VideoStage },
   wordcloud: { lifecycle: "response", ParticipantView: WordcloudParticipant, StageView: WordcloudStage },
 };
 

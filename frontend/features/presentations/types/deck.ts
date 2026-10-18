@@ -2,6 +2,8 @@
 // Live-session types (participant/host state, reveal payloads, realtime
 // events) stay in `../types.ts`.
 
+import type { ContentSlideType, SlideContent } from "./content";
+
 export type PresentationSlideType =
   | "select_answer"
   | "type_answer"
@@ -9,7 +11,8 @@ export type PresentationSlideType =
   | "open_ended"
   | "scales"
   | "ranking"
-  | "leaderboard";
+  | "leaderboard"
+  | ContentSlideType;
 
 export const SCORED_SLIDE_TYPES: PresentationSlideType[] = ["select_answer", "type_answer"];
 
@@ -40,6 +43,8 @@ export interface PresentationSlide {
   items: string[];
   // wordcloud
   maxEntries: number;
+  /** Content slide types: the type's payload (`./content.ts`). Absent or null for the others. */
+  content?: SlideContent | null;
   timeLimit: number;
   points: number;
   scoreDependsOnTime: boolean;

@@ -11,7 +11,7 @@ export function SelectAnswerParticipant({ slide, mode, onSubmit, submitting }: P
   const t = useTranslations("live.slides.selectAnswer");
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const { options } = slide;
-  const inert = mode !== "live";
+  const inert = mode === "preview";
   const locked = submitting || inert;
 
   // Keyboard shortcuts: 1-9 or A-Z to select option

@@ -15,7 +15,7 @@ export function WordcloudParticipant({ slide, mode, onSubmit, submitting }: Part
   const [entries, setEntries] = useState<string[]>([]);
   const [entryDraft, setEntryDraft] = useState("");
   const { maxEntries } = slide;
-  const locked = submitting || mode !== "live";
+  const locked = submitting || mode === "preview";
   const canAddMore = entries.length < maxEntries;
 
   const addEntry = () => {

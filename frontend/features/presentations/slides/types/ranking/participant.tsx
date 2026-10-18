@@ -12,7 +12,7 @@ export function RankingParticipant({ slide, mode, onSubmit, submitting }: Partic
   const { items } = slide;
   // Item indices in the participant's order; starts as authored.
   const [rankingOrder, setRankingOrder] = useState<number[]>(() => (items ?? []).map((_, i) => i));
-  const locked = submitting || mode !== "live";
+  const locked = submitting || mode === "preview";
 
   const moveItem = (from: number, to: number) =>
     setRankingOrder((prev) => {

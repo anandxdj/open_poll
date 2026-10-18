@@ -2,12 +2,20 @@ import type { ComponentType } from "react";
 
 import type { PresentationSlide, PresentationSlideType } from "../types/deck";
 import type { SlideTypeMeta } from "./meta";
+import { editor as big_number } from "./types/big_number/editor";
+import { editor as bullets } from "./types/bullets/editor";
+import { editor as heading } from "./types/heading/editor";
+import { editor as image } from "./types/image/editor";
+import { editor as instructions } from "./types/instructions/editor";
 import { editor as leaderboard } from "./types/leaderboard/editor";
 import { editor as open_ended } from "./types/open_ended/editor";
+import { editor as paragraph } from "./types/paragraph/editor";
+import { editor as quote } from "./types/quote/editor";
 import { editor as ranking } from "./types/ranking/editor";
 import { editor as scales } from "./types/scales/editor";
 import { editor as select_answer } from "./types/select_answer/editor";
 import { editor as type_answer } from "./types/type_answer/editor";
+import { editor as video } from "./types/video/editor";
 import { editor as wordcloud } from "./types/wordcloud/editor";
 
 // Builder-only slide registry. Live routes (participant, stage, host) must
@@ -43,12 +51,20 @@ export interface SlideEditorDef {
 
 /** One line per slide type, alphabetical. */
 export const SLIDE_EDITORS: Record<PresentationSlideType, SlideEditorDef> = {
+  big_number,
+  bullets,
+  heading,
+  image,
+  instructions,
   leaderboard,
   open_ended,
+  paragraph,
+  quote,
   ranking,
   scales,
   select_answer,
   type_answer,
+  video,
   wordcloud,
 };
 

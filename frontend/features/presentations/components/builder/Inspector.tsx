@@ -4,7 +4,7 @@ import { useState, type KeyboardEvent } from "react";
 import { motion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
-import { slideTypeMeta } from "../../slides/meta";
+import { isContentSlide, slideTypeMeta } from "../../slides/meta";
 import { inspectorTabsFor, type InspectorTabProps } from "./inspectorTabs";
 
 const ease = [0.32, 0.72, 0, 1] as const;
@@ -46,7 +46,7 @@ export function Inspector(props: InspectorTabProps) {
           <span className="inline-flex items-center gap-2 rounded-full bg-white/4 border border-white/10 px-4 py-2 text-xs font-semibold text-foreground/85">
             <meta.Icon className={`size-3.5 ${meta.iconClass}`} /> {meta.label}
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40 ml-1">
-              {meta.scored ? "Scored" : "Interactive"}
+              {meta.scored ? "Scored" : isContentSlide(meta.type) ? "Content" : "Interactive"}
             </span>
           </span>
 

@@ -8,6 +8,7 @@ import { PresentationAnswerModel } from './models/answer.model';
 import { PresentationSessionModel } from './models/session.model';
 import { authorizeDeck, type Actor } from './access';
 import { allSessionKeys, k } from './live/keys';
+import { assertContentMediaInWorkspace } from './slides/types/content/media';
 import type { CreatePresentationInput, UpdatePresentationInput } from './presentations.schema';
 
 const generateJoinCode = () => crypto.randomInt(100000, 1000000).toString();
@@ -32,6 +33,8 @@ export const createPresentation = async (data: CreatePresentationInput, actor: A
     creatorId = actor.user!.id;
     workspaceId = actor.workspace ? String(actor.workspace._id) : undefined;
   }
+  // Uploaded media must belong to the deck's workspace (the request schema cannot query).
+  if (workspaceId && data.slides) await assertContentMediaInWorkspace(data.slides, workspaceId);
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       return await PresentationModel.create({
@@ -71,6 +74,11 @@ export const updatePresentation = async (presentationId: string, actor: Actor, d
   const presentation = await authorizeDeck(presentationId, actor, 'deck:edit');
   if (presentation.status !== 'draft' && presentation.status !== 'ended') {
     throw ApiError.badRequest('Cannot edit a presentation deck while a live session is running');
+  }
+  if (data.slides !== undefined) {
+    const workspaceId =
+      presentation.workspaceId ?? (typeof actor !== 'string' && actor.workspace ? actor.workspace._id : undefined);
+    if (workspaceId) await assertContentMediaInWorkspace(data.slides, String(workspaceId));
   }
   if (data.title !== undefined) presentation.title = data.title;
   if (data.slides !== undefined) presentation.slides = data.slides as IPresentationSlide[];
