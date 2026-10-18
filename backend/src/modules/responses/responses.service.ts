@@ -1,15 +1,85 @@
 import mongoose from 'mongoose';
 import { redisClient } from '../../common/config/redis';
 import { ApiError } from '../../common/utils/ApiError';
-import { PollModel } from '../polls/polls.model';
+import {
+  issueBallotToken,
+  issueGuestToken,
+  verifyBallotToken,
+  verifyGuestToken,
+} from '../../common/utils/signedId.utils';
+import { PollModel, type IPoll } from '../polls/polls.model';
 import { ResponseModel } from './responses.model';
-import type { SubmitResponseInput } from './responses.schema';
+import type { IssueGuestTokenInput, SubmitResponseInput } from './responses.schema';
 import { AnalyticsModel } from './analytics.model';
 import type { PollAnalyticsUpdateEvent } from '../../common/realtime/events';
 import { UserModel } from '../auth/auth.model';
 
+// Dedup markers outlive the voting window by this much. Ballot tokens carry no
+// expiry of their own, so a marker that lapsed while the poll is still open
+// would let a spent ballot be replayed.
+const VOTE_DEDUP_GRACE_SEC = 7 * 86400;
+// Anonymous votes: a generous per-IP cap absorbs NAT while stopping bulk
+// ballot-minting from one machine.
+const ANON_VOTES_PER_IP = 50;
+const ANON_VOTES_WINDOW_SEC = 86400;
+// Serializes one respondent's trial attempts so the "already passed" check and
+// attempt numbering can't race. Short so a crashed request can't wedge it.
+const TRIAL_ATTEMPT_LOCK_SEC = 30;
+
+/** Identity established by the transport layer — never read from the body. */
+export type SubmitContext = {
+  /** `req.user.id` from a verified access token. */
+  userId?: string;
+  clientIp?: string;
+};
+
+type NormalizedAnswer = {
+  questionId: string;
+  selectedOptionIndex: number;
+  selectedOptionIndices: number[];
+};
+
+const dedupTtlSec = (expiresAt: Date) =>
+  Math.ceil(Math.max(0, expiresAt.getTime() - Date.now()) / 1000) + VOTE_DEDUP_GRACE_SEC;
+
+/** Atomic SET NX: true only for the one caller that created the key. */
+const claimOnce = async (key: string, ttlSec: number) =>
+  (await redisClient.set(key, '1', {
+    condition: 'NX',
+    expiration: { type: 'EX', value: ttlSec },
+  })) !== null;
+
+const toAnswerDocs = (answers: NormalizedAnswer[]) =>
+  answers.map((a) => ({
+    questionId: new mongoose.Types.ObjectId(a.questionId),
+    selectedOptionIndex: a.selectedOptionIndex,
+    selectedOptionIndices: a.selectedOptionIndices,
+  }));
+
 export class ResponseService {
-  static async submitResponse(payload: SubmitResponseInput) {
+  /**
+   * Mints a server-signed, single-use ballot token bound to this poll.
+   * The client cannot forge or rotate these — only the server can issue them.
+   */
+  static async issueBallot(pollId: string) {
+    const poll = await PollModel.findById(pollId);
+    if (!poll) throw ApiError.notFound('Poll not found');
+    if (!poll.isPublished) throw ApiError.badRequest('Poll is not published');
+    if (poll.isClosed) throw ApiError.badRequest('Poll is closed');
+    if (poll.expiresAt.getTime() <= Date.now()) throw ApiError.badRequest('Poll is expired');
+
+    // Bound to the canonical id so case variants of one ObjectId can't alias
+    // into separate dedup keys.
+    const { token } = issueBallotToken(String(poll._id));
+    return { ballotToken: token };
+  }
+
+  /** Signs a guest identity so `guest:` respondent strings cannot be self-asserted. */
+  static issueGuestIdentity(payload: IssueGuestTokenInput) {
+    return { guestToken: issueGuestToken(payload.email, payload.name) };
+  }
+
+  static async submitResponse(payload: SubmitResponseInput, context: SubmitContext = {}) {
     const poll = await PollModel.findById(payload.pollId);
     if (!poll) {
       throw ApiError.notFound('Poll not found');
@@ -22,6 +92,7 @@ export class ResponseService {
     if (poll.isClosed) throw ApiError.badRequest('Poll is closed');
     if (poll.expiresAt.getTime() <= Date.now()) throw ApiError.badRequest('Poll is expired');
 
+    const pollId = String(poll._id);
     const questionMap = new Map(
       poll.questions.map((question) => [String(question._id), question]),
     );
@@ -35,7 +106,7 @@ export class ResponseService {
     }
 
     // Standardize answers array
-    const normalizedAnswers = payload.answers.map((answer) => {
+    const normalizedAnswers: NormalizedAnswer[] = payload.answers.map((answer) => {
       const question = questionMap.get(answer.questionId);
       if (!question) {
         throw ApiError.badRequest(`Question ${answer.questionId} does not belong to this poll`);
@@ -61,46 +132,112 @@ export class ResponseService {
       };
     });
 
-    if (!poll.isAnonymous && !payload.respondentId) {
+    // Identity: derived server-side only. The verified session wins; a signed
+    // guest token is the only other source. Raw client strings never are.
+    let respondentId: string | null = context.userId ?? null;
+    if (!respondentId && payload.guestToken) {
+      const guest = verifyGuestToken(payload.guestToken);
+      if (!guest) throw ApiError.unauthorized('Invalid guest token');
+      respondentId = `guest:${guest.email}:${guest.name}`;
+    }
+
+    if (!poll.isAnonymous && !respondentId) {
       throw ApiError.unauthorized('This poll requires you to be logged in to vote.');
     }
 
-    const respondentKey = payload.respondentId || payload.deviceId;
-    const spamKey = `poll:${payload.pollId}:voted:${payload.deviceId}`;
+    // Dedup anchor: the server-issued ballot, not any client-chosen string.
+    // Every check above runs before it is spent, so a 401 → token refresh →
+    // retry can resend the same ballot.
+    const ballotId = verifyBallotToken(payload.ballotToken, pollId);
+    if (!ballotId) throw ApiError.forbidden('Invalid or missing ballot token');
 
-    // For standard polls, block duplicate votes. For trials, allow retries if the trial hasn't been passed.
-    if (poll.pollType === 'POLL') {
-      const hasVoted = await redisClient.get(spamKey);
-      if (hasVoted) {
+    const isTrial = poll.pollType === 'TRIAL';
+    const dedupTtl = dedupTtlSec(poll.expiresAt);
+
+    // Single use for every poll type — each trial retry fetches a fresh ballot.
+    if (!(await claimOnce(`poll:${pollId}:ballot:${ballotId}`, dedupTtl))) {
+      throw ApiError.conflict(
+        isTrial ? 'This attempt was already submitted.' : 'You have already voted on this poll.',
+      );
+    }
+
+    if (isTrial) {
+      return ResponseService.submitTrialAttempt(poll, normalizedAnswers, {
+        respondentId,
+        anonymousId: `anon:${ballotId}`,
+        deviceHint: payload.deviceId,
+        dedupTtl,
+      });
+    }
+
+    // Secondary dedup, also atomic: an identity votes once whichever ballot it
+    // holds; anonymous ballots are capped per IP.
+    if (respondentId) {
+      if (!(await claimOnce(`poll:${pollId}:voted:id:${respondentId}`, dedupTtl))) {
         throw ApiError.conflict('You have already voted on this poll.');
       }
-      await redisClient.setEx(spamKey, 86400, 'true');
-    }
-
-    // Buffer counts to Redis for analytics pipeline
-    const pipeline = redisClient.multi();
-    pipeline.sAdd('buffer:active_polls', payload.pollId);
-    pipeline.incr(`buffer:poll:${payload.pollId}:total`);
-    for (const answer of normalizedAnswers) {
-      for (const idx of answer.selectedOptionIndices) {
-        pipeline.hIncrBy(
-          `buffer:poll:${payload.pollId}:question:${answer.questionId}`,
-          String(idx),
-          1,
-        );
+    } else if (context.clientIp) {
+      const ipKey = `poll:${pollId}:voted:ip:${context.clientIp}`;
+      const ipVotes = await redisClient.incr(ipKey);
+      if (ipVotes === 1) await redisClient.expire(ipKey, ANON_VOTES_WINDOW_SEC);
+      if (ipVotes > ANON_VOTES_PER_IP) {
+        throw ApiError.tooManyRequests('Too many votes from this network for this poll.');
       }
     }
-    await pipeline.exec();
 
-    let trialResult: any = null;
-    let attemptNumber = 1;
+    await ResponseService.bufferVoteCounts(pollId, normalizedAnswers);
 
-    if (poll.pollType === 'TRIAL') {
-      const previousAttempts = await ResponseModel.countDocuments({
-        pollId: new mongoose.Types.ObjectId(payload.pollId),
-        respondentId: respondentKey,
-      });
-      attemptNumber = previousAttempts + 1;
+    ResponseModel.create({
+      pollId: new mongoose.Types.ObjectId(pollId),
+      respondentId: respondentId ?? `anon:${ballotId}`,
+      answers: toAnswerDocs(normalizedAnswers),
+      attemptNumber: 1,
+    }).catch((error: unknown) => {
+      console.error('[Mongo Backup Error]', error);
+    });
+
+    return { message: 'Response recorded successfully' };
+  }
+
+  /**
+   * Grades one trial attempt. Identified respondents may retry until they
+   * pass; anonymous ones are bounded only by single-use ballots.
+   */
+  private static async submitTrialAttempt(
+    poll: IPoll,
+    normalizedAnswers: NormalizedAnswer[],
+    opts: {
+      respondentId: string | null;
+      anonymousId: string;
+      deviceHint?: string;
+      dedupTtl: number;
+    },
+  ) {
+    const pollId = String(poll._id);
+    const pollObjectId = new mongoose.Types.ObjectId(pollId);
+    const { respondentId } = opts;
+
+    const lockKey = respondentId ? `poll:${pollId}:trial:lock:${respondentId}` : null;
+    if (lockKey && !(await claimOnce(lockKey, TRIAL_ATTEMPT_LOCK_SEC))) {
+      throw ApiError.conflict('Another attempt is already being graded.');
+    }
+
+    try {
+      let attemptNumber = 1;
+      if (respondentId) {
+        if (await ResponseModel.exists({ pollId: pollObjectId, respondentId, passed: true })) {
+          throw ApiError.conflict('You have already passed this assessment.');
+        }
+        attemptNumber =
+          (await ResponseModel.countDocuments({ pollId: pollObjectId, respondentId })) + 1;
+      } else if (opts.deviceHint) {
+        // Display-only attempt counter for anonymous retries; gates nothing.
+        const hintKey = `poll:${pollId}:trial:attempts:${opts.deviceHint}`;
+        attemptNumber = await redisClient.incr(hintKey);
+        if (attemptNumber === 1) await redisClient.expire(hintKey, opts.dedupTtl);
+      }
+
+      await ResponseService.bufferVoteCounts(pollId, normalizedAnswers);
 
       let score = 0;
       let maxScore = 0;
@@ -134,7 +271,7 @@ export class ResponseService {
       const passThreshold = poll.passingScorePercentage ?? 70;
       const passed = percentage >= passThreshold;
 
-      trialResult = {
+      const trialResult = {
         passed,
         score,
         maxScore,
@@ -156,15 +293,11 @@ export class ResponseService {
         }),
       };
 
-      // Save Mongo response record asynchronously
+      // Awaited (unlike polls): the passed/attempt checks above read it back.
       await ResponseModel.create({
-        pollId: new mongoose.Types.ObjectId(payload.pollId),
-        respondentId: respondentKey,
-        answers: normalizedAnswers.map((a) => ({
-          questionId: new mongoose.Types.ObjectId(a.questionId),
-          selectedOptionIndex: a.selectedOptionIndex,
-          selectedOptionIndices: a.selectedOptionIndices,
-        })),
+        pollId: pollObjectId,
+        respondentId: respondentId ?? opts.anonymousId,
+        answers: toAnswerDocs(normalizedAnswers),
         attemptNumber,
         score,
         maxScore,
@@ -178,23 +311,26 @@ export class ResponseService {
           : `Trial attempt #${attemptNumber} complete. Score: ${percentage}%. Pass threshold: ${passThreshold}%.`,
         trialResult,
       };
+    } finally {
+      if (lockKey) await redisClient.del(lockKey).catch(() => {});
     }
+  }
 
-    // For standard polls:
-    ResponseModel.create({
-      pollId: new mongoose.Types.ObjectId(payload.pollId),
-      respondentId: respondentKey,
-      answers: normalizedAnswers.map((a) => ({
-        questionId: new mongoose.Types.ObjectId(a.questionId),
-        selectedOptionIndex: a.selectedOptionIndex,
-        selectedOptionIndices: a.selectedOptionIndices,
-      })),
-      attemptNumber: 1,
-    }).catch((error: unknown) => {
-      console.error('[Mongo Backup Error]', error);
-    });
-
-    return { message: 'Response recorded successfully' };
+  /** Buffers per-option counts in Redis for the analytics worker to flush. */
+  private static async bufferVoteCounts(pollId: string, answers: NormalizedAnswer[]) {
+    const pipeline = redisClient.multi();
+    pipeline.sAdd('buffer:active_polls', pollId);
+    pipeline.incr(`buffer:poll:${pollId}:total`);
+    for (const answer of answers) {
+      for (const idx of answer.selectedOptionIndices) {
+        pipeline.hIncrBy(
+          `buffer:poll:${pollId}:question:${answer.questionId}`,
+          String(idx),
+          1,
+        );
+      }
+    }
+    await pipeline.exec();
   }
 
   static async getPollAnalytics(pollId: string): Promise<PollAnalyticsUpdateEvent> {
@@ -268,7 +404,8 @@ export class ResponseService {
         email: '',
       };
 
-      if (!poll.isAnonymous && r.respondentId) {
+      // `anon:<ballotId>` marks a vote cast with no identity.
+      if (!poll.isAnonymous && r.respondentId && !r.respondentId.startsWith('anon:')) {
         if (r.respondentId.startsWith('guest:')) {
           const parts = r.respondentId.split(':');
           const email = parts[1] || '';
