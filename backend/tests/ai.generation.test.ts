@@ -366,7 +366,7 @@ describe('AI quiz generation — mock fallback (no Gemini key)', () => {
     });
     const result = await AiService.generateQuizDraft(input);
     expect(result.slides).toHaveLength(4);
-    // Every slide should pass the strict quizSlideSchema (repair always validates)
+    // Every slide should pass the strict presentationSlideSchema (repair always validates)
     for (const slide of result.slides) {
       expect(slide.type).toBeDefined();
       expect(slide.question.length).toBeGreaterThan(0);
