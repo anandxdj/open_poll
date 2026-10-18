@@ -1,3 +1,6 @@
+// Must stay the first import: validates the environment before any module
+// reads it, so a misconfigured deploy fails at boot with every problem listed.
+import { env } from './common/config/env';
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
@@ -26,7 +29,7 @@ app.set('trust proxy', 1);
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: env.FRONTEND_URL,
     methods: ['GET', 'POST'],
   },
 });
@@ -36,10 +39,10 @@ app.use(securityHeaders);
 app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
-      process.env.FRONTEND_URL,
+      ...env.allowedOrigins,
       'http://localhost:3000',
       'http://127.0.0.1:3000',
-    ].filter(Boolean) as string[];
+    ];
     // Allow requests with no origin (e.g. curl, Postman, server-side)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -90,7 +93,7 @@ app.use('/mcp', mcpRouter);
 app.use(errorHandler);
 
 // Boot Server & Connect Services
-const PORT = process.env.PORT || 5000;
+const PORT = env.PORT;
 const bootstrap = async () => {
   await connectDB();
   await connectRedis();

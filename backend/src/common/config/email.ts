@@ -1,12 +1,13 @@
 import { Resend } from 'resend';
+import { env } from './env';
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const resend = env.mail.resendApiKey ? new Resend(env.mail.resendApiKey) : null;
 
 const sendEmail = async (to: string, subject: string, html: string) => {
   try {
     if (resend) {
       const { data, error } = await resend.emails.send({
-        from: `"${process.env.RESEND_FROM_NAME || process.env.SMTP_FROM_NAME}" <${process.env.RESEND_FROM_EMAIL || process.env.SMTP_FROM_EMAIL}>`,
+        from: `"${env.mail.fromName}" <${env.mail.fromEmail}>`,
         to: [to],
         subject,
         html,
@@ -26,7 +27,7 @@ const sendEmail = async (to: string, subject: string, html: string) => {
 };
 
 export const sendVerificationEmail = async (email: string, token: string) => {
-  const url = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email/${token}`;
+  const url = `${env.FRONTEND_URL}/verify-email/${token}`;
   await sendEmail(
     email,
     'Verify your email - OpenPoll',
@@ -47,7 +48,7 @@ export const sendVerificationEmail = async (email: string, token: string) => {
 };
 
 export const sendResetPasswordEmail = async (email: string, token: string) => {
-  const url = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${token}`;
+  const url = `${env.FRONTEND_URL}/reset-password/${token}`;
   await sendEmail(
     email,
     'Reset your password - OpenPoll',
