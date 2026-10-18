@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import type { AuthRequest } from '../auth/auth.middleware';
 import { ApiResponse } from '../../common/utils/ApiResponse';
 import { AiService } from './ai.service';
 
@@ -12,12 +13,10 @@ export class AiController {
     }
   }
 
-  static async generateAndSave(req: Request, res: Response, next: NextFunction) {
+  static async generateAndSave(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const payload = {
-        ...req.body,
-        creatorId: req.body.creatorId || 'mock-creator-id-123',
-      };
+      // The route requires auth; the owner is never taken from the body.
+      const payload = { ...req.body, creatorId: req.user!.id };
       const result = await AiService.generateAndSavePoll(payload);
       return ApiResponse.created(res, 'AI poll generated and saved successfully', result);
     } catch (error) {

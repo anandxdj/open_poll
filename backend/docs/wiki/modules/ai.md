@@ -1,7 +1,7 @@
 ---
 summary: AI module behavior for generating poll drafts and saved polls.
 status: active
-last_updated: 2026-05-11
+last_updated: 2026-10-18
 ---
 
 # AI Module
@@ -10,7 +10,11 @@ last_updated: 2026-05-11
 
 ## Endpoints
 - `POST /api/ai/generate`: generate validated draft payload.
-- `POST /api/ai/generate-and-save`: generate draft and persist as poll.
+- `POST /api/ai/generate-and-save`: generate draft and persist as a poll owned by the caller.
+- `POST /api/ai/generate-quiz`: generate a presentation (slide deck) draft.
+
+All three require `Authorization: Bearer` and share one rate limit (`ai`, 20 per 5 minutes per
+IP). The poll owner always comes from the verified session, never from the request body.
 
 ## Guarantees
 - Structured output validated by Zod schema aligned with poll create contract.

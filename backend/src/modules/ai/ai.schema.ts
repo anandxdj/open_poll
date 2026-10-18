@@ -51,13 +51,13 @@ export const generatedTrialSchema = generatedPollSchema.extend({
   questions: z.array(generatedTrialQuestionSchema).min(1),
 });
 
-export const generateAndSavePollRequestSchema = generatePollRequestSchema.extend({
-  creatorId: z.string().default('mock-creator-id-123'),
-});
+export const generateAndSavePollRequestSchema = generatePollRequestSchema;
 
 export type GeneratePollRequestInput = z.infer<typeof generatePollRequestSchema>;
 export type GeneratedPollOutput = z.infer<typeof generatedPollSchema>;
-export type GenerateAndSavePollRequestInput = z.infer<typeof generateAndSavePollRequestSchema>;
+export type GenerateAndSavePollRequestInput = z.infer<typeof generateAndSavePollRequestSchema> & {
+  creatorId: string;
+};
 
 // ---------- Quiz AI Schemas ----------
 

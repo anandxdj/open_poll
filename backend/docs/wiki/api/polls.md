@@ -9,7 +9,7 @@ last_updated: 2026-05-11
 Base path: `/api/polls`
 
 - `POST /` create poll
-- `GET /` list polls by `creatorId` query (defaults to mock creator)
+- `GET /` list the authenticated caller's polls
 - `GET /:id` fetch single poll
 - `PATCH /:pollId` update poll
 - `POST /:id/close` close poll
