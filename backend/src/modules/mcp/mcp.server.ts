@@ -78,7 +78,7 @@ export function createMcpServer(ctx: McpSessionContext): McpServer {
     'create_poll',
     {
       description:
-        'Create an UNGRADED opinion poll — no correct answers, no scoring. For a quiz, test, exam, or anything scored, use create_assessment instead; this tool cannot express correct answers. Defaults to published (live) unless isPublished is false. expiresAt defaults to 30 days from now.',
+        'Create an UNGRADED opinion poll — no correct answers, no scoring. For a quiz, test, exam, or anything scored, use create_assessment instead; this tool cannot express correct answers. The poll goes live immediately (published, open to anyone with the link) unless you pass isPublished: false — unlike the web app, which creates drafts. expiresAt defaults to 30 days from now.',
       inputSchema: createPollInputShape,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
@@ -89,7 +89,7 @@ export function createMcpServer(ctx: McpSessionContext): McpServer {
     'create_assessment',
     {
       description:
-        'Create a GRADED assessment (a quiz, test, trial, or exam). Every question must declare correctOptionIndices — the schema requires it, so an assessment that could never be scored cannot be submitted. Optionally set passingScorePercentage (default 70), per-question points, and an explanation shown after answering. The response echoes a "grading" summary resolving your indices to option text: check it, because a valid index can still be the wrong answer.',
+        'Create a GRADED assessment (a quiz, test, trial, or exam). Every question must declare correctOptionIndices — the schema requires it, so an assessment that could never be scored cannot be submitted. Optionally set passingScorePercentage (default 70), per-question points, and an explanation shown after answering. The assessment goes live immediately (published, open to anyone with the link) unless you pass isPublished: false — unlike the web app, which creates drafts. expiresAt defaults to 30 days from now. The response echoes a "grading" summary resolving your indices to option text: check it, because a valid index can still be the wrong answer.',
       inputSchema: createAssessmentInputShape,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },

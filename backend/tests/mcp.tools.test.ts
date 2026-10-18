@@ -270,6 +270,24 @@ describe('create_assessment', () => {
     restore();
   });
 
+  // MCP publishes by default where REST creates drafts; the tool descriptions say
+  // so. Both directions are pinned here so the divergence stays deliberate.
+  it('publishes by default but honours isPublished: false', async () => {
+    const question = { text: 'Pick one', options: ['A', 'B'], correctOptionIndices: [0] };
+
+    const live = await captureCreate('create_assessment', { title: 'Live by default', questions: [question] });
+    expect(live.createdPayload.isPublished).toBe(true);
+    live.restore();
+
+    const draft = await captureCreate('create_assessment', {
+      title: 'Kept as a draft',
+      isPublished: false,
+      questions: [question],
+    });
+    expect(draft.createdPayload.isPublished).toBe(false);
+    draft.restore();
+  });
+
   it('rejects an assessment whose questions have no correct answers', async () => {
     await expect(
       handleMcpTool(
