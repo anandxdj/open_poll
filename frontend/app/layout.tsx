@@ -46,6 +46,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      // globals.css smooths in-page scrolling; this keeps route changes (a footer link to /login) instant.
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
       className={cn("h-full antialiased", geistSans.variable, geistMono.variable, amethystaAmethysta.variable)}
     >

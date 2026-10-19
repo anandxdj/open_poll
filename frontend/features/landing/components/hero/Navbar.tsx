@@ -1,189 +1,272 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, User, Settings, LogOut, LayoutDashboard } from "lucide-react";
-import { ProductLogo } from "@/components/ui/ProductLogo";
-import { useState, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowRight, LayoutDashboard, LogOut, Menu, Settings, User, X } from "lucide-react";
 import { ThemeSwitch } from "@/components/unlumen-ui/theme-switch";
-import { useAuthStore } from "@/features/auth";
-import { getAuthLoginUrl } from "@/lib/env";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuthStore } from "@/features/auth";
+import { useMounted } from "@/hooks/use-mounted";
+import { cn } from "@/lib/utils";
+import { BrandMark } from "../shared/BrandMark";
+import { NAV_LINKS } from "../shared/nav-links";
+import { button, container } from "../shared/styles";
+
+const ease = [0.32, 0.72, 0, 1] as const;
+
+const initials = (name: string) =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+const menuItem =
+  "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-foreground/80 focus:bg-primary/10 focus:text-foreground";
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  const [open, setOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const mounted = useMounted();
   const { user, isAuthenticated, logout, checkAuth } = useAuthStore();
+  // The persisted store can already say "signed in" on the first client render;
+  // wait for mount so the header matches the server HTML.
+  const authed = mounted && isAuthenticated;
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    checkAuth();
+    void checkAuth();
     return () => window.removeEventListener("scroll", onScroll);
   }, [checkAuth]);
 
-  const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
-    e.preventDefault();
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth" });
-      window.history.pushState(null, "", `#${id}`);
-    }
-  };
+  const closeMenu = useCallback((returnFocus = false) => {
+    setOpen(false);
+    if (returnFocus) toggleRef.current?.focus();
+  }, []);
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .substring(0, 2);
-  };
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeMenu(true);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, closeMenu]);
+
+  const solid = scrolled || open;
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-        scrolled
-          ? "bg-background/90 backdrop-blur-xl border-b border-border"
-          : "bg-transparent"
-      }`}
+      className={cn(
+        "fixed inset-x-0 top-0 z-50 border-b transition-[background-color,border-color,backdrop-filter] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+        solid ? "border-border bg-background/90 backdrop-blur-xl" : "border-transparent bg-transparent",
+      )}
     >
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="relative">
-            <div className="absolute -inset-1.5 rounded-xl bg-primary/20 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="relative size-9 flex items-center justify-center">
-              <ProductLogo size={44} />
-            </div>
-          </div>
-          <span className="text-sm font-bold tracking-wide text-foreground/90">
-            Open Poll
-          </span>
-        </Link>
+      <div className={cn(container, "flex h-16 items-center justify-between gap-4")}>
+        <BrandMark />
 
-        {/* Nav links */}
-        <nav className="hidden md:flex items-center gap-8">
-          {["Features", "How it works", "Pricing"].map((label) => {
-            const id = label.toLowerCase().replace(/\s+/g, "-");
-            return (
-              <a
-                key={label}
-                href={`#${id}`}
-                onClick={(e) => handleScroll(e, id)}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
-              >
-                {label}
-              </a>
-            );
-          })}
+        <nav aria-label="Primary" className="hidden items-center gap-1 lg:flex">
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="mk-focus inline-flex h-11 items-center rounded-xl px-4 text-sm font-medium text-muted-foreground transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-foreground"
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
 
-        {/* CTAs */}
-        <div className="flex items-center gap-3">
-          <ThemeSwitch className="scale-90" />
-          
-          {isAuthenticated ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="relative group focus:outline-none">
-                  <div className="absolute -inset-1 rounded-full bg-primary/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  <div className="relative size-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 overflow-hidden shadow-sm">
-                    {user?.picture && !imgError ? (
-                      <img 
-                        src={user.picture} 
-                        alt="" 
-                        className="size-full object-cover transition-transform duration-500 group-hover:scale-110" 
-                        onError={() => setImgError(true)}
-                      />
-                    ) : (
-                      getInitials(user?.name || "User")
-                    )}
-                  </div>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                sideOffset={12}
-                className="w-56 rounded-2xl border-border bg-background/95 backdrop-blur-xl p-1 shadow-2xl"
-              >
-                <div className="px-3 py-3 border-b border-border/50 mb-1">
-                  <p className="text-xs font-bold text-foreground leading-none">{user?.name || "User"}</p>
-                  <p className="text-[10px] text-muted-foreground leading-none mt-1.5 truncate">{user?.email || "Account"}</p>
-                </div>
+        <div className="flex items-center gap-2">
+          <ThemeSwitch className="size-11 lg:size-10" />
 
-                <DropdownMenuLabel className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">
+          {/* Desktop actions */}
+          <div className="hidden items-center gap-2 lg:flex">
+            <Link href="/live" className={button.ghost}>
+              Join a session
+            </Link>
+            {authed ? (
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="Account menu"
+                      className="mk-focus flex size-10 items-center justify-center overflow-hidden rounded-full border border-primary/30 bg-primary/10 text-xs font-bold text-brand-ink"
+                    >
+                      {user?.picture && !imgError ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={user.picture}
+                          alt=""
+                          className="size-full object-cover"
+                          onError={() => setImgError(true)}
+                        />
+                      ) : (
+                        initials(user?.name || "User")
+                      )}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    sideOffset={12}
+                    className="w-60 rounded-2xl border-border bg-background/95 p-1.5 shadow-2xl backdrop-blur-xl"
+                  >
+                    <div className="mb-1 border-b border-border px-3 pb-3 pt-2">
+                      <p className="truncate text-sm font-bold text-foreground">{user?.name || "Your account"}</p>
+                      {user?.email ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{user.email}</p> : null}
+                    </div>
+                    <DropdownMenuItem asChild>
+                      <Link href="/polls" className={menuItem}>
+                        <LayoutDashboard className="size-4" aria-hidden="true" />
+                        Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings#profile" className={menuItem}>
+                        <User className="size-4" aria-hidden="true" />
+                        Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings" className={menuItem}>
+                        <Settings className="size-4" aria-hidden="true" />
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="my-1 bg-border" />
+                    <DropdownMenuItem
+                      onClick={() => void logout()}
+                      className={cn(menuItem, "text-destructive focus:bg-destructive/10 focus:text-destructive")}
+                    >
+                      <LogOut className="size-4" aria-hidden="true" />
+                      Log out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Link href="/polls" className={button.primary}>
                   Dashboard
-                </DropdownMenuLabel>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/polls"
-                    className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium text-foreground/70 transition-colors focus:bg-primary/10 focus:text-primary"
-                  >
-                    <LayoutDashboard className="size-4" />
-                    My Polls
-                  </Link>
-                </DropdownMenuItem>
+                  <ArrowRight className="size-4" aria-hidden="true" />
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link href="/login" className={button.ghost}>
+                  Log in
+                </Link>
+                <Link href="/signup" className={button.primary}>
+                  Sign up free
+                </Link>
+              </>
+            )}
+          </div>
 
-                <DropdownMenuSeparator className="my-1 bg-border/50" />
-                
-                <DropdownMenuLabel className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">
-                  Account
-                </DropdownMenuLabel>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/settings#profile"
-                    className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium text-foreground/70 transition-colors focus:bg-primary/10 focus:text-primary"
-                  >
-                    <User className="size-4" />
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/settings"
-                    className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium text-foreground/70 transition-colors focus:bg-primary/10 focus:text-primary"
-                  >
-                    <Settings className="size-4" />
-                    Settings
-                  </Link>
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator className="my-1 bg-border/50" />
-                
-                <DropdownMenuItem 
-                  onClick={() => logout()}
-                  className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium text-red-500 transition-colors focus:bg-red-500/10 focus:text-red-500"
-                >
-                  <LogOut className="size-4" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <a
-              href={getAuthLoginUrl()}
-              className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] px-4 py-2 active:translate-y-px"
-            >
-              Sign in
-            </a>
-          )}
-
-          <Link
-            href="/create"
-            className="group flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98] active:translate-y-px"
+          {/* Mobile menu toggle */}
+          <button
+            ref={toggleRef}
+            type="button"
+            aria-expanded={open}
+            aria-controls="mobile-nav"
+            aria-label={open ? "Close menu" : "Open menu"}
+            onClick={() => setOpen((v) => !v)}
+            className="mk-focus flex size-11 items-center justify-center rounded-xl border border-foreground/15 bg-foreground/[0.03] text-foreground transition-colors duration-300 hover:bg-foreground/[0.07] lg:hidden"
           >
-            <span>Create poll</span>
-            <ArrowRight className="size-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
-          </Link>
+            {open ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
+          </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {open ? (
+          <motion.div
+            aria-hidden="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            onClick={() => closeMenu()}
+            className="fixed inset-0 top-16 -z-10 bg-background/60 backdrop-blur-sm lg:hidden"
+          />
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {open ? (
+          <motion.div
+            id="mobile-nav"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3, ease }}
+            className="absolute inset-x-0 top-full max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-border bg-background shadow-2xl lg:hidden"
+          >
+            <div className={cn(container, "py-4")}>
+              <nav aria-label="Mobile" className="flex flex-col">
+                {NAV_LINKS.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => closeMenu()}
+                    className="mk-focus flex min-h-12 items-center rounded-xl px-3 text-lg font-medium text-foreground transition-colors hover:bg-foreground/[0.05]"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+                <Link
+                  href="/live"
+                  onClick={() => closeMenu()}
+                  className="mk-focus flex min-h-12 items-center rounded-xl px-3 text-lg font-medium text-foreground transition-colors hover:bg-foreground/[0.05]"
+                >
+                  Join a session
+                </Link>
+              </nav>
+
+              <div className="mt-4 grid gap-3 border-t border-border pt-4">
+                {authed ? (
+                  <>
+                    <Link href="/polls" onClick={() => closeMenu()} className={cn(button.primaryLg, "w-full")}>
+                      Go to dashboard
+                      <ArrowRight className="size-4" aria-hidden="true" />
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMenu();
+                        void logout();
+                      }}
+                      className={cn(button.secondaryLg, "w-full")}
+                    >
+                      Log out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/signup" onClick={() => closeMenu()} className={cn(button.primaryLg, "w-full")}>
+                      Sign up free
+                    </Link>
+                    <Link href="/login" onClick={() => closeMenu()} className={cn(button.secondaryLg, "w-full")}>
+                      Log in
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </header>
   );
 }

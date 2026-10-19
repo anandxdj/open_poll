@@ -57,6 +57,10 @@
   --color-sandy-dark:      #b8885f;
   --color-sandy-muted:     color-mix(in srgb, #d8ad87 15%, transparent);
   --font-amethysta: var(--font-amethysta);
+
+  /* Marketing + auth surfaces: readable brand text and a 3:1 form-field border. */
+  --color-brand-ink:       var(--brand-ink);
+  --color-field-border:    var(--field-border);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -100,6 +104,11 @@
   --input:                         hsl(28, 16%, 86%);
   --ring:                          #d8ad87;
   --radius:                        0.75rem;
+
+  /* Brand text on light surfaces: #d8ad87 is only ~1.9:1 on off-white, this is 5.9:1. */
+  --brand-ink:                     hsl(28, 62%, 33%);
+  /* Input boundary, >= 3:1 against both the page and the card (WCAG 1.4.11). */
+  --field-border:                  hsl(24, 8%, 50%);
 
   /* Charts — warm tan scale */
   --chart-1:                       #d8ad87;
@@ -153,6 +162,8 @@
   --border:                        hsl(20,  6%, 14%);
   --input:                         hsl(20,  6%, 14%);
   --ring:                          #d8ad87;
+  --brand-ink:                     #d8ad87;
+  --field-border:                  hsl(24,  6%, 40%);
 
   /* Charts */
   --chart-1:                       #d8ad87;
@@ -464,4 +475,59 @@ h2 { letter-spacing: -0.03em; }
 
 ::view-transition-old(root) {
   animation: none;
+}
+/* ── Marketing + auth surfaces (landing, login, signup, legal) ──────────────
+   Additive only. `.mk-surface` marks a page that opts in to the rules below. */
+
+/* Visible keyboard focus that reads on both themes (brand-ink is 5.9:1 on light). */
+@utility mk-focus {
+  &:focus-visible {
+    outline: 2px solid var(--brand-ink);
+    outline-offset: 3px;
+  }
+}
+
+/* Skip link: off-screen until it receives focus. */
+@utility mk-skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 100;
+  border-radius: 0.75rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: top 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+  &:focus-visible {
+    top: 1rem;
+    outline: 2px solid var(--brand-ink);
+    outline-offset: 3px;
+  }
+}
+
+/* Hero dot grid, faded out toward the edges so it never reads as a hard box. */
+.mk-dot-grid {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--foreground) 10%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 25%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 25%, transparent 80%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .mk-surface *,
+  .mk-surface *::before,
+  .mk-surface *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
