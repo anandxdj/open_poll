@@ -78,15 +78,17 @@ test("mock mode: plan an outline, review it, generate a deck with notes and open
   expect(stored.slides.map((slide) => slide.type)).toContain("select_answer");
   expect(JSON.stringify(stored.slides)).toContain("Explain why perimeters fail");
 
+  // The notice can be dismissed. Do it while the builder is still on screen: an explicit save
+  // leaves the builder for the library, which unmounts the banner mid-click.
+  await page.getByRole("button", { name: "Dismiss this notice" }).click();
+  await expect(page.getByTestId("ai-deck-mock-notice")).toHaveCount(0);
+
   // The builder keeps the notes when the author saves (it does not strip fields it does not edit).
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Presentation deck updated!")).toBeVisible();
+  await expect(page).toHaveURL(/\/polls/);
   const saved = await host.getDeck(deckId);
   expect(saved.slides.every((slide) => String(slide.notes).length > 0)).toBe(true);
-
-  // The notice can be dismissed.
-  await page.getByRole("button", { name: "Dismiss this notice" }).click();
-  await expect(page.getByTestId("ai-deck-mock-notice")).toHaveCount(0);
 });
 
 test("the dialog offers quick slides too, and the form validates before planning", async ({ host }) => {
