@@ -35,7 +35,22 @@
     "waitingClose": "Waiting for question to close.",
     "slideTab": "Slide",
     "endTitle": "That's a wrap!",
-    "endSummary": "You finished <b>#{rank}</b> with <num>{score}</num> points ({correct} correct)."
+    "endSummary": "You finished <b>#{rank}</b> with <num>{score}</num> points ({correct} correct).",
+    "votingClosed": "Voting is closed",
+    "votingClosedHint": "Waiting for the host to continue.",
+    "reconnecting": "Reconnecting…",
+    "sessionFull": "This session is full.",
+    "joinEnded": "This session has already ended.",
+    "kickedTitle": "You were removed from this session",
+    "kickedHint": "The host removed you, so you can't rejoin this session.",
+    "endedTitle": "This session has ended",
+    "endedHint": "Ask the host for the next session, or check back later.",
+    "newSessionTitle": "A new session is live",
+    "newSessionHint": "The host started another run of this deck.",
+    "newSessionJoin": "Join the new session",
+    "rejoinHint": "That session is over. Enter a nickname to join the current one.",
+    "syncing": "Catching up…",
+    "waitingForSlide": "Loading the current slide…"
   },
   "leaderboard": {
     "title": "Leaderboard",

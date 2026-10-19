@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import type { AnswerPayload, LiveSlide } from "../../types";
+import { LIVE_ERROR_CODES } from "../../live/errors";
 import { useLive } from "../../live/store";
 import { useCountdown } from "../../live/useCountdown";
 import type { SlideRuntime } from "../../slides/runtime";
@@ -14,24 +15,28 @@ import { Timer } from "../stage/Timer";
 
 /**
  * A `response` slide on the participant's phone: timer, question, then
- * either the type's answer form or the shell-owned states (submitted, time's
- * up, result after reveal).
+ * either the type's answer form or the shell-owned states (submitted, voting
+ * closed, time's up, result after reveal). The slide's phase (`open` →
+ * `closed` → `revealed`, and back to `open` on a reopen) comes from the
+ * store, so a revisit shows the stored phase and result.
  */
 export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime: SlideRuntime }) {
   const t = useTranslations("live.participant");
   const timing = useLive((s) => s.timing);
+  const phase = useLive((s) => s.phase);
+  const slideId = useLive((s) => s.slideId);
   const reveal = useLive((s) => s.reveal);
   const me = useLive((s) => s.me);
   const submittedSlideIndex = useLive((s) => s.submittedSlideIndex);
   const submitAnswer = useLive((s) => s.submitAnswer);
   const [submitting, setSubmitting] = useState(false);
 
-  const { secondsLeft, progress, expired } = useCountdown(
-    timing?.endsAt,
-    timing?.serverNow,
-    slide.timeLimit ?? 30
-  );
+  const { timed, secondsLeft, progress, expired } = useCountdown(timing, slide.timeLimit ?? 30);
   const hasAnswered = submittedSlideIndex === slide.slideIndex;
+  // `me` is read after reveals and may still describe the previous slide.
+  const lastAnswer =
+    me?.lastAnswer && (me.lastAnswer.slideId ?? slideId) === slideId ? me.lastAnswer : null;
+  const wasTimed = (slide.timeLimit ?? 0) > 0;
   // Ungraded slides (e.g. a 0-point select answer) only confirm the response.
   const graded = isGradedSlide(slide);
 
@@ -39,7 +44,11 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
     setSubmitting(true);
     try {
       const result = await submitAnswer(payload);
-      if (result.status === "error") toast.error(result.message || t("submitFailed"));
+      if (result.status === "error") {
+        // Credentials gone (kicked, stale session): the shell reacts; no toast on top of its screen.
+        if (result.code === LIVE_ERROR_CODES.participantStale) toast.error(t("rejoinHint"));
+        else if (result.code !== LIVE_ERROR_CODES.participantKicked) toast.error(result.message || t("submitFailed"));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -47,7 +56,9 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
 
   return (
     <div className="w-full space-y-6">
-      {!reveal && secondsLeft > 0 && <Timer secondsLeft={secondsLeft} progress={progress} />}
+      {phase === "open" && timed && !reveal && secondsLeft > 0 && (
+        <Timer secondsLeft={secondsLeft} progress={progress} />
+      )}
       <div className="space-y-2 text-center">
         <span className="text-[10px] font-bold uppercase tracking-widest text-deck-primary/60">
           {t("slideCounter", { current: slide.slideIndex + 1, total: slide.totalSlides })}
@@ -56,19 +67,19 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
       </div>
 
       {/* Post-reveal feedback */}
-      {reveal && hasAnswered && me?.lastAnswer ? (
+      {reveal && hasAnswered && me && lastAnswer ? (
         <div className="text-center space-y-3">
-          {!me.lastAnswer.scored || !graded ? (
+          {!lastAnswer.scored || !graded ? (
             <>
               <CheckCircle2 className="size-12 text-deck-info mx-auto" />
               <p className="font-bold">{t("responseReceived")}</p>
             </>
-          ) : me.lastAnswer.isCorrect ? (
+          ) : lastAnswer.isCorrect ? (
             <>
               <CheckCircle2 className="size-12 text-deck-correct-soft mx-auto" />
               <p className="text-xl font-bold text-deck-correct-soft">{t("correct")}</p>
               <p className="text-3xl font-black text-deck-primary tabular-nums">
-                {t("points", { points: me.lastAnswer.score.toLocaleString() })}
+                {t("points", { points: lastAnswer.score.toLocaleString() })}
               </p>
             </>
           ) : (
@@ -94,7 +105,7 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
       ) : reveal && !hasAnswered ? (
         <div className="text-center py-8 space-y-2">
           <Hourglass className="size-10 text-deck-muted-fg/40 mx-auto" />
-          <p className="font-bold text-sm">{t("timesUp")}</p>
+          <p className="font-bold text-sm">{wasTimed ? t("timesUp") : t("votingClosed")}</p>
           <p className="text-xs text-deck-muted-fg">{t("waitingAdvance")}</p>
         </div>
       ) : hasAnswered ? (
@@ -105,6 +116,12 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
             {graded ? t("waitingReveal") : t("waitingClose")}
           </p>
         </div>
+      ) : phase === "closed" ? (
+        <div className="text-center py-8 space-y-2">
+          <Hourglass className="size-10 text-deck-muted-fg/40 mx-auto" />
+          <p className="font-bold text-sm">{t("votingClosed")}</p>
+          <p className="text-xs text-deck-muted-fg">{t("votingClosedHint")}</p>
+        </div>
       ) : expired ? (
         <div className="text-center py-8 space-y-2">
           <Hourglass className="size-10 text-deck-muted-fg/40 mx-auto" />
@@ -114,7 +131,7 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
         <div className="space-y-4">
           <runtime.ParticipantView
             // Fresh form state per question (and per re-run of the same slide).
-            key={`${slide.slideIndex}:${timing?.endsAt ?? ""}`}
+            key={`${slide.slideIndex}:${timing?.startedAt ?? ""}`}
             slide={slide}
             mode="live"
             onSubmit={(payload) => void submit(payload)}
