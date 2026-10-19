@@ -202,10 +202,26 @@ W3-C, W3-E, W3-F); the `pkg/*` branches and `.claude/worktrees/*` are left in pl
 delete (`git worktree remove`, `git branch -d pkg/<id>`; `worktree-agent-a671664cdf32aafd4` is the old
 select_answer branch, also merged).
 
-**Checks at handoff** (integration head `1591b9d`, all run on it): backend `bun x tsc --noEmit` clean; `bun test`
-1326 tests (984 run without containers, 342 integration/spike tests skip without `TEST_MONGO_URI`, 0 fail);
-integration + spikes with the containers 299 pass, 6 skipped by design, 0 fail; frontend typecheck clean,
-lint 0 errors (7 pre-existing warnings), 635 unit tests, build green, Playwright e2e 35 tests green.
+**UI redesign — UI-L landing, sign-in pages and the app-wide design foundation** (merged; `pkg/ui-landing`,
+`6328a09`). Foundation in `frontend/app/globals.css`: zinc neutrals, one yellow accent (`#facc15` dark /
+`#eab308` light, `accent-ink` `#a16207` for accent text on white), `faint`, `success` / `warning` / `info`,
+`chart-1..6`, radii 6/8/12/16, Geist Sans + Mono (Amethysta dropped); a light-mode `text-primary` shim maps
+to `accent-ink`. Primitives restyled: Button (new `touch` and `xl` sizes), Input, Textarea, Card, Dialog,
+AlertDialog, Popover, DropdownMenu, new Badge, inline-SVG ProductLogo. The landing page is rebuilt with
+truthful copy (no fake logos or claims); login, signup, forgot/reset password, verify email, auth-complete
+and the invite page share one auth shell (`features/auth/components/AuthShell`). Spec
+`e2e/landing-auth.spec.ts` (11 tests); `docs/wiki/ui/design-system.md` rewritten, new
+`docs/wiki/features/landing-auth.md`. Integration additions: the Playwright config blanks every optional
+integration and the two `NEXT_PUBLIC_*` values a local `backend/.env` / `frontend/.env.local` may set, and
+`backend/tests/preload.ts` blanks the same integrations for `bun test` (Bun loads `backend/.env`; without
+this a developer's real Resend/LLM/S3 keys would be used by the tests).
+
+**Checks at handoff** (integration head after UI-L, `7dc5c3f` plus this docs commit): backend `bun x tsc --noEmit`
+clean; `bun test` 1326 tests (984 run without containers, 342 integration/spike tests skip without
+`TEST_MONGO_URI`, 0 fail); integration + spikes with the containers 299 pass, 6 skipped by design, 0 fail;
+frontend typecheck clean, lint 0 errors (6 warnings), 635 unit tests, build green, Playwright e2e 46
+tests green (the frontend checks ran in a clean worktree of that commit that also had decoy
+`backend/.env` and `frontend/.env.local` files, to prove the e2e servers ignore them).
 
 ## Left to do (nothing is half-merged)
 
@@ -249,7 +265,12 @@ W3-G; Wave 4 A → B → C → D → E; then the close-out.
   page opens nothing since W1-A2).
 - `.claude/orchestration/` is excluded locally through `.git/info/exclude`: never commit anything under
   `.claude/`. If `tsc` trips on a corrupt `frontend/.next/dev/types/validator.ts` (a killed `next dev`),
-  `rm -rf frontend/.next/dev`.
+  `rm -rf frontend/.next/dev` (only when no `next dev` is running: the owner's dev servers on 3000/5000 use
+  that directory, and a second `next dev` in the same directory is blocked by its lock, so run the e2e
+  suite from a clean `git worktree` of the commit under test, with its own `bun install`).
+- Local dev files `backend/.env` and `frontend/.env.local` are gitignored and hold the owner's keys: never commit
+  them. Tests must not depend on them (see the UI redesign entry); the owner's dev data lives in
+  `openpoll_dev` on Mongo :27117 and Redis :6391/0, apart from the integrator's databases.
 - Every merge: `git merge --no-ff pkg/<id>`, never hand-merge `bun.lock` (take ours, `bun install`),
   regenerate route snapshots rather than hand-merging them, and re-run all checks listed above.
 
@@ -292,8 +313,13 @@ W3-G; Wave 4 A → B → C → D → E; then the close-out.
   `driveAccessToken` and works); untested against real PowerPoint files, Gotenberg or Google; the
   import worker runs in-process by default in every environment (set `IMPORT_WORKER_INPROCESS=0` plus a
   worker instance in production); Google export redirects to `*.googleusercontent.com` are allowed.
+- **UI redesign leftovers (UI-L):** the dashboard and the builder still hard-code the old sandy colours
+  (`rgba(216,173,135,…)`, `#d8ad87`) in the analytics page, `QuestionAnalytics`, `LivePreview`,
+  `PollQuestionCard` and `basic-dropdown`; the live screens redesign (`pkg/ui-live`) was still in progress
+  when this was written.
 - **E2E noise:** a full run logs `Logout failed: AxiosError ... 429` from the browser (an auth route
-  rate limit hit by a signed-in page whose refresh failed); harmless so far, look at it if it ever
+  rate limit hit by a page whose session refresh failed; the signed-out landing and sign-in specs make it
+  frequent); harmless so far, but signed-out pages should not call logout at all: look at it if it ever
   coincides with a failure.
 - **W2-B (merged):** the participant Q&A tab shows until the deck is known not to use Q&A (the slot's
   `when` has no store access and runs at render, so an unknown deck counts as available; W1-A2's store
