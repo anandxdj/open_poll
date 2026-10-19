@@ -59,15 +59,22 @@ describe("slide runtime registry", () => {
     expect(types).toEqual([...types].sort());
   });
 
-  test("lifecycles: answerable types are `response`, leaderboard is `system`, content types are `content`", () => {
+  test("lifecycles: answerable types are `response`, leaderboard is `system`, Q&A is `board`, content types are `content`", () => {
     for (const type of metaTypes()) {
-      const expected = type === "leaderboard" ? "system" : isContentSlideType(type) ? "content" : "response";
+      const expected =
+        type === "leaderboard"
+          ? "system"
+          : type === "qna"
+            ? "board"
+            : isContentSlideType(type)
+              ? "content"
+              : "response";
       expect(getSlideRuntime(type)?.lifecycle).toBe(expected);
     }
   });
 
   test("unknown types have no runtime", () => {
-    expect(getSlideRuntime("qna")).toBeUndefined();
+    expect(getSlideRuntime("hologram")).toBeUndefined();
   });
 
   for (const type of metaTypes()) {
