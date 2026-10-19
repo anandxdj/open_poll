@@ -14,6 +14,7 @@ import { AnalyticsModel } from './analytics.model';
 import type { PollAnalyticsUpdateEvent } from '../../common/realtime/events';
 import { UserModel } from '../auth/auth.model';
 import { assertCan, type PolicyContext } from '../../common/tenancy/policy';
+import { openPollResponseGate } from '../billing/pollCap';
 
 // Dedup markers outlive the voting window by this much. Ballot tokens carry no
 // expiry of their own, so a marker that lapsed while the poll is still open
@@ -152,6 +153,9 @@ export class ResponseService {
     const ballotId = verifyBallotToken(payload.ballotToken, pollId);
     if (!ballotId) throw ApiError.forbidden('Invalid or missing ballot token');
 
+    // Plan response cap (billing/pollCap.ts): refuse a full poll before anything is spent.
+    const responseGate = await openPollResponseGate(poll);
+
     const isTrial = poll.pollType === 'TRIAL';
     const dedupTtl = dedupTtlSec(poll.expiresAt);
 
@@ -163,12 +167,18 @@ export class ResponseService {
     }
 
     if (isTrial) {
-      return ResponseService.submitTrialAttempt(poll, normalizedAnswers, {
-        respondentId,
-        anonymousId: `anon:${ballotId}`,
-        deviceHint: payload.deviceId,
-        dedupTtl,
-      });
+      const releaseSlot = await responseGate.reserve();
+      try {
+        return await ResponseService.submitTrialAttempt(poll, normalizedAnswers, {
+          respondentId,
+          anonymousId: `anon:${ballotId}`,
+          deviceHint: payload.deviceId,
+          dedupTtl,
+        });
+      } catch (error) {
+        await releaseSlot();
+        throw error;
+      }
     }
 
     // Secondary dedup, also atomic: an identity votes once whichever ballot it
@@ -186,6 +196,7 @@ export class ResponseService {
       }
     }
 
+    await responseGate.reserve();
     await ResponseService.bufferVoteCounts(pollId, normalizedAnswers);
 
     ResponseModel.create({
