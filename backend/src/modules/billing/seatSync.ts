@@ -69,6 +69,19 @@ export async function syncWorkspaceSeats(runtime: BillingRuntime, workspace: Sea
   return { outcome: 'raised', from: current, to: members };
 }
 
+/**
+ * After a membership was created or reactivated (invite accepted, member reactivated): checks the
+ * subscription covers the members without delaying the request. No-op without Stripe; a failure is
+ * logged and left to the periodic job.
+ */
+export function syncSeatsAfterMembershipChange(workspace: SeatWorkspace): void {
+  const runtime = getBillingRuntime();
+  if (!runtime) return;
+  void syncWorkspaceSeats(runtime, workspace).catch((error) => {
+    console.error('[Billing] Seat sync after a membership change failed:', error);
+  });
+}
+
 /** One pass over every Stripe-managed Team workspace; one workspace's failure never stops the rest. */
 export async function runSeatSync(runtime: BillingRuntime, signal?: AbortSignal): Promise<{ checked: number; raised: number; failed: number }> {
   const totals = { checked: 0, raised: 0, failed: 0 };

@@ -5,6 +5,7 @@ import { ROLE_RANK, type MemberStatus, type WorkspaceRole } from '../../common/t
 import type { WorkspaceContext } from '../../common/tenancy/workspaceContext.middleware';
 import { ApiError } from '../../common/utils/ApiError';
 import { UserModel } from '../auth/auth.model';
+import { syncSeatsAfterMembershipChange } from '../billing/seatSync';
 import { ResourceShareModel } from './resourceShare.model';
 import type { UpdateMemberInput } from './members.schema';
 import { WorkspaceModel, type IWorkspace } from './workspace.model';
@@ -213,6 +214,8 @@ export class MembersService {
       { returnDocument: 'after', runValidators: true },
     );
     if (!member) throw new ApiError(409, 'The member was changed by someone else; reload and try again', 'CONFLICT');
+    // A reactivated member takes a seat again: make sure a per-seat subscription covers them (no-op without Stripe).
+    if (before.status !== 'active' && next.status === 'active') syncSeatsAfterMembershipChange(workspace);
     return { before, member: await viewOf(workspace, member) };
   }
 

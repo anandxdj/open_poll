@@ -7,6 +7,7 @@ import type { MemberStatus, WorkspaceRole } from '../../common/tenancy/roles';
 import { ApiError } from '../../common/utils/ApiError';
 import { hashToken } from '../../common/utils/jwt.utils';
 import { UserModel } from '../auth/auth.model';
+import { syncSeatsAfterMembershipChange } from '../billing/seatSync';
 import type { CreateInviteInput } from './members.schema';
 import { assertSeats, countActiveMembers, countPendingInvites, memberChangeDenial, personalWorkspaceError, type MembersActor } from './members.service';
 import { WorkspaceModel, type IWorkspace } from './workspace.model';
@@ -241,6 +242,9 @@ export class InvitesService {
       await restoreInvite(claimed);
       throw ApiError.internal('Could not create the membership');
     }
+
+    // A new member takes a seat: make sure a per-seat subscription covers them (no-op without Stripe).
+    if (created) syncSeatsAfterMembershipChange(workspace);
 
     return {
       accepted: {
