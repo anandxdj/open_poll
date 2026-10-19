@@ -14,6 +14,7 @@ import { editor as leaderboard } from "./types/leaderboard/editor";
 import { editor as open_ended } from "./types/open_ended/editor";
 import { editor as paragraph } from "./types/paragraph/editor";
 import { editor as pin_on_image } from "./types/pin_on_image/editor";
+import { editor as qna } from "./types/qna/editor";
 import { editor as quote } from "./types/quote/editor";
 import { editor as ranking } from "./types/ranking/editor";
 import { editor as scales } from "./types/scales/editor";
@@ -67,6 +68,7 @@ export const SLIDE_EDITORS: Record<PresentationSlideType, SlideEditorDef> = {
   open_ended,
   paragraph,
   pin_on_image,
+  qna,
   quote,
   ranking,
   scales,

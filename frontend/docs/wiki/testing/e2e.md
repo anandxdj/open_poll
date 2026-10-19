@@ -85,6 +85,12 @@ lookup's HTTP status (404 until a session was opened).
   100-point overshoot guard, reveal of each: correct answer, ranks, markers, correct area and tally,
   scores), the builder editing and saving all four, and the picker adding an ungraded guess slide.
   The slide image is served by `page.route`. ~70 s.
+- `e2e/qna-reactions.spec.ts` — Q&A with moderation (a participant asks, the host sees it pending
+  and approves or rejects, another participant upvotes, the host puts a question on screen and
+  takes it down, marks it answered), a reaction floating up the stage, and the builder's Audience
+  tab plus adding a Q&A slide. The deck is created with `settings` through the API directly (the
+  `host.createDeck` fixture sends title and slides only). ~20 s.
+
 - `e2e/ai-deck.spec.ts` - AI whole-deck authoring in mock mode (the e2e backend has no AI key): the
   AI dialog's "Whole deck" tab, outline review and editing, the written deck with speaker notes,
   the "Generated with mock data (no AI key configured)" label in the dialog and the builder banner,

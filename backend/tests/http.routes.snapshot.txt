@@ -18,7 +18,14 @@ GET /health
 GET /ready
 GET /auth/callback
 ROUTER /api/presentations/:presentationId/host/qna
+GET /api/presentations/:presentationId/host/qna
+PATCH /api/presentations/:presentationId/host/qna/:questionId
+POST /api/presentations/:presentationId/host/qna/:questionId/highlight
 ROUTER /api/presentations/:presentationId/qna
+GET /api/presentations/:presentationId/qna
+POST /api/presentations/:presentationId/qna
+POST /api/presentations/:presentationId/qna/:questionId/upvote
+DELETE /api/presentations/:presentationId/qna/:questionId/upvote
 ROUTER /api/workspaces/:workspaceId/domains
 ROUTER /api/auth
 GET /api/auth/login

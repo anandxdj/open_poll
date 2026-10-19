@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
 
+import { audienceTab } from "@/features/qna/builder/AudienceTab";
 import type { PresentationSlide } from "../../types/deck";
 import type { DeckDraft } from "./deckDraft";
 import { contentTab } from "./tabs/ContentTab";
@@ -35,6 +36,7 @@ export interface InspectorTabDef {
 
 /** One line per tab, alphabetical. */
 export const INSPECTOR_TABS: InspectorTabDef[] = [
+  audienceTab,
   contentTab,
   settingsTab,
 ];

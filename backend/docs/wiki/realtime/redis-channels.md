@@ -18,7 +18,8 @@ The `quiz:event` **channel** is gone: deck events are published once, on `live:e
 `quiz:event` **socket event** still exists as the legacy copy.
 
 Keys: `live:{presentationId}:seq` — the envelope `seq` counter, incremented in the same Lua script
-that publishes, 7-day sliding TTL.
+that publishes, 7-day sliding TTL. Q&A and reaction coalescing keys (`qna:{<sid>}:*`,
+`reactions:{<sid>}:*`, 6 h TTL): [`../modules/qna.md`](../modules/qna.md#redis-keys).
 
 With `SOCKET_REDIS_ADAPTER=on` the Socket.io adapter adds its own pub/sub channels
 (`socket.io#/#…`, prefix = the adapter `key`) on two extra connections per instance. They carry room

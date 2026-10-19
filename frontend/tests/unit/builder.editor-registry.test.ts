@@ -51,7 +51,8 @@ const ADVANCED_TYPES = [
   "pin_on_image",
 ] as const satisfies readonly PresentationSlideType[];
 
-const ALL_TYPES: PresentationSlideType[] = [...QUESTION_TYPES, ...ADVANCED_TYPES, ...CONTENT_SLIDE_TYPES];
+/** The Q&A board has no required text and no timer (covered by qna.slide.test.tsx). */
+const ALL_TYPES: PresentationSlideType[] = [...QUESTION_TYPES, "qna", ...ADVANCED_TYPES, ...CONTENT_SLIDE_TYPES];
 
 /** Smallest edit that makes a blank slide of each type saveable. */
 const FILL: Record<QuestionType, (s: PresentationSlide) => PresentationSlide> = {
@@ -107,12 +108,13 @@ describe("slide meta registry", () => {
       "open_ended",
       "scales",
       "ranking",
+      "qna",
     ]);
     expect(slideMetaInSection("competition").map((m) => m.type)).toEqual(["select_answer", "type_answer"]);
     expect(slideMetaInSection("advanced").map((m) => m.type)).toEqual([...ADVANCED_TYPES]);
     expect(slideMetaInSection("content").map((m) => m.type)).toEqual([...CONTENT_SLIDE_TYPES]);
     expect(SLIDE_TYPE_META.map((m) => m.type)).not.toContain("leaderboard");
-    expect(SLIDE_TYPE_META).toHaveLength(18);
+    expect(SLIDE_TYPE_META).toHaveLength(19);
   });
 
   test("the AI draft offers only the six types the generate endpoint accepts, in the original order (never the advanced types)", () => {

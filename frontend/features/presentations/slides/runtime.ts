@@ -33,6 +33,8 @@ import { ParagraphParticipant } from "./types/paragraph/participant";
 import { ParagraphStage } from "./types/paragraph/stage";
 import { PinOnImageParticipant } from "./types/pin_on_image/participant";
 import { PinOnImageStage } from "./types/pin_on_image/stage";
+import { QnaParticipant } from "./types/qna/participant";
+import { QnaStage } from "./types/qna/stage";
 import { QuoteParticipant } from "./types/quote/participant";
 import { QuoteStage } from "./types/quote/stage";
 import { RankingParticipant } from "./types/ranking/participant";
@@ -97,7 +99,8 @@ export interface StageViewProps {
  * ParticipantView is only the answer form). `system`: the type renders its
  * whole participant view (leaderboard). `content`: shown, never answered —
  * the type renders its whole view ("Look at the screen" in `live` mode, the
- * slide itself in `audience`/`preview`). `board` arrives with W2-B.
+ * slide itself in `audience`/`preview`). `board`: shown like a content slide but
+ * participants act on it (Q&A: the board lists the audience's questions).
  */
 export type SlideLifecycle = "response" | "system" | "content" | "board";
 
@@ -121,6 +124,7 @@ const RUNTIMES: Partial<Record<PresentationSlideType | (string & {}), SlideRunti
   open_ended: { lifecycle: "response", ParticipantView: OpenEndedParticipant, StageView: OpenEndedStage },
   paragraph: { lifecycle: "content", ParticipantView: ParagraphParticipant, StageView: ParagraphStage },
   pin_on_image: { lifecycle: "response", ParticipantView: PinOnImageParticipant, StageView: PinOnImageStage },
+  qna: { lifecycle: "board", ParticipantView: QnaParticipant, StageView: QnaStage },
   quote: { lifecycle: "content", ParticipantView: QuoteParticipant, StageView: QuoteStage },
   ranking: { lifecycle: "response", ParticipantView: RankingParticipant, StageView: RankingStage },
   scales: { lifecycle: "response", ParticipantView: ScalesParticipant, StageView: ScalesStage },

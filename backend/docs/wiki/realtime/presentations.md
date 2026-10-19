@@ -77,6 +77,10 @@ of other sessions. Payload types: `PresentationEventPayloads` in
 `answer:received` carries the live distribution before reveal, so it never reaches a participant
 room on either protocol, whatever audience a publisher asks for.
 
+## Other modules' events
+
+`qna:*` and `reaction:burst` (Q&A and reactions) are documented in [`qna.md`](./qna.md).
+
 ## Publishing
 
 Services publish through `publishPresentationEvent(presentationId, type, payload)`

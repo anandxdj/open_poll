@@ -794,19 +794,19 @@ describe("registerLiveReducer", () => {
 
   test("module state starts at its initial value and only reacts to what it handles", () => {
     cleanups.push(
-      registerLiveReducer<{ count: number }>("qna", (state, action) =>
-        isModuleEvent(action, "qna") ? { count: state.count + 1 } : state,
+      registerLiveReducer<{ count: number }>("demo", (state, action) =>
+        isModuleEvent(action, "demo") ? { count: state.count + 1 } : state,
         { count: 0 }
       )
     );
     const state = participantIn();
-    expect(createInitialLiveState("participant").modules.qna).toEqual({ count: 0 });
+    expect(state.modules.demo).toEqual({ count: 0 });
 
-    const afterQna = run(state, event("qna:question", {}), event("qna:votes", {}));
-    expect(afterQna.modules.qna).toEqual({ count: 2 });
+    const afterDemo = run(state, event("demo:question", {}), event("demo:votes", {}));
+    expect(afterDemo.modules.demo).toEqual({ count: 2 });
 
     // Unrelated actions keep both the module slice and the root state identity.
-    expect(liveReducer(afterQna, event("reaction:burst", {}))).toBe(afterQna);
+    expect(liveReducer(afterDemo, event("reaction:burst", {}))).toBe(afterDemo);
   });
 
   test("module reducers see core changes through `root` and module actions by prefix", () => {

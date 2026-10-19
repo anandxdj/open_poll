@@ -16,6 +16,7 @@ export type PresentationSlideType =
   | "hundred_points"
   | "grid_2x2"
   | "pin_on_image"
+  | "qna"
   | ContentSlideType;
 
 /**

@@ -40,6 +40,10 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/modules/sessions.md`
 - Add `backend/docs/wiki/modules/presentations-live.md` only if touching what the engine stores per session.
 
+### Audience Q&A, upvotes, moderation, highlight, emoji reactions, the `qna` slide
+- `backend/docs/wiki/modules/qna.md` (API, settings, limits, Redis keys, coalescing)
+- Add `backend/docs/wiki/realtime/qna.md` only if touching events or the `reaction:send` socket message.
+
 ### Realtime Socket/Redis tasks
 - `backend/docs/wiki/realtime/envelope.md` (core: registry, auth, envelope, rooms, delivery, the optional cluster adapter)
 - `backend/docs/wiki/realtime/presentations.md` or `realtime/polls.md` (the module you touch)
