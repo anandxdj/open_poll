@@ -10,18 +10,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { joinPresentation } from "../../api/participant";
+import { getApiErrorCode, LIVE_ERROR_CODES } from "../../live/errors";
 import { useLive, useLiveStore } from "../../live/store";
-import { readSession, writeSession } from "./participantSession";
+import { readDevice, saveJoin } from "./participantSession";
 
 const ease = [0.32, 0.72, 0, 1] as const;
 
-/** Nickname form shown until the participant has joined this deck. */
-export function JoinGate({ code }: { code: string }) {
+/**
+ * Nickname form shown until the participant has joined the live session.
+ * `rejoin`: the stored identity belonged to a session that is over, so the
+ * form explains and pre-fills the last nickname.
+ */
+export function JoinGate({ code, rejoin = false }: { code: string; rejoin?: boolean }) {
   const t = useTranslations("live.participant");
   const store = useLiveStore();
   const title = useLive((s) => s.title);
   const presentationId = useLive((s) => s.presentationId);
-  const [nameInput, setNameInput] = useState("");
+  const [nameInput, setNameInput] = useState(() => readDevice(code).name ?? "");
   const [joining, setJoining] = useState(false);
 
   const handleJoin = async (e: React.FormEvent) => {
@@ -35,13 +40,18 @@ export function JoinGate({ code }: { code: string }) {
 
     setJoining(true);
     try {
-      const joined = await joinPresentation(presentationId, trimmed, readSession(code).deviceToken);
+      const joined = await joinPresentation(presentationId, trimmed, readDevice(code).deviceToken);
       const self = { participantId: joined.participantId, name: joined.name, token: joined.token };
-      store.getState().dispatch({ type: "participant/joined", self });
-      writeSession(code, { ...self, deviceToken: joined.deviceToken });
+      saveJoin(code, joined.sessionId, self, joined.deviceToken);
+      store.getState().dispatch({ type: "participant/joined", self, sessionId: joined.sessionId });
       toast.success(t("welcome", { name: joined.name }));
+      // Render the live slide right away; the socket resyncs again once it joins the room.
+      void store.getState().loadLiveState();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err) || t("joinFailed"));
+      const errorCode = getApiErrorCode(err);
+      if (errorCode === LIVE_ERROR_CODES.sessionFull) toast.error(t("sessionFull"));
+      else if (errorCode === LIVE_ERROR_CODES.participantKicked) toast.error(t("kickedTitle"));
+      else toast.error(getApiErrorMessage(err) || t("joinFailed"));
     } finally {
       setJoining(false);
     }
@@ -57,7 +67,7 @@ export function JoinGate({ code }: { code: string }) {
       >
         <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-          <p className="text-sm text-deck-muted-fg">{t("nicknamePrompt")}</p>
+          <p className="text-sm text-deck-muted-fg">{rejoin ? t("rejoinHint") : t("nicknamePrompt")}</p>
         </div>
 
         <form onSubmit={handleJoin} className="space-y-3">

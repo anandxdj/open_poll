@@ -2,30 +2,33 @@
 
 import "@/features/registrations";
 
-import { useEffect, useState } from "react";
-import { Hourglass, Loader2, Presentation as PresentationIcon } from "lucide-react";
+import { useState } from "react";
+import { Hourglass, Loader2, Radio } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { getPresentationByCode } from "../../api/participant";
 import { getSlotEntries, SlotOutlet, type ParticipantSlotProps } from "../../live/slots";
-import { createLiveStore, LiveStoreProvider, useLive, useLiveStore } from "../../live/store";
-import { useLiveSocket } from "../../live/useLiveSocket";
+import { createLiveStore, LiveStoreProvider, useLive } from "../../live/store";
+import { useAfterDelay } from "../../live/useAfterDelay";
 import { getSlideRuntime } from "../../slides/runtime";
 import { DeckThemeProvider } from "../../theme/DeckThemeProvider";
-import type { AnswerPayload, PresentationRealtimeEvent } from "../../types";
+import type { AnswerPayload } from "../../types";
 import { JoinGate } from "./JoinGate";
 import { ParticipantEnd } from "./ParticipantEnd";
+import {
+  NewSessionNotice,
+  ParticipantKicked,
+  ParticipantNotFound,
+  ParticipantSessionClosed,
+} from "./ParticipantNotices";
 import { ParticipantSlide } from "./ParticipantSlide";
-import { forgetParticipant, readParticipant } from "./participantSession";
+import { useParticipantSession } from "./useParticipantSession";
 
 /**
  * The participant's live view at `/live/<code>`, over its own live store.
  * The page keys it by code, so a different code remounts it.
  */
 export function ParticipantShell({ code }: { code: string }) {
-  // Identity persisted per join code. Read once: the first render is the
-  // loading spinner either way, so server and client markup still match.
-  const [store] = useState(() => createLiveStore("participant", { self: readParticipant(code) }));
+  const [store] = useState(() => createLiveStore("participant"));
   return (
     <DeckThemeProvider>
       <LiveStoreProvider store={store}>
@@ -37,47 +40,15 @@ export function ParticipantShell({ code }: { code: string }) {
 
 function ParticipantScreen({ code }: { code: string }) {
   const t = useTranslations("live.participant");
-  const store = useLiveStore();
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const { load, self, lost, rejoin, newerSessionId, joinNewerSession } = useParticipantSession(code);
 
   const status = useLive((s) => s.status);
   const title = useLive((s) => s.title);
   const presentationId = useLive((s) => s.presentationId);
-  const self = useLive((s) => s.self);
+  const connected = useLive((s) => s.connected);
+  const showReconnecting = useAfterDelay(!connected && status !== "ended", 1500);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        store.getState().dispatch({ type: "participant/info-loaded", info: await getPresentationByCode(code) });
-      } catch {
-        setNotFound(true);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [code, store]);
-
-  useLiveSocket(
-    presentationId,
-    self ? { role: "participant", participantId: self.participantId, participantToken: self.token } : undefined,
-    (event: PresentationRealtimeEvent) => {
-      switch (event.type) {
-        case "lobby:opened":
-          // The reducer already dropped the identity; drop it from storage
-          // too. The device token stays so the rejoin is one identity.
-          forgetParticipant(code);
-          break;
-        case "question:revealed":
-        case "leaderboard:shown":
-        case "quiz:ended":
-          void store.getState().loadMe();
-          break;
-      }
-    }
-  );
-
-  if (loading) {
+  if (load === "loading") {
     return (
       <div className="min-h-screen bg-deck-bg text-deck-fg flex items-center justify-center">
         <Loader2 className="size-8 animate-spin text-deck-primary/60" />
@@ -85,19 +56,14 @@ function ParticipantScreen({ code }: { code: string }) {
     );
   }
 
-  if (notFound || status === null || !presentationId) {
-    return (
-      <div className="min-h-screen bg-deck-bg text-deck-fg flex items-center justify-center p-6 text-center">
-        <div className="space-y-3">
-          <PresentationIcon className="size-10 text-deck-muted-fg/40 mx-auto" />
-          <h1 className="text-xl font-bold">{t("notFoundTitle")}</h1>
-          <p className="text-sm text-deck-muted-fg">{t("notFoundHint")}</p>
-        </div>
-      </div>
-    );
-  }
+  if (load === "not-found" || status === null || !presentationId) return <ParticipantNotFound />;
+  if (lost === "kicked") return <ParticipantKicked />;
 
-  if (!self) return <JoinGate code={code} />;
+  if (!self) {
+    // Only a live session can be joined; an ended one without our standings is just over.
+    if (status === "lobby" || status === "active") return <JoinGate code={code} rejoin={rejoin} />;
+    return <ParticipantSessionClosed />;
+  }
 
   const slotProps: ParticipantSlotProps = { presentationId, participantId: self.participantId };
 
@@ -107,6 +73,16 @@ function ParticipantScreen({ code }: { code: string }) {
         <span className="text-xs font-bold truncate max-w-[200px]">{title}</span>
         <span className="text-xs font-semibold text-deck-primary">{self.name}</span>
       </header>
+
+      {showReconnecting && (
+        <div
+          role="status"
+          className="flex items-center justify-center gap-2 border-b border-deck-border/40 bg-deck-surface/60 px-4 py-1.5 text-xs font-semibold text-deck-muted-fg"
+        >
+          <Radio className="size-3 animate-pulse" /> {t("reconnecting")}
+        </div>
+      )}
+      {status === "ended" && newerSessionId && <NewSessionNotice onJoin={() => void joinNewerSession()} />}
 
       <SlotOutlet name="participantBanner" props={slotProps} />
 
@@ -175,11 +151,20 @@ function ParticipantBody({ slotProps }: { slotProps: ParticipantSlotProps }) {
 
   if (status === "ended") return <ParticipantEnd />;
 
-  if (status !== "active" || !slide) return null;
-  const runtime = getSlideRuntime(slide.type);
-  if (!runtime) return null;
+  if (status !== "active") return null;
+  const runtime = slide ? getSlideRuntime(slide.type) : undefined;
+  if (!slide || !runtime) {
+    // Joined, but the live slide has not arrived yet (the `live-state` read is in flight).
+    return (
+      <div className="text-center space-y-3 text-deck-muted-fg">
+        <Loader2 className="size-6 animate-spin mx-auto" />
+        <p className="text-xs">{t("waitingForSlide")}</p>
+      </div>
+    );
+  }
   if (runtime.lifecycle === "response") return <ParticipantSlide slide={slide} runtime={runtime} />;
-  // Other lifecycles (leaderboard today) render their whole participant view.
+  // Other lifecycles render their whole participant view: content and board
+  // slides show "Look at the screen", the leaderboard shows the standings.
   return (
     <runtime.ParticipantView
       slide={slide}

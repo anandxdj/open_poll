@@ -1,7 +1,8 @@
-import { expect, joinAsParticipant, test, type Participant } from "./fixtures";
+import { expect, joinAsParticipant, openLobby, test, type Participant } from "./fixtures";
 
 /**
- * Characterization of the live deck flow as users see it: lobby, two
+ * Characterization of the live deck flow as users see it: the ready screen
+ * (opening the host page opens nothing), an explicitly opened lobby, two
  * participants, a scored select-answer slide, a word cloud, a scales slide,
  * the timer-driven reveal, a leaderboard slide and the end screen. Assertions
  * use visible text and roles only, so the test survives a markup refactor.
@@ -50,16 +51,24 @@ test("host runs a deck with two participants from lobby to the end screen", asyn
 }) => {
   const deck = await host.createDeck(`E2E live flow ${Date.now()}`, slides);
 
-  // --- Lobby: opening the host page opens the lobby for a draft deck ---
+  // --- Opening the host page opens nothing: no lobby, nobody can join yet ---
   const hostPage = await host.open(`/presentation/host/${deck._id}`);
   const stage = hostPage.locator("main");
-  await expect(hostPage.getByText("LIVE HOST")).toBeVisible();
+  await expect(hostPage.getByText("HOST CONSOLE")).toBeVisible();
   await expect(hostPage.getByRole("heading", { name: deck.title })).toBeVisible();
-  await expect(stage.getByText(deck.joinCode, { exact: true })).toBeVisible();
+  await expect(stage.getByRole("heading", { name: "Ready to present" })).toBeVisible();
+  await expect(hostPage.getByRole("button", { name: "Start presenting" })).toBeEnabled();
+  await expect(stage.getByText(deck.joinCode, { exact: true })).toHaveCount(0);
+  expect(await host.lookupCodeStatus(deck.joinCode)).toBe(404);
+
+  // --- Lobby: opened explicitly ---
+  await openLobby(hostPage, deck.joinCode);
+  await expect(hostPage.getByText("LIVE HOST")).toBeVisible();
   await expect(stage.getByText("0 JOINED")).toBeVisible();
   await expect(stage.getByText("Waiting for players to enter code...")).toBeVisible();
+  // Starting needs no audience.
   const startButton = hostPage.getByRole("button", { name: "Start", exact: true });
-  await expect(startButton).toBeDisabled();
+  await expect(startButton).toBeEnabled();
 
   const ada = await joinAsParticipant(browser, contexts, deck.joinCode, "Ada");
   const grace = await joinAsParticipant(browser, contexts, deck.joinCode, "Grace");
@@ -192,7 +201,7 @@ test("host runs a deck with two participants from lobby to the end screen", asyn
   await hostPage.getByRole("button", { name: "End Session" }).click();
   await expect(stage.getByRole("heading", { name: "Session ended" })).toBeVisible();
   await expect(stage.getByText("Final standings")).toBeVisible();
-  await expect(hostPage.getByRole("button", { name: "Host Again" }).first()).toBeVisible();
+  await expect(hostPage.getByRole("button", { name: "Present again" })).toBeVisible();
 
   await forBoth(players, async ({ page }) => {
     await expect(page.getByRole("heading", { name: "That's a wrap!" })).toBeVisible();

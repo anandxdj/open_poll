@@ -1,154 +1,232 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/api-error";
 import {
-  advanceSlide,
-  endPresentation,
+  closeVoting,
+  endSession,
   getHostState,
+  gotoSlide,
   openLobby,
-  revealCurrentSlide,
+  reopenVoting,
+  revealResults,
+  startSession,
 } from "../../api/host";
+import { LIVE_ERROR_CODES } from "../../live/errors";
 import { useLive, useLiveStore } from "../../live/store";
 import { useCountdown } from "../../live/useCountdown";
-import { useLiveSocket } from "../../live/useLiveSocket";
-import { getSlideRuntime } from "../../slides/runtime";
-import type { LiveSocketAuth, PresentationRealtimeEvent } from "../../types";
+import { useLiveSocket, type ResyncReason } from "../../live/useLiveSocket";
+import type { HostCommandResponse, LiveSocketAuth } from "../../types";
+import { sendHostCommand, type HostCommandOutcome } from "./hostCommands";
 
 const HOST_AUTH: LiveSocketAuth = { role: "host" };
 
+/** Resyncs triggered by the stream itself (gaps, tab focus) run at most this often. */
+const RESYNC_MIN_INTERVAL_MS = 1_000;
+type CommandName = "start" | "openLobby" | "goto" | "close" | "reopen" | "reveal" | "end";
+
 /**
- * Host-side session driver: loads host state into the live store, follows
- * the socket, runs the countdown and the timer-driven reveal, and exposes the
- * host controls. Must run inside a host `LiveStoreProvider`.
+ * Host-side session driver. On mount it only **reads** `GET /:id/host/state`
+ * — it never opens a lobby or starts anything by itself — and the console
+ * renders what the server reports: no session yet or an ended one (start
+ * presenting / open the lobby), a lobby, or a live session resumed where it
+ * is. It then follows the socket, resyncing from host state on every (re)join,
+ * `seq` gap, tab focus and foreign-session envelope, and exposes the host
+ * commands. Must run inside a host `LiveStoreProvider`.
  */
 export function useHostSession(presentationId: string) {
+  const t = useTranslations("presenter");
   const store = useLiveStore();
-  const searchParams = useSearchParams();
-  const isResetRequested = searchParams?.get("reset") === "true";
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const revealFiredRef = useRef(false);
-  const hasResetLobbyRef = useRef(false);
+  const busyRef = useRef(false);
+  const autoRevealKey = useRef<string | null>(null);
+  const refreshing = useRef({ inFlight: false, queued: false, startedAt: 0, timer: null as ReturnType<typeof setTimeout> | null });
 
-  const deck = useLive((s) => s.deck);
+  const status = useLive((s) => s.status);
+  const phase = useLive((s) => s.phase);
   const timing = useLive((s) => s.timing);
-  const status = deck?.status;
-  const currentSlide = deck?.slides[deck.currentSlideIndex] ?? null;
+  const sessionId = useLive((s) => s.sessionId);
+  const slideId = useLive((s) => s.slideId);
+  const currentSlide = useLive((s) => s.deck?.slides[s.currentSlideIndex] ?? null);
+
+  // ---------- reading state ----------
 
   const refresh = useCallback(async () => {
+    const r = refreshing.current;
+    if (r.inFlight) {
+      // One more read after the current one, however many calls pile up.
+      r.queued = true;
+      return;
+    }
+    r.inFlight = true;
     try {
-      const state = await getHostState(presentationId);
-      let current = state.presentation ?? state.quiz;
-      if (!current) throw new Error("Host state is missing the presentation deck");
-
-      // First load only: open the lobby for a draft/ended deck or ?reset=true.
-      if (!hasResetLobbyRef.current) {
-        hasResetLobbyRef.current = true;
-        if (current.status === "draft" || current.status === "ended" || isResetRequested) {
-          const loaded = current;
-          // Fall back to the loaded state if the lobby cannot be (re)opened.
-          current = await openLobby(presentationId).catch(() => loaded);
+      do {
+        r.queued = false;
+        r.startedAt = Date.now();
+        try {
+          await store.getState().resync(async () => ({
+            type: "host/state-loaded",
+            state: await getHostState(presentationId),
+            receivedAt: Date.now(),
+          }));
+          setLoadError(null);
+        } catch (err: unknown) {
+          // A failed refresh of a loaded console keeps what is on screen.
+          if (!store.getState().deck) {
+            const httpStatus = getApiErrorStatus(err);
+            if (httpStatus === 404) setLoadError(t("load.notFound"));
+            else if (httpStatus === 401 || httpStatus === 403) setLoadError(t("load.forbidden"));
+            else setLoadError(getApiErrorMessage(err) || t("load.failed"));
+          }
         }
-      }
-
-      store.getState().dispatch({ type: "host/state-loaded", state, deck: current });
-    } catch (err: unknown) {
-      const status = getApiErrorStatus(err);
-      if (status === 404) setLoadError("Presentation deck not found.");
-      else if (status === 401 || status === 403) setLoadError("You are not authorized to host this deck.");
-      else setLoadError(getApiErrorMessage(err) || "Could not load deck.");
+      } while (r.queued);
     } finally {
+      r.inFlight = false;
       setLoading(false);
     }
-  }, [presentationId, isResetRequested, store]);
+  }, [presentationId, store, t]);
 
-  // Every setState in refresh() runs after its awaited fetch, but the rule does
-  // not model `await` and reports them as synchronous.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void refresh(); }, [refresh]);
+  /** Stream-triggered resyncs are rate limited: a burst of gaps becomes one read. */
+  const requestRefresh = useCallback(
+    (reason: ResyncReason) => {
+      const r = refreshing.current;
+      const wait = reason === "joined" ? 0 : r.startedAt + RESYNC_MIN_INTERVAL_MS - Date.now();
+      if (wait <= 0) {
+        void refresh();
+        return;
+      }
+      if (r.timer) return;
+      r.timer = setTimeout(() => {
+        r.timer = null;
+        void refresh();
+      }, wait);
+    },
+    [refresh]
+  );
 
-  // Joins can be missed between the page load and the socket join; poll the lobby.
   useEffect(() => {
-    if (status !== "lobby") return;
-    const interval = setInterval(() => void refresh(), 3000);
-    return () => clearInterval(interval);
-  }, [status, refresh]);
+    void refresh();
+  }, [refresh]);
 
-  const { connected } = useLiveSocket(presentationId, HOST_AUTH, (event: PresentationRealtimeEvent) => {
-    switch (event.type) {
-      case "question:revealed":
-        revealFiredRef.current = true;
-        void refresh();
-        break;
-      case "question:started":
-        revealFiredRef.current = false;
-        void refresh();
-        break;
-      case "leaderboard:shown":
-      case "quiz:ended":
-        void refresh();
-        break;
-    }
+  useEffect(() => {
+    const r = refreshing.current;
+    return () => {
+      if (r.timer) clearTimeout(r.timer);
+    };
+  }, []);
+
+  const { connected } = useLiveSocket(presentationId, HOST_AUTH, {
+    // A response slide opening (or closing) has no counts to show until the first answer
+    // event; the server's host state carries the slide's empty distribution, which the
+    // stage needs to draw its option columns, word cloud and scales from the start.
+    onEvent: (event) => {
+      if (event.type === "question:started" || event.type === "slide:closed") void refresh();
+    },
+    onResync: requestRefresh,
+    // A session this console does not follow: started from another window, or
+    // our own start/open-lobby racing its HTTP response. Read what is live.
+    onForeignSession: () => requestRefresh("gap"),
   });
 
-  const endsAt = timing?.endsAt ?? null;
-  const countdown = useCountdown(endsAt, timing?.serverNow ?? null, currentSlide?.timeLimit ?? 30);
-  const { expired } = countdown;
-  const revealable = currentSlide ? getSlideRuntime(currentSlide.type)?.lifecycle === "response" : false;
-
-  // Auto-reveal when the timer hits 0.
+  // Joins can be missed while the socket is down; fall back to polling the lobby.
   useEffect(() => {
-    if (status !== "active" || !expired || !endsAt || busy || revealFiredRef.current) return;
-    if (!revealable) return;
-    revealFiredRef.current = true;
-    void revealCurrentSlide(presentationId).catch(() => {});
-  }, [expired, status, endsAt, busy, presentationId, revealable]);
+    if (status !== "lobby" || connected) return;
+    const interval = setInterval(() => void refresh(), 3000);
+    return () => clearInterval(interval);
+  }, [status, connected, refresh]);
 
-  const handleOpenLobby = async () => {
-    setBusy(true);
-    try {
-      const deck = await openLobby(presentationId);
-      store.getState().dispatch({ type: "host/lobby-opened", deck });
-      toast.success("Lobby opened — code " + deck.joinCode);
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err) || "Failed to open lobby.");
-    } finally {
-      setBusy(false);
-    }
-  };
+  // ---------- commands ----------
 
-  const handleAdvance = async (targetIndex?: number) => {
-    setBusy(true);
-    try {
-      const deck = await advanceSlide(presentationId, targetIndex);
-      store.getState().dispatch({ type: "host/advanced", deck, serverNow: new Date().toISOString() });
-      revealFiredRef.current = false;
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err) || "Failed to advance slide.");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const failureMessage = useCallback(
+    (name: CommandName, outcome: Extract<HostCommandOutcome, { ok: false }>) => {
+      if (outcome.code === LIVE_ERROR_CODES.sessionAlreadyLive) return t("errors.alreadyLive");
+      if (outcome.code === LIVE_ERROR_CODES.noLiveSession) return t("errors.noLiveSession");
+      if (outcome.code === LIVE_ERROR_CODES.sessionBusy) return t("errors.busy");
+      return outcome.message || t(`errors.${name}`);
+    },
+    [t]
+  );
 
-  const handleEnd = async () => {
-    if (!window.confirm("End the session for all participants?")) return;
-    setBusy(true);
-    try {
-      const deck = await endPresentation(presentationId);
-      store.getState().dispatch({ type: "host/ended", deck });
-      toast.success("Session ended.");
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err) || "Failed to end session.");
-    } finally {
-      setBusy(false);
-    }
-  };
+  /**
+   * Runs one host command at a time (a held arrow key or a double click must
+   * not stack navigations). `SESSION_BUSY` is retried once; `SESSION_ALREADY_LIVE`
+   * and `NO_LIVE_SESSION` mean this console is out of date, so it re-reads the state.
+   */
+  const run = useCallback(
+    async (name: CommandName, send: () => Promise<HostCommandResponse>): Promise<HostCommandResponse | null> => {
+      if (busyRef.current) return null;
+      busyRef.current = true;
+      setBusy(true);
+      try {
+        const outcome = await sendHostCommand(send);
+        if (outcome.ok) {
+          store.getState().dispatch({ type: "host/command", response: outcome.response });
+          return outcome.response;
+        }
+        toast.error(failureMessage(name, outcome));
+        if (outcome.stale) void refresh();
+        return null;
+      } finally {
+        busyRef.current = false;
+        setBusy(false);
+      }
+    },
+    [store, failureMessage, refresh]
+  );
+
+  const start = useCallback(() => run("start", () => startSession(presentationId)), [run, presentationId]);
+
+  const openLobbyNow = useCallback(async () => {
+    const response = await run("openLobby", () => openLobby(presentationId));
+    if (response) toast.success(t("toasts.lobbyOpened", { code: response.session.joinCode }));
+  }, [run, presentationId, t]);
+
+  const goto = useCallback(
+    (slideIndex: number) => {
+      const { totalSlides, currentSlideIndex } = store.getState();
+      if (slideIndex < 0 || slideIndex >= totalSlides || slideIndex === currentSlideIndex) return Promise.resolve(null);
+      return run("goto", () => gotoSlide(presentationId, slideIndex));
+    },
+    [run, presentationId, store]
+  );
+
+  const next = useCallback(() => goto(store.getState().currentSlideIndex + 1), [goto, store]);
+  const previous = useCallback(() => goto(store.getState().currentSlideIndex - 1), [goto, store]);
+  const close = useCallback(() => run("close", () => closeVoting(presentationId)), [run, presentationId]);
+  const reopen = useCallback(() => run("reopen", () => reopenVoting(presentationId)), [run, presentationId]);
+  const reveal = useCallback(() => run("reveal", () => revealResults(presentationId)), [run, presentationId]);
+
+  const end = useCallback(async () => {
+    if (!window.confirm(t("toasts.confirmEnd"))) return;
+    const response = await run("end", () => endSession(presentationId));
+    if (response) toast.success(t("toasts.sessionEnded"));
+  }, [run, presentationId, t]);
+
+  // ---------- timer-driven reveal ----------
+
+  const countdown = useCountdown(timing, currentSlide?.timeLimit ?? 30);
+
+  // When a timed answer window runs out the host reveals it, once per window
+  // (a reopen opens a new window). Skipped while another command is in flight:
+  // `reveal` acts on whatever slide is current when it lands.
+  const revealKey = `${sessionId}:${slideId}:${timing?.startedAt ?? ""}:${timing?.endsAt ?? ""}`;
+  useEffect(() => {
+    if (status !== "active" || phase !== "open" || !timing?.endsAt || !countdown.expired) return;
+    if (busy || autoRevealKey.current === revealKey) return;
+    autoRevealKey.current = revealKey;
+    void revealResults(presentationId)
+      .then((response) => store.getState().dispatch({ type: "host/command", response }))
+      .catch(() => {
+        // Not revealed (offline, or the slide moved on): let the next change retry.
+        autoRevealKey.current = null;
+      });
+  }, [status, phase, timing?.endsAt, countdown.expired, busy, revealKey, presentationId, store]);
 
   return {
     loading,
@@ -156,8 +234,14 @@ export function useHostSession(presentationId: string) {
     busy,
     connected,
     countdown,
-    openLobby: handleOpenLobby,
-    advance: handleAdvance,
-    end: handleEnd,
+    start,
+    openLobby: openLobbyNow,
+    goto,
+    next,
+    previous,
+    closeVoting: close,
+    reopenVoting: reopen,
+    reveal,
+    end,
   };
 }

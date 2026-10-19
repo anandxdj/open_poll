@@ -46,15 +46,31 @@ browser context per participant.
 
 ## Specs
 
-- `e2e/live-flow.spec.ts` — characterization of the live flow: lobby, two participants,
+Opening the host page no longer opens a lobby: every spec starts from the "Ready to present" screen
+and clicks **Open lobby** (`openLobby` helper) or **Start presenting** itself. Participants join a
+lobby with `joinAsParticipant` (waits for "You're in!") or a running session with `joinMidSession`.
+`host.getSessions(id)` lists a deck's runs and `host.lookupCodeStatus(code)` is the public code
+lookup's HTTP status (404 until a session was opened).
+
+- `e2e/live-flow.spec.ts` — characterization of the live flow: the ready screen (nothing opened, code
+  lookup 404), an explicitly opened lobby, Start with no audience required, two participants,
   select_answer, wordcloud and scales slides, the timer-driven reveal, a leaderboard slide, end
-  screens. Asserts visible text and roles only, so markup refactors keep it green. Slides use
-  10 s timers; the run takes ~40 s.
+  screens ("Present again"). Asserts visible text and roles only, so markup refactors keep it
+  green. Slides use 10 s timers; the run takes ~40 s.
+- `e2e/live-session.spec.ts` — the session-aware host and phone behaviour (long timers, driven by
+  hand so nothing races the auto-reveal): back/forward (buttons and arrow keys) with stored phase
+  and results on revisit, a slide left unanswered coming back closed, and Reopen; an untimed slide
+  open until **Close voting**, then reopened (also after a reveal); presenting twice (the second
+  run starts fresh, the first stays on record with its counts, the first run's phone is offered
+  the new session and rejoins with its nickname pre-filled); reloading the phone or the host
+  console mid-question, after answering, after the reveal and on a content slide (per-session
+  credentials in `localStorage`, `live-state` resync, the console resumes); a finished deck shows
+  "Present again" instead of auto-opening a lobby.
 - `e2e/content-slides.spec.ts` — content slides: a deck of all eight content types presented
-  fullscreen (F key, arrow-key and button navigation, each stage layout, end), and a mixed deck
-  (heading → word cloud → select answer) clicked through with two participants (~30 s). Image and
-  YouTube requests are answered with `page.route`, so the run needs no network. One participant
-  joins first because the lobby's Start needs someone in the room (no-lobby start is W1-A1).
+  fullscreen **without a lobby or any participant** (F key, arrow-key and button navigation, each
+  stage layout, end; the run is on record with 0 participants), and a mixed deck (heading → word
+  cloud → select answer) clicked through with two participants (~30 s). Image and YouTube requests
+  are answered with `page.route`, so the run needs no network.
 - `e2e/select-answer.spec.ts` — a graded multi-select slide (checkboxes, exact-set scoring,
   shares of respondents, explanation after reveal) and an ungraded 0-point slide (no right/wrong)
   live; the builder editing and saving an ungraded multi-select slide (checked through
