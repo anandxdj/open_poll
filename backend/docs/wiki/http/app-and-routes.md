@@ -27,7 +27,7 @@ Code: `backend/src/app.ts`, `backend/src/http/`. Tests: `backend/tests/http.rout
 
    | Path | Parser | Router | Why it is early |
    | --- | --- | --- | --- |
-   | `/api/billing/webhook` | `express.raw({type:'application/json', limit:'1mb'})` | `billingWebhookRouter` | Stripe signs the raw bytes; `req.body` is a Buffer. |
+   | `/api/billing/webhook` | `express.raw({type:'application/json', limit:'1mb'})` | `billingWebhookRouter` (W3-C, `modules/billing.md`) | Stripe signs the raw bytes; `req.body` is a Buffer. |
    | `/api/sso/saml/:connectionId/acs` | `express.urlencoded({extended:false, limit:'1mb'})` | `samlAcsRouter` (`mergeParams`) | The IdP form post is cross-origin; the CORS allow-list would reject its Origin. |
    | `/scim/v2` | `express.json({type:['application/json','application/scim+json'], limit:'1mb'})` | `scimRouter` | `mongoSanitize` strips keys containing `.` (`urn:…:2.0:User`). |
    | `/metrics` | none | `metricsRouter` | Prometheus scrape, bearer token, no browser context. |
@@ -75,7 +75,7 @@ One line per entry.
 | `/api/uploads` | `modules/uploads/uploads.route.ts` | W0-D |
 | `/api/workspaces` | `modules/workspaces/workspaces.route.ts` | W1-B |
 
-Pre-parser stubs: `billingWebhookRouter` (W3-C), `samlAcsRouter` (W3-D), `scim.route.ts` (W3-D),
+Pre-parser stubs: `samlAcsRouter` (W3-D), `scim.route.ts` (W3-D),
 `metrics.route.ts` (W2-D).
 
 ## Adding routes

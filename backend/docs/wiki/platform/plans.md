@@ -13,13 +13,16 @@ Two separate questions:
 - **Entitlements** — what a *workspace's plan* allows. Enforced whether or not Stripe billing is
   configured; without billing, plans are set with `scripts/set-plan.ts`.
 
+Selling a plan (Stripe checkout, portal, webhook, seat sync, `GET /api/plans`) is
+`modules/billing.md`; it also lists which package must apply which gate.
+
 ## Plan catalogue (`plans.ts`)
 
 `null` = unlimited. Enterprise values are defaults for a contract to override.
 
 | | free | pro | team | enterprise |
 | --- | --- | --- | --- | --- |
-| `audienceCap` | 100 | 1,000 | 2,000 | 10,000 |
+| `audienceCap` (participants per live session **and** responses per poll) | 100 | 1,000 | 2,000 | 10,000 |
 | `seats` | 1 | 1 | 5 (or purchased `billing.seats`) | ∞ |
 | `retentionDays` (max a workspace may choose) | 365 | 730 | 1,095 | ∞ |
 | `auditRetentionDays` | 30 | 90 | 365 | 730 |
@@ -29,7 +32,10 @@ Two separate questions:
 | `export_xlsx`, `export_pdf`, `brand_kits` | – | ✓ | ✓ | ✓ |
 | `sso`, `scim`, `custom_domains`, `white_label` | – | – | – | ✓ |
 
-Change numbers here only (W3-C owns tuning them). `planOverridesSchema` validates
+Change numbers here only; `GET /api/plans` and the landing and billing pages follow them (the
+frontend fallback catalogue, `features/billing/lib/catalog.ts`, mirrors them and is covered by a
+unit test). `audienceCap` also caps the responses one poll accepts (`modules/billing.md`, "Poll
+response cap"). `planOverridesSchema` validates
 `Workspace.planOverrides = { features?: {…: boolean}, limits?: {…: number|null} }`.
 
 ## Entitlements (`entitlements.ts`, `requireFeature.ts`)
@@ -43,6 +49,10 @@ requireFeature(feature)        // route guard; mount after authenticate() + work
 ```
 
 Unknown plan ids read as `free`; invalid `planOverrides` are logged and ignored.
+
+Where plans come from: a workspace's `planSource` is `default` (Free), `stripe` (set and kept
+current by the billing webhook) or `manual` (`scripts/set-plan.ts`; the webhook never overwrites
+it). Stripe-billed Team workspaces use the purchased quantity (`billing.seats`) as their seat limit.
 
 ## Usage counters (`usage.ts`)
 
@@ -75,7 +85,7 @@ Public, rate-limited (120/min/IP). Response `data`:
 
 | Key | On when |
 | --- | --- |
-| `billing` | `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` |
+| `billing` | `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` (price ids decide which plans can be bought: `GET /api/plans`) |
 | `storage` | `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL` |
 | `samlSso`, `scim` | `ENCRYPTION_KEY` (SCIM users sign in through SSO) |
 | `pptxHighFidelity` | `GOTENBERG_URL` |
