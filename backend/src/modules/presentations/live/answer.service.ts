@@ -1,19 +1,44 @@
 import { ApiError } from '../../../common/utils/ApiError';
 import { redisClient } from '../../../common/config/redis';
-import { PresentationParticipantModel } from '../models/participant.model';
-import { PresentationAnswerModel } from '../models/answer.model';
-import { getSlideType, type RedisOp } from '../slides';
+import { answerDuration, answersAccepted, answersRejected } from '../../../common/observability/metrics';
+import { timeRedis } from '../../../common/observability/redisTiming';
+import type { AnswerChannel } from '../models/answer.model';
+import { getSlideType, type AcceptResult, type SlideTypeDef } from '../slides';
 import type { SubmitPresentationAnswerInput } from '../presentations.schema';
-import { LIVE_ERROR_CODES } from './contract';
-import { ACTIVE_DISTRIBUTIONS_KEY, k, slideKey } from './keys';
-import { loadAnswerWindow, resolveLiveSessionId, type StoredAnswerResult } from './state';
-import { verifyParticipant } from './participant.service';
-import { publishAnswerReceived } from './events';
+import { LIVE_ERROR_CODES, type AnswerResult } from './contract';
+import { runAnswerScript } from './answerScript';
+import { scheduleDirtyFlush } from './coalescer';
+import { k, touchTtls } from './keys';
+import { kickedError, verifyParticipant } from './participant.service';
+import { loadAnswerWindow, resolveLiveSessionId, type AnswerWindow, type StoredAnswerResult } from './state';
+import { verifySlideTicket } from './ticket';
+import { enqueueAnswerWrite } from './writeBehind';
 
-// Answers arriving slightly after the deadline (network latency) are still accepted
-const ANSWER_GRACE_MS = 750;
+/**
+ * HOT PATH. One answer = grade in JS (the slide type owns grading), then ONE
+ * Redis script call (`lua/answer.lua`: window and grace, participant auth,
+ * rate limit, dedup, the type's ops, scores, stored result, coalescer mark).
+ * Mongo is filled by batched write-behind, host updates go out through the
+ * coalescer, so nothing here waits on the database or on a publish.
+ *
+ * Used by `POST /:id/answer` (`via: 'rest'`) and the socket `answer:submit`
+ * (`via: 'socket'`); clients replaying an offline queue send `offline: true`.
+ */
 
-const notAccepting = () => ApiError.badRequest('This slide is no longer accepting answers');
+export interface SubmitContext {
+  /** The channel the call arrived on; default `rest`. */
+  via?: Exclude<AnswerChannel, 'offline'>;
+}
+
+const notAccepting = () =>
+  new ApiError(400, 'This slide is no longer accepting answers', LIVE_ERROR_CODES.notAccepting);
+const timeUp = () => new ApiError(400, "Time's up — response not accepted", LIVE_ERROR_CODES.timeUp);
+const alreadyAnswered = () =>
+  new ApiError(409, 'You already responded to this slide', LIVE_ERROR_CODES.alreadyAnswered);
+const tooManyAnswers = () =>
+  new ApiError(429, 'Too many answers, slow down', LIVE_ERROR_CODES.answerRateLimited);
+const staleParticipant = () =>
+  new ApiError(409, 'Your session has ended — rejoin the presentation deck', LIVE_ERROR_CODES.participantStale);
 
 /**
  * The answer a slide type grades: the generic `payload` when sent, else the
@@ -30,145 +55,200 @@ const answerPayloadOf = (data: SubmitPresentationAnswerInput): Record<string, un
   return legacy;
 };
 
-const queueOp = (pipeline: ReturnType<typeof redisClient.multi>, sessionId: string, slideId: string, op: RedisOp) => {
-  const key = slideKey(sessionId, slideId, op.key);
-  switch (op.op) {
-    case 'hincrby':
-      pipeline.hIncrBy(key, op.field, op.by);
-      break;
-    case 'hsetnx':
-      pipeline.hSetNX(key, op.field, op.value);
-      break;
-    case 'lpush_trim':
-      pipeline.lPush(key, op.value);
-      pipeline.lTrim(key, 0, op.max - 1);
-      break;
-  }
-};
-
-/**
- * HOT PATH — runs entirely on Redis; Mongo writes are async write-behind.
- * The slide type grades the answer (`accept`) and scores it (`score`); this
- * function owns windowing, dedup, auth and the atomic write of the type's ops.
- * Answers go to the deck's live session (or the session the client names).
- */
-export const submitAnswer = async (presentationId: string, data: SubmitPresentationAnswerInput) => {
-  const sessionId = data.sessionId ?? (await resolveLiveSessionId(presentationId));
-  if (!sessionId) throw notAccepting();
-
-  // The window and the participant's credentials are independent lookups; run
-  // them together but report window problems first.
-  const [windowResult, authResult] = await Promise.allSettled([
-    loadAnswerWindow(sessionId, data.slideId),
-    verifyParticipant(presentationId, data.participantId, data.participantToken, sessionId),
-  ]);
-  if (windowResult.status === 'rejected') throw windowResult.reason;
-  const window = windowResult.value;
-  const def = window ? getSlideType(window.type) : undefined;
-  if (!window || !def?.accept || !window.open || window.slideIndex !== data.slideIndex) {
-    throw notAccepting();
-  }
-
-  const now = Date.now();
-  if (window.endsAtMs !== null && now > window.endsAtMs + ANSWER_GRACE_MS) {
-    throw ApiError.badRequest("Time's up — response not accepted");
-  }
-
-  if (authResult.status === 'rejected') throw authResult.reason;
-  if (authResult.value.sessionId !== sessionId) {
-    throw new ApiError(
-      409,
-      'Your session has ended — rejoin the presentation deck',
-      LIVE_ERROR_CODES.participantStale
-    );
-  }
-
-  const { slideId, slideIndex } = window;
-  const answeredKey = k.answered(sessionId, slideId);
-  const added = await redisClient.sAdd(answeredKey, data.participantId);
-  if (added === 0) {
-    throw ApiError.conflict('You already responded to this slide');
-  }
-
-  const elapsedMs = Math.max(0, now - window.startedAtMs);
-  let accepted: ReturnType<NonNullable<typeof def.accept>>;
-  try {
-    const rawPayload = answerPayloadOf(data);
-    let payload: unknown = rawPayload;
-    if (def.answerSchema) {
-      const parsed = def.answerSchema.safeParse(rawPayload);
-      if (!parsed.success) {
-        throw ApiError.badRequest(
-          parsed.error.issues.map((i) => `${['payload', ...i.path].join('.')}: ${i.message}`).join('; ')
-        );
-      }
-      payload = parsed.data;
+/** Validates and grades the payload. Throws 400 for a malformed or ungradeable answer; writes nothing. */
+const grade = (
+  def: SlideTypeDef,
+  window: AnswerWindow,
+  data: SubmitPresentationAnswerInput,
+  elapsedMs: number
+) => {
+  let payload: unknown = answerPayloadOf(data);
+  if (def.answerSchema) {
+    const parsed = def.answerSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw ApiError.badRequest(
+        parsed.error.issues.map((i) => `${['payload', ...i.path].join('.')}: ${i.message}`).join('; ')
+      );
     }
-    accepted = def.accept(window.cfg, payload, { elapsedMs });
-  } catch (error) {
-    await redisClient.sRem(answeredKey, data.participantId).catch(() => {});
-    throw error;
+    payload = parsed.data;
   }
-
-  const { ops, persist } = accepted;
+  const accepted: AcceptResult = def.accept!(window.cfg, payload, { elapsedMs });
   // Ungraded slides (unscored types, 0-point or answer-less slides) never count as correct.
   const isCorrect = window.scored && accepted.isCorrect;
   const score = window.scored && def.score ? def.score(window.cfg, { isCorrect, elapsedMs }) : 0;
-  const stored: StoredAnswerResult = {
-    isCorrect,
-    score,
-    scored: window.scored,
-    slideIndex,
-    optionIndex: persist.optionIndex,
-    text: persist.text,
-    payload: persist.payload,
-    timeMs: elapsedMs,
-    answeredAt: new Date(now).toISOString(),
-    clientAnswerId: data.clientAnswerId ?? null,
-    via: 'rest',
-  };
+  return { accepted, isCorrect, score };
+};
 
-  // Atomic Redis updates via MULTI — a crash mid-write can't desync
-  // leaderboard / distribution / per-participant result.
-  const pipeline = redisClient.multi();
-  pipeline.zIncrBy(k.scores(sessionId), score, data.participantId);
-  if (isCorrect) pipeline.hIncrBy(k.correct(sessionId), data.participantId, 1);
-  ops.forEach((op) => queueOp(pipeline, sessionId, slideId, op));
-  pipeline.hSet(k.results(sessionId, slideId), data.participantId, JSON.stringify(stored));
-  pipeline.sCard(answeredKey);
-  const pipelineResults = await pipeline.exec();
-  const answeredCount = Number(pipelineResults[pipelineResults.length - 1]);
+/**
+ * The token was not in the session's Redis mirror (Redis restarted, or the
+ * participant joined through another path): check Mongo, and put the token
+ * back so the script finds it.
+ */
+const mirrorParticipant = async (
+  presentationId: string,
+  data: SubmitPresentationAnswerInput,
+  sessionId: string
+) => {
+  const owner = await verifyParticipant(presentationId, data.participantId, data.participantToken, sessionId);
+  if (owner.sessionId !== sessionId) throw staleParticipant();
+  await redisClient.hSet(k.tokens(sessionId), data.participantId, data.participantToken);
+  await touchTtls([k.tokens(sessionId)]);
+};
 
-  await redisClient.sAdd(ACTIVE_DISTRIBUTIONS_KEY, presentationId).catch(() => {});
+const parseStored = (json: string): Partial<StoredAnswerResult> | null => {
+  try {
+    return JSON.parse(json) as Partial<StoredAnswerResult>;
+  } catch {
+    return null;
+  }
+};
 
-  await publishAnswerReceived(presentationId, sessionId, { slideId, slideIndex, answeredCount });
+const processAnswer = async (
+  presentationId: string,
+  data: SubmitPresentationAnswerInput,
+  via: AnswerChannel
+): Promise<AnswerResult> => {
+  const sessionId = data.sessionId ?? (await resolveLiveSessionId(presentationId));
+  if (!sessionId) throw notAccepting();
 
-  // Write-behind. The participant total follows only a stored answer, so an
-  // answer the end-of-session reconciliation already inserted is not counted twice.
-  PresentationAnswerModel.create({
-    presentationId,
-    sessionId,
-    participantId: data.participantId,
-    slideId,
-    slideIndex,
-    optionIndex: persist.optionIndex,
-    text: persist.text,
-    payload: persist.payload,
-    isCorrect,
-    score,
-    timeMs: elapsedMs,
-    clientAnswerId: stored.clientAnswerId,
-    via: stored.via,
-  })
-    .then(() =>
-      PresentationParticipantModel.updateOne(
-        { _id: data.participantId },
-        { $inc: { score, correctCount: isCorrect ? 1 : 0 } }
-      )
-    )
-    .catch((error: any) => {
-      if (error?.code !== 11000) console.error('[Presentation] Failed to persist answer:', error);
+  let mirrored = false;
+  // At most: one reload after a reopen raced us, one token mirror, one final try.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const window = await timeRedis('answer_window', () => loadAnswerWindow(sessionId, data.slideId));
+    const def = window ? getSlideType(window.type) : undefined;
+    if (!window || !def?.accept || window.slideIndex !== data.slideIndex) throw notAccepting();
+
+    const nowMs = Date.now();
+    const elapsedMs = Math.max(0, nowMs - window.startedAtMs);
+    const { accepted, isCorrect, score } = grade(def, window, data, elapsedMs);
+    const { persist } = accepted;
+    const stored: StoredAnswerResult = {
+      isCorrect,
+      score,
+      scored: window.scored,
+      slideIndex: window.slideIndex,
+      optionIndex: persist.optionIndex,
+      text: persist.text,
+      payload: persist.payload,
+      timeMs: elapsedMs,
+      answeredAt: new Date(nowMs).toISOString(),
+      clientAnswerId: data.clientAnswerId ?? null,
+      via,
+    };
+
+    const reply = await runAnswerScript({
+      sessionId,
+      slideId: window.slideId,
+      participantId: data.participantId,
+      participantToken: data.participantToken,
+      slideIndex: window.slideIndex,
+      startedAtMs: window.startedAtMs,
+      nowMs,
+      ticketOk: verifySlideTicket(data.slideTicket, sessionId, window.slideId, window.startedAtMs),
+      score,
+      isCorrect,
+      storedJson: JSON.stringify(stored),
+      ops: accepted.ops,
     });
 
-  return { accepted: true };
+    switch (reply.status) {
+      case 'OK':
+        enqueueAnswerWrite({
+          presentationId,
+          sessionId,
+          participantId: data.participantId,
+          slideId: window.slideId,
+          slideIndex: window.slideIndex,
+          optionIndex: persist.optionIndex,
+          text: persist.text,
+          payload: persist.payload,
+          isCorrect,
+          score,
+          timeMs: elapsedMs,
+          clientAnswerId: stored.clientAnswerId,
+          via,
+        });
+        if (reply.ownsDirtyWindow) scheduleDirtyFlush(presentationId, sessionId);
+        return {
+          accepted: true,
+          replay: false,
+          slideId: window.slideId,
+          slideIndex: window.slideIndex,
+          clientAnswerId: stored.clientAnswerId,
+          via,
+          answeredAt: stored.answeredAt,
+        };
+
+      case 'DUP': {
+        // The same client retrying (lost ack, offline queue) gets its original result back.
+        const original = parseStored(reply.storedJson);
+        if (data.clientAnswerId && original?.clientAnswerId === data.clientAnswerId) {
+          return {
+            accepted: true,
+            replay: true,
+            slideId: window.slideId,
+            slideIndex: window.slideIndex,
+            clientAnswerId: data.clientAnswerId,
+            via: original.via ?? via,
+            answeredAt: original.answeredAt ?? stored.answeredAt,
+          };
+        }
+        throw alreadyAnswered();
+      }
+
+      case 'STALE':
+        continue; // the slide was reopened while we graded; grade against the new run
+
+      case 'NO_TOKEN':
+        if (mirrored) throw ApiError.unauthorized('Invalid participant token');
+        mirrored = true;
+        await mirrorParticipant(presentationId, data, sessionId);
+        continue;
+
+      case 'BAD_TOKEN':
+        throw ApiError.unauthorized('Invalid participant token');
+      case 'KICKED':
+        throw kickedError();
+      case 'RATE_LIMITED':
+        throw tooManyAnswers();
+      case 'TIME_UP':
+        throw timeUp();
+      case 'BAD_OP':
+        throw ApiError.internal('The slide type produced an operation the answer path cannot run');
+      case 'CLOSED':
+      case 'NO_WINDOW':
+        throw notAccepting();
+    }
+  }
+  throw new ApiError(409, 'The slide changed while answering; try again', LIVE_ERROR_CODES.sessionBusy);
+};
+
+const rejectionReason = (error: unknown) => {
+  if (error instanceof ApiError) return (error.code ?? `http_${error.statusCode}`).toLowerCase();
+  return 'error';
+};
+
+/**
+ * Accepts one answer (or replays it). Throws `ApiError`s the same way for both
+ * channels: 400 `NOT_ACCEPTING`/`TIME_UP`/validation, 401 bad token, 403
+ * `PARTICIPANT_KICKED`, 409 `ALREADY_ANSWERED`/`PARTICIPANT_STALE`, 429.
+ */
+export const submitAnswer = async (
+  presentationId: string,
+  data: SubmitPresentationAnswerInput,
+  context: SubmitContext = {}
+): Promise<AnswerResult> => {
+  const channel = context.via ?? 'rest';
+  const via: AnswerChannel = data.offline ? 'offline' : channel;
+  const started = performance.now();
+  try {
+    const result = await processAnswer(presentationId, data, via);
+    answersAccepted.inc({ via, replay: String(result.replay) });
+    return result;
+  } catch (error) {
+    answersRejected.inc({ via, reason: rejectionReason(error) });
+    throw error;
+  } finally {
+    answerDuration.observe({ via }, (performance.now() - started) / 1000);
+  }
 };

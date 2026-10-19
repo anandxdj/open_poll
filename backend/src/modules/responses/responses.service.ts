@@ -323,6 +323,8 @@ export class ResponseService {
     pipeline.sAdd('buffer:active_polls', pollId);
     pipeline.incr(`buffer:poll:${pollId}:total`);
     for (const answer of answers) {
+      // The worker finds a poll's counters through this set (no KEYS scan on a shared Redis).
+      pipeline.sAdd(`buffer:poll:${pollId}:questions`, answer.questionId);
       for (const idx of answer.selectedOptionIndices) {
         pipeline.hIncrBy(
           `buffer:poll:${pollId}:question:${answer.questionId}`,

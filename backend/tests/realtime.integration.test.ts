@@ -282,10 +282,10 @@ describe.skipIf(!inProcess)('realtime integration', () => {
     await Bun.sleep(300);
 
     const types = (events: Envelope[]) => fresh(events).map((e) => e.type);
+    // Three answers inside one 250 ms window reach the host as ONE coalesced update (flushed when the
+    // host reveals), plus the forged probe below that was published directly.
     const roundForHost = [
       'question:started',
-      'answer:received',
-      'answer:received',
       'answer:received',
       'answer:received',
       'question:revealed',
@@ -330,7 +330,7 @@ describe.skipIf(!inProcess)('realtime integration', () => {
     }
     // Together the sockets saw every seq of the round, with no gaps.
     const seen = new Set(clients.flatMap((c) => fresh(c.live).map((e) => e.seq)));
-    expect([...seen].sort((a, b) => a - b)).toEqual(Array.from({ length: 9 }, (_, i) => baselineSeq + 1 + i));
+    expect([...seen].sort((a, b) => a - b)).toEqual(Array.from({ length: 7 }, (_, i) => baselineSeq + 1 + i));
 
     // The legacy copy is the same envelope, so current clients keep reading quizId/type/payload.
     const legacyEnded = fresh(hostLegacy.legacy).at(-1)!;

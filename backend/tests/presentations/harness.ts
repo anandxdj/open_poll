@@ -1,11 +1,15 @@
+import { createHash } from 'node:crypto';
 import mongoose from 'mongoose';
 import { redisClient } from '../../src/common/config/redis';
+import { runFakeAnswerScript } from './answerScript.fake';
 import {
   PresentationModel,
   PresentationParticipantModel,
   PresentationAnswerModel,
   PresentationSessionModel,
 } from '../../src/modules/presentations/presentations.model';
+import { flushScheduledNow } from '../../src/modules/presentations/live/coalescer';
+import { flushWriteBehind } from '../../src/modules/presentations/live/writeBehind';
 
 /**
  * Test harness for the presentations live engine.
@@ -41,7 +45,7 @@ export class FakeRedis {
   ttls = new Map<string, number>();
   published: PublishedEvent[] = [];
 
-  private ensure<T extends Entry['type']>(key: string, type: T): Extract<Entry, { type: T }> {
+  ensure<T extends Entry['type']>(key: string, type: T): Extract<Entry, { type: T }> {
     const existing = this.store.get(key);
     if (existing) {
       if (existing.type !== type) throw new Error(`WRONGTYPE ${key} is ${existing.type}, wanted ${type}`);
@@ -64,7 +68,7 @@ export class FakeRedis {
     return created;
   }
 
-  private read<T extends Entry['type']>(key: string, type: T): Extract<Entry, { type: T }> | undefined {
+  read<T extends Entry['type']>(key: string, type: T): Extract<Entry, { type: T }> | undefined {
     const existing = this.store.get(key);
     if (!existing) return undefined;
     if (existing.type !== type) throw new Error(`WRONGTYPE ${key} is ${existing.type}, wanted ${type}`);
@@ -110,8 +114,16 @@ export class FakeRedis {
     });
     return 0;
   }
-  /** Only the realtime publish script (INCR the seq key, then PUBLISH the envelope) is supported. */
+  private scripts = new Set<string>();
+  /**
+   * Two scripts are supported: the realtime publish script (INCR the seq key, then
+   * PUBLISH the envelope) and the answer script, run through its JS port.
+   */
   async eval(script: string, options: { keys?: string[]; arguments?: string[] } = {}) {
+    if (script.startsWith('-- openpoll:answer')) {
+      this.scripts.add(createHash('sha1').update(script).digest('hex'));
+      return runFakeAnswerScript(this, options.keys ?? [], options.arguments ?? []);
+    }
     if (!script.includes("redis.call('PUBLISH'")) throw new Error('FakeRedis.eval: unsupported script');
     const [seqKey] = options.keys ?? [];
     const [before, after, ttl, channel] = options.arguments ?? [];
@@ -119,6 +131,12 @@ export class FakeRedis {
     await this.expire(seqKey!, Number(ttl));
     await this.publish(channel!, `${before}${seq}${after}`);
     return seq;
+  }
+
+  /** `EVALSHA`: only for scripts already sent with `EVAL`, like a real server. */
+  async evalSha(sha: string, options: { keys?: string[]; arguments?: string[] } = {}) {
+    if (!this.scripts.has(sha)) throw new Error('NOSCRIPT No matching script. Please use EVAL.');
+    return runFakeAnswerScript(this, options.keys ?? [], options.arguments ?? []);
   }
 
   // ---------- hashes ----------
@@ -146,6 +164,13 @@ export class FakeRedis {
   }
   async hGetAll(key: string) {
     return Object.fromEntries(this.read(key, 'hash')?.value ?? []) as Record<string, string>;
+  }
+  async hDel(key: string, fields: string | string[]) {
+    const hash = this.read(key, 'hash')?.value;
+    if (!hash) return 0;
+    let removed = 0;
+    for (const f of toArray(fields)) if (hash.delete(f)) removed += 1;
+    return removed;
   }
   async hLen(key: string) {
     return this.read(key, 'hash')?.value.size ?? 0;
@@ -192,6 +217,34 @@ export class FakeRedis {
     const next = (zset.get(member) ?? 0) + Number(by);
     zset.set(member, next);
     return next;
+  }
+  async zAdd(key: string, entry: { score: number; value: string } | { score: number; value: string }[]) {
+    const zset = this.ensure(key, 'zset').value;
+    let added = 0;
+    for (const { score, value } of Array.isArray(entry) ? entry : [entry]) {
+      if (!zset.has(value)) added += 1;
+      zset.set(value, Number(score));
+    }
+    return added;
+  }
+  async zRem(key: string, members: string | string[]) {
+    const zset = this.read(key, 'zset')?.value;
+    if (!zset) return 0;
+    let removed = 0;
+    for (const m of toArray(members)) if (zset.delete(m)) removed += 1;
+    return removed;
+  }
+  async zRangeByScoreWithScores(key: string, min: string | number, max: string | number, options?: { LIMIT?: { offset: number; count: number } }) {
+    const zset = this.read(key, 'zset')?.value;
+    if (!zset) return [];
+    const lo = String(min) === '-inf' ? -Infinity : Number(min);
+    const hi = String(max) === '+inf' ? Infinity : Number(max);
+    const rows = [...zset.entries()]
+      .filter(([, score]) => score >= lo && score <= hi)
+      .sort((a, b) => a[1] - b[1] || (a[0] < b[0] ? -1 : 1))
+      .map(([value, score]) => ({ value, score }));
+    const { offset = 0, count = rows.length } = options?.LIMIT ?? {};
+    return rows.slice(offset, offset + count);
   }
   async zScore(key: string, member: string) {
     return this.read(key, 'zset')?.value.get(member) ?? null;
@@ -302,6 +355,8 @@ const REDIS_METHODS = [
   'hSet',
   'hSetNX',
   'hGetAll',
+  'evalSha',
+  'hDel',
   'hLen',
   'hIncrBy',
   'sAdd',
@@ -310,6 +365,9 @@ const REDIS_METHODS = [
   'sMembers',
   'sIsMember',
   'zIncrBy',
+  'zAdd',
+  'zRem',
+  'zRangeByScoreWithScores',
   'zScore',
   'zCount',
   'zRangeWithScores',
@@ -356,6 +414,7 @@ export interface StoredParticipant {
   correctCount: number;
   joinedAt: Date;
   kickedAt: Date | null;
+  scoreFinalAt?: Date | null;
 }
 
 const compareBy = (spec: Record<string, 1 | -1>) => (a: any, b: any) => {
@@ -525,10 +584,20 @@ export function installModelStubs() {
     patch(PresentationParticipantModel, 'bulkWrite', async (ops: any[]) => {
       for (const { updateOne } of ops) {
         const participant = participants.find((p) => matches(p, updateOne.filter));
-        if (participant && updateOne.update.$set) Object.assign(participant, updateOne.update.$set);
+        if (!participant) continue;
+        if (updateOne.update.$set) Object.assign(participant, updateOne.update.$set);
+        for (const [field, by] of Object.entries(updateOne.update.$inc ?? {})) (participant as any)[field] += by as number;
+        participantUpdates.push({ filter: updateOne.filter, update: updateOne.update });
       }
       return { ok: 1 };
     }),
+    patch(PresentationParticipantModel, 'updateMany', (filter: any, update: any) =>
+      query(() => {
+        const hit = participants.filter((p) => matches(p, filter));
+        for (const participant of hit) Object.assign(participant, update.$set ?? {});
+        return { acknowledged: true, matchedCount: hit.length };
+      }),
+    ),
     patch(PresentationParticipantModel, 'countDocuments', (filter: any) =>
       query(() => participants.filter((p) => matches(p, filter)).length),
     ),
@@ -557,11 +626,12 @@ export function installModelStubs() {
       return Promise.resolve(data);
     }),
     patch(PresentationAnswerModel, 'insertMany', async (docs: any[]) => {
-      const writeErrors: { code: number }[] = [];
-      for (const doc of docs) {
-        if (answers.some((a) => answerKey(a) === answerKey(doc))) writeErrors.push({ code: 11000 });
+      if (failures.answerCreate) throw new Error('simulated write-behind failure');
+      const writeErrors: { code: number; index: number }[] = [];
+      docs.forEach((doc, index) => {
+        if (answers.some((a) => answerKey(a) === answerKey(doc))) writeErrors.push({ code: 11000, index });
         else answers.push({ ...doc });
-      }
+      });
       if (writeErrors.length) throw Object.assign(new Error('E11000'), { code: 11000, writeErrors });
       return docs;
     }),
@@ -609,8 +679,15 @@ export function installModelStubs() {
   };
 }
 
-/** Lets fire-and-forget promise chains (write-behind) settle. */
-export const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+/**
+ * Lets fire-and-forget work settle: writes the answer write-behind batch and
+ * publishes the coalesced host updates now instead of waiting out their timers.
+ */
+export const flush = async () => {
+  await flushWriteBehind();
+  await flushScheduledNow();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+};
 
 export const OWNER_ID = 'owner-user-id';
 

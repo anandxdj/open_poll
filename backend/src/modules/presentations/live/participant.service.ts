@@ -18,10 +18,12 @@ import {
   type ParticipantMeResponse,
 } from './contract';
 import { k, touchTtls } from './keys';
+import { issueSlideTicket } from './ticket';
 import { computeSlideDistributionHelper, getLeaderboard, getParticipantCount } from './distribution';
 import { publishParticipantJoined } from './events';
 import {
   findLiveSession,
+  isOpenState,
   lifecycleOf,
   readSlideState,
   resolveLiveSessionId,
@@ -36,7 +38,7 @@ const generateParticipantToken = () => crypto.randomBytes(24).toString('hex');
 
 const participantNotFound = () => ApiError.notFound('Participant not found — rejoin the presentation deck');
 
-const kickedError = () =>
+export const kickedError = () =>
   new ApiError(403, 'You were removed from this session', LIVE_ERROR_CODES.participantKicked);
 
 /**
@@ -327,6 +329,11 @@ export const getParticipantLiveState = async (
       slide: toParticipantSlide(slide, session.currentSlideIndex, slides.length),
       startedAt: def.lifecycle === 'response' && state?.openedAt ? state.openedAt.toISOString() : null,
       endsAt: def.lifecycle === 'response' ? (windowEnd(state)?.toISOString() ?? null) : null,
+      // Handed out while the window is open (the host has not closed or revealed it), even past the timer.
+      slideTicket:
+        def.lifecycle === 'response' && session.isLive && isOpenState(state) && state?.openedAt
+          ? issueSlideTicket(sessionId, slideId, state.openedAt.getTime())
+          : null,
       results,
       leaderboard: def.lifecycle === 'system' ? await getLeaderboard(sessionId) : null,
     };

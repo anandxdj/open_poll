@@ -54,6 +54,8 @@ const { generateAccessToken } = await import('../../src/common/utils/jwt.utils')
 const { UserModel } = await import('../../src/modules/auth/auth.model');
 const { PresentationModel, PresentationParticipantModel, PresentationAnswerModel, PresentationSessionModel } =
   await import('../../src/modules/presentations/presentations.model');
+const { flushScheduledNow } = await import('../../src/modules/presentations/live/coalescer');
+const { flushWriteBehind } = await import('../../src/modules/presentations/live/writeBehind');
 const { commonSlideShape, defineSlideType, registerSlideType } = await import(
   '../../src/modules/presentations/slides'
 );
@@ -184,6 +186,8 @@ describe.skipIf(!inProcess)('presentations live lifecycle (Mongo + Redis)', () =
   }, 20_000);
 
   afterAll(async () => {
+    await flushWriteBehind();
+    await flushScheduledNow();
     await new Promise<void>((resolve) => http?.close(() => resolve()));
     if (subscriber?.isOpen) await subscriber.close();
     for (const presentationId of presentationIds) {
@@ -201,7 +205,6 @@ describe.skipIf(!inProcess)('presentations live lifecycle (Mongo + Redis)', () =
         for await (const batch of redisClient.scanIterator({ MATCH: pattern })) keys.push(...batch);
       }
       await redisClient.del(keys);
-      await redisClient.sRem('buffer:active_presentation_distributions', presentationId);
     }
     if (userId) await UserModel.deleteOne({ _id: userId });
     await mongoose.disconnect();
@@ -327,9 +330,16 @@ describe.skipIf(!inProcess)('presentations live lifecycle (Mongo + Redis)', () =
         const host = (await api('GET', `/${pid}/host/state`)).body.data;
         expect(host.answeredCount).toBe(2);
         expect(host.liveDistribution).toMatchObject({ kind: 'options', counts: [1, 1, 0] });
-        const received = eventsOf(pid, 'answer:received');
-        expect(received.length).toBeGreaterThanOrEqual(2);
-        expect(received.every((e) => e.audience === 'host')).toBe(true);
+        // The two answers fell in one 250 ms window: the host gets ONE coalesced update with the counts.
+        await flushScheduledNow();
+        const received = await nextEvent(pid, 'answer:received', 1);
+        expect(received.audience).toBe('host');
+        expect(received.payload).toMatchObject({
+          answeredCount: 2,
+          participantCount: 2,
+          distribution: { kind: 'options', counts: [1, 1, 0] },
+        });
+        expect(eventsOf(pid, 'answer:received')).toHaveLength(1);
       }
       if (index === 1) {
         expect(started.payload.slide.media).toEqual({

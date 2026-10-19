@@ -121,9 +121,9 @@ export class PresentationService {
     return participants.joinPresentation(presentationId, data);
   }
 
-  /** HOT PATH — runs entirely on Redis; Mongo writes are async write-behind. */
-  static submitAnswer(presentationId: string, data: SubmitPresentationAnswerInput) {
-    return answers.submitAnswer(presentationId, data);
+  /** HOT PATH — one Redis script call; Mongo writes are batched write-behind. */
+  static submitAnswer(presentationId: string, data: SubmitPresentationAnswerInput, context?: answers.SubmitContext) {
+    return answers.submitAnswer(presentationId, data, context);
   }
 
   static getParticipantState(presentationId: string, participantId: string, token: string) {

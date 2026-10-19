@@ -4,6 +4,7 @@ import type { IPresentationSlide } from '../models/presentation.model';
 import { PresentationSessionModel, type IPresentationSession, type ISlideState } from '../models/session.model';
 import { getSlideType, isSlideScored, requireSlideType, type SlideLifecycle } from '../slides';
 import type { SlidePhase } from './contract';
+import { syncAutoReveal } from './autoReveal';
 import { SESSION_KEY_TTL_SEC, k } from './keys';
 
 /**
@@ -127,13 +128,24 @@ export const buildAnswerWindow = (
   };
 };
 
-export const cacheAnswerWindow = async (sessionId: string, window: AnswerWindow) => {
+/**
+ * Writes a window to the session's `slides` hash (and keeps the auto-reveal
+ * schedule in step). `rebuilt` windows come from a Mongo read on a cache miss:
+ * they are written only while the entry is still missing, so a host
+ * transition cached meanwhile is never overwritten by the older read (and
+ * then leaves the schedule alone too).
+ */
+export const cacheAnswerWindow = async (sessionId: string, window: AnswerWindow, rebuilt = false) => {
+  let written = true;
   try {
-    await redisClient.hSet(k.slides(sessionId), window.slideId, JSON.stringify(window));
+    const json = JSON.stringify(window);
+    if (rebuilt) written = Boolean(await redisClient.hSetNX(k.slides(sessionId), window.slideId, json));
+    else await redisClient.hSet(k.slides(sessionId), window.slideId, json);
     await redisClient.expire(k.slides(sessionId), SESSION_KEY_TTL_SEC);
   } catch (error) {
     console.error('[Presentation] Failed to cache answer window:', error);
   }
+  if (written) await syncAutoReveal(sessionId, window);
 };
 
 /** The window of a session's slide (default: the current one), Redis-first. Null when the slide has none. */
@@ -146,6 +158,8 @@ export const loadAnswerWindow = async (sessionId: string, slideIdHint?: string):
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<AnswerWindow>;
         if (parsed.v === ANSWER_WINDOW_VERSION) return parsed as AnswerWindow;
+        // An entry from an older release: drop it so the rebuild below can replace it.
+        await redisClient.hDel(k.slides(sessionId), slideId);
       }
     }
   } catch (error) {
@@ -160,7 +174,7 @@ export const loadAnswerWindow = async (sessionId: string, slideIdHint?: string):
   const state = readSlideState(session, targetId!);
   if (!state?.openedAt) return null;
   const window = buildAnswerWindow(found.slide, found.index, state, isPresenting(session));
-  void cacheAnswerWindow(sessionId, window);
+  await cacheAnswerWindow(sessionId, window, true);
   return window;
 };
 

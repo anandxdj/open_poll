@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { PresentationService } from '../../src/modules/presentations/presentations.service';
 import { createPresentationSchema } from '../../src/modules/presentations/presentations.schema';
 import { PresentationModel } from '../../src/modules/presentations/presentations.model';
-import { runLiveDistributionTick } from '../../src/modules/presentations/liveDistribution.worker';
 import {
   BUILT_IN_SLIDE_TYPES,
   commonSlideShape,
@@ -372,44 +371,3 @@ describe('export columns and cells', () => {
   });
 });
 
-describe('live distribution worker', () => {
-  it('pushes the host-only distribution for response slides and drains the buffer', async () => {
-    const { deck, pid, ada } = await liveDeck([SELECT, NOTE_FOR_WORKER]);
-    await PresentationService.advanceSlide(pid, OWNER_ID);
-    await PresentationService.submitAnswer(pid, {
-      participantId: ada.participantId,
-      participantToken: ada.token,
-      slideIndex: 0,
-      optionIndex: 1,
-    });
-    const before = redis.events('answer:received').length;
-    await runLiveDistributionTick();
-    const pushed = redis.events('answer:received').slice(before);
-    expect(pushed).toHaveLength(1);
-    expect(pushed[0]!.audience).toBe('host');
-    expect(pushed[0]!.payload).toEqual({
-      slideId: String(deck.slides[0]._id),
-      slideIndex: 0,
-      answeredCount: 1,
-      participantCount: 1,
-      distribution: {
-        kind: 'options',
-        counts: [0, 1],
-        options: [
-          { text: 'A', isCorrect: true },
-          { text: 'B', isCorrect: false },
-        ],
-      },
-    });
-    expect(redis.members('buffer:active_presentation_distributions')).toEqual([]);
-
-    // A content slide has nothing to push even if the deck is still flagged.
-    await PresentationService.advanceSlide(pid, OWNER_ID);
-    await redis.sAdd('buffer:active_presentation_distributions', pid);
-    const count = redis.events('answer:received').length;
-    await runLiveDistributionTick();
-    expect(redis.events('answer:received').length).toBe(count);
-  });
-});
-
-const NOTE_FOR_WORKER = { type: 'test_note', content: { title: 'Break' }, timeLimit: 0 };

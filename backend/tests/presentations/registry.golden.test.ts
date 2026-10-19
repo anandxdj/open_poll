@@ -7,6 +7,7 @@ import {
   createPresentationSchema,
   submitPresentationAnswerSchema,
 } from '../../src/modules/presentations/presentations.schema';
+import { flushScheduledNow } from '../../src/modules/presentations/live/coalescer';
 import { flush, installFakeRedis, installModelStubs, OWNER_ID, sessionKey, type FakeRedis } from './harness';
 
 /**
@@ -272,9 +273,9 @@ describe('golden: full deck run through the facade', () => {
     expect(started0.serverNow).toBe(new Date(T0).toISOString());
 
     at(5_000);
-    expect(await answer(pid, ada, 0, { optionIndex: 0 })).toEqual({ accepted: true });
+    expect(await answer(pid, ada, 0, { optionIndex: 0 })).toMatchObject({ accepted: true, replay: false, via: 'rest' });
     at(6_000);
-    expect(await answer(pid, linus, 0, { optionIndex: 1 })).toEqual({ accepted: true });
+    expect(await answer(pid, linus, 0, { optionIndex: 1 })).toMatchObject({ accepted: true, replay: false, via: 'rest' });
     expect(redis.hash(key(pid, 'dist', 0))).toEqual({ '0': '1', '1': '1' });
     expect(Object.keys(redis.hash(key(pid, 'results', 0))).sort()).toEqual(
       [ada.participantId, linus.participantId].sort(),
@@ -295,11 +296,27 @@ describe('golden: full deck run through the facade', () => {
       clientAnswerId: null,
       via: 'rest',
     });
+    // Host updates are coalesced: both answers fell in one 250 ms window, so ONE update goes out,
+    // carrying the count and the distribution (the old per-answer event and 2 s worker are gone).
+    expect(redis.events('answer:received')).toEqual([]);
+    await flushScheduledNow();
     expect(redis.events('answer:received').map((e) => e.payload)).toEqual([
-      { slideId: slideIdAt(pid, 0), slideIndex: 0, answeredCount: 1 },
-      { slideId: slideIdAt(pid, 0), slideIndex: 0, answeredCount: 2 },
+      {
+        slideId: slideIdAt(pid, 0),
+        slideIndex: 0,
+        answeredCount: 2,
+        participantCount: 2,
+        distribution: {
+          kind: 'options',
+          counts: [1, 1, 0],
+          options: [
+            { text: 'Paris', isCorrect: true },
+            { text: 'Lyon', isCorrect: false },
+            { text: 'Nice', isCorrect: false },
+          ],
+        },
+      },
     ]);
-    expect(redis.members('buffer:active_presentation_distributions')).toEqual([pid]);
 
     at(21_000);
     await PresentationService.revealCurrentSlide(pid, OWNER_ID);

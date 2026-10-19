@@ -26,8 +26,11 @@ import type { Server as SocketServer } from 'socket.io';
 import { io as connectClient, type ManagerOptions, type Socket as ClientSocket, type SocketOptions } from 'socket.io-client';
 import { env } from '../../src/common/config/env';
 import { redisClient } from '../../src/common/config/redis';
+import type { RedisAdapterOptions } from '../../src/common/realtime/adapter';
 import { setupSocketAndPubSub } from '../../src/common/realtime/socket';
 import { createApp } from '../../src/http/createApp';
+import { flushScheduledNow } from '../../src/modules/presentations/live/coalescer';
+import { flushWriteBehind } from '../../src/modules/presentations/live/writeBehind';
 import { createSocketServer } from '../../src/http/socketServer';
 
 export const TEST_MONGO_URI = process.env.TEST_MONGO_URI;
@@ -36,6 +39,17 @@ export const integrationEnabled = Boolean(TEST_MONGO_URI && TEST_REDIS_URL);
 
 /** `describe` that skips the suite unless both test services are configured. */
 export const describeIntegration = describe.skipIf(!integrationEnabled);
+
+export interface StartTestServerOptions {
+  /** Link this server's Socket.io instance to the others through the Redis adapter (`key` keeps runs apart). */
+  redisAdapter?: RedisAdapterOptions;
+}
+
+/** Writes the answer batches and publishes the host updates still waiting on their timers. */
+export const settleLiveEngine = async () => {
+  await flushWriteBehind();
+  await flushScheduledNow();
+};
 
 export interface TestServer {
   app: Express;
@@ -88,13 +102,13 @@ async function releaseConnections() {
  * serves createApp() with realtime on an ephemeral port. Call twice for two
  * "instances" sharing the same Redis.
  */
-export async function startTestServer(): Promise<TestServer> {
+export async function startTestServer(options: StartTestServerOptions = {}): Promise<TestServer> {
   await acquireConnections();
 
   const app = createApp();
   const httpServer = createServer(app);
   const io = createSocketServer(httpServer);
-  const realtime = await setupSocketAndPubSub(io);
+  const realtime = await setupSocketAndPubSub(io, { redisAdapter: options.redisAdapter });
   await new Promise<void>((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
   const baseUrl = `http://127.0.0.1:${(httpServer.address() as AddressInfo).port}`;
   const sockets: ClientSocket[] = [];
@@ -119,6 +133,7 @@ export async function startTestServer(): Promise<TestServer> {
       return socket;
     },
     async close() {
+      await settleLiveEngine();
       for (const socket of sockets) socket.disconnect();
       await realtime.close();
       await new Promise<void>((resolve) => io.close(() => resolve()));
@@ -132,6 +147,7 @@ export async function resetTestData(): Promise<void> {
   assertTestServices();
   const db = mongoose.connection.db;
   if (!db) throw new Error('resetTestData() needs a started test server');
+  await settleLiveEngine();
   for (const collection of await db.collections()) await collection.deleteMany({});
   await redisClient.flushDb();
 }

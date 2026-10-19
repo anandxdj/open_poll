@@ -12,10 +12,12 @@ type BufferQuestionCount = {
   countsByIndex: Record<string, string>;
 };
 
-const getQuestionBufferKeys = async (pollId: string): Promise<string[]> => {
-  const pattern = `buffer:poll:${pollId}:question:*`;
-  const keys = await redisClient.keys(pattern);
-  return keys;
+/** The poll's question ids with buffered counters: a per-poll SET, so no `KEYS` scan blocks Redis. */
+const questionsSetKey = (pollId: string) => `buffer:poll:${pollId}:questions`;
+
+const getQuestionBufferKeys = async (pollId: string): Promise<{ keys: string[]; questionIds: string[] }> => {
+  const questionIds = await redisClient.sMembers(questionsSetKey(pollId));
+  return { keys: questionIds.map((questionId) => `buffer:poll:${pollId}:question:${questionId}`), questionIds };
 };
 
 const parseQuestionCount = async (key: string): Promise<BufferQuestionCount | null> => {
@@ -33,7 +35,7 @@ export const startAnalyticsWorker = () => {
 
       const totalDeltaString = await redisClient.get(`buffer:poll:${pollId}:total`);
       const totalDelta = totalDeltaString ? Number.parseInt(totalDeltaString, 10) : 0;
-      const questionKeys = await getQuestionBufferKeys(pollId);
+      const { keys: questionKeys, questionIds } = await getQuestionBufferKeys(pollId);
 
       const parsedQuestionCounts = (
         await Promise.all(questionKeys.map((key) => parseQuestionCount(key)))
@@ -87,6 +89,8 @@ export const startAnalyticsWorker = () => {
 
       updatePipeline.del(`buffer:poll:${pollId}:total`);
       for (const key of questionKeys) updatePipeline.del(key);
+      // Only the questions flushed above leave the set: a vote buffered meanwhile keeps its entry.
+      if (questionIds.length > 0) updatePipeline.sRem(questionsSetKey(pollId), questionIds);
       updatePipeline.del(`poll:${pollId}:analytics_cache`);
       await updatePipeline.exec();
 

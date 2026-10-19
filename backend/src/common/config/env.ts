@@ -122,6 +122,7 @@ const rawEnvSchema = z.object({
   DOMAIN_VERCEL_PROJECT_ID: optional(z.string()),
   DOMAIN_VERCEL_TEAM_ID: optional(z.string()),
   METRICS_TOKEN: optional(z.string().min(16, 'must be at least 16 characters')),
+  SOCKET_REDIS_ADAPTER: optional(z.enum(['on', 'off'], { error: 'must be on or off' })),
 });
 
 type RawEnv = z.infer<typeof rawEnvSchema>;
@@ -207,6 +208,8 @@ export interface AppEnv {
   } | null;
   /** Bearer token for /metrics; null disables the endpoint. */
   metricsToken: string | null;
+  /** SOCKET_REDIS_ADAPTER=on: link Socket.io servers through Redis (multi-instance rooms and fetchSockets). */
+  socketRedisAdapter: boolean;
   capabilities: Capabilities;
 }
 
@@ -471,6 +474,7 @@ export function parseEnv(source: Record<string, string | undefined> = process.en
     googleDriveImport,
     domains,
     metricsToken,
+    socketRedisAdapter: raw.SOCKET_REDIS_ADAPTER === 'on',
     capabilities: {
       billing: billing !== null,
       storage: storage !== null,
