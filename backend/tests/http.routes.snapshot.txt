@@ -1,6 +1,7 @@
 USE / securityHeaders
 USE /api/billing/webhook rawParser
 ROUTER /api/billing/webhook
+POST /api/billing/webhook
 USE /api/sso/saml/:connectionId/acs urlencodedParser
 ROUTER /api/sso/saml/:connectionId/acs
 USE /scim/v2 jsonParser
@@ -109,6 +110,9 @@ GET /mcp
 DELETE /mcp
 ROUTER /api/audit
 ROUTER /api/billing
+GET /api/billing
+POST /api/billing/checkout
+POST /api/billing/portal
 ROUTER /api/brand-kits
 ROUTER /api/capabilities
 GET /api/capabilities
@@ -122,6 +126,7 @@ POST /api/library/convert/poll/:pollId
 ROUTER /api/me
 ROUTER /api/oembed
 ROUTER /api/plans
+GET /api/plans
 ROUTER /api/public/domains
 ROUTER /api/public/results
 ROUTER /api/remote
