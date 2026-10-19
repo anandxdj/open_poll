@@ -2,15 +2,19 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useAuthStore } from "@/features/auth";
 import { useMounted } from "@/hooks/use-mounted";
-import { button, container } from "../shared/styles";
+import { container, linkButton } from "../shared/styles";
 import { LiveRoomPreview } from "./LiveRoomPreview";
 
 const ease = [0.32, 0.72, 0, 1] as const;
 
-const POINTS = ["Audience joins with a code, no account", "Free plan available", "Results update live"];
+const reveal = (delay: number) => ({
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.6, ease, delay },
+});
 
 export function Hero() {
   const mounted = useMounted();
@@ -18,61 +22,43 @@ export function Hero() {
   const authed = mounted && isAuthenticated;
 
   return (
-    <section aria-labelledby="hero-title" className="relative overflow-hidden pb-24 pt-28 sm:pt-32 lg:pb-32 lg:pt-40">
-      <div aria-hidden="true" className="mk-dot-grid pointer-events-none absolute inset-0" />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-0 size-[38rem] -translate-x-1/2 -translate-y-1/3 rounded-full bg-primary/10 blur-[120px]"
-      />
+    <section aria-labelledby="hero-title" className="relative overflow-hidden pb-20 pt-32 md:pb-28 md:pt-40">
+      <div aria-hidden="true" className="mk-grid pointer-events-none absolute inset-0" />
 
       <div className={`${container} relative`}>
-        <div className="grid grid-cols-1 items-center gap-16 lg:grid-cols-[1.05fr_1fr] lg:gap-12 xl:gap-20">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease }}
-            className="flex flex-col items-start text-left"
+        <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+          <motion.h1
+            {...reveal(0)}
+            id="hero-title"
+            className="text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.045em] sm:text-6xl lg:text-7xl"
           >
-            <h1
-              id="hero-title"
-              className="text-balance text-5xl font-bold leading-[1.05] tracking-[-0.04em] sm:text-6xl"
-            >
-              Slides your audience can answer
-            </h1>
-            <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground sm:text-xl">
-              Build a deck of polls, quizzes, word clouds and Q&amp;A, or let AI draft one from a prompt. Share a join
-              code and watch every answer land live on the big screen.
-            </p>
-
-            <div className="mt-9 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-              <Link href={authed ? "/polls" : "/signup"} className={`${button.primaryLg} w-full sm:w-auto`}>
-                {authed ? "Open your dashboard" : "Start for free"}
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </Link>
-              <Link href="/live" className={`${button.secondaryLg} w-full sm:w-auto`}>
-                Join a session
-              </Link>
-            </div>
-
-            <ul className="mt-8 flex flex-col gap-2.5 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-x-6">
-              {POINTS.map((point) => (
-                <li key={point} className="flex items-center gap-2">
-                  <Check className="size-4 shrink-0 text-brand-ink" aria-hidden="true" />
-                  {point}
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9, ease, delay: 0.15 }}
-            className="pb-10 lg:pb-0"
+            Slides your audience can answer
+          </motion.h1>
+          <motion.p
+            {...reveal(0.08)}
+            className="mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground sm:text-xl"
           >
-            <LiveRoomPreview />
+            Build a deck of polls, quizzes, word clouds and Q&amp;A, or let AI draft one from a prompt. Share a join
+            code and watch every answer land live on the big screen.
+          </motion.p>
+
+          <motion.div {...reveal(0.16)} className="mt-9 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+            <Link href={authed ? "/polls" : "/signup"} className={`${linkButton({ size: "xl" })} w-full sm:w-auto`}>
+              {authed ? "Open your dashboard" : "Start for free"}
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+            <Link href="/live" className={`${linkButton({ variant: "outline", size: "xl" })} w-full sm:w-auto`}>
+              Join a session
+            </Link>
           </motion.div>
+          <motion.p {...reveal(0.22)} className="mt-5 text-sm text-muted-foreground">
+            Your audience joins with a code, no account needed. A free plan is available.
+          </motion.p>
         </div>
+
+        <motion.div {...reveal(0.3)} className="mx-auto mt-14 max-w-5xl md:mt-20">
+          <LiveRoomPreview />
+        </motion.div>
       </div>
     </section>
   );

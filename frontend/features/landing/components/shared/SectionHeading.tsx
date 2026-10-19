@@ -10,12 +10,12 @@ interface SectionHeadingProps {
 
 /**
  * The one heading block every landing section uses: an h2 and an optional
- * sentence. Sizes follow the marketing type scale (h2 30/36/48, body 16/18).
+ * sentence. h2 is 30/36/48px with tight tracking, the sentence 16/18px.
  */
 export function SectionHeading({ id, title, description, align = "center", className }: SectionHeadingProps) {
   return (
-    <div className={cn("space-y-4", align === "center" ? "mx-auto text-center" : "text-left", "max-w-2xl", className)}>
-      <h2 id={id} className="text-balance text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
+    <div className={cn("max-w-2xl space-y-4", align === "center" ? "mx-auto text-center" : "text-left", className)}>
+      <h2 id={id} className="text-balance text-3xl font-semibold tracking-[-0.03em] sm:text-4xl lg:text-5xl">
         {title}
       </h2>
       {description ? (

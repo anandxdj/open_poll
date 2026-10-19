@@ -72,7 +72,11 @@ const CAPABILITIES: Capability[] = [
 
 export function Capabilities() {
   return (
-    <section id="features" aria-labelledby="features-title" className={`${sectionY} scroll-mt-20`}>
+    <section
+      id="features"
+      aria-labelledby="features-title"
+      className={`${sectionY} scroll-mt-20 border-t border-border bg-card`}
+    >
       <div className={container}>
         <SectionHeading
           id="features-title"
@@ -80,20 +84,18 @@ export function Capabilities() {
           description="From the first slide to the follow-up report, in one workspace your whole team can share."
         />
 
-        {/* One bezel, hairline dividers: the grid gap shows the border colour. */}
-        <div className="mt-12 rounded-[2rem] border border-foreground/10 bg-foreground/5 p-1.5 md:mt-16">
-          <ul className="grid gap-px overflow-hidden rounded-[calc(2rem-0.375rem)] bg-border sm:grid-cols-2 lg:grid-cols-4">
-            {CAPABILITIES.map(({ icon: Icon, title, description }) => (
-              <li key={title} className="group bg-card p-6 transition-colors duration-500 hover:bg-secondary/60 sm:p-7">
-                <span className="flex size-11 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-brand-ink">
-                  <Icon className="size-5" aria-hidden="true" />
-                </span>
-                <h3 className="mt-5 text-xl font-bold tracking-tight">{title}</h3>
-                <p className="mt-2 text-base leading-relaxed text-muted-foreground">{description}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {/* One bordered block; the grid gap shows the divider colour. */}
+        <ul className="mt-12 grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4 md:mt-16">
+          {CAPABILITIES.map(({ icon: Icon, title, description }) => (
+            <li key={title} className="flex gap-4 bg-background p-5 sm:block sm:p-7">
+              <Icon className="mt-0.5 size-5 shrink-0 text-foreground" strokeWidth={1.75} aria-hidden="true" />
+              <div className="sm:mt-5">
+                <h3 className="text-base font-semibold tracking-tight sm:text-lg">{title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground sm:mt-2">{description}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );

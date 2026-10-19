@@ -18,7 +18,7 @@ export default function LandingPage() {
   return (
     // reducedMotion="user": framer-motion skips transform animations for people who ask for less motion.
     <MotionConfig reducedMotion="user">
-      <div className="mk-surface relative min-h-dvh overflow-x-clip bg-radial-glow text-foreground selection:bg-primary/30 selection:text-foreground">
+      <div className="mk-surface relative min-h-dvh overflow-x-clip bg-background text-foreground">
         <a href="#main" className="mk-skip-link">
           Skip to content
         </a>

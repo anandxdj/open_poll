@@ -8,6 +8,7 @@ import { usePlanCatalog } from "@/features/billing/hooks/usePlanCatalog";
 import { bestYearlySavings, hasIntervalChoice, pricingTiers, type PricingTier } from "@/features/billing/lib/catalog";
 import { formatMoney } from "@/features/billing/lib/format";
 import type { BillingInterval } from "@/features/billing/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -36,29 +37,31 @@ const SALES_EMAIL = process.env.NEXT_PUBLIC_SALES_EMAIL;
 function TierPrice({ tier }: { tier: PricingTier }) {
   const { price } = tier;
   if (price.kind === "free") {
-    return <span className="text-4xl font-bold tracking-tight">Free</span>;
+    return <span className="text-4xl font-semibold tracking-[-0.03em]">Free</span>;
   }
   if (price.kind === "custom") {
     // Enterprise is quoted; a paid plan with no price configured says so instead of implying a quote.
     return tier.plan.id === "enterprise" ? (
-      <span className="text-4xl font-bold tracking-tight">Custom</span>
+      <span className="text-4xl font-semibold tracking-[-0.03em]">Custom</span>
     ) : (
       // Same 40px line as the big prices so the cards' bullet lists start level.
-      <span className="text-2xl font-bold leading-10 tracking-tight text-muted-foreground">Pricing soon</span>
+      <span className="text-2xl font-semibold leading-10 tracking-[-0.02em] text-muted-foreground">Pricing soon</span>
     );
   }
   return (
     <>
-      <span className="text-4xl font-bold tracking-tight">{formatMoney(price.amount.amount, price.amount.currency)}</span>
-      <span className="text-sm font-medium leading-6 text-muted-foreground">
+      <span className="text-4xl font-semibold tracking-[-0.03em] tabular-nums">
+        {formatMoney(price.amount.amount, price.amount.currency)}
+      </span>
+      <span className="text-sm leading-6 text-muted-foreground">
         {tier.plan.perSeat ? "/seat/month" : "/month"}
       </span>
     </>
   );
 }
 
-/** 44px tall, rounded like the rest of the marketing buttons, with a focus ring that reads on light. */
-const BTN = "h-11 w-full rounded-2xl text-sm font-semibold focus-visible:border-brand-ink focus-visible:ring-brand-ink/40";
+/** 44px tall, full width inside the card. */
+const BTN = "h-11 w-full";
 
 function TierCta({ tier }: { tier: PricingTier }) {
   const variant = tier.mostPopular ? "default" : "outline";
@@ -96,12 +99,7 @@ export function Pricing() {
   const savings = bestYearlySavings(catalog);
 
   return (
-    <section id="pricing" aria-labelledby="pricing-title" className={`${sectionY} relative scroll-mt-20 overflow-hidden border-t border-border`}>
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 mx-auto h-full max-w-7xl">
-        <div className="absolute left-1/4 top-1/4 size-96 rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 size-96 rounded-full bg-primary/5 blur-3xl" />
-      </div>
-
+    <section id="pricing" aria-labelledby="pricing-title" className={`${sectionY} scroll-mt-20 border-t border-border`}>
       <div className={container}>
         <SectionHeading
           id="pricing-title"
@@ -114,7 +112,7 @@ export function Pricing() {
             <Label
               htmlFor="billing-toggle"
               className={cn(
-                "min-h-11 text-base font-medium transition-colors",
+                "min-h-11 text-sm font-medium transition-colors",
                 !isAnnual ? "text-foreground" : "text-muted-foreground"
               )}
             >
@@ -128,57 +126,49 @@ export function Pricing() {
             <Label
               htmlFor="billing-toggle"
               className={cn(
-                "min-h-11 text-base font-medium transition-colors",
+                "min-h-11 text-sm font-medium transition-colors",
                 isAnnual ? "text-foreground" : "text-muted-foreground"
               )}
             >
               Yearly
-              {savings !== null && (
-                <span className="ml-1.5 inline-flex items-center rounded-full bg-primary/15 px-2.5 py-0.5 text-sm font-medium text-brand-ink ring-1 ring-inset ring-primary/30">
-                  {savings}% off
-                </span>
-              )}
+              {savings !== null && <Badge variant="accent">{savings}% off</Badge>}
             </Label>
           </div>
         )}
 
-        <div className="mt-14 grid grid-cols-1 gap-6 pt-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-12 grid grid-cols-1 gap-4 md:mt-14 md:grid-cols-2 xl:grid-cols-4">
           {tiers.map((tier) => (
             <Card
               key={tier.plan.id}
               data-testid={`pricing-${tier.plan.id}`}
               className={cn(
-                "relative flex flex-col overflow-visible ring-1 transition-colors duration-500",
-                tier.mostPopular
-                  ? "bg-primary/[0.05] ring-2 ring-primary"
-                  : "ring-foreground/10 hover:ring-foreground/25"
+                "gap-6 py-6",
+                tier.mostPopular && "border-primary bg-card shadow-lg shadow-primary/5"
               )}
             >
-              {tier.mostPopular && (
-                <div className="absolute -top-3.5 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-4 py-1 text-sm font-semibold text-primary-foreground shadow-md">
-                  Most popular
-                </div>
-              )}
               <CardHeader>
-                <CardTitle className="text-2xl font-bold tracking-tight">{tier.plan.name}</CardTitle>
-                <CardDescription className="min-h-[3rem] text-base">
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-lg">{tier.plan.name}</CardTitle>
+                  {tier.mostPopular && <Badge variant="accent">Most popular</Badge>}
+                </div>
+                <CardDescription className="min-h-[3.25rem] text-sm leading-relaxed">
                   {DESCRIPTIONS[tier.plan.id] ?? ""}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex-1 space-y-6">
+              <CardContent className="flex-1 space-y-5">
                 <div className="flex items-baseline gap-x-1">
                   <TierPrice tier={tier} />
                 </div>
                 {tier.price.kind === "priced" && tier.price.billedAs && (
-                  <p className="text-sm font-medium text-brand-ink">
+                  <p className="text-sm text-accent-ink">
                     Billed annually ({formatMoney(tier.price.billedAs.amount, tier.price.billedAs.currency)}
                     {tier.plan.perSeat ? "/seat" : ""}/year)
                   </p>
                 )}
-                <ul className="space-y-3">
+                <ul className="space-y-2.5 border-t border-border pt-5">
                   {tier.highlights.map((feature) => (
-                    <li key={feature} className="flex gap-x-3 text-base leading-snug">
-                      <Check className="mt-0.5 size-5 flex-none text-brand-ink" aria-hidden="true" />
+                    <li key={feature} className="flex gap-x-3 text-sm leading-snug">
+                      <Check className="mt-0.5 size-4 flex-none text-accent-ink" strokeWidth={2.25} aria-hidden="true" />
                       {feature}
                     </li>
                   ))}

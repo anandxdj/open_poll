@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import { ChartColumn, Heart, PartyPopper, ThumbsUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MockFrame, MockHeader, SampleBadge } from "./MockFrame";
+import { MockFrame } from "./MockFrame";
 
 const OPTIONS = [
   { label: "Email", value: 34 },
@@ -43,22 +43,24 @@ export function LivePollAnimation() {
   const active = bursts % REACTIONS.length;
 
   return (
-    <MockFrame label="Illustration of live results: bar results for a sample question, three audience questions with upvote counts and emoji reactions.">
-      <MockHeader icon={<ChartColumn className="size-[18px]" />} title="Live results" badge={<SampleBadge />} />
-
-      <p className="mt-5 text-lg font-bold leading-snug text-foreground">How do customers contact us most?</p>
+    <MockFrame
+      label="Illustration of live results: bar results for a sample question, three audience questions with upvote counts and emoji reactions."
+      icon={<ChartColumn />}
+      title="Live results"
+    >
+      <p className="text-base font-semibold tracking-tight text-foreground">How do customers contact us most?</p>
       <ul className="mt-4 space-y-3.5">
         {OPTIONS.map((o) => (
           <li key={o.label}>
             <div className="mb-1.5 flex items-baseline justify-between text-sm">
-              <span className="font-medium text-foreground">{o.label}</span>
-              <span className="tabular-nums font-semibold text-muted-foreground">{o.value}%</span>
+              <span className="text-foreground">{o.label}</span>
+              <span className="font-mono tabular-nums text-muted-foreground">{o.value}%</span>
             </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-foreground/10">
+            <div className="h-2 overflow-hidden rounded-full bg-secondary">
               <div
                 className={cn(
-                  "h-full rounded-full transition-[width] duration-[1100ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
-                  o.value > 40 ? "bg-primary" : "bg-foreground/30",
+                  "h-full rounded-full transition-[width] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                  o.value > 40 ? "bg-primary" : "bg-muted-foreground/50",
                 )}
                 style={{ width: filled ? `${o.value}%` : "0%" }}
               />
@@ -69,14 +71,14 @@ export function LivePollAnimation() {
 
       <div className="mt-6 border-t border-border pt-5">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-foreground">Audience questions</p>
+          <p className="text-sm font-medium text-foreground">Audience questions</p>
           <div className="flex items-center gap-1.5">
             {REACTIONS.map((Icon, i) => (
               <span
                 key={i}
                 className={cn(
-                  "flex size-8 items-center justify-center rounded-full border transition-colors duration-500",
-                  i === active ? "border-primary bg-primary/15 text-brand-ink" : "border-border text-muted-foreground",
+                  "flex size-8 items-center justify-center rounded-md border transition-colors duration-300",
+                  i === active ? "border-primary bg-primary/10 text-accent-ink" : "border-border text-muted-foreground",
                 )}
               >
                 <Icon className="size-4" aria-hidden="true" />
@@ -84,15 +86,11 @@ export function LivePollAnimation() {
             ))}
           </div>
         </div>
-        <ul className="mt-3 space-y-2">
+        <ul className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
           {QUESTIONS.map((q) => (
-            <li
-              key={q.text}
-              className="flex items-center gap-3 rounded-xl border border-border bg-background/50 px-3.5 py-2.5"
-            >
-              <span className="flex min-w-10 flex-col items-center rounded-lg bg-foreground/[0.06] px-2 py-1 text-xs font-semibold tabular-nums text-foreground">
+            <li key={q.text} className="flex items-center gap-3 bg-background px-3.5 py-2.5">
+              <span className="w-8 shrink-0 text-center font-mono text-sm font-medium tabular-nums text-foreground">
                 {q.votes}
-                <span className="font-normal text-muted-foreground">votes</span>
               </span>
               <span className="text-sm text-foreground">{q.text}</span>
             </li>

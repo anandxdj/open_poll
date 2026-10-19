@@ -1,10 +1,5 @@
-"use client";
-
-import { motion } from "framer-motion";
 import { container, sectionY } from "../shared/styles";
 import { SectionHeading } from "../shared/SectionHeading";
-
-const ease = [0.32, 0.72, 0, 1] as const;
 
 const steps = [
   {
@@ -23,7 +18,11 @@ const steps = [
 
 export function Steps() {
   return (
-    <section id="how-it-works" aria-labelledby="how-title" className={`${sectionY} scroll-mt-20`}>
+    <section
+      id="how-it-works"
+      aria-labelledby="how-title"
+      className={`${sectionY} scroll-mt-20 border-t border-border bg-card`}
+    >
       <div className={container}>
         <SectionHeading
           id="how-title"
@@ -33,22 +32,11 @@ export function Steps() {
 
         <ol className="mt-12 grid grid-cols-1 gap-10 md:mt-16 lg:grid-cols-3 lg:gap-12">
           {steps.map((step, i) => (
-            <motion.li
-              key={step.title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-40px" }}
-              transition={{ duration: 0.6, ease, delay: i * 0.08 }}
-              className="relative border-t border-foreground/15 pt-6"
-            >
-              <span
-                aria-hidden="true"
-                className="absolute -top-px left-0 h-px w-12 bg-brand-ink"
-              />
-              <span className="text-sm font-semibold text-brand-ink">Step {i + 1}</span>
-              <h3 className="mt-3 text-2xl font-bold tracking-tight">{step.title}</h3>
-              <p className="mt-3 max-w-md text-base leading-relaxed text-muted-foreground">{step.body}</p>
-            </motion.li>
+            <li key={step.title} className="border-t border-foreground/20 pt-6">
+              <span className="font-mono text-sm tabular-nums text-accent-ink">{String(i + 1).padStart(2, "0")}</span>
+              <h3 className="mt-3 text-xl font-semibold tracking-tight">{step.title}</h3>
+              <p className="mt-2 max-w-md text-base leading-relaxed text-muted-foreground">{step.body}</p>
+            </li>
           ))}
         </ol>
       </div>

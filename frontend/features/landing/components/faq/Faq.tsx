@@ -40,20 +40,26 @@ const FAQS = [
 export function Faq() {
   return (
     <section id="faq" aria-labelledby="faq-title" className={`${sectionY} scroll-mt-20 border-t border-border`}>
-      <div className={cn(container, "max-w-3xl")}>
-        <SectionHeading id="faq-title" title="Questions, answered" />
+      <div className={cn(container, "grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-16")}>
+        <SectionHeading
+          id="faq-title"
+          title="Questions, answered"
+          description="The short version of how Open Poll works."
+          align="left"
+          className="lg:sticky lg:top-28 lg:self-start"
+        />
 
-        <Accordion.Root type="single" collapsible className="mt-10 divide-y divide-border border-y border-border md:mt-14">
+        <Accordion.Root type="single" collapsible className="divide-y divide-border border-y border-border">
           {FAQS.map((item) => (
             <Accordion.Item key={item.q} value={item.q} className="group">
               <Accordion.Header>
-                  <Accordion.Trigger className="mk-focus flex min-h-14 w-full items-center justify-between gap-4 py-4 text-left text-lg font-semibold text-foreground transition-colors duration-300 hover:text-brand-ink">
-                    {item.q}
-                    <ChevronDown
-                      className="size-5 shrink-0 text-muted-foreground transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-[state=open]:rotate-180"
-                      aria-hidden="true"
-                    />
-                  </Accordion.Trigger>
+                <Accordion.Trigger className="flex min-h-14 w-full items-center justify-between gap-4 rounded-md py-4 text-left text-base font-medium text-foreground transition-colors duration-150 hover:text-accent-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-lg">
+                  {item.q}
+                  <ChevronDown
+                    className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-[state=open]:rotate-180"
+                    aria-hidden="true"
+                  />
+                </Accordion.Trigger>
               </Accordion.Header>
               <Accordion.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
                 <p className="max-w-2xl pb-6 text-base leading-relaxed text-muted-foreground">{item.a}</p>

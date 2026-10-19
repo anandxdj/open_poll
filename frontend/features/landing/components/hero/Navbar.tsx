@@ -17,7 +17,7 @@ import { useMounted } from "@/hooks/use-mounted";
 import { cn } from "@/lib/utils";
 import { BrandMark } from "../shared/BrandMark";
 import { NAV_LINKS } from "../shared/nav-links";
-import { button, container } from "../shared/styles";
+import { container, linkButton } from "../shared/styles";
 
 const ease = [0.32, 0.72, 0, 1] as const;
 
@@ -30,8 +30,7 @@ const initials = (name: string) =>
     .toUpperCase()
     .slice(0, 2);
 
-const menuItem =
-  "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-foreground/80 focus:bg-primary/10 focus:text-foreground";
+const menuItem = "flex min-h-10 cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium";
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -45,7 +44,7 @@ export function Navbar() {
   const authed = mounted && isAuthenticated;
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
+    const onScroll = () => setScrolled(window.scrollY > 8);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     void checkAuth();
@@ -71,11 +70,11 @@ export function Navbar() {
   return (
     <header
       className={cn(
-        "fixed inset-x-0 top-0 z-50 border-b transition-[background-color,border-color,backdrop-filter] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
-        solid ? "border-border bg-background/90 backdrop-blur-xl" : "border-transparent bg-transparent",
+        "fixed inset-x-0 top-0 z-50 border-b transition-[background-color,border-color] duration-200",
+        solid ? "border-border bg-background/80 backdrop-blur-md" : "border-transparent bg-transparent",
       )}
     >
-      <div className={cn(container, "flex h-16 items-center justify-between gap-4")}>
+      <div className={cn(container, "flex h-16 items-center gap-8")}>
         <BrandMark />
 
         <nav aria-label="Primary" className="hidden items-center gap-1 lg:flex">
@@ -83,19 +82,19 @@ export function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className="mk-focus inline-flex h-11 items-center rounded-xl px-4 text-sm font-medium text-muted-foreground transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-foreground"
+              className="inline-flex h-9 items-center rounded-md px-3 text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               {link.label}
             </Link>
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
-          <ThemeSwitch className="size-11 lg:size-10" />
+        <div className="ml-auto flex items-center gap-2">
+          <ThemeSwitch className="size-10 lg:size-9" />
 
           {/* Desktop actions */}
           <div className="hidden items-center gap-2 lg:flex">
-            <Link href="/live" className={button.ghost}>
+            <Link href="/live" className={linkButton({ variant: "ghost", size: "sm" })}>
               Join a session
             </Link>
             {authed ? (
@@ -105,7 +104,7 @@ export function Navbar() {
                     <button
                       type="button"
                       aria-label="Account menu"
-                      className="mk-focus flex size-10 items-center justify-center overflow-hidden rounded-full border border-primary/30 bg-primary/10 text-xs font-bold text-brand-ink"
+                      className="flex size-9 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       {user?.picture && !imgError ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -120,13 +119,9 @@ export function Navbar() {
                       )}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    sideOffset={12}
-                    className="w-60 rounded-2xl border-border bg-background/95 p-1.5 shadow-2xl backdrop-blur-xl"
-                  >
-                    <div className="mb-1 border-b border-border px-3 pb-3 pt-2">
-                      <p className="truncate text-sm font-bold text-foreground">{user?.name || "Your account"}</p>
+                  <DropdownMenuContent align="end" sideOffset={10} className="w-60 p-1.5">
+                    <div className="mb-1 border-b border-border px-2.5 pb-3 pt-2">
+                      <p className="truncate text-sm font-semibold text-foreground">{user?.name || "Your account"}</p>
                       {user?.email ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{user.email}</p> : null}
                     </div>
                     <DropdownMenuItem asChild>
@@ -147,7 +142,7 @@ export function Navbar() {
                         Settings
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator className="my-1 bg-border" />
+                    <DropdownMenuSeparator className="my-1" />
                     <DropdownMenuItem
                       onClick={() => void logout()}
                       className={cn(menuItem, "text-destructive focus:bg-destructive/10 focus:text-destructive")}
@@ -157,17 +152,17 @@ export function Navbar() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Link href="/polls" className={button.primary}>
+                <Link href="/polls" className={linkButton({ size: "sm" })}>
                   Dashboard
                   <ArrowRight className="size-4" aria-hidden="true" />
                 </Link>
               </>
             ) : (
               <>
-                <Link href="/login" className={button.ghost}>
+                <Link href="/login" className={linkButton({ variant: "ghost", size: "sm" })}>
                   Log in
                 </Link>
-                <Link href="/signup" className={button.primary}>
+                <Link href="/signup" className={linkButton({ size: "sm" })}>
                   Sign up free
                 </Link>
               </>
@@ -182,7 +177,7 @@ export function Navbar() {
             aria-controls="mobile-nav"
             aria-label={open ? "Close menu" : "Open menu"}
             onClick={() => setOpen((v) => !v)}
-            className="mk-focus flex size-11 items-center justify-center rounded-xl border border-foreground/15 bg-foreground/[0.03] text-foreground transition-colors duration-300 hover:bg-foreground/[0.07] lg:hidden"
+            className="flex size-10 items-center justify-center rounded-lg border border-border text-foreground transition-colors duration-150 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden"
           >
             {open ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
           </button>
@@ -196,9 +191,9 @@ export function Navbar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.2 }}
             onClick={() => closeMenu()}
-            className="fixed inset-0 top-16 -z-10 bg-background/60 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 top-16 -z-10 bg-background/70 backdrop-blur-sm lg:hidden"
           />
         ) : null}
       </AnimatePresence>
@@ -207,37 +202,34 @@ export function Navbar() {
         {open ? (
           <motion.div
             id="mobile-nav"
-            initial={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3, ease }}
-            className="absolute inset-x-0 top-full max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-border bg-background shadow-2xl lg:hidden"
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2, ease }}
+            className="absolute inset-x-0 top-full max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-border bg-background lg:hidden"
           >
             <div className={cn(container, "py-4")}>
               <nav aria-label="Mobile" className="flex flex-col">
-                {NAV_LINKS.map((link) => (
+                {[...NAV_LINKS, { label: "Join a session", href: "/live" }].map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
                     onClick={() => closeMenu()}
-                    className="mk-focus flex min-h-12 items-center rounded-xl px-3 text-lg font-medium text-foreground transition-colors hover:bg-foreground/[0.05]"
+                    className="flex min-h-12 items-center rounded-lg px-3 text-lg font-medium text-foreground transition-colors duration-150 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
                   >
                     {link.label}
                   </Link>
                 ))}
-                <Link
-                  href="/live"
-                  onClick={() => closeMenu()}
-                  className="mk-focus flex min-h-12 items-center rounded-xl px-3 text-lg font-medium text-foreground transition-colors hover:bg-foreground/[0.05]"
-                >
-                  Join a session
-                </Link>
               </nav>
 
               <div className="mt-4 grid gap-3 border-t border-border pt-4">
                 {authed ? (
                   <>
-                    <Link href="/polls" onClick={() => closeMenu()} className={cn(button.primaryLg, "w-full")}>
+                    <Link
+                      href="/polls"
+                      onClick={() => closeMenu()}
+                      className={cn(linkButton({ size: "xl" }), "w-full")}
+                    >
                       Go to dashboard
                       <ArrowRight className="size-4" aria-hidden="true" />
                     </Link>
@@ -247,17 +239,21 @@ export function Navbar() {
                         closeMenu();
                         void logout();
                       }}
-                      className={cn(button.secondaryLg, "w-full")}
+                      className={cn(linkButton({ variant: "outline", size: "xl" }), "w-full")}
                     >
                       Log out
                     </button>
                   </>
                 ) : (
                   <>
-                    <Link href="/signup" onClick={() => closeMenu()} className={cn(button.primaryLg, "w-full")}>
+                    <Link href="/signup" onClick={() => closeMenu()} className={cn(linkButton({ size: "xl" }), "w-full")}>
                       Sign up free
                     </Link>
-                    <Link href="/login" onClick={() => closeMenu()} className={cn(button.secondaryLg, "w-full")}>
+                    <Link
+                      href="/login"
+                      onClick={() => closeMenu()}
+                      className={cn(linkButton({ variant: "outline", size: "xl" }), "w-full")}
+                    >
                       Log in
                     </Link>
                   </>
