@@ -122,6 +122,12 @@ export function useHostSession(presentationId: string) {
   }, []);
 
   const { connected } = useLiveSocket(presentationId, HOST_AUTH, {
+    // A response slide opening (or closing) has no counts to show until the first answer
+    // event; the server's host state carries the slide's empty distribution, which the
+    // stage needs to draw its option columns, word cloud and scales from the start.
+    onEvent: (event) => {
+      if (event.type === "question:started" || event.type === "slide:closed") void refresh();
+    },
     onResync: requestRefresh,
     // A session this console does not follow: started from another window, or
     // our own start/open-lobby racing its HTTP response. Read what is live.
