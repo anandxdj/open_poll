@@ -113,6 +113,13 @@ lookup's HTTP status (404 until a session was opened).
   `beforeAll` instead of through the `host` fixture: `/api/auth/login` allows 10 logins per 5
   minutes per IP, which the whole suite shares. ~20 s.
 
+- `e2e/landing-auth.spec.ts` — the landing and sign-in surfaces on public pages (no host needed): no
+  horizontal overflow on a phone, tablet and desktop (landing, login, signup, forgot/reset password,
+  privacy, terms), one h1 and one h2 per landing section, the mobile menu (toggle state, section links,
+  Escape returns focus, Log in and Sign up free), the desktop header and `/#faq` jump, the hero links,
+  the skip link as first Tab stop, the FAQ accordion by keyboard, and the login and signup forms (labels,
+  autocomplete, focus order, the password show/hide toggle, the password rule hint). ~50 s.
+
 Run against your own database and ports when other suites share the machine, e.g.
 `E2E_MONGO_URI=mongodb://127.0.0.1:27117/openpoll_mine?directConnection=true
 E2E_REDIS_URL=redis://127.0.0.1:6390/11 E2E_BACKEND_PORT=5111 E2E_FRONTEND_PORT=3111 bun run test:e2e`.

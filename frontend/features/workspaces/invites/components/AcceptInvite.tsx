@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, MailWarning, ShieldCheck } from "lucide-react";
+import { Loader2, MailWarning, ShieldCheck, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { ProductLogo } from "@/components/ui/ProductLogo";
+import { AuthShell, type AuthTone } from "@/features/auth/components/AuthShell";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/api-error";
 import { switchWorkspace } from "../../api/workspaces.api";
@@ -19,17 +19,26 @@ import { forgetInvite, invitePath, rememberInvite } from "../pendingInvite";
 
 type PreviewState = { status: "loading" } | { status: "ready"; invite: InvitePreview } | { status: "invalid" } | { status: "error" };
 
-function Shell({ children }: { children: React.ReactNode }) {
+const ACTION = "h-11 w-full text-sm font-medium md:h-10";
+
+/** Presentation only: the shared sign-in frame (brand, theme switch, an h1, no product panel). */
+function Shell({
+  title,
+  description,
+  icon,
+  tone,
+  children,
+}: {
+  title: string;
+  description?: React.ReactNode;
+  icon?: LucideIcon;
+  tone?: AuthTone;
+  children?: React.ReactNode;
+}) {
   return (
-    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-radial-glow px-6">
-      <div className="relative z-10 w-full max-w-md space-y-8">
-        <Link href="/" className="flex items-center justify-center gap-3">
-          <ProductLogo size={36} />
-          <span className="text-xl font-bold tracking-tight text-foreground/90">Open Poll</span>
-        </Link>
-        <div className="space-y-5 rounded-3xl border border-border bg-card/80 p-8 backdrop-blur-xl">{children}</div>
-      </div>
-    </div>
+    <AuthShell aside={false} title={title} description={description} icon={icon} tone={tone}>
+      <div className="space-y-3">{children}</div>
+    </AuthShell>
   );
 }
 
@@ -88,9 +97,9 @@ export function AcceptInvite({ token }: { token: string }) {
 
   if (preview.status === "loading" || isLoading) {
     return (
-      <Shell>
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" />
+      <Shell title="Loading your invitation">
+        <div role="status" className="flex items-center gap-3 text-base text-muted-foreground">
+          <Loader2 className="size-5 animate-spin text-accent-ink" aria-hidden="true" />
           Loading invitation…
         </div>
       </Shell>
@@ -99,19 +108,17 @@ export function AcceptInvite({ token }: { token: string }) {
 
   if (preview.status === "invalid" || preview.status === "error") {
     return (
-      <Shell>
-        <div className="space-y-3 text-center">
-          <MailWarning className="mx-auto size-8 text-muted-foreground" />
-          <h1 className="text-xl font-semibold text-foreground">
-            {preview.status === "invalid" ? "This invitation can't be used" : "Couldn't load the invitation"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {preview.status === "invalid"
-              ? "It may have expired, been revoked or already been accepted. Ask the person who invited you to send a new one."
-              : "Check your connection and try again."}
-          </p>
-        </div>
-        <Button asChild variant="outline" className="w-full rounded-xl">
+      <Shell
+        icon={MailWarning}
+        tone="neutral"
+        title={preview.status === "invalid" ? "This invitation can't be used" : "Couldn't load the invitation"}
+        description={
+          preview.status === "invalid"
+            ? "It may have expired, been revoked or already been accepted. Ask the person who invited you to send a new one."
+            : "Check your connection and try again."
+        }
+      >
+        <Button asChild variant="outline" className={ACTION}>
           <Link href={isAuthenticated ? "/polls" : "/login"}>{isAuthenticated ? "Go to your polls" : "Sign in"}</Link>
         </Button>
       </Shell>
@@ -120,49 +127,48 @@ export function AcceptInvite({ token }: { token: string }) {
 
   const { invite } = preview;
   return (
-    <Shell>
-      <div className="space-y-2 text-center">
-        <ShieldCheck className="mx-auto size-8 text-primary" />
-        <h1 className="text-balance text-xl font-semibold text-foreground">
-          Join {invite.workspaceName} on Open Poll
-        </h1>
-        <p className="text-sm text-muted-foreground">
+    <Shell
+      icon={ShieldCheck}
+      title={`Join ${invite.workspaceName} on Open Poll`}
+      description={
+        <>
           {invite.inviterName ? `${invite.inviterName} invited you` : "You're invited"} as{" "}
-          <strong className="text-foreground/90">{ROLE_NAMES[invite.role]}</strong>. {ROLE_DESCRIPTIONS[invite.role]}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Invitation for <span className="font-mono text-foreground/80">{invite.email}</span>
-        </p>
-      </div>
+          <strong className="text-foreground">{ROLE_NAMES[invite.role]}</strong>. {ROLE_DESCRIPTIONS[invite.role]}
+        </>
+      }
+    >
+      <p className="text-sm text-muted-foreground">
+        Invitation for <span className="font-mono text-foreground">{invite.email}</span>
+      </p>
 
       {isAuthenticated && user ? (
         <div className="space-y-4">
-          <p className="text-center text-sm text-muted-foreground">
-            Signed in as <span className="font-medium text-foreground/90">{user.email}</span>
+          <p className="text-sm text-muted-foreground">
+            Signed in as <span className="font-medium text-foreground">{user.email}</span>
           </p>
           {error ? (
-            <div role="alert" className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            <div role="alert" className="space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
               <p>{error.message}</p>
               {error.code === "INVITE_EMAIL_MISMATCH" || error.code === "EMAIL_NOT_VERIFIED" ? (
-                <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => void signOutAndReturn()}>
+                <Button type="button" variant="outline" className="min-h-10" onClick={() => void signOutAndReturn()}>
                   Sign in with a different account
                 </Button>
               ) : null}
             </div>
           ) : null}
-          <Button className="w-full rounded-xl" disabled={accepting} onClick={() => void accept()}>
-            {accepting ? <Loader2 className="size-4 animate-spin" /> : `Join ${invite.workspaceName}`}
+          <Button className={ACTION} disabled={accepting} onClick={() => void accept()}>
+            {accepting ? <Loader2 className="size-4 animate-spin" aria-label="Joining" /> : `Join ${invite.workspaceName}`}
           </Button>
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Sign in with the invited email address to accept. New here? Create an account with that address first.
           </p>
-          <Button asChild className="w-full rounded-xl">
+          <Button asChild className={ACTION}>
             <Link href={`/login?next=${encodeURIComponent(invitePath(token))}`}>Sign in to accept</Link>
           </Button>
-          <Button asChild variant="outline" className="w-full rounded-xl">
+          <Button asChild variant="outline" className={ACTION}>
             <Link href="/signup">Create an account</Link>
           </Button>
         </div>

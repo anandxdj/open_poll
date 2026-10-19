@@ -1,46 +1,42 @@
 "use client";
 
-import { 
-  Hero, 
-  Navbar, 
-  BentoGrid, 
-  Steps, 
-   
-  LogoMarquee, 
-  Footer, 
-  FloatingFAQ,
+import { MotionConfig } from "framer-motion";
+import {
+  Capabilities,
+  Faq,
+  FinalCta,
+  Footer,
+  Hero,
+  Navbar,
+  Pricing,
+  QuestionTypes,
   ShowcaseSections,
-  Pricing
+  Steps,
 } from "@/features/landing";
 
 export default function LandingPage() {
   return (
-    <div className="relative min-h-dvh overflow-x-hidden bg-radial-glow text-foreground selection:bg-primary/30 selection:text-foreground">
-      <Navbar />
-      
-      <main>
-        {/* Hero Section */}
-        <Hero />
+    // reducedMotion="user": framer-motion skips transform animations for people who ask for less motion.
+    <MotionConfig reducedMotion="user">
+      <div className="mk-surface relative min-h-dvh overflow-x-clip bg-background text-foreground">
+        <a href="#main" className="mk-skip-link">
+          Skip to content
+        </a>
+        <Navbar />
 
-        {/* Social Proof */}
-        <LogoMarquee />
+        <main id="main">
+          <Hero />
+          <QuestionTypes />
+          <Steps />
+          <ShowcaseSections />
+          <Capabilities />
+          <Pricing />
+          <Faq />
+          <FinalCta />
+        </main>
 
-        {/* Workflow Section (The Simple Path) */}
-        <Steps />
-
-        {/* Feature Showcase (The Magic in Action) */}
-        <ShowcaseSections />
-
-        {/* Features Grid (Under the Hood Engine) */}
-        <BentoGrid />
-
-        {/* Pricing Section */}
-        <Pricing />
-       
-      </main>
-
-      <Footer />
-      <FloatingFAQ />
-    </div>
+        <Footer />
+      </div>
+    </MotionConfig>
   );
 }

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/features/auth";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 function AuthCallbackHandler() {
   const router = useRouter();
@@ -52,20 +53,24 @@ function AuthCallbackHandler() {
     }
   }, [setToken, checkAuth, router, searchParams]);
 
+  return <CompleteStatus label="Completing sign-in…" />;
+}
+
+/** One quiet centered state for both the Suspense fallback and the exchange in progress. */
+function CompleteStatus({ label }: { label: string }) {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-radial-glow">
-      <p className="text-sm text-muted-foreground animate-pulse">Completing sign-in…</p>
-    </div>
+    <main className="mk-surface flex min-h-dvh items-center justify-center bg-background px-5">
+      <div role="status" className="flex items-center gap-3 text-base text-muted-foreground">
+        <Loader2 className="size-5 animate-spin text-accent-ink" aria-hidden="true" />
+        {label}
+      </div>
+    </main>
   );
 }
 
 export default function AuthCallbackPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-dvh items-center justify-center bg-radial-glow">
-        <p className="text-sm text-muted-foreground animate-pulse">Loading auth…</p>
-      </div>
-    }>
+    <Suspense fallback={<CompleteStatus label="Loading…" />}>
       <AuthCallbackHandler />
     </Suspense>
   );

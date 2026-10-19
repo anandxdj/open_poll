@@ -6,6 +6,9 @@ last_updated: 2026-05-13
 
 # Component Reference
 
+Primitives (`components/ui`: Button, Input, Card, Dialog, Badge, ProductLogo...) and their variants are
+described in [`design-system.md`](./design-system.md#primitives-componentsui).
+
 ## Layout Components
 
 ### `Sidebar` (`components/layouts/Sidebar.tsx`)
