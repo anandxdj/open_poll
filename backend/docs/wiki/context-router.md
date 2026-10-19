@@ -48,9 +48,10 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - Add `backend/docs/wiki/http/app-and-routes.md` only if the test touches mounts or middleware.
 
 ### AI generation tasks
-- `backend/docs/wiki/modules/ai.md`
+- `backend/docs/wiki/modules/ai.md` (poll/quiz drafts and whole-deck authoring `POST /api/ai/generate-deck`)
 - `backend/docs/wiki/ai/structured-output-contract.md`
 - `backend/docs/wiki/ai/prompting-and-graph-flow.md`
+- Add `backend/docs/wiki/modules/presentations.md` (registry, `safeParse`, notes) when adding a deck kind.
 
 ### Workspaces API, poll tenancy, migration 020
 - `backend/docs/wiki/modules/workspaces.md`

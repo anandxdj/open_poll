@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import { validate } from '../../common/middlewares/validate.middleware';
 import { rateLimit } from '../../common/middlewares/rateLimit.middleware';
+import { workspaceContext } from '../../common/tenancy/workspaceContext.middleware';
 import { authenticate } from '../auth/auth.middleware';
 import { AiController } from './ai.controller';
+import { generateDeck } from './deck/deck.controller';
+import { generateDeckRequestSchema } from './deck/deck.schema';
 import {
   generateAndSavePollRequestSchema,
   generatePollRequestSchema,
@@ -24,5 +27,6 @@ router.post(
   AiController.generateAndSave,
 );
 router.post('/generate-quiz', authenticate(), aiLimit, validate(generateQuizRequestSchema), AiController.generateQuizDraft);
+router.post('/generate-deck', authenticate(), aiLimit, validate(generateDeckRequestSchema), workspaceContext(), generateDeck);
 
 export default router;
