@@ -394,8 +394,10 @@ export const setUpvote = async (
     upvoteCount = updated?.upvoteCount ?? upvoteCount;
     void markVotesChanged(presentationId, ctx.sessionId, questionId);
   } else {
-    const current = await QnaQuestionModel.findById(questionId).select('upvoteCount').lean();
-    upvoteCount = current?.upvoteCount ?? upvoteCount;
+    // A repeat, or a concurrent click that lost the insert race: the winner's `$inc` may not have
+    // landed yet, so the stored counter can lag. The upvote documents (unique per participant) are the
+    // truth the counter converges to; report those.
+    upvoteCount = await QnaUpvoteModel.countDocuments({ questionId });
   }
   return { questionId, upvoted: upvote, upvoteCount: Math.max(0, upvoteCount) };
 };
