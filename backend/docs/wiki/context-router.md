@@ -74,6 +74,10 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/modules/billing.md` (owner's Stripe setup and the list of gates other packages apply)
 - Add `backend/docs/wiki/platform/plans.md` only if changing plan numbers, entitlements or usage counters.
 
+### Members, invites, resource sharing, audit log, tenancy isolation test
+- `backend/docs/wiki/modules/members-sharing.md`
+- Add `backend/docs/wiki/platform/tenancy.md` only if changing the policy, roles or share evaluation.
+
 ### Platform primitives (load only the one you touch)
 - Workspaces, roles, `assertCan`, workspace context, provider identities: `backend/docs/wiki/platform/tenancy.md`
 - Plans, entitlements, usage quotas, `GET /api/capabilities`, env feature groups: `backend/docs/wiki/platform/plans.md`

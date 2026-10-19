@@ -89,8 +89,8 @@ describe("SETTINGS_SECTIONS", () => {
     for (const s of SETTINGS_SECTIONS) expect(s.href).toBe(`/settings/${s.id}`);
   });
 
-  test("ships the profile, MCP, workspace and billing pages", () => {
-    expect(SETTINGS_SECTIONS.filter((s) => s.ready).map((s) => s.id)).toEqual(["profile", "mcp", "workspace", "billing"]);
+  test("ships the profile, MCP, workspace, members, billing and audit pages", () => {
+    expect(SETTINGS_SECTIONS.filter((s) => s.ready).map((s) => s.id)).toEqual(["profile", "mcp", "workspace", "members", "billing", "audit"]);
   });
 });
 
@@ -138,7 +138,7 @@ describe("resolveSection", () => {
   });
 
   test("and last whether the page has shipped", () => {
-    for (const id of ["members", "brand", "sso", "scim", "domains", "audit"] as const) {
+    for (const id of ["brand", "sso", "scim", "domains"] as const) {
       expect(resolveSection(section(id), { capabilities: everything, workspace: workspace() })).toEqual({
         available: false,
         reason: "Coming soon.",
@@ -147,8 +147,19 @@ describe("resolveSection", () => {
     expect(resolveSection(section("privacy"), { capabilities: null, workspace: null }).reason).toBe("Coming soon.");
   });
 
+  test("members is open to every member of a team workspace; the audit log needs workspace:manage", () => {
+    const viewer = workspace({ permissions: ["deck:read", "session:read"] });
+    expect(resolveSection(section("members"), { capabilities: everything, workspace: viewer })).toEqual({ available: true, reason: null });
+    expect(resolveSection(section("audit"), { capabilities: everything, workspace: viewer })).toEqual({
+      available: false,
+      reason: "Requires the Admin role.",
+    });
+    expect(resolveSection(section("audit"), { capabilities: everything, workspace: workspace() })).toEqual({ available: true, reason: null });
+    expect(resolveSection(section("members"), { capabilities: everything, workspace: workspace({ type: "personal" }) }).available).toBe(false);
+  });
+
   test("a shipped section with every gate passing is available", () => {
-    const shipped = { ...section("audit"), ready: true };
+    const shipped = { ...section("sso"), ready: true };
     expect(resolveSection(shipped, { capabilities: everything, workspace: workspace() })).toEqual({ available: true, reason: null });
   });
 });

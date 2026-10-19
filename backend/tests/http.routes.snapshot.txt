@@ -27,6 +27,15 @@ POST /api/presentations/:presentationId/qna
 POST /api/presentations/:presentationId/qna/:questionId/upvote
 DELETE /api/presentations/:presentationId/qna/:questionId/upvote
 ROUTER /api/workspaces/:workspaceId/domains
+ROUTER /api/workspaces/:workspaceId/invites
+POST /api/workspaces/:workspaceId/invites
+GET /api/workspaces/:workspaceId/invites
+DELETE /api/workspaces/:workspaceId/invites/:inviteId
+ROUTER /api/workspaces/:workspaceId/members
+GET /api/workspaces/:workspaceId/members
+PATCH /api/workspaces/:workspaceId/members/:userId
+DELETE /api/workspaces/:workspaceId/members/:userId
+POST /api/workspaces/:workspaceId/members/:userId/transfer-ownership
 ROUTER /api/auth
 GET /api/auth/login
 GET /api/auth/continue
@@ -119,6 +128,7 @@ POST /mcp
 GET /mcp
 DELETE /mcp
 ROUTER /api/audit
+GET /api/audit
 ROUTER /api/billing
 GET /api/billing
 POST /api/billing/checkout
@@ -134,6 +144,9 @@ POST /api/imports/questions
 POST /api/imports
 GET /api/imports/:id
 ROUTER /api/insights
+ROUTER /api/invites
+GET /api/invites/:token
+POST /api/invites/:token/accept
 ROUTER /api/library
 GET /api/library
 POST /api/library/convert/poll/:pollId
@@ -155,6 +168,9 @@ POST /api/sessions/:sessionId/share
 DELETE /api/sessions/:sessionId/share
 GET /api/sessions/:sessionId
 DELETE /api/sessions/:sessionId
+ROUTER /api/shares
+GET /api/shares
+PUT /api/shares
 ROUTER /api/sso
 ROUTER /api/templates
 ROUTER /api/themes

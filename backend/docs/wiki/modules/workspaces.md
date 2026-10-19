@@ -8,8 +8,8 @@ last_updated: 2026-10-19
 
 W0-D landed the models, `ensurePersonalWorkspace` and the tenancy primitives
 (`platform/tenancy.md`). W1-B exposes workspaces over HTTP, scopes polls to them and
-backfills existing data (migration 020). Members, invites, sharing and audit UI are W3-B1;
-billing is W3-C.
+backfills existing data (migration 020). Members, invites, sharing and the audit log are
+W3-B1 (`modules/members-sharing.md`); billing is W3-C.
 
 ## Files
 
@@ -27,7 +27,7 @@ All routes need `authenticate()`. Routes with `:id` resolve the workspace **from
 with `resolveWorkspaceContext(userId, id)` — a live workspace where the caller has an active
 membership, otherwise `403 WORKSPACE_FORBIDDEN` (unknown and malformed ids included). They
 ignore `X-Workspace-Id`, so a client holding a stale selection can still list and switch.
-W3-B1's route-table isolation test should allow-list them for that reason.
+`tests/integration/tenancy-isolation.test.ts` allow-lists them for that reason (the nested `/:workspaceId/members|invites` routes use `pathWorkspaceContext()` instead).
 
 | Method + path | Body | Authorization | `data` |
 | --- | --- | --- | --- |

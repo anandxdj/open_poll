@@ -27,6 +27,9 @@ import ssoRouter, { samlAcsRouter } from '../modules/sso/sso.route';
 import templatesRouter from '../modules/templates/templates.route';
 import themesRouter, { brandKitsRouter } from '../modules/themes/themes.route';
 import uploadsRouter from '../modules/uploads/uploads.route';
+import workspaceInvitesRouter, { invitesRouter } from '../modules/workspaces/invites.route';
+import membersRouter from '../modules/workspaces/members.route';
+import sharesRouter from '../modules/workspaces/sharing.route';
 import workspacesRouter from '../modules/workspaces/workspaces.route';
 
 type Mount = readonly [path: string, router: Router];
@@ -45,6 +48,8 @@ const MOUNTS: readonly Mount[] = [
   ['/api/presentations/:presentationId/host/qna', qnaHostRouter],
   ['/api/presentations/:presentationId/qna', qnaRouter],
   ['/api/workspaces/:workspaceId/domains', domainsRouter],
+  ['/api/workspaces/:workspaceId/invites', workspaceInvitesRouter],
+  ['/api/workspaces/:workspaceId/members', membersRouter],
 
   ['/api/auth', authRouter],
   ['/api/polls', pollsRouter],
@@ -63,6 +68,7 @@ const MOUNTS: readonly Mount[] = [
   ['/api/folders', foldersRouter],
   ['/api/imports', importsRouter],
   ['/api/insights', insightsRouter],
+  ['/api/invites', invitesRouter],
   ['/api/library', libraryRouter],
   ['/api/me', privacyRouter],
   ['/api/oembed', oembedRouter],
@@ -71,6 +77,7 @@ const MOUNTS: readonly Mount[] = [
   ['/api/public/results', publicResultsRouter],
   ['/api/remote', remoteRouter],
   ['/api/sessions', sessionsRouter],
+  ['/api/shares', sharesRouter],
   ['/api/sso', ssoRouter],
   ['/api/templates', templatesRouter],
   ['/api/themes', themesRouter],

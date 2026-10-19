@@ -6,6 +6,7 @@ import { PresentationModel, type IPresentationSlide } from './models/presentatio
 import { PresentationParticipantModel } from './models/participant.model';
 import { PresentationAnswerModel } from './models/answer.model';
 import { PresentationSessionModel } from './models/session.model';
+import { ResourceShareModel } from '../workspaces/resourceShare.model';
 import { authorizeDeck, type Actor } from './access';
 import { allSessionKeys, k } from './live/keys';
 import { assertContentMediaInWorkspace } from './slides/types/content/media';
@@ -109,6 +110,7 @@ export const deletePresentation = async (presentationId: string, actor: Actor) =
     PresentationSessionModel.deleteMany({ presentationId }),
     PresentationParticipantModel.deleteMany({ presentationId }),
     PresentationAnswerModel.deleteMany({ presentationId }),
+    ResourceShareModel.deleteMany({ resourceType: 'presentation', resourceId: presentationId }),
     redisClient.del(keys).catch(() => {}),
   ]);
 };

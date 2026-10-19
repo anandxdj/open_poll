@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { ApiError } from '../../common/utils/ApiError';
-import { assertCan, can, type PolicyContext, type PolicyResource } from '../../common/tenancy/policy';
+import { assertCanWithShares, canWithShares, type PolicyContext, type PolicyResource } from '../../common/tenancy/policy';
 import type { Action } from '../../common/tenancy/roles';
 import { WorkspaceMemberModel } from '../workspaces/workspaceMember.model';
 import { PresentationModel, type IPresentation } from './models/presentation.model';
@@ -40,10 +40,13 @@ export const getPresentationById = async (presentationId: string): Promise<IPres
   return presentation;
 };
 
-/** Loads the deck and checks `action` on it (401/403 from the policy, 404 when missing). */
+/**
+ * Loads the deck and checks `action` on it (401/403 from the policy, 404 when
+ * missing). Share grants on the deck or its folder count (W3-B1).
+ */
 export const authorizeDeck = async (presentationId: string, actor: Actor, action: Action): Promise<IPresentation> => {
   const presentation = await getPresentationById(presentationId);
-  assertCan(await actorContext(actor, presentation), action, presentation);
+  await assertCanWithShares(await actorContext(actor, presentation), action, presentation);
   return presentation;
 };
 
@@ -51,7 +54,7 @@ export const authorizeDeck = async (presentationId: string, actor: Actor, action
 export const canActOnDeck = async (presentationId: string, userId: string, action: Action): Promise<boolean> => {
   try {
     const presentation = await getPresentationById(presentationId);
-    return can(await actorContext(userId, presentation), action, presentation);
+    return await canWithShares(await actorContext(userId, presentation), action, presentation);
   } catch {
     return false;
   }

@@ -91,6 +91,13 @@ lookup's HTTP status (404 until a session was opened).
   tab plus adding a Q&A slide. The deck is created with `settings` through the API directly (the
   `host.createDeck` fixture sends title and slides only). ~20 s.
 
+- `e2e/members.spec.ts` — teams and sharing: owner invites a second (seeded) account from
+  `/settings/members`, the invite link is read from the form (no mail provider in e2e), the invitee
+  signs in through `/login?next=…`, joins as editor, sees the deck and is refused member
+  management; the owner demotes them, shares the deck through the ShareDialog and checks the
+  audit log. Seeds the second user with `scripts/seed-e2e-user.ts` and upgrades the new workspace
+  with `scripts/set-plan.ts` (a free team has one seat). ~30 s.
+
 - `e2e/ai-deck.spec.ts` - AI whole-deck authoring in mock mode (the e2e backend has no AI key): the
   AI dialog's "Whole deck" tab, outline review and editing, the written deck with speaker notes,
   the "Generated with mock data (no AI key configured)" label in the dialog and the builder banner,

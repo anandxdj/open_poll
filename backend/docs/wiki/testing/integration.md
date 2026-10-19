@@ -70,6 +70,16 @@ Mongo and the shared `redisClient` connect with the first server and disconnect 
 - `createPoll(server, owner, overrides?)` → `POST /api/polls` (published, one question).
 - `createPresentation(server, owner, overrides?)` → `POST /api/presentations` (one `select_answer` slide).
 
+## Tenancy and member suites
+
+- `tests/integration/tenancy-isolation.test.ts` — route-table guard check (runs without services too)
+  and the cross-workspace REST/socket matrix; `tests/helpers/routeTable.ts` walks the Express
+  stack. Details in `platform/tenancy.md`.
+- `tests/integration/members.http.test.ts` — members, invites, shares, audit log and migration 100
+  through the real app (see `modules/members-sharing.md`). Audit events are fire-and-forget, so the
+  suite polls for them (`auditEvents()`); invite links come from the create response
+  (`inviteUrl`), never from the database (only the token hash is stored).
+
 ## Spikes (`tests/spikes/`)
 
 | Spike | Result under Bun 1.4.3 | Notes for the owning package |

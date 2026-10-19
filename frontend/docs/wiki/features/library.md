@@ -34,7 +34,7 @@ skeleton fallback (required for the static build).
 |---|---|---|
 | Poll draft | Edit draft (`/create?draftId=`) | Convert to presentation, Delete |
 | Published poll | Analytics, Share (copies `/p/[id]`) | Open voting page, Copy link, Convert to presentation (or Open converted deck + Convert again), Close poll (live only), Delete |
-| Deck | Edit (`/presentation/create?id=`), Present / Resume (`/presentation/host/[id]`, no `?reset`) | Copy join link (`/live/[code]`), Delete |
+| Deck | Edit (`/presentation/create?id=`), Present / Resume (`/presentation/host/[id]`, no `?reset`) | Copy join link (`/live/[code]`), Share with team… (team workspaces, editor and above: opens the ShareDialog, see `workspaces.md`), Delete |
 
 Statuses: polls Draft / Active / Closed; decks Draft / Lobby open / Live / Ended. Badges show
 "Assessment" for TRIAL polls, "Self-paced deck" for audience-paced decks and "From poll" /
