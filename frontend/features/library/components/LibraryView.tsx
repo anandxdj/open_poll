@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { FileText, Layers, Plus, Presentation, Radio, RefreshCw, Search, X } from "lucide-react";
 
 import { ProductLogo } from "@/components/ui/ProductLogo";
+import { ImportButton } from "@/features/imports";
 import { useCreatePollModal } from "@/features/polls/components/CreatePollModalProvider";
 import { useCreatePresentationModal } from "@/features/presentations/components/CreatePresentationModalProvider";
 import { cn } from "@/lib/utils";
@@ -125,6 +126,7 @@ export function LibraryView() {
             <Plus className="size-3.5" />
             New poll
           </button>
+          <ImportButton />
           <button
             type="button"
             onClick={() => openCreatePresentationModal()}

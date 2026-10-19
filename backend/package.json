@@ -9,6 +9,7 @@
     "start": "bun src/app.ts",
     "start:prod": "bun scripts/migrate.ts && bun src/app.ts",
     "migrate": "bun scripts/migrate.ts",
+    "worker:import": "bun src/workers/import.worker.ts",
     "test": "bun test",
     "typecheck": "bun x tsc --noEmit",
     "loadtest": "bun loadtest/answer-storm.ts"

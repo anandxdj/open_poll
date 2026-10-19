@@ -45,6 +45,9 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Session history, the session report, exports, public results links (`/r/[token]`), the participant results page (`/live/[code]/summary`) or the end-screen links to them.
 - **Action**: Read `frontend/docs/wiki/features/sessions.md`
 
+- **Task**: Importing decks or questions (the Import dialog, PowerPoint/PDF/Google Slides jobs, CSV/Excel questions, the builder's "Import questions").
+- **Action**: Read `frontend/docs/wiki/features/imports.md`
+
 ## 4. API & Data
 
 - **Task**: Writing fetch calls, React Query hooks, or API integrations.

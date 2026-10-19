@@ -9,7 +9,7 @@ import { getApiErrorMessage } from "@/lib/api-error";
 // Contract: backend/docs/wiki/platform/storage.md. Only when
 // `capabilities.storage` is true; otherwise presign answers 503.
 
-export type UploadPurpose = "slide_image" | "slide_video";
+export type UploadPurpose = "slide_image" | "slide_video" | "import_source";
 
 const MB = 1024 * 1024;
 
@@ -17,6 +17,10 @@ const MB = 1024 * 1024;
 export const UPLOAD_RULES: Record<UploadPurpose, { types: readonly string[]; maxBytes: number }> = {
   slide_image: { types: ["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"], maxBytes: 10 * MB },
   slide_video: { types: ["video/mp4", "video/webm"], maxBytes: 200 * MB },
+  import_source: {
+    types: ["application/vnd.openxmlformats-officedocument.presentationml.presentation", "application/pdf"],
+    maxBytes: 100 * MB,
+  },
 };
 
 /** The stored file, as `POST /api/uploads/complete` returns it. */

@@ -1,4 +1,5 @@
 import { startAutoRevealWorker } from '../../modules/presentations/live/autoRevealWorker';
+import { startImportWorker } from '../../workers/import.worker';
 import { startAnalyticsWorker } from '../../modules/responses/analytics.worker';
 import { startScheduler } from './scheduler';
 
@@ -11,5 +12,7 @@ import { startScheduler } from './scheduler';
 export const startJobs = () => {
   startAnalyticsWorker();
   startAutoRevealWorker();
+  // Imports run here unless IMPORT_WORKER_INPROCESS=0 (then `bun run worker:import` does).
+  startImportWorker();
   startScheduler();
 };

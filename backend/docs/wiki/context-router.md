@@ -21,6 +21,10 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 ### Unified library, poll → deck conversion, legacy quiz copy (migration 010)
 - `backend/docs/wiki/modules/library.md`
 
+### Imports: PPTX, PDF, Google Slides (queued jobs), CSV/XLSX question files, the import worker
+- `backend/docs/wiki/modules/imports.md`
+- Add `backend/docs/wiki/platform/storage.md` only if touching uploads, `platform/jobs.md` only for the scheduler (the import queue has its own worker).
+
 ### Response validation and analytics tasks
 - `backend/docs/wiki/modules/responses.md`
 - `backend/docs/wiki/api/responses.md`

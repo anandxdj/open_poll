@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Loader2, Presentation as PresentationIcon, Sparkles } from "lucide-react";
+import { Loader2, Presentation as PresentationIcon, Sparkles, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,8 @@ interface BuilderHeaderProps {
   isEditing: boolean;
   isAiGenerating: boolean;
   onOpenAi: () => void;
+  /** Opens the question-file import (features/imports). */
+  onImportQuestions?: () => void;
   saving: boolean;
   savingDraft: boolean;
   onSave: () => void;
@@ -27,6 +29,7 @@ export function BuilderHeader({
   isEditing,
   isAiGenerating,
   onOpenAi,
+  onImportQuestions,
   saving,
   savingDraft,
   onSave,
@@ -66,6 +69,16 @@ export function BuilderHeader({
           <Sparkles className={cn("size-3.5 mr-1.5 transition-transform duration-200", isAiGenerating && "animate-spin")} />
           {isAiGenerating ? "Generating..." : "AI generate"}
         </Button>
+        {onImportQuestions ? (
+          <Button
+            variant="outline"
+            onClick={onImportQuestions}
+            className="h-9 rounded-full border-white/15 px-4 text-xs font-semibold text-foreground/80 hover:bg-white/5"
+          >
+            <Upload className="size-3.5 mr-1.5" aria-hidden />
+            Import questions
+          </Button>
+        ) : null}
         <Button
           variant="outline"
           onClick={onSaveDraft}

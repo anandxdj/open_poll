@@ -122,6 +122,10 @@ GET /api/capabilities
 ROUTER /api/embeds
 ROUTER /api/folders
 ROUTER /api/imports
+GET /api/imports/templates/questions.:format
+POST /api/imports/questions
+POST /api/imports
+GET /api/imports/:id
 ROUTER /api/insights
 ROUTER /api/library
 GET /api/library
