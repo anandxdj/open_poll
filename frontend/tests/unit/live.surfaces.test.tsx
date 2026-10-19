@@ -7,7 +7,9 @@ import { HostControls } from "@/features/presentations/components/host/HostContr
 import { ParticipantSlide } from "@/features/presentations/components/participant/ParticipantSlide";
 import { Stage } from "@/features/presentations/components/stage/Stage";
 import type { LiveState } from "@/features/presentations/live/reducer";
-import { createLiveStore, LiveStoreProvider } from "@/features/presentations/live/store";
+import { ParticipantEnd } from "@/features/presentations/components/participant/ParticipantEnd";
+import { registerSlot } from "@/features/presentations/live/slots";
+import { createLiveStore, LiveStoreProvider, useLive } from "@/features/presentations/live/store";
 import { getSlideRuntime } from "@/features/presentations/slides/runtime";
 import { deck, headingSlide, liveSlide, PID, SELF, SID, SLIDE_IDS, standings } from "./live.fixtures";
 
@@ -153,6 +155,35 @@ describe("host stage", () => {
     expect(html).toContain("SLIDE 2 OF 3");
     expect(html).not.toContain("Voting");
     expect(html).not.toContain("answered");
+  });
+});
+
+describe("end screens expose the session to the endScreen slot", () => {
+  // Modules (session reports, take-home links) read the session id from the live store.
+  function SessionLink({ role }: { role: string }) {
+    const sessionId = useLive((s) => s.sessionId);
+    return <a href={`/live/123456/summary?sid=${sessionId}`}>{`summary:${role}`}</a>;
+  }
+
+  test("host and participant end screens render the slot, and the store carries the session id", () => {
+    const unregister = registerSlot("endScreen", { id: "test-summary", Component: SessionLink });
+    try {
+      const host = renderWith(
+        hostStore({ status: "ended", leaderboard: standings }),
+        <Stage surface="host" join={noJoin} countdown={countdown} />
+      );
+      expect(host).toContain(`summary:host`);
+      expect(host).toContain(`sid=${SID}`);
+
+      const participant = renderWith(
+        createLiveStore("participant", { presentationId: PID, sessionId: SID, self: SELF, status: "ended", leaderboard: standings }),
+        <ParticipantEnd />
+      );
+      expect(participant).toContain(`summary:participant`);
+      expect(participant).toContain(`sid=${SID}`);
+    } finally {
+      unregister();
+    }
   });
 });
 

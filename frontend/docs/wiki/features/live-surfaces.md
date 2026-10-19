@@ -203,7 +203,10 @@ getSlotEntries(slot, props?)
 | `hostToolbar` | `{presentationId}` | Start of the host header's right-hand group. |
 | `presenterPanels` | `{presentationId}` | Reserved for the presenter console (W2-A). |
 
-Same `id` again replaces the entry. Slot components read anything else from `useLive`. The props
+Same `id` again replaces the entry. Slot components read anything else from `useLive` — e.g.
+`useLive((s) => s.sessionId)` is the session the surface follows (host: the live or latest one;
+participant: the one joined, kept after it ends and after a reload, so an `endScreen` entry can link
+to that session's summary). `endScreen` renders on both end screens (`StageEnd`, `ParticipantEnd`). The props
 interfaces are open for `declare module` augmentation. Builder inspector tabs are **not** a slot:
 they have their own registry (`components/builder/inspectorTabs.ts`).
 
