@@ -260,7 +260,8 @@ describe("participant API failures", () => {
 });
 
 describe("answer path", () => {
-  const sentBodies = (post: ReturnType<typeof spyOn>) => post.mock.calls.map((call) => call[1] as Record<string, unknown>);
+  const sentBodies = (post: { mock: { calls: unknown[][] } }) =>
+    post.mock.calls.map((call: unknown[]) => call[1] as Record<string, unknown>);
 
   test("each attempt carries a fresh clientAnswerId and the slide ticket", async () => {
     const post = spyOn(apiClient, "post").mockResolvedValue(accepted());
@@ -306,7 +307,7 @@ describe("answer path", () => {
       expect(result).toMatchObject({ status: "accepted", replay: true });
       const bodies = sentBodies(post);
       expect(bodies).toHaveLength(3);
-      expect(new Set(bodies.map((body) => body.clientAnswerId)).size).toBe(1);
+      expect(new Set(bodies.map((body: Record<string, unknown>) => body.clientAnswerId)).size).toBe(1);
       expect(store.getState().submittedSlideIndex).toBe(0);
     } finally {
       post.mockRestore();

@@ -99,24 +99,35 @@ export async function openLobby(hostPage: Page, joinCode: string) {
   await expect(hostPage.locator("main").getByText(joinCode, { exact: true })).toBeVisible();
 }
 
-export const test = base.extend<{ host: Host; contexts: BrowserContext[] }>({
+interface HostLogin {
+  user: Record<string, unknown>;
+  accessToken: string;
+}
+
+export const test = base.extend<{ host: Host; contexts: BrowserContext[] }, { hostLogin: HostLogin }>({
+  // One login per worker: the login endpoint allows 10 per 5 minutes per IP, and the
+  // suite has more tests than that. (`provide` is Playwright's `use`, renamed so the
+  // React hooks lint rule does not mistake it for React's `use`.)
+  hostLogin: [
+    async ({}, provide) => {
+      const login = await api<HostLogin>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email: e2eEnv.hostEmail, password: e2eEnv.hostPassword }),
+      });
+      await provide(login);
+    },
+    { scope: "worker" },
+  ],
+
   // Every context opened through the fixtures is closed after the test.
-  // (`provide` is Playwright's `use`, renamed so the React hooks lint rule
-  // does not mistake it for React's `use`.)
   contexts: async ({}, provide) => {
     const contexts: BrowserContext[] = [];
     await provide(contexts);
     await Promise.all(contexts.map((c) => c.close()));
   },
 
-  host: async ({ browser, contexts }, provide) => {
-    const { user, accessToken } = await api<{ user: Record<string, unknown>; accessToken: string }>(
-      "/auth/login",
-      {
-        method: "POST",
-        body: JSON.stringify({ email: e2eEnv.hostEmail, password: e2eEnv.hostPassword }),
-      }
-    );
+  host: async ({ browser, contexts, hostLogin }, provide) => {
+    const { user, accessToken } = hostLogin;
 
     const host: Host = {
       accessToken,
