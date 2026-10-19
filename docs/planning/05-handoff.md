@@ -152,7 +152,21 @@ and `pin_on_image` (pin on an image, correct area, markers). New picker section 
 `presentation-builder.md`. Merge fixes: the e2e spec opens the lobby explicitly (W1-A2), and the
 backend answer test accepts W2-D's richer `AnswerResult`.
 
-**Checks at handoff** (integration branch after the W2-E merge): backend 1040 tests in `bun test` (819 run without containers, 221 integration/spike tests skip without `TEST_MONGO_URI`), 182 integration/spike tests pass with the containers (6 skipped by design); frontend 529 unit tests; Playwright e2e 27 tests green; backend and frontend typecheck clean, frontend lint 0 errors (7 pre-existing warnings), build green.
+**Wave 3 — W3-E imports** (merged; `pkg/w3-e`). `POST /api/imports` (PPTX, PDF, Google Slides link or
+Drive file as queued jobs; CSV/XLSX question files synchronously), job status routes, question templates.
+PPTX: slide order from `sldIdLst`, title → heading, body → bullets/paragraph, picture-dominated → image,
+notesSlide → notes, charts/SmartArt/EMF/video → warnings (+ rendered fallback when Gotenberg is set);
+PDF pages → image slides with text as notes and alt. Redis list + BLMOVE queue with a reaper
+(`workers/import.worker.ts`, in-process unless `IMPORT_WORKER_INPROCESS=0`, then `bun run
+worker:import`), migration `150-import-jobs`, SSRF-guarded Google fetch, size/slide caps,
+`consumeUsage(ws,'import')` once per job creation. Frontend `features/imports` (Import dialog in the
+library, job status, questions preview, "Import questions" in the builder). Wiki
+`backend/docs/wiki/modules/imports.md`, `frontend/docs/wiki/features/imports.md`; spec
+`e2e/imports.spec.ts` (disabled-mode flows; the e2e backend has no S3). Merge fixes: the jobs starter
+keeps the auto-reveal and import workers (the live distribution worker is gone with W2-D), and the
+spec uses the shared `host` fixture (which now sets the `auth_session` cookie on the context).
+
+**Checks at handoff** (integration branch after the W3-E merge): backend 1156 tests in `bun test` (900 run without containers, 256 integration/spike tests skip without `TEST_MONGO_URI`), 215 integration/spike tests pass with the containers (6 skipped by design); frontend 553 unit tests; Playwright e2e 32 tests green; backend and frontend typecheck clean, frontend lint 0 errors (7 pre-existing warnings), build green.
 
 ## Ready, NOT merged
 
@@ -169,8 +183,7 @@ integration branch into it, re-run checks and ask for a merge. Worktrees in
 
 - **W2-B** Q&A + reactions, `pkg/w2-b` @ `bf9f7c3` (11 commits).
 - **W3-B1** teams/roles/sharing/audit, `pkg/w3-b1` @ `7e81566` (10 commits).
-- **W3-E** import (PPTX/PDF/CSV/XLSX/Google Slides), `pkg/w3-e` @ `42c14de` (5 commits). Must call
-  `consumeUsage(ws,'import')`.
+
 
 ## Not started
 
@@ -239,6 +252,13 @@ W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
 - **W2-E (merged), cosmetics:** the slide picker is clipped by the rail's overflow-hidden (pre-existing
   rail layout); the inspector badge says "Scored" for ungraded guess/pin slides. AI whole-deck authoring
   does not know the four types yet: add one entry each in `ai/deck/slideMappers.ts` and `deck/mock.ts`.
+- **W3-E (merged):** the Google Picker UI is not built (the backend accepts `driveFileId` +
+  `driveAccessToken` and works); untested against real PowerPoint files, Gotenberg or Google; the
+  import worker runs in-process by default in every environment (set `IMPORT_WORKER_INPROCESS=0` plus a
+  worker instance in production); Google export redirects to `*.googleusercontent.com` are allowed.
+- **E2E noise:** a full run logs `Logout failed: AxiosError ... 429` from the browser (an auth route
+  rate limit hit by a signed-in page whose refresh failed); harmless so far, look at it if it ever
+  coincides with a failure.
 - **W2-D phase 1 (merged):** socket.io's polling fallback needs sticky sessions across instances (or a
   websocket-only client), see `docs/deploy/multi-instance.md`; CI load-test thresholds are unverified on
   GitHub runners (tune `STORM_MIN_RPS` / `STORM_MAX_P95_MS`); a crashed instance can lose up to 50 ms of
@@ -267,6 +287,13 @@ W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
   endpoint answers with mock data and labels it as mock.
 - **W2-D phase 1 (merged):** `METRICS_TOKEN` (at least 16 characters) enables `/metrics`;
   `SOCKET_REDIS_ADAPTER=on` for more than one backend instance; see `docs/deploy/multi-instance.md`.
+- **W3-E (merged) owner setup:** an S3 bucket (`S3_*`, required for PPTX/PDF imports and stored
+  pictures; without it those imports answer with a clear disabled-mode message), optional
+  `GOTENBERG_URL` (`gotenberg/gotenberg:8`, high-fidelity PPTX), optional Google Cloud keys
+  (`GOOGLE_DRIVE_IMPORT_ENABLED=true`, `GOOGLE_DRIVE_API_KEY`, `GOOGLE_DRIVE_APP_ID`, Google OAuth), a
+  worker instance (`bun run worker:import`, same `MONGO_URI`/`REDIS_URL`/`S3_*`/`GOTENBERG_URL`/
+  `ENCRYPTION_KEY`) when `IMPORT_WORKER_INPROCESS=0`; migration `150-import-jobs`. Full list in
+  `backend/docs/wiki/modules/imports.md`.
 - **W3-C (merged; billing is disabled without keys):** two Stripe products (Pro, Team) with monthly and
   yearly recurring prices (Team per seat); env `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
   `STRIPE_PRICE_{PRO,TEAM}_{MONTHLY,YEARLY}`; webhook endpoint `/api/billing/webhook` subscribed to
