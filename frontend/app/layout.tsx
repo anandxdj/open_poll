@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Amethysta } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import GlobalClientLayout from "@/components/layouts/GlobalClientLayout";
 
-const amethystaAmethysta = Amethysta({subsets:['latin'],weight:['400'],variable:'--font-amethysta'});
-
 const geistSans = Geist({
-  variable: "--font-sans",
+  variable: "--font-geist-sans",
   subsets: ["latin"],
 });
 
@@ -20,20 +18,20 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Open Poll — Real-Time Polling Platform",
+    default: "Open Poll — Live polls, quizzes and Q&A",
     template: "%s | Open Poll",
   },
   description:
-    "Create beautiful, real-time polls powered by AI. Engage your audience with interactive questions and live analytics.",
-  keywords: ["polling", "real-time", "survey", "audience", "analytics", "AI"],
+    "Build decks of polls, quizzes, word clouds and Q&A, or draft one with AI. Your audience joins with a code and answers live.",
+  keywords: ["live polls", "quiz", "audience response", "Q&A", "word cloud", "presentation"],
   icons: {
-    icon: "/logo-openpoll.png",
-    shortcut: "/logo-openpoll.png",
-    apple: "/logo-openpoll.png",
+    icon: [{ url: "/logo-openpoll.svg", type: "image/svg+xml" }],
+    shortcut: "/logo-openpoll.svg",
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Open Poll — Real-Time Polling Platform",
-    description: "Create beautiful, real-time polls powered by AI.",
+    title: "Open Poll — Live polls, quizzes and Q&A",
+    description: "Live polls, quizzes and Q&A for presentations. Your audience joins with a code.",
     type: "website",
   },
 };
@@ -49,7 +47,7 @@ export default function RootLayout({
       // globals.css smooths in-page scrolling; this keeps route changes (a footer link to /login) instant.
       data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={cn("h-full antialiased", geistSans.variable, geistMono.variable, amethystaAmethysta.variable)}
+      className={cn("h-full antialiased", geistSans.variable, geistMono.variable)}
     >
       <body className="min-h-dvh flex flex-col bg-background text-foreground" suppressHydrationWarning>
         <ThemeProvider

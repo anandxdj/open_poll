@@ -99,7 +99,7 @@ function ThemeSwitch({ iconSize = 16, className }: ThemeSwitchProps) {
       <div
         aria-hidden
         className={cn(
-          "size-9 rounded-full bg-accent border border-border",
+          "size-9 rounded-lg border border-border",
           className,
         )}
       />
@@ -110,14 +110,13 @@ function ThemeSwitch({ iconSize = 16, className }: ThemeSwitchProps) {
     <motion.button
       onClick={toggle}
       className={cn(
-        "relative flex items-center justify-center size-9 rounded-full",
-        "bg-accent border border-border cursor-pointer",
-        "text-foreground outline-none",
+        "relative flex items-center justify-center size-9 rounded-lg",
+        "border border-border bg-transparent cursor-pointer",
+        "text-muted-foreground outline-none transition-colors duration-150 hover:bg-accent hover:text-foreground",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         className,
       )}
-      whileHover={{ scale: 1.08 }}
-      whileTap={{ scale: 0.88 }}
+      whileTap={{ scale: 0.94 }}
       transition={{ type: "spring", duration: 0.2, bounce: 0 }}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >
