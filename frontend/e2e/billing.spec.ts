@@ -10,6 +10,8 @@ import { expect, test } from "./fixtures";
  * called, and "Checkout" is a page of this app.
  */
 
+// API payloads are patched field by field; their exact shape is the backend's, not this spec's.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Json = Record<string, any>;
 
 const CHECKOUT_PATH = "/__stripe/checkout";
