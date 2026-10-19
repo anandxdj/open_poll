@@ -9,6 +9,7 @@ import type { AnswerPayload, LiveSlide } from "../../types";
 import { useLive } from "../../live/store";
 import { useCountdown } from "../../live/useCountdown";
 import type { SlideRuntime } from "../../slides/runtime";
+import { isGradedSlide } from "../../slides/shared";
 import { Timer } from "../stage/Timer";
 
 /**
@@ -31,6 +32,8 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
     slide.timeLimit ?? 30
   );
   const hasAnswered = submittedSlideIndex === slide.slideIndex;
+  // Ungraded slides (e.g. a 0-point select answer) only confirm the response.
+  const graded = isGradedSlide(slide);
 
   const submit = async (payload: AnswerPayload) => {
     setSubmitting(true);
@@ -55,7 +58,7 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
       {/* Post-reveal feedback */}
       {reveal && hasAnswered && me?.lastAnswer ? (
         <div className="text-center space-y-3">
-          {!me.lastAnswer.scored ? (
+          {!me.lastAnswer.scored || !graded ? (
             <>
               <CheckCircle2 className="size-12 text-deck-info mx-auto" />
               <p className="font-bold">{t("responseReceived")}</p>
@@ -97,9 +100,9 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
       ) : hasAnswered ? (
         <div className="text-center py-8 space-y-2">
           <CheckCircle2 className="size-10 text-deck-correct-soft mx-auto" />
-          <p className="font-bold text-sm">{slide.scored ? t("lockedIn") : t("responseReceived")}</p>
+          <p className="font-bold text-sm">{graded ? t("lockedIn") : t("responseReceived")}</p>
           <p className="text-xs text-deck-muted-fg">
-            {slide.scored ? t("waitingReveal") : t("waitingClose")}
+            {graded ? t("waitingReveal") : t("waitingClose")}
           </p>
         </div>
       ) : expired ? (

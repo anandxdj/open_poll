@@ -8,6 +8,8 @@ export interface LiveSlide {
   scored: boolean;
   question: string;
   options: { text: string }[];
+  /** select_answer: present (true) only when participants may pick several options. */
+  allowMultiple?: boolean;
   statements: string[];
   minLabel: string;
   maxLabel: string;
@@ -81,6 +83,12 @@ export interface RevealPayload {
 export interface AnswerPayload {
   /** select_answer */
   optionIndex?: number;
+  /**
+   * Generic answer, checked by the slide type's own answer schema; the server
+   * uses it instead of the per-type fields. select_answer with
+   * `allowMultiple`: `{ optionIndices }`.
+   */
+  payload?: { optionIndices: number[] };
   /** type_answer, open_ended */
   text?: string;
   /** wordcloud */

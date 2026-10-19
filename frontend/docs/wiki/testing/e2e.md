@@ -55,6 +55,10 @@ browser context per participant.
   (heading → word cloud → select answer) clicked through with two participants (~30 s). Image and
   YouTube requests are answered with `page.route`, so the run needs no network. One participant
   joins first because the lobby's Start needs someone in the room (no-lobby start is W1-A1).
+- `e2e/select-answer.spec.ts` — a graded multi-select slide (checkboxes, exact-set scoring,
+  shares of respondents, explanation after reveal) and an ungraded 0-point slide (no right/wrong)
+  live; the builder editing and saving an ungraded multi-select slide (checked through
+  `host.getDeck`). ~30 s.
 
 Run against your own database and ports when other suites share the machine, e.g.
 `E2E_MONGO_URI=mongodb://127.0.0.1:27117/openpoll_mine?directConnection=true

@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { apiClient } from "@/lib/api-client";
 import { createLiveStore } from "@/features/presentations/live/store";
 import { getSlotEntries, registerSlot, SLOT_NAMES, SlotOutlet } from "@/features/presentations/live/slots";
 
@@ -25,6 +26,48 @@ describe("createLiveStore", () => {
   test("submitAnswer without a joined participant on a slide is skipped (no request)", async () => {
     const store = createLiveStore("participant", { presentationId: "p" });
     expect(await store.getState().submitAnswer({ optionIndex: 0 })).toEqual({ status: "skipped" });
+  });
+
+  test("submitAnswer posts a multi-select answer as the generic payload", async () => {
+    const post = spyOn(apiClient, "post").mockResolvedValue({ data: { data: { accepted: true } } });
+    const get = spyOn(apiClient, "get").mockRejectedValue(new Error("offline"));
+    try {
+      const store = createLiveStore("participant", {
+        presentationId: "p",
+        self: { participantId: "u1", name: "Ada", token: "t".repeat(16) },
+        slide: {
+          slideIndex: 2,
+          totalSlides: 3,
+          type: "select_answer",
+          scored: true,
+          question: "Which are planets?",
+          options: [{ text: "Mars" }, { text: "Moon" }, { text: "Earth" }],
+          allowMultiple: true,
+          statements: [],
+          minLabel: "",
+          maxLabel: "",
+          scaleMax: 5,
+          items: [],
+          maxEntries: 3,
+          timeLimit: 30,
+          points: 1000,
+          scoreDependsOnTime: true,
+        },
+      });
+      expect(await store.getState().submitAnswer({ payload: { optionIndices: [0, 2] } })).toEqual({
+        status: "accepted",
+      });
+      expect(post).toHaveBeenCalledWith("/presentations/p/answer", {
+        participantId: "u1",
+        participantToken: "t".repeat(16),
+        slideIndex: 2,
+        payload: { optionIndices: [0, 2] },
+      });
+      expect(store.getState().submittedSlideIndex).toBe(2);
+    } finally {
+      post.mockRestore();
+      get.mockRestore();
+    }
   });
 });
 

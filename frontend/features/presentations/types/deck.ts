@@ -26,12 +26,24 @@ export interface PresentationSlideOption {
   isCorrect: boolean;
 }
 
+/**
+ * select_answer settings, stored in `slide.config` (null or absent on slides
+ * saved before them; read them with `selectAnswerConfig`).
+ */
+export interface SelectAnswerConfig {
+  /** Participants pick one or more options; correct = exactly the correct set. */
+  allowMultiple: boolean;
+  /** Why the answer is right; shown on the stage after the reveal, never sent to participants. */
+  explanation: string;
+}
+
 export interface PresentationSlide {
   _id?: string;
   type: PresentationSlideType;
   question: string;
-  // select_answer
+  // select_answer (worth 0 points = ungraded: no correct option, results only)
   options: PresentationSlideOption[];
+  config?: Partial<SelectAnswerConfig> | null;
   // type_answer
   acceptedAnswers: string[];
   // scales
