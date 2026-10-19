@@ -4,10 +4,12 @@ import "@/features/registrations";
 
 import { useEffect, useEffectEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2, Play, Radio, RotateCcw, Trophy } from "lucide-react";
+import { Loader2, Play, Radio, RotateCcw, Trophy } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { createLiveStore, LiveStoreProvider, useLive } from "../../live/store";
+import { useAfterDelay } from "../../live/useAfterDelay";
 import { DeckThemeProvider } from "../../theme/DeckThemeProvider";
 import { Stage } from "../stage/Stage";
 import { HostControls } from "./HostControls";
@@ -15,6 +17,11 @@ import { HostHeader } from "./HostHeader";
 import { LeaderboardModal } from "./LeaderboardModal";
 import { useHostSession } from "./useHostSession";
 import { useJoinLink } from "./useJoinLink";
+
+const primaryButton =
+  "rounded-full bg-deck-primary text-deck-primary-fg font-bold shadow-xl shadow-deck-primary/20 hover:opacity-90 transition-all active:scale-[0.98]";
+const outlineButton =
+  "rounded-full border-deck-stage-fg/20 bg-transparent text-deck-stage-fg font-semibold hover:bg-deck-stage-fg/10";
 
 /** Host console = Stage + host controls, over its own live store. */
 export function HostConsole({ presentationId }: { presentationId: string }) {
@@ -29,20 +36,20 @@ export function HostConsole({ presentationId }: { presentationId: string }) {
 }
 
 function HostConsoleView({ presentationId }: { presentationId: string }) {
+  const t = useTranslations("presenter");
   const router = useRouter();
   const session = useHostSession(presentationId);
-  const { loading, loadError, busy, connected, countdown, openLobby, advance, end } = session;
+  const { loading, loadError, busy, connected, countdown } = session;
 
   const status = useLive((s) => s.status);
   const joinCode = useLive((s) => s.joinCode);
-  const slideIndex = useLive((s) => s.currentSlideIndex);
-  const totalSlides = useLive((s) => s.totalSlides);
-  const participantCount = useLive((s) => s.participants.length);
   const hasDeck = useLive((s) => s.deck !== null);
   const join = useJoinLink(joinCode);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const isLive = status === "lobby" || status === "active";
+  const showReconnecting = useAfterDelay(isLive && !connected, 1500);
 
   useEffect(() => {
     const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
@@ -58,14 +65,14 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
     }
   };
 
-  // Arrow keys / PageUp/PageDown move between slides, F toggles fullscreen.
+  // Arrow keys / PageUp/PageDown move between slides (both ways), F toggles fullscreen.
   const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    const isLastSlide = slideIndex >= totalSlides - 1;
-    if ((e.key === "ArrowRight" || e.key === "PageDown") && !isLastSlide) {
-      void advance(slideIndex + 1);
-    } else if ((e.key === "ArrowLeft" || e.key === "PageUp") && slideIndex > 0) {
-      void advance(slideIndex - 1);
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "ArrowRight" || e.key === "PageDown") {
+      void session.next();
+    } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+      void session.previous();
     } else if (e.key.toLowerCase() === "f") {
       toggleFullscreen();
     }
@@ -88,36 +95,45 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
   if (loadError || !hasDeck) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-deck-stage-bg px-6 text-center text-deck-stage-fg">
-        <p className="text-sm font-semibold text-deck-danger-soft">{loadError ?? "Presentation deck not found."}</p>
+        <p className="text-sm font-semibold text-deck-danger-soft">{loadError ?? t("load.notFound")}</p>
         <button
           onClick={() => router.push("/polls")}
           className="text-xs text-deck-stage-fg/40 underline underline-offset-2"
         >
-          Back to dashboard
+          {t("load.backToDashboard")}
         </button>
       </div>
     );
   }
 
+  const openLobbyButton = (variant: "outline" | "default" = "outline") => (
+    <Button
+      variant={variant}
+      onClick={() => void session.openLobby()}
+      disabled={busy}
+      className={`h-12 px-8 text-sm ${variant === "outline" ? outlineButton : primaryButton}`}
+    >
+      <Radio className="size-4 mr-2" /> {t("ready.openLobby")}
+    </Button>
+  );
+
   return (
     <div className="h-screen bg-deck-stage-bg text-deck-stage-fg flex flex-col font-sans overflow-hidden select-none">
       <HostHeader
         presentationId={presentationId}
-        busy={busy}
         copiedUrl={join.copiedUrl}
         onCopyUrl={join.copyUrl}
         showLeaderboard={showLeaderboard}
         onToggleLeaderboard={() => setShowLeaderboard((prev) => !prev)}
         isFullscreen={isFullscreen}
         onToggleFullscreen={toggleFullscreen}
-        onOpenLobby={() => void openLobby()}
       />
 
       {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} />}
 
-      {!connected && status !== "draft" && status !== "ended" && (
+      {showReconnecting && (
         <div className="flex items-center justify-center gap-2 bg-deck-danger/10 border-b border-deck-danger/20 px-4 py-1.5 text-xs font-semibold text-deck-danger-soft shrink-0">
-          <Radio className="size-3 animate-pulse" /> Reconnecting…
+          <Radio className="size-3 animate-pulse" /> {t("connection.reconnecting")}
         </div>
       )}
 
@@ -125,50 +141,58 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
         surface="host"
         join={join}
         countdown={countdown}
+        readyActions={
+          <>
+            <Button onClick={() => void session.start()} disabled={busy} className={`h-12 px-8 text-sm ${primaryButton}`}>
+              <Play className="size-4 mr-2 fill-current" /> {t("ready.start")}
+            </Button>
+            {openLobbyButton()}
+          </>
+        }
         lobbyActions={
-          status === "draft" ? (
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Button onClick={() => void session.start()} disabled={busy} className={`h-12 px-8 text-sm ${primaryButton}`}>
+              <Play className="size-4 mr-2 fill-current" /> {t("lobby.start")}
+            </Button>
             <Button
-              onClick={() => void openLobby()}
+              variant="outline"
+              onClick={() => void session.end()}
               disabled={busy}
-              className="h-12 rounded-full bg-deck-primary text-deck-primary-fg font-bold px-8 text-sm shadow-xl shadow-deck-primary/20 hover:opacity-90 transition-all active:scale-[0.98]"
+              className={`h-12 px-6 text-sm ${outlineButton}`}
             >
-              <Radio className="size-4 mr-2 animate-pulse" /> Open Lobby & Start
+              {t("lobby.end")}
             </Button>
-          ) : (
-            <Button
-              onClick={() => void advance()}
-              disabled={busy || participantCount === 0}
-              className="h-12 rounded-full bg-deck-primary text-deck-primary-fg font-bold px-8 text-sm shadow-xl shadow-deck-primary/20 hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-40"
-            >
-              <Play className="size-4 mr-2 fill-current" /> Start <ArrowRight className="size-4 ml-1.5" />
-            </Button>
-          )
+          </div>
         }
         overlays={
           <button
             onClick={() => setShowLeaderboard(true)}
-            title="View Leaderboard"
+            title={t("header.leaderboard")}
             className="absolute right-6 bottom-5 z-10 hidden sm:flex items-center gap-2 rounded-full border border-deck-accent/30 bg-deck-accent/10 px-4 py-2 text-xs font-bold text-deck-accent-soft backdrop-blur-md shadow-lg hover:bg-deck-accent/20 transition-all hover:scale-105 active:scale-95"
           >
             <Trophy className="size-4 text-deck-accent" />
-            <span>Leaderboard</span>
+            <span>{t("header.leaderboard")}</span>
           </button>
         }
         endActions={
           <>
             <Button
-              onClick={() => void openLobby()}
+              onClick={() => void session.start()}
               disabled={busy}
-              className="h-10 rounded-full bg-deck-primary text-deck-primary-fg font-bold px-6 text-xs shadow-lg shadow-deck-primary/20 hover:opacity-90 transition-opacity"
+              className="h-10 px-6 text-xs rounded-full bg-deck-primary text-deck-primary-fg font-bold shadow-lg shadow-deck-primary/20 hover:opacity-90 transition-opacity"
             >
-              <RotateCcw className="size-4 mr-2" /> Host Again
+              <RotateCcw className="size-4 mr-2" /> {t("end.presentAgain")}
             </Button>
             <Button
               variant="outline"
-              onClick={() => router.push("/polls")}
-              className="h-10 rounded-full border-deck-stage-fg/20 text-deck-stage-fg font-semibold px-5 text-xs hover:bg-deck-stage-fg/10"
+              onClick={() => void session.openLobby()}
+              disabled={busy}
+              className={`h-10 px-5 text-xs ${outlineButton}`}
             >
-              Back to Dashboard
+              {t("end.openLobby")}
+            </Button>
+            <Button variant="outline" onClick={() => router.push("/polls")} className={`h-10 px-5 text-xs ${outlineButton}`}>
+              {t("end.backToDashboard")}
             </Button>
           </>
         }
@@ -176,9 +200,12 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
 
       <HostControls
         busy={busy}
-        onAdvance={(target) => void advance(target)}
-        onEnd={() => void end()}
-        onOpenLobby={() => void openLobby()}
+        onPrevious={() => void session.previous()}
+        onNext={() => void session.next()}
+        onCloseVoting={() => void session.closeVoting()}
+        onReopenVoting={() => void session.reopenVoting()}
+        onReveal={() => void session.reveal()}
+        onEnd={() => void session.end()}
       />
     </div>
   );

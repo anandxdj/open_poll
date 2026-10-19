@@ -1,5 +1,6 @@
 import type { Locale } from "./config";
 import live from "@/messages/en/live.json";
+import presenter from "@/messages/en/presenter.json";
 
 /**
  * English messages by namespace, one file per feature under
@@ -8,6 +9,7 @@ import live from "@/messages/en/live.json";
  */
 export const enMessages = {
   live,
+  presenter,
 };
 
 export type Messages = typeof enMessages;
