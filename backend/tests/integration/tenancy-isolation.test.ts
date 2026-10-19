@@ -54,7 +54,9 @@ const ALLOWED: readonly Allowed[] = [
 
   // Credentials of their own.
   { path: '/api/mcp/tokens*', reason: 'MCP tokens belong to the user; tools act in the owner’s default workspace through the policy' },
-  { path: '/api/ai/*', reason: 'authenticated and rate limited; stores nothing except generate-and-save, which checks deck:create in the default workspace' },
+  { methods: ['POST'], path: '/api/ai/generate', reason: 'authenticated and rate limited; stores nothing' },
+  { methods: ['POST'], path: '/api/ai/generate-quiz', reason: 'authenticated and rate limited; stores nothing' },
+  { methods: ['POST'], path: '/api/ai/generate-and-save', reason: 'authenticated and rate limited; PollService.createPoll checks deck:create in the owner’s default workspace' },
   { path: '/api/invites/:token*', reason: 'the single-use token is the credential; accepting also needs the invited verified email' },
   { path: '/api/remote/:token*', reason: 'remote-control token is the credential', planned: true },
 
