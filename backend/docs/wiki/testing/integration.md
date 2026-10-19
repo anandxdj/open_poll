@@ -37,6 +37,14 @@ Without both variables those suites skip, so plain `bun test` stays offline. Run
 `MONGO_URI`/`REDIS_URL` before anything imports `common/config/env` or the shared Redis client.
 The harness refuses to start if the app is not pointed at the test services.
 
+W2-D suites: `answerScript.test.ts` runs `lua/answer.lua` on the real Redis and the same scenarios
+through the JS port the unit tests use (replies and state must be identical), plus burst atomicity,
+the rate limit and `EVALSHA` recovery after `SCRIPT FLUSH`; `liveScale.test.ts` (socket answers and
+acks, resync, replays, auto-reveal, score race on Mongo), `multiInstance.test.ts` (two instances,
+adapter on/off), `metrics.test.ts` (`/metrics` auth and content). The load test is not part of
+`bun test`: `backend/loadtest/answer-storm.ts`, run by the `loadtest-smoke` CI job
+([`../platform/observability.md`](../platform/observability.md#load-test)).
+
 CI: the `integration` job in `.github/workflows/ci.yml` runs the command above against `mongo:7` and
 `redis:7` service containers. The `backend` job runs everything else.
 
@@ -45,10 +53,11 @@ CI: the `integration` job in `.github/workflows/ci.yml` runs the command above a
 | Export | Use |
 | --- | --- |
 | `describeIntegration` | `describe` that skips unless both services are configured. |
-| `startTestServer()` | `createApp()` + Socket.io + `setupSocketAndPubSub` on `127.0.0.1:0`. Returns `{ app, httpServer, io, baseUrl, request, connectSocket, close }`. Call twice for two instances on one Redis. Interval workers are never started. |
+| `startTestServer({ redisAdapter? })` | `createApp()` + Socket.io + `setupSocketAndPubSub` on `127.0.0.1:0`. Returns `{ app, httpServer, io, baseUrl, request, connectSocket, close }`. Call twice for two instances on one Redis (`redisAdapter: { enabled, key }` turns the Socket.io adapter on, with its own channel prefix). Interval workers are never started. |
+| `settleLiveEngine()` | Writes the queued answer batches and publishes the pending coalesced host updates now. `resetTestData()` and `close()` call it, so timers of one test never write into the next. |
 | `request(path, init)` | `fetch` against the server; a plain-object `body` is sent as JSON. |
 | `connectSocket(options)` | websocket-only `socket.io-client` socket, disconnected by `close()`. |
-| `resetTestData()` | Empties all collections (indexes kept) and flushes the test Redis DB. |
+| `resetTestData()` | Settles the live engine, empties all collections (indexes kept) and flushes the test Redis DB. |
 
 Mongo and the shared `redisClient` connect with the first server and disconnect with the last
 `close()`, so later unit-test files see the state they expect. The harness lifts the

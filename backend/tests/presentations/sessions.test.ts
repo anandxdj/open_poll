@@ -251,7 +251,7 @@ describe('sessions: answer windows', () => {
     expect(deck.questionEndsAt).toBeNull();
 
     at(10 * 60_000);
-    expect(await answer(pid, ada, 0, { entries: ['late but fine'] })).toEqual({ accepted: true });
+    expect(await answer(pid, ada, 0, { entries: ['late but fine'] })).toMatchObject({ accepted: true });
     const lookup = (await PresentationService.getPresentationByCode('777777')) as Record<string, unknown>;
     expect(lookup).toMatchObject({ currentSlidePhase: 'open', questionEndsAt: null });
 
@@ -357,10 +357,8 @@ describe('sessions: end and reconciliation', () => {
       console.error = consoleError;
       models.failures.answerCreate = false;
     }
-    expect(logged.map(([message]) => message)).toEqual([
-      '[Presentation] Failed to persist answer:',
-      '[Presentation] Failed to persist answer:',
-    ]);
+    // One batch carried both answers; it failed once and left the rest to reconciliation.
+    expect(logged.map(([message]) => message)).toEqual(['[Presentation] Answer write-behind failed:']);
     expect(models.answers).toEqual([]);
     expect(models.participants.map((p) => p.score)).toEqual([0, 0]);
 

@@ -1,5 +1,7 @@
 import type { Server } from 'socket.io';
 import { redisClient } from '../config/redis';
+import { trackSocketConnections } from '../observability/metrics';
+import { attachRedisAdapter, type RedisAdapterOptions } from './adapter';
 import { socketAuth } from './auth';
 import { REALTIME_CHANNELS } from './events';
 import './modules';
@@ -9,10 +11,13 @@ import { getSocketModules, type ChannelHandler } from './registry';
 /**
  * Boots realtime on a Socket.io server: the optional-JWT handshake, every
  * registered socket module, and one Redis subscriber per instance that delivers
- * published events to this instance's sockets. The returned `close` drops the
- * subscriber (tests, graceful shutdown).
+ * published events to this instance's sockets (with `io.local`, so the optional
+ * cluster adapter never duplicates them). The returned `close` drops the
+ * subscriber and the adapter's clients (tests, graceful shutdown).
  */
-export const setupSocketAndPubSub = async (io: Server) => {
+export const setupSocketAndPubSub = async (io: Server, options: { redisAdapter?: RedisAdapterOptions } = {}) => {
+  const adapter = await attachRedisAdapter(io, options.redisAdapter);
+  trackSocketConnections(io);
   const subscriber = redisClient.duplicate();
   subscriber.on('error', (error) => {
     console.error('[Redis] Subscriber Error:', error);
@@ -48,6 +53,7 @@ export const setupSocketAndPubSub = async (io: Server) => {
   return {
     close: async () => {
       if (subscriber.isOpen) await subscriber.close();
+      await adapter.close();
     },
   };
 };

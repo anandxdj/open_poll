@@ -4,9 +4,6 @@ import type { SlideRedisTarget } from '../slides';
 // Live-session Redis keys self-clean 6h after the last transition
 export const SESSION_KEY_TTL_SEC = 6 * 3600;
 
-/** Decks with fresh answers, drained by the live distribution worker. */
-export const ACTIVE_DISTRIBUTIONS_KEY = 'buffer:active_presentation_distributions';
-
 // ---------------------------------------------------------------------------
 // Redis key map — the answer hot path runs entirely on these (no Mongo reads),
 // so hundreds of simultaneous clicks don't queue on the database. Mongo stays
@@ -37,6 +34,19 @@ export const k = {
   disp: (sid: string, slideId: string) => `${session(sid)}:disp:${slideId}`, // HASH normalized text -> first-seen original casing
   feed: (sid: string, slideId: string) => `${session(sid)}:feed:${slideId}`, // LIST newest-first raw entries (lpush_trim ops)
   results: (sid: string, slideId: string) => `${session(sid)}:results:${slideId}`, // HASH pid -> full answer JSON (StoredAnswerResult)
+  /**
+   * STRING (PX 250): the coalescer's window flag. The answer that sets it
+   * (`SET NX PX`) owns the window and publishes one `answer:received` per
+   * dirty slide when it ends. Never in `allSessionKeys` — a 6h TTL would
+   * freeze the window.
+   */
+  dirty: (sid: string) => `${session(sid)}:dirty`,
+  /** SET: slideIds answered since the last coalescer flush. */
+  dirtySlides: (sid: string) => `${session(sid)}:dirty:slides`,
+  /** STRING: per-participant answer counter of the current rate-limit window (PX). */
+  answerRate: (sid: string, participantId: string) => `${session(sid)}:rate:${participantId}`,
+  /** ZSET (global): `${sid}|${slideId}` → when a scored timed slide auto-reveals (ms). */
+  autoReveal: () => 'live:autoreveal',
 };
 
 /** Maps a slide type's logical Redis target to the key for one slide. */
