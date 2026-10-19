@@ -1,58 +1,133 @@
-import type { LeaderboardEntry, LiveSlide, RevealDistribution, RevealPayload } from "./live";
+import type {
+  LeaderboardEntry,
+  LiveSlide,
+  RevealDistribution,
+  RevealPayload,
+  SessionPace,
+} from "./live";
 
 /**
- * Socket wire names. The `quiz:*` names are the protocol left over from the
- * quiz era; the server rooms are `quiz_{presentationId}` (+ `_host`).
+ * Socket wire names of the versioned live protocol (backend
+ * `presentations.socket.ts`): `live:join` (with an ack) puts the socket in the
+ * deck's `live:{id}` rooms, and every event arrives as a `live:event`
+ * envelope. The legacy `quiz:*` protocol is not used by this client.
  */
 export const LIVE_SOCKET_EVENTS = {
-  join: "quiz:join",
-  leave: "quiz:leave",
-  event: "quiz:event",
+  join: "live:join",
+  leave: "live:leave",
+  event: "live:event",
 } as const;
 
 export type PresentationRealtimeEventType =
+  | "session:lobby"
   | "lobby:opened"
   | "participant:joined"
   | "question:started"
+  | "slide:shown"
+  | "slide:closed"
   | "answer:received"
   | "question:revealed"
   | "leaderboard:shown"
+  | "session:ended"
   | "quiz:ended";
 
-/** Payload of each core event type (contract: backend/docs/wiki/realtime/socket-events.md). */
+/**
+ * Payload of each core event type. Mirror of `PresentationEventPayloads` in
+ * `backend/src/modules/presentations/live/contract.ts`
+ * (prose: `backend/docs/wiki/modules/presentations-live.md`).
+ */
 export interface RealtimePayloads {
+  /** A new session opened its lobby. */
+  "session:lobby": { runNumber: number; joinCode: string; pace: SessionPace };
+  /** Legacy copy of `session:lobby`, sent right after it — ignored by the reducer. */
   "lobby:opened": { joinCode: string };
   "participant:joined": { participantId: string; name: string; participantCount: number };
-  "question:started": { slide: LiveSlide; startedAt: string; endsAt: string; serverNow: string };
-  /** Host room only — never reaches participant sockets. */
-  "answer:received": { answeredCount: number; distribution?: RevealDistribution };
-  "question:revealed": RevealPayload & { auto?: boolean };
-  "leaderboard:shown": {
+  /** A response slide opened (first visit, or `reopened` by the host). */
+  "question:started": {
+    slideId: string;
     slideIndex: number;
+    slide: LiveSlide;
+    startedAt: string;
+    /** null = untimed: open until the host closes or reveals. */
+    endsAt: string | null;
+    serverNow: string;
+    isLastSlide: boolean;
+    reopened: boolean;
+  };
+  /** A content or board slide is on screen; no answer window. */
+  "slide:shown": {
+    slideId: string;
+    slideIndex: number;
+    slide: LiveSlide;
+    isLastSlide: boolean;
+    serverNow: string;
+  };
+  /** The current response slide stopped accepting answers (closed, or revisited while closed). */
+  "slide:closed": {
+    slideId: string;
+    slideIndex: number;
+    slide: LiveSlide;
+    closedAt: string;
+    answeredCount: number;
+    participantCount: number;
+    isLastSlide: boolean;
+    revisit: boolean;
+    serverNow: string;
+  };
+  /** Host room only — never reaches participant sockets. The 2 s worker adds the distribution. */
+  "answer:received": {
+    slideId: string;
+    slideIndex: number;
+    answeredCount: number;
+    participantCount?: number;
+    distribution?: RevealDistribution;
+  };
+  /** Results of the current response slide (reveal, or revisited after a reveal). */
+  "question:revealed": RevealPayload & {
+    slideId: string;
+    slide: LiveSlide;
+    auto: boolean;
+    revealedAt: string;
+    revisit: boolean;
+  };
+  "leaderboard:shown": {
+    slideId: string;
+    slideIndex: number;
+    slide?: LiveSlide;
     leaderboard: LeaderboardEntry[];
     participantCount: number;
     isLastSlide: boolean;
   };
+  "session:ended": {
+    runNumber: number;
+    endedAt: string;
+    leaderboard: LeaderboardEntry[];
+    participantCount: number;
+    answerCount: number;
+  };
+  /** Legacy copy of `session:ended`, sent right after it — ignored by the reducer. */
   "quiz:ended": { leaderboard: LeaderboardEntry[]; participantCount: number };
 }
 
 /**
- * The realtime envelope. Feature modules add prefixed types (`qna:*`,
- * `reaction:*`, …) handled by their own live sub-reducer, so `type` stays open.
- * `seq`/`sessionId`/`v` arrive with the versioned envelope and are optional
- * until every sender emits it.
+ * The live event envelope (v1, `backend/docs/wiki/realtime/envelope.md`).
+ * Feature modules add prefixed types (`qna:*`, `reaction:*`, …) handled by
+ * their own live sub-reducer, so `type` stays open.
  */
 export interface PresentationRealtimeEvent {
-  quizId: string;
+  v?: number;
   presentationId?: string;
+  /** Legacy alias of `presentationId`. */
+  quizId?: string;
+  /** The session the event belongs to; null/absent for events outside a session. */
+  sessionId?: string | null;
+  /** Per-deck counter across every audience and session (`INCR live:{pid}:seq`). */
+  seq?: number;
   type: PresentationRealtimeEventType | (string & {});
-  /** Envelope v1: `all`, `host` or `participant:<id>`. */
+  /** `all`, `host` or `participant:<id>`. */
   audience?: string;
   payload: Record<string, unknown>;
   emittedAt: string;
-  v?: number;
-  seq?: number;
-  sessionId?: string;
 }
 
 /** Narrows an event to a core type with its typed payload. */
@@ -63,7 +138,12 @@ export function isRealtimeEvent<T extends PresentationRealtimeEventType>(
   return event.type === type;
 }
 
-/** Credentials the socket presents to join a deck's room. */
+/** Credentials the socket presents to join a deck's rooms. */
 export type LiveSocketAuth =
   | { role: "host" }
   | { role: "participant"; participantId: string; participantToken: string };
+
+/** `live:join` ack. */
+export type LiveJoinAck =
+  | { ok: true; role: "host" | "participant" }
+  | { ok: false; error: string };
