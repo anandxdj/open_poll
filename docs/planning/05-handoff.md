@@ -69,41 +69,40 @@ labelled "Generated with mock data (no AI key configured)". Code: `backend/src/m
 `tests/http.routes.snapshot.txt`, `tests/ai.routes.test.ts`, `frontend/i18n/messages.ts` (`ai`
 namespace), small hunks in `useDeckBuilder.ts`, `PresentationBuilder.tsx`, `AiPresentationModal.tsx`.
 
-**Checks at handoff** (integration branch at the W3-F merge `3b3a95f`): backend 738 tests in
-`bun test` (608 run without containers, 130 integration/spike tests skip without
-`TEST_MONGO_URI`), 109 integration/spike tests pass with the containers (6 skipped by design);
-frontend 253 unit tests; Playwright e2e 7 tests green; backend typecheck clean; frontend
-typecheck clean, lint 0 errors (7 pre-existing warnings), build green.
+**Wave 2 — W2-D phase 1, scale and reliability (backend)** (merged; `pkg/w2-d`, 8 commits). Merged
+before W1-A2 (plan order was A2 → D) because it was ready first and is backend-only; W1-A2 takes it
+before it finishes.
+- Answer path: JS grading + one `EVALSHA live/lua/answer.lua` (window/grace, token + kicked checks,
+  per-participant rate limit 30/10 s, dedup, generic RedisOps, scores, results, dirty mark).
+  Idempotent replay by `clientAnswerId` (`replay:true`); other repeats 409 `ALREADY_ANSWERED`; `via`
+  stored. `POST /answer` response is richer (`accepted, replay, slideId, slideIndex,
+  clientAnswerId, via, answeredAt`).
+- HMAC slide tickets (`st1.`) sent in `question:started` and `live-state.current.slideTicket`; timed
+  slides accept until `endsAt`+15 s with a valid ticket unless closed/revealed; scored timed slides
+  auto-reveal 1.5 s after the timer (instance poller on ZSET `live:autoreveal`).
+- Socket `answer:submit` (the socket must have joined as that participant, else 403 `NOT_JOINED`) and
+  `live:resync`. Coalescer `SET psess:{sid}:dirty NX PX 250` → one host `answer:received` per dirty
+  slide per 250 ms; flushed before close/reveal/move/end; the 2 s worker is gone. Mongo write-behind
+  in 50 ms batches (an instance crash can lose up to 50 ms of queued writes; `end` restores from
+  Redis). Score double-add race at `end` fixed (`scoreFinalAt`).
+- `SOCKET_REDIS_ADAPTER=on` adapter; `/metrics` (404 without `METRICS_TOKEN`, 401 on a bad bearer,
+  rate limited); the analytics worker no longer uses `KEYS`; `backend/loadtest/*`, CI job
+  `loadtest-smoke` (500/s, p95 150 ms, tunable with repo vars `STORM_MIN_RPS` / `STORM_MAX_P95_MS`),
+  nightly workflow `loadtest-nightly.yml`. Local numbers: REST 600/s p95 5.6 ms; REST 2k/s p95
+  16.9 ms; socket 2k/s p95 8.8 ms.
+- Phase 2 (not started, after W1-A2 merges): see "Not started".
+
+**Checks at handoff** (integration branch after the W2-D phase 1 merge): backend 814 tests in
+`bun test` (645 run without containers, 169 integration/spike tests skip without `TEST_MONGO_URI`), 136
+integration/spike tests pass with the containers (6 skipped by design); frontend 253 unit tests;
+Playwright e2e 7 tests green; backend and frontend typecheck clean, frontend lint 0 errors, build green.
 
 ## Ready, NOT merged (all checks green on their branch; merge in this order)
 
 Merge rule: `git merge --no-ff pkg/<id>` into `chore/backlog-and-roadmap`, then full checks (backend
-tsc + unit + integration, frontend typecheck + lint + unit + build + e2e). `pkg/w2-d` and `pkg/w3-c`
-are 3 commits behind the integration branch (expect small conflicts in append-only files); `pkg/w2-c`
-already contains it up to `3b3a95f`.
+tsc + unit + integration, frontend typecheck + lint + unit + build + e2e). Expect small conflicts in
+append-only files (route snapshot, `i18n/messages.ts`, settings sections, `.env.example`).
 
-1. **W2-D phase 1 — scale and reliability (backend)**, `pkg/w2-d` @ `6d2518d` (8 commits; 3 behind).
-   Lands before W1-A2 (plan order was A2 → D) because it is ready first and backend-only; W1-A2 merges
-   the branch before it finishes.
-   - Answer path: JS grading + one `EVALSHA live/lua/answer.lua` (window/grace, token + kicked checks,
-     per-participant rate limit 30/10 s, dedup, generic RedisOps, scores, results, dirty mark).
-     Idempotent replay by `clientAnswerId` (`replay:true`); other repeats 409 `ALREADY_ANSWERED`; `via`
-     stored. `POST /answer` response is richer (`accepted, replay, slideId, slideIndex,
-     clientAnswerId, via, answeredAt`).
-   - HMAC slide tickets (`st1.`) sent in `question:started` and `live-state.current.slideTicket`; timed
-     slides accept until `endsAt`+15 s with a valid ticket unless closed/revealed; scored timed slides
-     auto-reveal 1.5 s after the timer (instance poller on ZSET `live:autoreveal`).
-   - Socket `answer:submit` (the socket must have joined as that participant, else 403 `NOT_JOINED`) and
-     `live:resync`. Coalescer `SET psess:{sid}:dirty NX PX 250` → one host `answer:received` per dirty
-     slide per 250 ms; flushed before close/reveal/move/end; the 2 s worker is gone. Mongo write-behind
-     in 50 ms batches (an instance crash can lose up to 50 ms of queued writes; `end` restores from
-     Redis). Score double-add race at `end` fixed (`scoreFinalAt`).
-   - `SOCKET_REDIS_ADAPTER=on` adapter; `/metrics` (404 without `METRICS_TOKEN`, 401 on a bad bearer,
-     rate limited); the analytics worker no longer uses `KEYS`; `backend/loadtest/*`, CI job
-     `loadtest-smoke` (500/s, p95 150 ms, tunable with repo vars `STORM_MIN_RPS` / `STORM_MAX_P95_MS`),
-     nightly workflow `loadtest-nightly.yml`. Local numbers: REST 600/s p95 5.6 ms; REST 2k/s p95
-     16.9 ms; socket 2k/s p95 8.8 ms.
-   - Phase 2 (not started, after W1-A2 merges): see "Not started".
 2. **W2-C — session history, reports, export, share, take-home**, `pkg/w2-c` @ `15b5add` (8 commits;
    already merged with the branch at the W3-F state).
    - Backend `modules/sessions`: `GET /api/sessions?presentationId&cursor&limit`, `GET /api/sessions/:sid`
@@ -223,7 +222,7 @@ W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
 - **W3-F (merged):** mock decks (no AI key) are not counted against `ai_deck` usage (owner to confirm); a
   reviewed deck (outline step then deck step) uses two `ai` rate-limit hits; the frontend `Presentation`
   type has no `notes` until W2-A's NotesTab lands.
-- **Lands with W2-D phase 1:** socket.io's polling fallback needs sticky sessions across instances (or a
+- **W2-D phase 1 (merged):** socket.io's polling fallback needs sticky sessions across instances (or a
   websocket-only client), see `docs/deploy/multi-instance.md`; CI load-test thresholds are unverified on
   GitHub runners (tune `STORM_MIN_RPS` / `STORM_MAX_P95_MS`); a crashed instance can lose up to 50 ms of
   queued answer writes.
@@ -245,7 +244,7 @@ W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
   `ENCRYPTION_KEY`) are in `backend/.env.example`.
 - **AI (W3-F, merged):** set `LLM_BASE_URL` + `LLM_API_KEY`, or `GEMINI_API_KEY`. Without a provider the
   endpoint answers with mock data and labels it as mock.
-- **Lands with W2-D phase 1:** `METRICS_TOKEN` (at least 16 characters) enables `/metrics`;
+- **W2-D phase 1 (merged):** `METRICS_TOKEN` (at least 16 characters) enables `/metrics`;
   `SOCKET_REDIS_ADAPTER=on` for more than one backend instance; see `docs/deploy/multi-instance.md`.
 - **Lands with W3-C (billing, disabled without keys):** two Stripe products (Pro, Team) with monthly and
   yearly recurring prices (Team per seat); env `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
