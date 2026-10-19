@@ -1,10 +1,10 @@
 import type { Page } from "@playwright/test";
-import { expect, joinAsParticipant, test, type Participant } from "./fixtures";
+import { expect, joinAsParticipant, openLobby, test, type Participant } from "./fixtures";
 
 /**
- * Content slides live (W1-D): a content-only deck presented fullscreen, and a
- * mixed deck (heading → word cloud → select answer) clicked through with two
- * participants. Third-party media (image host, YouTube player) is answered
+ * Content slides live (W1-D): a content-only deck presented fullscreen without
+ * a lobby or any participant, and a mixed deck (heading → word cloud → select
+ * answer) clicked through with two participants. Third-party media (image host, YouTube player) is answered
  * locally, so the run needs no network.
  */
 
@@ -41,18 +41,16 @@ const CONTENT_DECK = [
   { type: "instructions", content: { showQr: true, showCode: true, text: "Grab your phone for the quiz" } },
 ];
 
-test("a content-only deck is presented fullscreen", async ({ browser, contexts, host }) => {
+test("a content-only deck is presented fullscreen, without a lobby or participants", async ({ host }) => {
   const deck = await host.createDeck(`E2E content deck ${Date.now()}`, CONTENT_DECK);
 
   const hostPage = await host.open(`/presentation/host/${deck._id}`);
   await stubThirdPartyMedia(hostPage);
   const stage = hostPage.locator("main");
-  await expect(stage.getByText(deck.joinCode, { exact: true })).toBeVisible();
 
-  // The lobby's Start needs someone in the room (no-lobby start lands with W1-A1).
-  await joinAsParticipant(browser, contexts, deck.joinCode, "Ada");
-  await expect(stage.getByText("1 JOINED")).toBeVisible();
-  await hostPage.getByRole("button", { name: "Start", exact: true }).click();
+  // Present straight away: no lobby is opened and nobody has joined.
+  await expect(stage.getByRole("heading", { name: "Ready to present" })).toBeVisible();
+  await hostPage.getByRole("button", { name: "Start presenting" }).click();
 
   // F puts the console in fullscreen, as a presenter would.
   await expect(stage.getByText("SLIDE 1 OF 8")).toBeVisible();
@@ -113,6 +111,11 @@ test("a content-only deck is presented fullscreen", async ({ browser, contexts, 
   await expect.poll(() => hostPage.evaluate(() => document.fullscreenElement === null)).toBe(true);
   await hostPage.getByRole("button", { name: "End Session" }).click();
   await expect(stage.getByRole("heading", { name: "Session ended" })).toBeVisible();
+
+  // One run, never had a participant.
+  const sessions = await host.getSessions(deck._id);
+  expect(sessions).toHaveLength(1);
+  expect(sessions[0]).toMatchObject({ runNumber: 1, status: "ended", participantCount: 0 });
 });
 
 // Short timers keep the run fast; reveal fires on the host when they expire.
@@ -146,7 +149,7 @@ test("a mixed deck (heading, word cloud, select answer) is clicked through live"
   const deck = await host.createDeck(`E2E mixed deck ${Date.now()}`, MIXED_DECK);
   const hostPage = await host.open(`/presentation/host/${deck._id}`);
   const stage = hostPage.locator("main");
-  await expect(stage.getByText(deck.joinCode, { exact: true })).toBeVisible();
+  await openLobby(hostPage, deck.joinCode);
 
   const ada = await joinAsParticipant(browser, contexts, deck.joinCode, "Ada");
   const grace = await joinAsParticipant(browser, contexts, deck.joinCode, "Grace");

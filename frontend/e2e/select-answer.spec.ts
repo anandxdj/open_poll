@@ -1,4 +1,4 @@
-import { expect, joinAsParticipant, test, type Participant } from "./fixtures";
+import { expect, joinAsParticipant, openLobby, test, type Participant } from "./fixtures";
 
 /**
  * select_answer beyond single choice: a graded multi-select slide (correct =
@@ -43,7 +43,7 @@ test("multi-select and ungraded select-answer slides run live", async ({ browser
   const deck = await host.createDeck(`E2E select answer ${Date.now()}`, [multiSelect, ungraded]);
   const hostPage = await host.open(`/presentation/host/${deck._id}`);
   const stage = hostPage.locator("main");
-  await expect(stage.getByText(deck.joinCode, { exact: true })).toBeVisible();
+  await openLobby(hostPage, deck.joinCode);
 
   const ada = await joinAsParticipant(browser, contexts, deck.joinCode, "Ada");
   const grace = await joinAsParticipant(browser, contexts, deck.joinCode, "Grace");
