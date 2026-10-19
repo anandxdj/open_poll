@@ -22,7 +22,7 @@ Code: `backend/src/app.ts`, `backend/src/http/`. Tests: `backend/tests/http.rout
 
 ## Middleware order (`createApp`)
 
-1. `trust proxy` = 1, `securityHeaders`
+1. `trust proxy` = 1, `securityHeaders`, `httpMetrics` (request latency by route pattern; `platform/observability.md`)
 2. **Pre-parser mounts** (`mountPreParserRoutes`), ahead of CORS, the global JSON parser and `mongoSanitize`:
 
    | Path | Parser | Router | Why it is early |
@@ -30,7 +30,7 @@ Code: `backend/src/app.ts`, `backend/src/http/`. Tests: `backend/tests/http.rout
    | `/api/billing/webhook` | `express.raw({type:'application/json', limit:'1mb'})` | `billingWebhookRouter` | Stripe signs the raw bytes; `req.body` is a Buffer. |
    | `/api/sso/saml/:connectionId/acs` | `express.urlencoded({extended:false, limit:'1mb'})` | `samlAcsRouter` (`mergeParams`) | The IdP form post is cross-origin; the CORS allow-list would reject its Origin. |
    | `/scim/v2` | `express.json({type:['application/json','application/scim+json'], limit:'1mb'})` | `scimRouter` | `mongoSanitize` strips keys containing `.` (`urn:…:2.0:User`). |
-   | `/metrics` | none | `metricsRouter` | Prometheus scrape, bearer token, no browser context. |
+   | `/metrics` | none | `metricsRouter` | Prometheus scrape, bearer `METRICS_TOKEN` (404 when unset), no browser context. |
 
 3. `corsMiddleware` (a rejected origin reaches `errorHandler` → 500, as before)
 4. `express.json({limit:'1mb'})` on `LARGE_JSON_PATHS` (`/api/presentations`, `/api/quizzes`), then `express.json({limit:'100kb'})` for everything else (a body parsed by the first is skipped by the second)
@@ -75,8 +75,8 @@ One line per entry.
 | `/api/uploads` | `modules/uploads/uploads.route.ts` | W0-D |
 | `/api/workspaces` | `modules/workspaces/workspaces.route.ts` | W1-B |
 
-Pre-parser stubs: `billingWebhookRouter` (W3-C), `samlAcsRouter` (W3-D), `scim.route.ts` (W3-D),
-`metrics.route.ts` (W2-D).
+Pre-parser stubs: `billingWebhookRouter` (W3-C), `samlAcsRouter` (W3-D), `scim.route.ts` (W3-D).
+`metrics.route.ts` is implemented (W2-D, `platform/observability.md`).
 
 ## Adding routes
 

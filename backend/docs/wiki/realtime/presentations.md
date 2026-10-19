@@ -21,6 +21,8 @@ the quizzes module was folded in; `quizId` carries the presentation id.
 | `quiz:leave` (legacy) | `quizId` | leaves every room of that presentation | none |
 | `live:join` | `{ presentationId, role: 'host', accessToken? }` or `{ presentationId, role: 'participant', participantId, participantToken }` | live rooms only | ack `{ ok: true, role }` or `{ ok: false, error: 'INVALID_PAYLOAD' \| 'RATE_LIMITED' \| 'UNAUTHENTICATED' \| 'FORBIDDEN' }` |
 | `live:leave` | `{ presentationId }` (or the bare id) | leaves every room of that presentation | ack `{ ok }` |
+| `answer:submit` | the `POST /:id/answer` body plus `presentationId` (identity = the participant token inside; no join needed) | none | ack with the REST envelope: `{ success, status, message, code?, data: AnswerResult \| null }` |
+| `live:resync` | `{ presentationId, role, accessToken? \| participantId + participantToken }` | none | ack `{ ok: true, role, seq, state }` (`ParticipantLiveState` or `HostStateResponse`) or `{ ok: false, error }` |
 
 Authorization (same for both protocols):
 - **host** — the user needs `deck:host` on the deck (`PresentationService.canHost`: its creator, or an active member of the deck's workspace whose role allows hosting). The user comes from
@@ -29,7 +31,10 @@ Authorization (same for both protocols):
 - **participant** — `participantId` + `participantToken` issued by `POST /:id/join`
   (`PresentationService.isAuthorizedParticipant`).
 
-All joins count against the 30-per-minute per-connection budget.
+All joins count against the 30-per-minute per-connection budget. `answer:submit` and `live:resync` have
+their own per-connection budgets (120 per 10 s and 20 per minute); `answer:submit` also counts against
+the participant's answer budget (30 attempts per 10 s) whatever the channel. Behaviour, errors and the
+client retry rule: [`../modules/presentations-live.md`](../modules/presentations-live.md#answer-path).
 
 ## Rooms
 
@@ -57,10 +62,10 @@ of other sessions. Payload types: `PresentationEventPayloads` in
 | `session:lobby` | all | `{ runNumber, joinCode, pace }` — a new session opened its lobby |
 | `lobby:opened` | all | `{ joinCode }` — legacy copy of `session:lobby` |
 | `participant:joined` | all | `{ participantId, name, participantCount }` |
-| `question:started` | all | `{ slideId, slideIndex, slide (sanitized, no answer keys), startedAt, endsAt (null = untimed), serverNow, isLastSlide, reopened }` |
+| `question:started` | all | `{ slideId, slideIndex, slide (sanitized, no answer keys), startedAt, endsAt (null = untimed), serverNow, isLastSlide, reopened, slideTicket }` |
 | `slide:shown` | all | `{ slideId, slideIndex, slide (sanitized content slide), isLastSlide, serverNow }`; content slides open no answer window |
 | `slide:closed` | all | `{ slideId, slideIndex, slide, closedAt, answeredCount, participantCount, isLastSlide, revisit, serverNow }` — answers stopped, results not revealed |
-| `answer:received` | **host only** (forced) | per answer `{ slideId, slideIndex, answeredCount }`; every 2s from `liveDistribution.worker.ts` while answers arrive `{ slideId, slideIndex, answeredCount, participantCount, distribution }` |
+| `answer:received` | **host only** (forced) | coalesced, at most one per slide per 250 ms window per session: `{ slideId, slideIndex, answeredCount, participantCount, distribution }` (`live/coalescer.ts`; also flushed just before a close, reveal, move or end) |
 | `question:revealed` | all | `{ slideId, slideIndex, slide, question, type, scored, distribution, answeredCount, participantCount, isLastSlide, auto, revealedAt, revisit }` |
 | `leaderboard:shown` | all | `{ slideId, slideIndex, slide, leaderboard[], participantCount, isLastSlide }` |
 | `session:ended` | all | `{ runNumber, endedAt, leaderboard[] (≤100), participantCount, answerCount }` |

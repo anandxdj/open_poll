@@ -48,10 +48,12 @@ belongs to one session: a device that joins a later session becomes a new partic
 | `response` | `open` → `closed` → `revealed` (`reopen` goes back to `open`) |
 
 - **Timed** response slides (`timeLimit` > 0) close by the clock: answers are refused after
-  `endsAt` + 750 ms grace, and views report `closed` once `endsAt` has passed.
+  `endsAt` + 750 ms grace (+ up to 15 s with a slide ticket, see [Answer path](#answer-path)),
+  and views report `closed` once `endsAt` has passed.
 - **Untimed** slides (`timeLimit: 0`, allowed for unscored types; scored types need ≥ 5 s) have
   `endsAt: null` and stay `open` until the host closes, reveals or leaves the slide.
-- `reveal` closes the slide first: **no answer is accepted after a reveal**, even before `endsAt`.
+- `reveal` closes the slide first: **no answer is accepted after a reveal**, even before `endsAt`
+  and even with a slide ticket. A scored timed slide reveals itself 1.5 s after its timer (auto-reveal).
 - Leaving an open slide (goto elsewhere) closes it.
 - Revisiting a slide never reopens it: it comes back in its stored phase with its stored results.
 
@@ -98,7 +100,7 @@ Event on arriving at a slide (`goto`, `start`, `advance`):
 | --- | --- | --- |
 | `GET /code/:code` | 60/min + 5000/min global | Adds `sessionId`, `pace`, `currentSlideId`, `currentSlidePhase`. `questionEndsAt` is null for an untimed open slide; after an early close/reveal it is the close time. |
 | `POST /:id/join` | 500 / 5 min | `{name, deviceToken?, locale?}` → `JoinResponse` (adds `sessionId`). Joins the **live** session. 403 `SESSION_FULL` when the session already has `audienceCap` participants (a rejoin with the same `deviceToken` always succeeds). 403 `PARTICIPANT_KICKED` for removed participants. |
-| `POST /:id/answer` | 2000/min | Unchanged body plus optional `sessionId`, `slideId`, `clientAnswerId` (≤ 64 chars). `slideIndex` stays required and must match the slide. 409 `PARTICIPANT_STALE` when the participant belongs to an ended session. |
+| `POST /:id/answer` | 2000/min | Unchanged body plus optional `sessionId`, `slideId`, `clientAnswerId` (≤ 64 chars), `slideTicket`, `offline`. `slideIndex` stays required and must match the slide. Returns `AnswerResult`; see [Answer path](#answer-path) for the replay rule, grace and errors. 409 `PARTICIPANT_STALE` when the participant belongs to an ended session. |
 | `GET /:id/me?participantId&token` | 600/min | Adds `sessionId`; `lastAnswer` (with `slideId`) once the current slide is no longer `open`. |
 | `GET /:id/live-state?participantId&token` | 600/min | `ParticipantLiveState`: session status, settings, theme, current slide (sanitized) with phase and timing, results when revealed, leaderboard on system slides, the participant's own standing, final standings once ended. Use it to resync after any reconnect or `seq` gap. |
 
@@ -116,10 +118,10 @@ Envelope v1 with `sessionId` set (see `realtime/envelope.md`). Payload types:
 | `session:lobby` | all | `open-lobby` — `{runNumber, joinCode, pace}` |
 | `lobby:opened` | all | legacy copy, right after `session:lobby` — `{joinCode}` |
 | `participant:joined` | all | join — `{participantId, name, participantCount}` |
-| `question:started` | all | response slide opened — `{slideId, slideIndex, slide, startedAt, endsAt \| null, serverNow, isLastSlide, reopened}` |
+| `question:started` | all | response slide opened — `{slideId, slideIndex, slide, startedAt, endsAt \| null, serverNow, isLastSlide, reopened, slideTicket}` |
 | `slide:shown` | all | content/board slide — `{slideId, slideIndex, slide, isLastSlide, serverNow}` |
 | `slide:closed` | all | close, or revisit of a closed slide — `{slideId, slideIndex, slide, closedAt, answeredCount, participantCount, isLastSlide, revisit, serverNow}` |
-| `answer:received` | host only | per answer `{slideId, slideIndex, answeredCount}`; the 2 s worker adds `participantCount` + `distribution` |
+| `answer:received` | host only | coalesced: one per dirty slide per 250 ms window `{slideId, slideIndex, answeredCount, participantCount, distribution}` ([Coalesced host updates](#coalesced-host-updates)) |
 | `question:revealed` | all | reveal, or revisit of a revealed slide — legacy fields + `{slideId, slide, revealedAt, revisit}` |
 | `leaderboard:shown` | all | system slide — `{slideId, slideIndex, slide, leaderboard, participantCount, isLastSlide}` |
 | `session:ended` | all | end — `{runNumber, endedAt, leaderboard (≤100), participantCount, answerCount}` |
@@ -129,6 +131,124 @@ Clients ignore events whose `sessionId` is not their session's. `showResultsOnDe
 `quiz.showCorrectOnDevices` are presentation choices applied by the participant UI; results are
 not secret once revealed.
 
+## Answer path
+
+`POST /:id/answer` and the socket `answer:submit` run the same code (`live/answer.service.ts`):
+
+1. **Window.** The session is the client's `sessionId` or `presentation:{pid}:active`; the slide's
+   answer window comes from `psess:{sid}:slides` (rebuilt from the session document on a miss).
+2. **Grade (JS).** The slide type's `answerSchema`, `accept` and `score` run on the window's cached
+   config. A malformed or ungradeable answer is 400 before any write. Ungraded slides never count
+   as correct.
+3. **One script call** (`live/lua/answer.lua`, `EVALSHA` with an `EVAL` fallback, every key under the
+   session's hash tag). In order, with nothing written until the answer is accepted:
+   unknown window or a different run of the slide than the one graded (`STALE`: reload once) →
+   participant token (`NO_TOKEN` falls back to Mongo and re-mirrors the token once; `BAD_TOKEN` 401)
+   → kicked (403) → per-participant rate limit → **dedup** (already answered) → session ended →
+   window closed → deadline → validate the type's ops → write: `SADD answered`, `ZINCRBY scores`,
+   `HINCRBY correct` when correct, every op of the type (`hincrby`, `hsetnx`, `lpush_trim`, run
+   generically, never per type), the stored result in `results`, TTL refresh, and the coalescer
+   mark.
+4. **After the reply.** Accepted answers are queued for batched Mongo write-behind
+   (`live/writeBehind.ts`); the window's owner schedules the host update. Nothing awaits Mongo or a
+   publish.
+
+**Idempotent replays.** An answer carries an optional `clientAnswerId`. If the participant already
+answered the slide and the stored answer has the same `clientAnswerId`, the call returns the
+original `AnswerResult` with `replay: true` and counts nothing again, also after the slide closed
+(a lost ack retried from the offline queue). Any other second answer is 409 `ALREADY_ANSWERED`.
+
+```ts
+AnswerResult = { accepted: true, replay: boolean, slideId, slideIndex,
+                 clientAnswerId: string | null, via: 'rest'|'socket'|'offline', answeredAt }
+```
+
+`via` is the channel of the original answer. A client replaying its offline queue sends
+`offline: true` (stored as `via: 'offline'`, even over the socket).
+
+**Grace and the slide ticket.** A timed slide takes answers until `endsAt` + 750 ms. A
+**ticket** extends that to `endsAt` + 15 s while the host has not closed or revealed the slide.
+The ticket is `st1.` + 32 hex characters: a truncated HMAC-SHA256 (keyed by `ID_SIGNING_SECRET`,
+scope `slide-ticket.v1`) over `sessionId|slideId|startedAtMs` (`live/ticket.ts`). The server hands
+it out only while the window is open — in `question:started`, in the participant `live-state`
+(`current.slideTicket`, null unless open) and in the `live:resync` state — and the client sends it
+back as `slideTicket` with the answer. It proves the client saw this run of the slide while it was
+open; it is per window, not per participant (who answers is the participant token), so a reopened
+slide's old tickets stop working, a ticket for another slide is no ticket, and a malformed one just
+counts as none. Per slide kind:
+
+| Slide | Without ticket | With a valid ticket |
+| --- | --- | --- |
+| Unscored, timed | until `endsAt` + 750 ms | until `endsAt` + 15 s |
+| Scored, timed | until `endsAt` + 750 ms | until the (auto-)reveal, capped at `endsAt` + 15 s |
+| Untimed | while open | while open |
+| Any, after close or reveal | refused | refused (the host's decision wins) |
+| Any, after the session ended | refused | refused |
+
+**Auto-reveal.** A scored, timed slide that is still open 1.5 s after its timer is revealed by the
+engine (`session.service.autoRevealSlide`): the same close + reveal as the host's, `question:revealed`
+published. Open scored timed windows are scheduled in `live:autoreveal` (kept in step by every window
+write, so close, reveal, reopen, pause and leaving the slide re-time or cancel the entry); every
+instance polls it every 250 ms and the successful `ZREM` decides which one reveals, so each slide
+reveals once. A host who closed, revealed or moved on first wins; the job re-checks the session
+before acting. Unscored and untimed slides never auto-reveal.
+
+**Errors.**
+
+| Status | Code | When |
+| --- | --- | --- |
+| 400 | `NOT_ACCEPTING` | no window, wrong slide, closed, revealed, left, session ended |
+| 400 | `TIME_UP` | past the deadline plus grace |
+| 400 | — | malformed payload (`payload.<path>: …`) |
+| 401 | — | wrong participant token |
+| 403 | `PARTICIPANT_KICKED` | removed by the host |
+| 409 | `ALREADY_ANSWERED` | answered already and this is not a replay |
+| 409 | `PARTICIPANT_STALE` | the participant belongs to another session |
+| 429 | `RATE_LIMITED` | more than 30 authenticated attempts in 10 s by this participant (any channel) |
+
+### Socket: `answer:submit` and `live:resync`
+
+`answer:submit` takes the REST body plus `presentationId` and acks the REST envelope with the HTTP
+status the same call would have had:
+
+```ts
+AnswerSubmitAck = { success: true,  status: 200, message: 'Answer accepted', data: AnswerResult }
+                | { success: false, status: number, message: string, code?: string, data: null }
+```
+
+Identity is the participant token in the payload; the socket needs no `live:join` first (joining
+rooms only decides what it receives). Two budgets apply: the participant's script budget above and
+120 `answer:submit` per socket per 10 s (429 `RATE_LIMITED`, before any Redis work). Client rule:
+2xx done; 409/400/401/403 final; 429, 5xx and ack timeouts retry with the same `clientAnswerId`.
+
+`live:resync` takes `{presentationId, role, …credentials}` as `live:join` does and acks
+`{ok: true, role, seq, state}` — `state` is `ParticipantLiveState` (what `GET /:id/live-state` returns,
+ticket included) or `HostStateResponse` (what `GET /:id/host/state` returns) — or
+`{ok: false, error}` with `INVALID_PAYLOAD`, `RATE_LIMITED` (20 per socket per minute),
+`UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `UNAVAILABLE`. `seq` is the deck's envelope counter read
+before the state, so an event with a higher seq is either in the state or still to come. It does not
+join rooms.
+
+### Coalesced host updates
+
+The old per-answer `answer:received` and the 2 s worker are gone. The answer script adds the slide to
+`psess:{sid}:dirty:slides` and tries `SET psess:{sid}:dirty 1 NX PX 250`; the answer that wins owns
+the window and its instance runs `flushDirty` 250 ms later (`live/coalescer.ts`): drain the dirty set
+(`SMEMBERS` + `DEL` in one transaction) and publish ONE host-only `answer:received` per dirty slide
+with the current answered count, participant count and distribution. One Redis key decides who owns
+a window and the drain hands each dirty slide to exactly one flush, so the host gets each update once
+however many instances took answers. A window whose owner died is picked up by the next answer's
+window. Host commands that move or stop the slide (`goto`, `close`, `reveal`, `end`, auto-reveal)
+flush first, so the host always has the last counts before the transition event.
+
+### Write-behind
+
+Mongo is written in batches of up to 200 answers every 50 ms (`live/writeBehind.ts`): `insertMany`
+(unordered; a duplicate key means reconciliation or a replay got there first), then the points of
+the answers that were really inserted are added to their participants — unless the participant is
+final (`scoreFinalAt`, set by the end-of-session reconciliation). A failed batch is logged and
+dropped; reconciliation restores it from `results` at the end.
+
 ## Ending a session
 
 `end` (and `open-lobby` replacing a live session) closes the current slide and writes the snapshot:
@@ -137,6 +257,10 @@ not secret once revealed.
    visited response slide, answers present in `psess:{sid}:results:{slideId}` (full answer JSON)
    but missing in Mongo are inserted; participants' `score`/`correctCount` are set from the Redis
    totals.
+   Participants are marked final (`scoreFinalAt`) **before** the totals are recomputed, so a
+   write-behind batch still in flight cannot add the points of an answer the recount already
+   counted (the answer-path write-behind skips final participants; an answer it stores late is a
+   duplicate key and adds nothing).
 2. `slideStats[]` (per visited response slide: `answeredCount` + the type's `distribution`),
    `finalLeaderboard` (top 100), `participantCount`, `answerCount`.
 3. `retainUntil` from the deck's workspace (`settings.retentionDays` capped by the plan's
@@ -157,9 +281,13 @@ Session-scoped and hash-tagged, so one session's keys share a Cluster slot (Lua-
 | `psess:{<sid>}:scores` / `:correct` / `:names` / `:tokens` | ZSET / HASH | standings, correct counts, nicknames, participant secrets |
 | `psess:{<sid>}:seats` | SET | deviceIds holding a seat (audience cap; SADD-then-SCARD never over-admits) |
 | `psess:{<sid>}:kicked` | SET | removed participantIds |
-| `psess:{<sid>}:answered:{slideId}` | SET | dedup + answered count |
+| `psess:{<sid>}:answered:{slideId}` | SET | dedup + answered count (written only by the answer script) |
 | `psess:{<sid>}:dist:{slideId}` / `:disp:{slideId}` / `:feed:{slideId}` | HASH / HASH / LIST | the slide type's counters |
 | `psess:{<sid>}:results:{slideId}` | HASH | participantId → full answer JSON (`/me` results and reconciliation) |
+| `psess:{<sid>}:dirty` | STRING (PX 250) | coalescer window flag (`SET NX PX`); never part of the 6 h key set |
+| `psess:{<sid>}:dirty:slides` | SET | slideIds answered since the last host update (60 s TTL) |
+| `psess:{<sid>}:rate:{participantId}` | STRING (PX 10 s) | the participant's answer-attempt counter |
+| `live:autoreveal` | ZSET | `<sid>\|<slideId>` → due time (ms) of scored timed slides' auto-reveal (global, not session-scoped) |
 | `live:{pid}:seq` | STRING | envelope seq (unchanged) |
 
 TTL 6 h after the last transition. A missing window is rebuilt from the session document
@@ -170,7 +298,9 @@ TTL 6 h after the last transition. A missing window is rebuilt from the session 
 `SESSION_FULL` (403, join), `SESSION_ALREADY_LIVE` (409, start), `SESSION_BUSY` (409, concurrent
 host commands — retry), `NO_LIVE_SESSION` (400, host commands that need one),
 `PARTICIPANT_KICKED` (403), `PARTICIPANT_STALE` (409, answer from an ended session's participant),
-`FORBIDDEN` (403, policy), `WORKSPACE_FORBIDDEN` (403, bad `X-Workspace-Id`). Messages are for humans.
+`FORBIDDEN` (403, policy), `WORKSPACE_FORBIDDEN` (403, bad `X-Workspace-Id`). Answers add
+`NOT_ACCEPTING` (400), `TIME_UP` (400), `ALREADY_ANSWERED` (409) and `RATE_LIMITED` (429), see
+[Answer path](#answer-path). Messages are for humans.
 
 ## Migration 030 and deploy runbook
 
@@ -214,6 +344,13 @@ Runbook:
   (converted polls) — are unscored: `scored: false` on the slide, results and events, answers
   never count as correct, and their distribution marks no option correct.
 - Unscored built-in types may be untimed (`timeLimit: 0`).
+- Answer path (W2-D): one script call per answer; host `answer:received` is coalesced (one per
+  slide per 250 ms window, with the distribution) instead of one per answer plus a 2 s worker;
+  `POST /answer` returns the richer `AnswerResult` (still `accepted: true`); a repeat with the same
+  `clientAnswerId` is a replay, any other repeat 409 `ALREADY_ANSWERED`; slide tickets stretch the
+  timer grace to 15 s; scored timed slides auto-reveal 1.5 s after their timer; each participant
+  has a budget of 30 answer attempts per 10 s; `question:started` and `live-state` carry
+  `slideTicket`.
 - Host and edit routes use the workspace policy; `GET /api/presentations` lists the current
   workspace's decks (plus the caller's own decks not yet assigned to a workspace when the current
   workspace is their personal one), most recently updated first.
@@ -227,7 +364,10 @@ Runbook:
   `pausedRemainingMs` are reserved for pause/resume; `close`/`reopen` already exist for remotes.
 - **W2-C**: `slideStats`, `finalLeaderboard`, `retainUntil`, `share` are on the session;
   answers are keyed by `{sessionId, slideId, participantId}`.
-- **W2-D**: the answer path reads `:current` and `:slides`; `clientAnswerId` and `via` are stored;
-  `psess:{sid}:results` holds what reconciliation needs.
+- **W2-D** (done): the answer path is one Redis script (below); `clientAnswerId` and `via`
+  (`rest`/`socket`/`offline`) are stored; `psess:{sid}:results` holds what reconciliation needs.
+  Phase 2 (frontend): the offline queue and `submitAnswer` in `live/store.ts` (socket ack 3 s →
+  REST → queue) call `answer:submit` / `POST /answer` with a stable `clientAnswerId`, the slide's
+  ticket and `offline: true` for queued answers, then the legacy `quiz:event` dual-emit goes.
 - **W2-F**: `pace: 'audience'` opens every response slide in `:slides`; `settings.audiencePaced`
   is snapshotted.

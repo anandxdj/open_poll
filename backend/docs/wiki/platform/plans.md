@@ -81,10 +81,14 @@ Public, rate-limited (120/min/IP). Response `data`:
 | `pptxHighFidelity` | `GOTENBERG_URL` |
 | `googleDriveImport` | `GOOGLE_DRIVE_IMPORT_ENABLED=true` + `GOOGLE_DRIVE_API_KEY` + `GOOGLE_DRIVE_APP_ID` + Google OAuth |
 | `customDomains` | `DOMAIN_PROVISIONER` = `vercel` (+ `DOMAIN_VERCEL_TOKEN`, `DOMAIN_VERCEL_PROJECT_ID`) or `caddy`, with `DOMAIN_CNAME_TARGET` |
-| `metrics` | `METRICS_TOKEN` (≥16 chars) |
+| `metrics` | `METRICS_TOKEN` (≥16 chars); without it `GET /metrics` is 404 ([`observability.md`](./observability.md)) |
 | `ai` | `LLM_BASE_URL` + `LLM_API_KEY`, or `GEMINI_API_KEY` (placeholders ignored) |
 
 Each group is validated like the OIDC/Google ones: setting part of it makes the rest required
 and boot fails listing every problem. Parsed settings live on `env.billing`, `env.storage`,
 `env.encryptionKey`, `env.gotenbergUrl`, `env.googleDriveImport`, `env.domains`,
 `env.metricsToken`. All variables are documented in `backend/.env.example`.
+
+`SOCKET_REDIS_ADAPTER=on|off` (`env.socketRedisAdapter`) is a deployment switch, not a
+capability: it links several backend instances' Socket.io servers through Redis
+(`realtime/envelope.md`, `docs/deploy/multi-instance.md`).

@@ -13,7 +13,8 @@ Code: `backend/src/common/realtime/`. Per-module contracts: [`presentations.md`]
 
 | File | Role |
 | --- | --- |
-| `socket.ts` | `setupSocketAndPubSub(io)`: installs handshake auth, attaches every registered module, opens one Redis subscriber per instance (`redisClient.duplicate()`) and routes each channel to its handlers. Returns `{ close }`. |
+| `socket.ts` | `setupSocketAndPubSub(io, { redisAdapter? })`: attaches the optional cluster adapter, counts connections for metrics, installs handshake auth, attaches every registered module, opens one Redis subscriber per instance (`redisClient.duplicate()`) and routes each channel to its handlers. Returns `{ close }`. |
+| `adapter.ts` | `attachRedisAdapter(io, { enabled?, key? })`: `@socket.io/redis-adapter` on two duplicated clients when `SOCKET_REDIS_ADAPTER=on`. |
 | `registry.ts` | `registerSocketModule({ name, onConnection?, channels? })`, `getSocketModules()`. Names are unique (a second registration throws). |
 | `modules.ts` | Append-only list of side-effect imports, one line per module, alphabetical. |
 | `auth.ts` | `socketAuth` (`io.use`), `getSocketUser`, `resolveSocketUserId`, `userFromAccessToken`. |
@@ -87,13 +88,23 @@ publisher can send them to participant rooms.
 
 Every instance subscribes to `live:event`; `deliverLiveEvent` parses and validates the envelope and
 emits with **`io.local.to(room)`** — never `io.to`, which would re-broadcast through a cluster
-adapter and duplicate events. It emits `live:event` to the audience's `live:*` room and the same
+adapter and duplicate events (`tests/integration/multiInstance.test.ts` fails if any handler uses `io.to`). It emits `live:event` to the audience's `live:*` room and the same
 envelope as `quiz:event` to the matching `quiz_*` room. A socket that joined through `quiz:join`
 sits in both kinds of room and receives each event once per event name.
 
 Malformed messages (bad JSON, `v !== 1`, missing `presentationId`/`type`/`audience`/`seq`, bad
 participant audience) are logged and dropped. A throwing channel handler is logged and does not
 stop the other handlers.
+
+## Cluster adapter
+
+`SOCKET_REDIS_ADAPTER=on` (default off) links the Socket.io servers of several instances through Redis
+(`adapter.ts`): rooms and `io.in(room).fetchSockets()` / `disconnectSockets()` / `socketsJoin()` then
+span instances (remote sockets come back as `RemoteSocket`). It is **not** what delivers live events:
+those travel over the `live:event` subscriber and `io.local`, with or without the adapter, so enabling
+it never duplicates or drops an event. Pub/sub ignores the Redis DB index; give each deployment that
+shares a Redis server its own adapter `key` (`RedisAdapterOptions`). Operations:
+[`docs/deploy/multi-instance.md`](../../../docs/deploy/multi-instance.md).
 
 ## Adding to the realtime layer
 
@@ -110,3 +121,5 @@ stop the other handlers.
 - Integration: `backend/tests/realtime.integration.test.ts` — real Redis and Mongo, two Socket.io
   servers sharing one Redis, legacy and new joins. Skipped unless `TEST_REDIS_URL` and
   `TEST_MONGO_URI` are set; the file header has the run command.
+  `backend/tests/integration/multiInstance.test.ts` — two full instances, adapter on and off:
+  every event exactly once on every socket, one coalesced host update.
