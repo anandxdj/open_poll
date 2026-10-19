@@ -7,6 +7,8 @@ mock.module('../src/common/config/email', () => ({
   sendVerificationEmail: async (to: string) => void sent.push({ kind: 'verification', to }),
   sendResetPasswordEmail: async (to: string) => void sent.push({ kind: 'reset', to }),
   sendAccountExistsEmail: async (to: string) => void sent.push({ kind: 'account-exists', to }),
+  // mock.module is process-wide: keep every export other suites import.
+  sendWorkspaceInviteEmail: async () => false,
 }));
 
 const { UserModel } = await import('../src/modules/auth/auth.model');

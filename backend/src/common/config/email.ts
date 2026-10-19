@@ -92,3 +92,41 @@ export const sendAccountExistsEmail = async (email: string) => {
     `
   );
 };
+
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
+
+/**
+ * Invitation to join a team workspace (W3-B1). `url` carries the single-use
+ * token. With mail disabled (no RESEND_API_KEY, never in production) the link
+ * is logged so local setups can still accept invites. Resolves to whether the
+ * provider accepted the message (false when mail is off or the send failed).
+ */
+export const sendWorkspaceInviteEmail = async (
+  email: string,
+  invite: { url: string; workspaceName: string; inviterName: string; role: string; expiresAt: Date },
+) => {
+  if (!resend && !env.isProduction) console.log(`[Email Mock] Workspace invite link for ${email}: ${invite.url}`);
+  const workspace = escapeHtml(invite.workspaceName);
+  const inviter = escapeHtml(invite.inviterName);
+  const role = escapeHtml(invite.role);
+  const url = escapeHtml(invite.url);
+  const delivered = await sendEmail(
+    email,
+    `${invite.inviterName} invited you to ${invite.workspaceName} on OpenPoll`.slice(0, 200),
+    `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+      <h2 style="color: #d8ad87;">Join ${workspace} on OpenPoll</h2>
+      <p>${inviter} invited you to the <strong>${workspace}</strong> workspace as <strong>${role}</strong>.</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${url}" style="background-color: #d8ad87; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Accept invitation</a>
+      </div>
+      <p>Sign in with this email address (${escapeHtml(email)}) to accept. The link works once and expires on ${invite.expiresAt.toUTCString()}.</p>
+      <p style="word-break: break-all; color: #666;">${url}</p>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+      <p style="font-size: 12px; color: #999;">If you weren't expecting this invitation, you can ignore this email.</p>
+    </div>
+    `
+  );
+  return Boolean(delivered);
+};
