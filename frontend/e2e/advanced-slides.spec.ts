@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { expect, joinAsParticipant, test, type Participant } from "./fixtures";
+import { expect, joinAsParticipant, openLobby, test, type Participant } from "./fixtures";
 
 /**
  * The advanced interactive slide types (W2-E): a deck with guess_number,
@@ -66,7 +66,7 @@ test("guess, 100 points, 2x2 grid and pin slides run live and reveal", async ({ 
   const hostPage = await host.open(`/presentation/host/${deck._id}`);
   await stubImage(hostPage);
   const stage = hostPage.locator("main");
-  await expect(stage.getByText(deck.joinCode, { exact: true })).toBeVisible();
+  await openLobby(hostPage, deck.joinCode);
 
   const ada = await joinAsParticipant(browser, contexts, deck.joinCode, "Ada");
   const linus = await joinAsParticipant(browser, contexts, deck.joinCode, "Linus");
