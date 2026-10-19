@@ -101,6 +101,31 @@ describe('pptx zip guards', () => {
     expect(Date.now() - started).toBeLessThan(2000);
   });
 
+  it('stops inflating an entry that is larger than it says', () => {
+    const zip = zipBomb(64 * 1024 * 1024, 'ppt/presentation.xml');
+    const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+    // Declare 1000 bytes in the local header and the central directory.
+    view.setUint32(22, 1000, true);
+    for (let i = 0; i < zip.length - 4; i++) if (view.getUint32(i, true) === 0x02014b50) view.setUint32(i + 24, 1000, true);
+    const started = Date.now();
+    const limits = { maxEntries: 10, maxTotalBytes: 1e6, maxEntryBytes: 1e6, maxRatio: 1e9, ratioFloorBytes: 1e6 };
+    expect(() => PptxReader.open(zip, limits).read()).toThrow(/looks unsafe \(an entry is larger than it says\)/);
+    expect(Date.now() - started).toBeLessThan(500);
+  });
+
+  it('rejects truncated, encrypted and zip64 archives', () => {
+    const good = buildPptx({ slides: [{ title: 'a' }] });
+    expect(() => PptxReader.open(good.subarray(0, good.length - 40))).toThrow(ImportError);
+    const encrypted = good.slice();
+    const view = new DataView(encrypted.buffer);
+    for (let i = 0; i < encrypted.length - 4; i++) if (view.getUint32(i, true) === 0x02014b50) view.setUint16(i + 8, 1, true);
+    expect(() => PptxReader.open(encrypted)).toThrow(/encrypted/);
+    const zip64 = good.slice();
+    const v64 = new DataView(zip64.buffer);
+    for (let i = zip64.length - 22; i >= 0; i--) if (v64.getUint32(i, true) === 0x06054b50) { v64.setUint16(i + 10, 0xffff, true); break; }
+    expect(() => PptxReader.open(zip64)).toThrow(/4 GB/);
+  });
+
   it('rejects path traversal entry names', () => {
     expect(() => PptxReader.open(traversalZip())).toThrow(/looks unsafe/);
     expect(() => PptxReader.open(traversalZip('/abs/evil.txt'))).toThrow(/looks unsafe/);

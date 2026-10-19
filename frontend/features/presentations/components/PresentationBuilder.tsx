@@ -1,16 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
+import { ImportQuestionsDialog } from "@/features/imports";
+import { blankSlide } from "../slides/editor";
+import type { PresentationSlide, PresentationSlideType } from "../types/deck";
 import { AiPresentationModal } from "./AiPresentationModal";
 import { BuilderHeader } from "./builder/BuilderHeader";
 import { BuilderShell } from "./builder/BuilderShell";
+import { isSlideDirty } from "./builder/deckDraft";
 import { Inspector } from "./builder/Inspector";
 import { SlideRail } from "./builder/SlideRail";
 import { useDeckBuilder } from "./builder/useDeckBuilder";
 
 export function PresentationBuilder() {
   const builder = useDeckBuilder();
+  const [importOpen, setImportOpen] = useState(false);
 
   if (builder.loading) {
     return (
@@ -30,6 +36,7 @@ export function PresentationBuilder() {
             isEditing={Boolean(builder.editId)}
             isAiGenerating={builder.isAiGenerating}
             onOpenAi={() => builder.setAiOpen(true)}
+            onImportQuestions={() => setImportOpen(true)}
             saving={builder.saving}
             savingDraft={builder.savingDraft}
             onSave={builder.handleSave}
@@ -64,6 +71,21 @@ export function PresentationBuilder() {
         onGenerated={builder.handleGenerated}
         onGenerate={builder.handleAiGenerate}
         isGenerating={builder.isAiGenerating}
+      />
+
+      <ImportQuestionsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        // A deck holds 50 slides; the untouched starter slide is replaced by the first import.
+        room={Math.max(0, 50 - builder.slides.filter(isSlideDirty).length)}
+        onAdd={(slides) => {
+          // The server already checked these with the slide registry's schema, the rules the builder follows.
+          const imported = slides.map(
+            (slide) => ({ ...blankSlide(slide.type as PresentationSlideType), ...slide }) as unknown as PresentationSlide
+          );
+          builder.handleGenerated({ title: "", slides: imported });
+          setImportOpen(false);
+        }}
       />
     </>
   );

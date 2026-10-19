@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test';
 import mongoose from 'mongoose';
+import { env } from '../../src/common/config/env';
 import { redisClient } from '../../src/common/config/redis';
 import { setStorageDriver, type StorageDriver } from '../../src/common/storage/storage';
 import { resolveWorkspaceContext } from '../../src/common/tenancy/workspaceContext.middleware';
@@ -218,6 +219,38 @@ describeIntegration('imports', () => {
         const deck = await PresentationModel.findById(job.resultPresentationId).lean();
         expect(deck!.slides.map((s: any) => s.type)).toEqual(['heading', 'paragraph']);
       });
+    });
+
+    it('imports a private Drive file with the picker token when Drive import is configured, and forgets the token', async () => {
+      const previous = env.googleDriveImport;
+      env.googleDriveImport = { apiKey: 'test-key', appId: '123456789012' };
+      try {
+        const seen: Array<{ url: string; auth: string | null }> = [];
+        startWorker({
+          pipeline: {
+            resolve: async () => ['142.250.74.78'],
+            fetchImpl: (async (url: URL, init?: RequestInit) => {
+              seen.push({ url: String(url), auth: new Headers(init?.headers).get('authorization') });
+              return url.pathname.endsWith('/export')
+                ? new Response(buildPptx({ slides: [{ title: 'Private deck' }] }), { headers: { 'content-type': PPTX_MIME } })
+                : Response.json({ mimeType: 'application/vnd.google-apps.presentation' });
+            }) as unknown as typeof fetch,
+          },
+        });
+        const res = await post({ kind: 'gslides', driveFileId: '1aBcDeFgHiJkLmNoPqRsTuVwXyZ', driveAccessToken: 'ya29.picker-token-123' });
+        expect(res.status).toBe(202);
+        const queued = ((await res.json()) as any).data;
+        // The token is not in the job document or its API view.
+        expect(JSON.stringify(queued)).not.toContain('ya29');
+        expect(JSON.stringify((await ImportJobModel.findById(queued.id).lean()))).not.toContain('ya29');
+        const job = await waitFor(queued.id);
+        expect(job.status).toBe('completed');
+        expect(seen.map((s) => s.auth)).toEqual(['Bearer ya29.picker-token-123', 'Bearer ya29.picker-token-123']);
+        expect((await PresentationModel.findById(job.resultPresentationId))!.slides).toHaveLength(1);
+        expect(await redisClient.exists(importKeys.token(queued.id))).toBe(0);
+      } finally {
+        env.googleDriveImport = previous;
+      }
     });
 
     it('fails with a readable message, once, when the file is not a presentation', async () => {
@@ -505,6 +538,8 @@ describeIntegration('imports', () => {
       expect(data).toMatchObject({ mode: 'preview', fileKind: 'csv', imported: GOOD_ROWS.length, skipped: 2, totalRows: GOOD_ROWS.length + 2 });
       expect(data.errors.map((e: any) => e.row)).toEqual([10, 11]);
       expect(data.questions[0]).toMatchObject({ row: 2, type: 'select_answer', question: 'Capital of France?' });
+      expect(data.slides).toHaveLength(GOOD_ROWS.length);
+      expect(data.slides[0]).toMatchObject({ type: 'select_answer', question: 'Capital of France?', timeLimit: 20 });
       expect(await PresentationModel.countDocuments()).toBe(0);
       expect(await ImportJobModel.countDocuments()).toBe(0);
     });
@@ -572,6 +607,28 @@ describeIntegration('imports', () => {
       expect(await wrongHeader.json()).toMatchObject({ code: 'QUESTIONS_HEADER_INVALID' });
       const big = await questions(new Uint8Array(2 * 1024 * 1024 + 10), {});
       expect(big.status).toBe(413);
+      // Far past the limit: the body is cut off, yet the client still gets the JSON answer.
+      const huge = await questions(new Uint8Array(12 * 1024 * 1024), {});
+      expect(huge.status).toBe(413);
+      expect(await huge.json()).toMatchObject({ code: 'UPLOAD_TOO_LARGE' });
+      // Without a Content-Length the stream itself is counted and cut off.
+      const boundary = 'x-boundary';
+      let sent = 0;
+      const stream = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (sent === 0) controller.enqueue(new TextEncoder().encode(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="q.csv"\r\n\r\n`));
+          controller.enqueue(new Uint8Array(512 * 1024));
+          sent += 1;
+          if (sent >= 24) controller.close();
+        },
+      });
+      const chunked = await fetch(`${server.baseUrl}/api/imports/questions`, {
+        method: 'POST',
+        headers: { ...user.headers, 'content-type': `multipart/form-data; boundary=${boundary}` },
+        body: stream,
+        duplex: 'half',
+      } as RequestInit);
+      expect(chunked.status).toBe(413);
       const bogus = await questions(csv(), { mode: 'whatever' });
       expect(bogus.status).toBe(400);
       const json = await server.request('/api/imports/questions', { method: 'POST', headers: user.headers, body: { file: 'x' } });

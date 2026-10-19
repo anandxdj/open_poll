@@ -30,15 +30,38 @@ export async function readMultipart(req: Request, options: { maxFileBytes: numbe
   const chunks: Buffer[] = [];
   let total = 0;
   try {
-    for await (const chunk of req) {
-      const buffer = chunk as Buffer;
-      total += buffer.length;
-      if (total > limit) {
-        req.destroy();
-        throw tooLarge(options.maxFileBytes);
-      }
-      chunks.push(buffer);
-    }
+    await new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
+        req.off('data', onData);
+        req.off('end', onEnd);
+        req.off('error', onError);
+        req.off('aborted', onError);
+      };
+      const onData = (chunk: Buffer) => {
+        total += chunk.length;
+        if (total > limit) {
+          cleanup();
+          chunks.length = 0;
+          // Let the rest of the body drain into nothing; the controller closes the connection after answering.
+          req.resume();
+          reject(tooLarge(options.maxFileBytes));
+          return;
+        }
+        chunks.push(chunk);
+      };
+      const onEnd = () => {
+        cleanup();
+        resolve();
+      };
+      const onError = () => {
+        cleanup();
+        reject(ApiError.badRequest('The upload was interrupted'));
+      };
+      req.on('data', onData);
+      req.on('end', onEnd);
+      req.on('error', onError);
+      req.on('aborted', onError);
+    });
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw ApiError.badRequest('The upload was interrupted');

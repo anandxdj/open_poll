@@ -18,6 +18,17 @@ const importContext = (req: WorkspaceRequest): ImportContext => {
 
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
+// The templates never change while the process runs: build each once.
+let xlsxTemplate: Promise<Buffer> | null = null;
+const templateXlsx = () => {
+  xlsxTemplate ??= questionsTemplateXlsx().then((bytes) => Buffer.from(bytes));
+  xlsxTemplate.catch(() => {
+    xlsxTemplate = null;
+  });
+  return xlsxTemplate;
+};
+const templateCsv = Buffer.from(questionsTemplateCsv(), 'utf8');
+
 export class ImportsController {
   static async create(req: WorkspaceRequest, res: Response, next: NextFunction) {
     try {
@@ -58,6 +69,8 @@ export class ImportsController {
       }
       return ApiResponse.ok(res, 'Questions checked', result);
     } catch (error) {
+      // An upload cut off for size may still be streaming in: answer, then drop the connection.
+      if (error instanceof ApiError && error.statusCode === 413) res.setHeader('Connection', 'close');
       next(error);
     }
   }
@@ -68,14 +81,14 @@ export class ImportsController {
       if (format !== 'csv' && format !== 'xlsx') throw ApiError.notFound('Template not found');
       res.setHeader('Cache-Control', 'public, max-age=3600');
       if (format === 'xlsx') {
-        const bytes = await questionsTemplateXlsx();
+        const bytes = await templateXlsx();
         res.setHeader('Content-Type', XLSX_TYPE);
         res.setHeader('Content-Disposition', 'attachment; filename="openpoll-questions-template.xlsx"');
-        return res.send(Buffer.from(bytes));
+        return res.send(bytes);
       }
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename="openpoll-questions-template.csv"');
-      return res.send(questionsTemplateCsv());
+      return res.send(templateCsv);
     } catch (error) {
       next(error);
     }

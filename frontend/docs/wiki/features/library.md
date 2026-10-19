@@ -16,7 +16,7 @@ sidebar item is "Library"; `/presentations` redirects to `/polls?type=presentati
 | `query.ts` | Pure logic, unit tested in `tests/unit/library.query.test.ts`: URL ⇄ filters (`parseLibraryFilters`, `filtersToSearch`, `filtersKey`), request params, page merging (`mergeLibraryItems` dedupes by `entityType:id`), count adjustments after delete/close, card links and labels, empty-state copy. |
 | `api/library.ts` | `fetchLibraryPage`, `convertPollToPresentation(pollId, {force})`, `deleteLibraryItem`, `closePoll`. |
 | `hooks/useLibrary.ts` | First page per filter set, cursor pages via `loadMore`, `remove`/`replace` for optimistic updates. Responses for stale filters are dropped. |
-| `components/LibraryView.tsx` | Header (New poll / New deck), stats from `counts` (Total, Live now, Drafts), type tabs with counts, status select, debounced search, grid, infinite scroll (IntersectionObserver on a "Load more" sentinel). |
+| `components/LibraryView.tsx` | Header (New poll / Import / New deck; Import is `features/imports`, see `imports.md`), stats from `counts` (Total, Live now, Drafts), type tabs with counts, status select, debounced search, grid, infinite scroll (IntersectionObserver on a "Load more" sentinel). |
 | `components/LibraryCard.tsx` | One card per entity with its actions and confirm dialogs. |
 
 ## Filters live in the URL

@@ -185,7 +185,8 @@ export class ImportsService {
       capacity,
       questions: parsed.questions.map(({ row, type, question, detail }) => ({ row, type, question, detail })),
     };
-    if (params.mode === 'preview') return { mode: 'preview' as const, ...summary };
+    // The builder adds previewed slides to the deck it has open, so a preview carries them.
+    if (params.mode === 'preview') return { mode: 'preview' as const, ...summary, slides: parsed.questions.map((q) => q.slide) };
 
     if (parsed.questions.length === 0) {
       throw new ApiError(400, 'No valid questions were found in this file', 'NO_VALID_QUESTIONS', { errors: parsed.errors });

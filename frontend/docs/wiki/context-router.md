@@ -37,6 +37,9 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Changing the library at `/polls` (poll + deck cards, filters, convert to presentation).
 - **Action**: Read `frontend/docs/wiki/features/library.md`
 
+- **Task**: Importing decks or questions (the Import dialog, PowerPoint/PDF/Google Slides jobs, CSV/Excel questions, the builder's "Import questions").
+- **Action**: Read `frontend/docs/wiki/features/imports.md`
+
 ## 4. API & Data
 
 - **Task**: Writing fetch calls, React Query hooks, or API integrations.

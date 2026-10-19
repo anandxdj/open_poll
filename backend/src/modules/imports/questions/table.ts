@@ -114,13 +114,14 @@ const XLSX_ZIP_LIMITS: ZipLimits = {
 
 export async function readXlsx(bytes: Uint8Array, options: XlsxOptions = {}): Promise<Table> {
   if (!looksLikeZip(bytes)) throw notReadable('Excel', 'it is not an .xlsx workbook');
-  // The archive is checked (entry count, expanded size, ratio) before exceljs inflates anything.
-  SafeZip.open(bytes, (detail) => notReadable('Excel', detail), options.zip ?? XLSX_ZIP_LIMITS);
+  // The archive is checked (entry count, expanded size, ratio, real sizes) and repacked: exceljs only ever
+  // sees a copy whose declared sizes are true.
+  const clean = SafeZip.open(bytes, (detail) => notReadable('Excel', detail), options.zip ?? XLSX_ZIP_LIMITS).repack();
 
   const { default: ExcelJS } = await import('exceljs');
   const workbook = new ExcelJS.Workbook();
   try {
-    await workbook.xlsx.load(Buffer.from(bytes) as unknown as ArrayBuffer);
+    await workbook.xlsx.load(Buffer.from(clean) as unknown as ArrayBuffer);
   } catch {
     throw notReadable('Excel', 'the workbook is damaged or not an .xlsx file');
   }

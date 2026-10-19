@@ -1,3 +1,4 @@
+import { deflateSync } from 'node:zlib';
 import { strToU8, zipSync } from 'fflate';
 
 /**
@@ -19,11 +20,49 @@ const CT = 'application/vnd.openxmlformats-officedocument';
 export const SLIDE_WIDTH = 12192000;
 export const SLIDE_HEIGHT = 6858000;
 
-/** A real 1x1 red PNG. */
-export const PNG_1X1 = Uint8Array.from(
-  atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg=='),
-  (c) => c.charCodeAt(0),
-);
+const crc32 = (bytes: Uint8Array) => {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+};
+
+/** A valid solid-colour PNG, built by hand (no image library involved). */
+export function makePng(width = 1, height = 1, [r, g, b]: [number, number, number] = [255, 0, 0]): Uint8Array {
+  const chunk = (type: string, data: Uint8Array) => {
+    const body = new Uint8Array(4 + data.length);
+    body.set(strToU8(type), 0);
+    body.set(data, 4);
+    const out = new Uint8Array(12 + data.length);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, data.length);
+    out.set(body, 4);
+    view.setUint32(8 + data.length, crc32(body));
+    return out;
+  };
+  const header = new Uint8Array(13);
+  const hv = new DataView(header.buffer);
+  hv.setUint32(0, width);
+  hv.setUint32(4, height);
+  header.set([8, 2, 0, 0, 0], 8); // 8-bit RGB
+  const row = new Uint8Array(1 + width * 3);
+  for (let x = 0; x < width; x++) row.set([r, g, b], 1 + x * 3);
+  const raw = new Uint8Array(row.length * height);
+  for (let y = 0; y < height; y++) raw.set(row, y * row.length);
+  const parts = [Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', header), chunk('IDAT', new Uint8Array(deflateSync(raw))), chunk('IEND', new Uint8Array(0))];
+  const png = new Uint8Array(parts.reduce((n, part) => n + part.length, 0));
+  let at = 0;
+  for (const part of parts) {
+    png.set(part, at);
+    at += part.length;
+  }
+  return png;
+}
+
+/** A valid 1x1 red PNG. */
+export const PNG_1X1 = makePng();
 
 const escapeXml = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
