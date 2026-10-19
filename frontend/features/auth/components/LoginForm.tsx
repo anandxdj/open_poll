@@ -15,6 +15,7 @@ import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import axios from "@/lib/api-client";
 import { toast } from "sonner";
 import { getAuthLoginUrl, getGoogleAuthUrl } from "@/lib/env";
+import { takeInviteRedirect } from "@/features/workspaces/invites/pendingInvite";
 
 const GoogleIcon = (props: JSX.IntrinsicAttributes & SVGProps<SVGSVGElement>) => (
   <svg fill="currentColor" viewBox="0 0 24 24" {...props}>
@@ -68,7 +69,8 @@ export function LoginForm() {
       setUser(user);
       
       toast.success("Welcome back!");
-      router.push("/polls");
+      // Back to an invitation the user opened before signing in, else the dashboard.
+      router.push(takeInviteRedirect(searchParams.get("next")) ?? "/polls");
     } catch (err) {
       const message = isAxiosError(err) ? err.response?.data?.message : undefined;
       toast.error(message || "Login failed. Please try again.");

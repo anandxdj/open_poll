@@ -60,6 +60,13 @@ browser context per participant.
   live; the builder editing and saving an ungraded multi-select slide (checked through
   `host.getDeck`). ~30 s.
 
+- `e2e/members.spec.ts` — teams and sharing: owner invites a second (seeded) account from
+  `/settings/members`, the invite link is read from the form (no mail provider in e2e), the invitee
+  signs in through `/login?next=…`, joins as editor, sees the deck and is refused member
+  management; the owner demotes them, shares the deck through the ShareDialog and checks the
+  audit log. Seeds the second user with `scripts/seed-e2e-user.ts` and upgrades the new workspace
+  with `scripts/set-plan.ts` (a free team has one seat). ~30 s.
+
 Run against your own database and ports when other suites share the machine, e.g.
 `E2E_MONGO_URI=mongodb://127.0.0.1:27117/openpoll_mine?directConnection=true
 E2E_REDIS_URL=redis://127.0.0.1:6390/11 E2E_BACKEND_PORT=5111 E2E_FRONTEND_PORT=3111 bun run test:e2e`.

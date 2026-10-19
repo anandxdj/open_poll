@@ -31,7 +31,7 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Changing the live host console, participant view, stage, slide runtime views, the live store/slots, deck theme tokens, or live i18n.
 - **Action**: Read `frontend/docs/wiki/features/live-surfaces.md`
 
-- **Task**: Workspaces (switcher, selected workspace, `X-Workspace-Id`) or any `/settings` page or section.
+- **Task**: Workspaces (switcher, selected workspace, `X-Workspace-Id`), any `/settings` page or section, members and roles, invitations (`/invites/[token]`), the ShareDialog, or the audit log.
 - **Action**: Read `frontend/docs/wiki/features/workspaces.md`
 
 - **Task**: Changing the library at `/polls` (poll + deck cards, filters, convert to presentation).

@@ -64,7 +64,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { id: "mcp", label: "MCP", href: "/settings/mcp", icon: Plug, group: "account", ready: true },
   { id: "privacy", label: "Privacy", href: "/settings/privacy", icon: ShieldCheck, group: "account", ready: false },
   { id: "workspace", label: "Workspace", href: "/settings/workspace", icon: Building2, group: "workspace", ready: true },
-  { id: "members", label: "Members", href: "/settings/members", icon: Users, group: "workspace", ready: false, teamOnly: true },
+  { id: "members", label: "Members", href: "/settings/members", icon: Users, group: "workspace", ready: true, teamOnly: true },
   {
     id: "brand",
     label: "Brand",
@@ -126,7 +126,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     href: "/settings/audit",
     icon: ScrollText,
     group: "workspace",
-    ready: false,
+    ready: true,
     action: { name: "workspace:manage", minimumRole: "admin" },
   },
 ];

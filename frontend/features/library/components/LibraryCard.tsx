@@ -43,6 +43,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { slideTypeMeta } from "@/features/presentations/slides/meta";
 import type { PresentationSlideType } from "@/features/presentations/types/deck";
+import { ShareDialog } from "@/features/workspaces/sharing/components/ShareDialog";
+import { useCanShareDecks } from "@/features/workspaces/sharing/useCanShare";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { closePoll, convertPollToPresentation, deleteLibraryItem } from "../api/library";
@@ -85,6 +87,8 @@ export function LibraryCard({ card, onRemoved, onChanged }: LibraryCardProps) {
   const router = useRouter();
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const canShareDecks = useCanShareDecks();
   const isPoll = card.entityType === "poll";
   const noun = isPoll ? (card.details.pollType === "TRIAL" ? "assessment" : "poll") : "deck";
 
@@ -193,12 +197,19 @@ export function LibraryCard({ card, onRemoved, onChanged }: LibraryCardProps) {
                 onClose={() => setConfirm("close")}
               />
             ) : (
-              <DropdownMenuItem
-                className={menuItemClass}
-                onSelect={() => void copyText(links().share, "Join link copied!")}
-              >
-                <Copy className="size-4" /> Copy join link
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onSelect={() => void copyText(links().share, "Join link copied!")}
+                >
+                  <Copy className="size-4" /> Copy join link
+                </DropdownMenuItem>
+                {canShareDecks ? (
+                  <DropdownMenuItem className={menuItemClass} onSelect={() => setShareOpen(true)}>
+                    <Users className="size-4" /> Share with team…
+                  </DropdownMenuItem>
+                ) : null}
+              </>
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -253,6 +264,10 @@ export function LibraryCard({ card, onRemoved, onChanged }: LibraryCardProps) {
       <p className="mt-4 border-t border-border/50 pt-3 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">
         Updated {formatDistanceToNowStrict(new Date(card.updatedAt), { addSuffix: true })}
       </p>
+
+      {!isPoll && shareOpen ? (
+        <ShareDialog open onOpenChange={setShareOpen} resourceType="presentation" resourceId={card.id} title={card.title} />
+      ) : null}
 
       <AlertDialog open={confirm !== null} onOpenChange={(open) => !open && !busy && setConfirm(null)}>
         <AlertDialogContent className="rounded-3xl border-border bg-card">

@@ -1,5 +1,5 @@
 ---
-summary: Workspace selection (store, X-Workspace-Id, switcher), the /settings shell with its gated section nav, and how a package adds a settings page.
+summary: Workspace selection (store, X-Workspace-Id, switcher), the /settings shell with its gated section nav, members, invitations, the ShareDialog, the audit log, and how a package adds a settings page.
 status: active
 last_updated: 2026-10-19
 ---
@@ -62,7 +62,7 @@ While capabilities or the workspace detail are loading, gated entries are disabl
 | --- | --- | --- |
 | profile, mcp, workspace | none | W1-B |
 | privacy | – | W4-C |
-| members | team only | W3-B1 |
+| members | team only (every member sees the roster; managers get the controls) | W3-B1 |
 | audit | `workspace:manage` (admin) | W3-B1 |
 | brand | `brand_kits`, `workspace:brand` (admin) | W3-A |
 | billing | capability `billing`, `workspace:billing` (owner) | W3-C |
@@ -79,7 +79,29 @@ While capabilities or the workspace detail are loading, gated entries are disabl
 3. Gate the page content itself too (a direct URL bypasses the nav): read `useCurrentWorkspace()` and
    `useCapabilities()`, and rely on the API's 403/503 for the real enforcement.
 
+## Members, invitations, sharing, audit (W3-B1)
+
+Backend contract: `backend/docs/wiki/modules/members-sharing.md`. Plain English strings like the rest
+of the dashboard (next-intl serves the live routes only); native `<select>`s for roles.
+
+| Path (`features/workspaces/…`) | Role |
+| --- | --- |
+| `members/types.ts`, `members/roles.ts` | API shapes; `assignableRoles`, `invitableRoles`, `canChangeMember` (mirror of the backend rank rules, the server still enforces), seat text. |
+| `members/api/members.api.ts` | members CRUD, ownership transfer, invites list/create/revoke (path workspace, not `X-Workspace-Id`). |
+| `members/components/MembersSettings.tsx` | `/settings/members`: seats, `InviteForm`, `MemberRow` list (role select, suspend, remove, leave, make primary owner), `PendingInvites`, confirm dialogs. Non-managers get a read-only roster. Personal workspaces get a one-line explanation. |
+| `members/components/InviteForm.tsx` | Email + role; afterwards shows the invitation link and whether mail went out (`emailSent`): on a server without mail the owner copies it. The link is only returned on create/refresh, never in the pending list. |
+| `invites/components/AcceptInvite.tsx` | `/invites/[token]` (public page, `app/invites/[token]/page.tsx`, `noindex`, no referrer): masked preview, "Sign in to accept" or "Join", error states (`INVITE_EMAIL_MISMATCH` offers to sign in with another account). After accepting it makes the workspace the default and the selection, then goes to `/polls`. |
+| `invites/pendingInvite.ts` | Carries an invitation through sign-in: the invite page stores `/invites/<token>` in `localStorage` (24 h), and `LoginForm` / `useAuthPageRedirect` call `takeInviteRedirect(?next)` after signing in. Only `/invites/<token>` paths are ever returned to. Google/SSO sign-ins land on `/polls`; the emailed link works again from there. |
+| `sharing/components/ShareDialog.tsx` | Who a deck (or folder) is shared with: members and groups, share role (editor, presenter, viewer), save = `PUT /api/shares` with the whole list. Entry point: **"Share with team…"** in the library deck card menu (`LibraryCard.tsx`), shown by `useCanShareDecks()` for team workspaces when the role is editor or above. |
+| `sharing/shareModel.ts` | Pure list editing: candidates, add/change/remove, dirty check, redundant-share hint. |
+| `audit/components/AuditLog.tsx` | `/settings/audit`: filters (action or action group, person), "Load older events" cursor paging, readable text from `audit/format.ts`. |
+
 ## Tests
 
-`tests/unit/workspaces.store.test.ts` (selection logic, store actions, persistence) and
-`tests/unit/settings.sections.test.ts` (registry and gate order). Run with `bun run test`.
+`tests/unit/workspaces.store.test.ts` (selection logic, store actions, persistence),
+`tests/unit/settings.sections.test.ts` (registry and gate order) and
+`tests/unit/workspaces.members.test.ts` (role rules, seat text, invite redirect handling, share list
+editing, audit text). Run with `bun run test`. `e2e/members.spec.ts` covers the whole journey: an
+owner invites a teammate, who signs in through the invite link, joins as editor, sees the deck, cannot
+manage members; the owner demotes them, shares the deck back through the ShareDialog, and reads it all
+in the audit log.
