@@ -25,7 +25,8 @@ Route `/presentation/create` (`app/(dashboard)/presentation/create/page.tsx`, `?
 ## Slide registries
 
 Each slide type has a folder `slides/types/<type>/` (`select_answer`, `type_answer`, `wordcloud`,
-`open_ended`, `scales`, `ranking`, `leaderboard`, and the content types `heading`, `paragraph`,
+`open_ended`, `scales`, `ranking`, `leaderboard`, the advanced types `guess_number`,
+`hundred_points`, `grid_2x2`, `pin_on_image`, and the content types `heading`, `paragraph`,
 `bullets`, `image`, `big_number`, `quote`, `video`, `instructions`):
 
 | File | Loaded by | Contents |
@@ -40,11 +41,12 @@ alphabetical.
 ### Meta (`slides/meta.ts`)
 
 - `SLIDE_META[type]`, `slideTypeMeta(type)` — falls back to `select_answer` for unknown types.
-- `section`: `interactive` | `competition` | `content` | `system`. `PICKER_SECTIONS` lists the
-  sections the "New slide" picker shows, in order (Interactive, Quiz competitions, Content slides);
-  `system` types (`leaderboard`) are never offered.
+- `section`: `interactive` | `competition` | `advanced` | `content` | `system`. `PICKER_SECTIONS`
+  lists the sections the "New slide" picker shows, in order (Interactive, Quiz competitions,
+  Advanced slides, Content slides); `system` types (`leaderboard`) are never offered.
 - `SLIDE_TYPE_META` — authorable types sorted by `order` (the picker). `AI_SLIDE_TYPE_META` — the
   subset `POST /api/ai/generate-quiz` accepts (interactive + competition; the AI modal lists it).
+  The advanced types are not part of it.
 - `summary?(slide)` — the slide's own text for types without a question (content types).
   `slideLabel(slide)` = question, else summary, else the type label (slide rail, aria labels);
   `isContentSlide(type)` = `section === "content"`.
@@ -87,6 +89,37 @@ scoring from `meta.scored`), `cleanBase(slide, meta)`, `requireQuestion`, `padTo
 **Adding a slide type:** create `slides/types/<type>/{meta.ts, editor.tsx}`, add one line to
 `SLIDE_META` and one to `SLIDE_EDITORS`, and add the type to `PresentationSlideType` in
 `types/deck.ts`. A new picker section is one entry in `PICKER_SECTIONS`.
+
+### Advanced slides
+
+Four interactive types in the "Advanced slides" section (`section: "advanced"`, `order` 70–100).
+Their settings live in `slide.config` (`SlideConfig` in `types/deck.ts`: select_answer's settings or
+the type's own object); every type folder has a `config.ts` with the typed settings, **defensive
+readers** (the config arrives from the API, a local draft or a live event), the backend's limits and
+validation messages, and the helpers behind the views. Backend contract: `modules/presentations.md`,
+"Advanced interactive types". Shared pieces: `slides/advanced/read.ts` (runtime-safe readers and
+number helpers), `slides/advanced/editorFields.tsx` (builder-only: `NumberField`, `GradedSwitch`,
+`ItemsField`, `IssueNote`).
+
+| Type | Settings | Editor | `validate()` messages |
+| --- | --- | --- | --- |
+| `guess_number` | `config: {min, max, step, correct, tolerance}` | Min / Max / Step, **Graded** switch, correct number and tolerance (±) while graded, inline problem note | "max must be greater than min.", "step must fit between min and max.", "use a larger step: …", "use at most 4 decimal places.", "enter the correct number, or turn grading off.", "the correct number must be on the slider steps.", "scored slides need a timer of at least 5 seconds." |
+| `hundred_points` | `config: {items}` | 2–10 items | "add at least 2 items.", "use at most 10 items." |
+| `grid_2x2` | `config: {items, x: {label, min, max}, y: {...}}` | 1–10 items, a name and lowest/highest value for each axis | "add at least one item.", "name the horizontal axis.", "the vertical axis max must be greater than its min.", "the horizontal axis needs whole numbers." |
+| `pin_on_image` | `content: {key, url, alt}`, `config: {region: {x,y,width,height}\|null}` | `ImagePicker` (upload or https link), alt text (**required**), **Graded** switch, then the correct area: drag on the image or type Left/Top/Width/Height in % | "choose an image or paste an https link.", "add alt text describing the image.", "draw the correct area on the image, or turn grading off.", "the correct area is too small." |
+
+- **Graded = `points > 0`**, as on `select_answer`: the switch turns the slide's points on (1000, speed
+  bonus on, timer ≥ 5 s) or off (0). Blank slides start **ungraded**; the types' `meta.scored` is
+  true for `guess_number` and `pin_on_image` (they can award points, so the Settings tab shows max
+  points and the speed bonus and `SCORED_SLIDE_TYPES` lists them) and false for the other two.
+  `clean()` drops the correct number / area of an ungraded slide and zeroes its points.
+- `blank()`: ungraded, `hundred_points` / `grid_2x2` with two empty items and a 60 s timer, the grid's
+  axes unnamed (0–10), `pin_on_image` without an image (a placeholder in drafts; an explicit save
+  needs one).
+- `fillDraft()` makes an unfinished slide pass the API: `guess_number` falls back to 0–100 in steps of
+  1 for an unusable range and snaps the correct number onto the steps, `hundred_points` pads to two
+  items, `grid_2x2` names the axes "Horizontal" / "Vertical", `pin_on_image` fills alt text "Image",
+  drops an https-less link and an unusable area.
 
 ### Content slides
 
@@ -138,8 +171,8 @@ https://player.vimeo.com` and `img-src 'self' data: blob: https:` plus the stora
 
 Live routes (`app/live/**`, `app/presentation/host/**`, `app/p/**`) and anything they import must
 never import `slides/editor.ts`, `slides/editorKit.tsx`, a `types/<type>/editor.tsx`,
-`slides/content/editorFields.tsx`, `features/media/{ImagePicker,useUpload}` or
-`components/builder/**`. `meta.ts` files stay free of editor code. `tests/unit/builder.bundle-boundary.test.ts`
+`slides/content/editorFields.tsx`, `slides/advanced/editorFields.tsx`,
+`features/media/{ImagePicker,useUpload}` or `components/builder/**`. `meta.ts` files stay free of editor code. `tests/unit/builder.bundle-boundary.test.ts`
 walks the runtime import graph from every live entry point and fails on a violation.
 
 ## Inspector tabs (`components/builder/inspectorTabs.ts`)

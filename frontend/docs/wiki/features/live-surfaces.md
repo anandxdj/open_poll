@@ -146,6 +146,27 @@ the explanation shows in `reveal`/`report`, and only graded slides (`points > 0`
 options — an ungraded one shows plain results. `isGradedSlide(slide)` (`slides/shared.ts`) is the
 participant shell's rule: a 0-point select answer gets "response received", never right/wrong.
 
+**Advanced interactive types** (`guess_number`, `hundred_points`, `grid_2x2`, `pin_on_image`; all
+`response`). The participant slide carries the type's sanitized settings (`config`, and `content` for
+the pin image: never the correct number, tolerance or area), read with the defensive readers in
+`slides/types/<type>/config.ts` (and `slides/advanced/read.ts`). Answers are posted as
+`onSubmit({payload})`: `{value}`, `{points}`, `{positions}`, `{x, y}`. Results arrive as
+`kind: "guess_number" | "hundred_points" | "grid_2x2" | "pin_on_image"` distributions that are not in
+the `RevealDistribution` union: each stage parses them with `parse<Type>Distribution(live.distribution
+?? reveal?.distribution)` (null for anything malformed) and draws the empty slide from the deck slide's
+own config without data (`thumbnail`, before the first answer).
+
+| Type | ParticipantView | StageView |
+| --- | --- | --- |
+| `guess_number` | slider + number field over min…max in steps (snapped, starts mid-range), big value readout | histogram (one bar per value for small ranges), guesses / mean / median; `reveal`/`report` light up the bars within correct ± tolerance and show "Correct answer" |
+| `hundred_points` | per item: − / + (5 points), slider and number field; live "points left / too many", submit only at exactly 100 | average points per item as bars, authored order live, best first with ranks once revealed |
+| `grid_2x2` | square board with named axes; tap or drag the selected item (a tap near a placed item grabs it), or focus the board and move it with the arrow keys (Shift = 5 steps, Enter = next item); item list shows what is placed | the same board with each item numbered at its average position + legend with the coordinates |
+| `pin_on_image` | the image: tap / drag to drop and move one pin, or focus it and use the arrow keys (cursor) + Enter; submit sends `{x, y}` in [0,1] | the image with the newest pins live; once revealed a heatmap of all pins, the correct area (dashed) and "N of M in the correct area" |
+
+Participant inputs are keyboard-accessible and ≥ 44 px; the board and image use `touch-action: none`
+so a drag does not scroll. `preview` mode disables every control. The stages size themselves with
+`vh` (like the other types) except in `thumbnail` mode, where the builder rail scales a 960×540 stage.
+
 **Adding a slide type (runtime side):** add `participant.tsx` + `stage.tsx`, one line in
 `RUNTIMES`, and its lifecycle. `tests/unit/slides.runtime.test.tsx` fails until every builder type
 has a runtime.
@@ -174,6 +195,9 @@ has a runtime.
 - Messages: `messages/<locale>/<feature>.json`, one file per feature; `i18n/messages.ts` is the
   append-only namespace list and types every key (`i18n/global.d.ts`). Locales: `i18n/config.ts`
   (`en` only for now).
+- `slides-advanced.json` (namespace `slidesAdvanced`) holds the strings of the advanced slide
+  views (`slidesAdvanced.guessNumber|hundredPoints|grid2x2|pinOnImage`); `LiveIntlProvider` loads it
+  with `live`.
 - `live.json` holds the participant-facing strings (join page, participant shell, slide answer
   forms, leaderboard, timer, content slides: `slides.content.lookAtScreen*`,
   `slides.{image,video,instructions}.*`). Host chrome and stage labels are still English literals.
@@ -182,8 +206,9 @@ has a runtime.
 
 - Unit (`bun run test`): `tests/unit/live.reducer.test.ts`, `live.store-and-slots.test.tsx`,
   `slides.runtime.test.tsx`, `slides.content.test.tsx` (content editors, markdown-lite escaping,
-  participant modes, stage layouts), `media.test.tsx` (video links, embeds, upload checks, CSP),
+  participant modes, stage layouts), `slides.advanced.test.tsx` (the four advanced types: settings
+  readers and validation mirroring the backend, editors, board / pin / points helpers, views), `media.test.tsx` (video links, embeds, upload checks, CSP),
   `theme.tokens.test.ts`.
 - E2E (`bun run test:e2e`): `e2e/live-flow.spec.ts`, `e2e/content-slides.spec.ts`,
-  `e2e/select-answer.spec.ts` — see
+  `e2e/select-answer.spec.ts`, `e2e/advanced-slides.spec.ts` — see
   [`../testing/e2e.md`](../testing/e2e.md).

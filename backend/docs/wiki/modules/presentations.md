@@ -86,7 +86,9 @@ Built-in types (`kind`/`lifecycle`): `select_answer`, `type_answer` (scored),
 `leaderboard` — `system`/`system`. They share one flat participant shape
 (`builtInParticipantFields`) and one request base (`builtInSlideSchema`, question
 required). Scored types keep a 5–300 s timer; unscored ones (`{ untimed: true }`) also
-accept `timeLimit: 0` (untimed: open until the host closes or reveals it). The eight content types are below.
+accept `timeLimit: 0` (untimed: open until the host closes or reveals it). The eight content types
+and the four advanced interactive types (`guess_number`, `hundred_points`, `grid_2x2`,
+`pin_on_image`; also `interactive`/`response`) are below.
 
 ### Content slide types (`slides/types/content/`)
 
@@ -127,6 +129,33 @@ the stored URL); videos re-check the stored id on the way out (`id: null` when m
 clamp `start`. Labels come from the content (heading title, paragraph title or body start,
 first bullet, caption/alt, `prefix+value+suffix label`, quote text, "YouTube video",
 instructions text or "How to join").
+
+### Advanced interactive types (`slides/types/advanced/`)
+
+`guess_number`, `hundred_points`, `grid_2x2` and `pin_on_image` — `kind: 'interactive'`,
+`lifecycle: 'response'`, registered from `slides/index.ts` (`advanced/shared.ts` holds their common
+request shape and defensive readers). Timer: 0 (untimed) or 5–300 s, default 30. Their settings live in
+`slide.config` (Mixed), validated by the type's schema and read back defensively on every use (decks
+are snapshotted). Answer keys stay in `config`: every `sanitize` is an explicit allow-list, so the
+correct value, tolerance and correct area reach participants only through the **revealed**
+distribution (hosts also see them in live results). All counting is `RedisOp`s (`hincrby`,
+`lpush_trim`), never direct Redis calls, so `replayDistribution` rebuilds any distribution from the
+stored answers. Answers go to `POST /:id/answer` as `{payload: {...}}` (the type's `answerSchema`); a
+malformed answer is a 400 and the dedup marker is rolled back.
+
+| Type | `config` (request) | Answer `payload` | Rejected | Results (`distribution`) | Scored |
+| --- | --- | --- | --- | --- | --- |
+| `guess_number` | `{min, max, step, correct, tolerance}`: defaults 0 / 100 / 1 / null / 0; \|min\|,\|max\| ≤ 1e9, ≤ 4 decimals, ≤ 1,000,000 steps, `correct` on the steps | `{value}` | missing, outside min…max, off the steps (float noise is snapped) | `kind: 'guess_number'`: `count`, `mean`, `median`, histogram `buckets[{from,to,count}]` (one bar per value up to 20 values, else ≤ 10 bars), `correct`, `tolerance`, `correctCount` | only with a `correct` value **and** `points > 0` (`isScored`); a guess within ±`tolerance` is correct and scores like `select_answer` (flat or speed-bonus points; no partial credit for near misses); else results only |
+| `hundred_points` | `{items}`: 2–10 texts ≤ 200; `points` never stored | `{points: number[]}` | length ≠ items, a non-integer, a negative, sum ≠ 100 | `kind: 'hundred_points'`: `items[{text,total,average}]` in authored order, `voters` | never |
+| `grid_2x2` | `{items, x: {label, min, max}, y: {...}}`: 1–10 items, labels 1–40, integer bounds within ±1000, max > min | `{positions: [{x,y}]}` one per item | length ≠ items, a coordinate outside its axis (inclusive) | `kind: 'grid_2x2'`: both axes, `items[{text, x, y, count}]` (average position, 2 decimals; null until placed), `voters` | never |
+| `pin_on_image` | image in `content` (`{key\|url, alt}`, like the `image` type: upload `key` or pasted `https://` url, alt required); `config: {region: {x,y,width,height}\|null}` in [0,1] fractions of the image, each side ≥ 1 %, inside the image | `{x, y}` in [0,1] | missing, outside [0,1] | `kind: 'pin_on_image'`: `count`, newest `pins` (≤ 500, `lpush_trim`), `heat` (counts per cell of a 20×20 grid), `region`, `inRegion` | only with a `region` **and** `points > 0`; a pin inside the area (edges count) is correct |
+
+`guess_number` and `pin_on_image` default `points` to 1000 (`scoreDependsOnTime` true) like
+`select_answer`, and need a timer of at least 5 s while graded; `points: 0`, or no correct value /
+area, makes the slide ungraded (`scored: false` on the participant slide, the window and the stored
+result). The unscored types ignore `points` and `scoreDependsOnTime`. `pin_on_image` uploads are
+checked against the deck's workspace by `assertContentMediaInWorkspace` like image slides.
+Exports: one column per guess / per item / per item and axis / x and y.
 
 ## Models (`presentations.model.ts` barrel)
 

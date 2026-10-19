@@ -60,6 +60,12 @@ browser context per participant.
   live; the builder editing and saving an ungraded multi-select slide (checked through
   `host.getDeck`). ~30 s.
 
+- `e2e/advanced-slides.spec.ts` — a deck of `guess_number`, `hundred_points`, `grid_2x2` and
+  `pin_on_image` run live with two participants (typed, slider, tapped and arrow-key answers, the
+  100-point overshoot guard, reveal of each: correct answer, ranks, markers, correct area and tally,
+  scores), the builder editing and saving all four, and the picker adding an ungraded guess slide.
+  The slide image is served by `page.route`. ~70 s.
+
 Run against your own database and ports when other suites share the machine, e.g.
 `E2E_MONGO_URI=mongodb://127.0.0.1:27117/openpoll_mine?directConnection=true
 E2E_REDIS_URL=redis://127.0.0.1:6390/11 E2E_BACKEND_PORT=5111 E2E_FRONTEND_PORT=3111 bun run test:e2e`.
