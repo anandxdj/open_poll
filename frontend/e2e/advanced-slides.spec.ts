@@ -150,6 +150,9 @@ test("guess, 100 points, 2x2 grid and pin slides run live and reveal", async ({ 
   // Dark mode: low effort, high impact. Offline: high effort, low impact.
   await ada.page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.2);
   await expect(ada.page.getByText("1 of 2 placed")).toBeVisible();
+  // Placing an item hands the selection to the next one.
+  await expect(ada.page.getByRole("button", { name: /Offline/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(ada.page.getByRole("button", { name: /Dark mode/ })).toHaveAttribute("aria-pressed", "false");
   await ada.page.mouse.click(box.x + box.width * 0.8, box.y + box.height * 0.8);
   await expect(ada.page.getByText("2 of 2 placed")).toBeVisible();
   await ada.page.getByRole("button", { name: "Submit Grid" }).click();
