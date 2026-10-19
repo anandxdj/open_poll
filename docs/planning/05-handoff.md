@@ -6,7 +6,7 @@ last_updated: 2026-10-19
 
 # Handoff — backlog and roadmap work
 
-All work is on the local branch **`chore/backlog-and-roadmap`** (110+ commits ahead of `main`,
+All work is on the local branch **`chore/backlog-and-roadmap`** (210+ commits ahead of `main`,
 **not pushed**). Plan of record: [`04-implementation-plan.md`](./04-implementation-plan.md)
 (waves, packages, file ownership, contracts). Security status:
 [`02-security-hardening.md`](./02-security-hardening.md).
@@ -70,8 +70,8 @@ labelled "Generated with mock data (no AI key configured)". Code: `backend/src/m
 namespace), small hunks in `useDeckBuilder.ts`, `PresentationBuilder.tsx`, `AiPresentationModal.tsx`.
 
 **Wave 2 — W2-D phase 1, scale and reliability (backend)** (merged; `pkg/w2-d`, 8 commits). Merged
-before W1-A2 (plan order was A2 → D) because it was ready first and is backend-only; W1-A2 takes it
-before it finishes.
+before W1-A2 (plan order was A2 → D) because it was ready first and is backend-only; W1-A2 then
+adapted its client to it.
 - Answer path: JS grading + one `EVALSHA live/lua/answer.lua` (window/grace, token + kicked checks,
   per-participant rate limit 30/10 s, dedup, generic RedisOps, scores, results, dirty mark).
   Idempotent replay by `clientAnswerId` (`replay:true`); other repeats 409 `ALREADY_ANSWERED`; `via`
@@ -90,7 +90,7 @@ before it finishes.
   `loadtest-smoke` (500/s, p95 150 ms, tunable with repo vars `STORM_MIN_RPS` / `STORM_MAX_P95_MS`),
   nightly workflow `loadtest-nightly.yml`. Local numbers: REST 600/s p95 5.6 ms; REST 2k/s p95
   16.9 ms; socket 2k/s p95 8.8 ms.
-- Phase 2 (not started): see "Not started".
+- Phase 2 (not started): see "Left to do".
 
 **Wave 2 — W2-C session history, reports, export, share, take-home** (merged; `pkg/w2-c`, 8 commits).
 - Backend `modules/sessions`: `GET /api/sessions?presentationId&cursor&limit`, `GET /api/sessions/:sid`
@@ -181,27 +181,35 @@ follows the session (the reducer drops events of other sessions), W1-A2's slot t
 no module registers on (`participantBody`, because importing `features/registrations` in any test
 registers Q&A, reactions and sessions process-wide), and the e2e spec opens the lobby explicitly.
 
-**Checks at handoff** (integration branch after the W2-B merge): backend 1234 tests in `bun test` (948 run without containers, 286 integration/spike tests skip without `TEST_MONGO_URI`), 243 integration/spike tests pass with the containers (6 skipped by design); frontend 614 unit tests; Playwright e2e 34 tests green (the full run, plus the Q&A spec re-run after its lobby fix); backend and frontend typecheck clean, frontend lint 0 errors (7 pre-existing warnings), build green.
+**Wave 3 — W3-B1 teams, roles, sharing and audit** (merged; `pkg/w3-b1`). Role action matrix
+(`common/tenancy/roles.ts`, `policy.ts`) and `ResourceShare` evaluation (`assertCanWithShares` /
+`canWithShares` in `presentations/access.ts`); members API under `/api/workspaces/:workspaceId/members`
+(role/status changes with last-owner and primary-owner guards, ownership transfer, leave); invites
+(`/api/workspaces/:workspaceId/invites`, hashed tokens, 7-day TTL, rate limits, atomic single-use
+`POST /api/invites/:token/accept` with email match; the create response returns `inviteUrl` once and
+`emailSent`); `/api/shares`; `GET /api/audit`; migration `100-workspace-invites`; seat limit
+`assertLimit(ws,'seats',n)` on invite create/accept and reactivation. Frontend: members page,
+`/invites/[token]`, ShareDialog ("Share with team…" in the library card menu), audit page; the login
+redirects back to the invite. `tenancy-isolation.test.ts` introspects the route table (every `/api`
+route runs a workspace context or is allow-listed with a reason) and attacks one workspace from another
+over REST and sockets. Post-merge glue: accepting an invite and reactivating a member call
+`syncSeatsAfterMembershipChange` (`billing/seatSync.ts`: background `syncWorkspaceSeats`, no-op without
+Stripe), covered by `tests/integration/members.seats.test.ts`; the allow-list got the import routes and
+no longer marks mounted routes as planned. Wiki `modules/members-sharing.md`, `platform/tenancy.md`.
 
-## Ready, NOT merged
+**All nine work packages of this session are merged** (W1-A2, W2-B, W2-C, W2-D phase 1, W2-E, W3-B1,
+W3-C, W3-E, W3-F); the `pkg/*` branches and `.claude/worktrees/*` are left in place for the owner to
+delete (`git worktree remove`, `git branch -d pkg/<id>`; `worktree-agent-a671664cdf32aafd4` is the old
+select_answer branch, also merged).
 
-Nothing is waiting for a merge right now besides what is under "In progress". Merge rule: `git merge --no-ff pkg/<id>` into `chore/backlog-and-roadmap`, then full checks (backend
-tsc + unit + integration, frontend typecheck + lint + unit + build + e2e). Expect small conflicts in
-append-only files (route snapshot, `i18n/messages.ts`, settings sections, `.env.example`).
+**Checks at handoff** (integration head `1591b9d`, all run on it): backend `bun x tsc --noEmit` clean; `bun test`
+1326 tests (984 run without containers, 342 integration/spike tests skip without `TEST_MONGO_URI`, 0 fail);
+integration + spikes with the containers 299 pass, 6 skipped by design, 0 fail; frontend typecheck clean,
+lint 0 errors (7 pre-existing warnings), 635 unit tests, build green, Playwright e2e 35 tests green.
 
-## In progress, NOT merged (branches with WIP commits)
+## Left to do (nothing is half-merged)
 
-Resume each by reviewing the branch against its plan section (`git log --oneline
-chore/backlog-and-roadmap..pkg/<id>`, `git diff`), keep what is sound, then finish, merge the
-integration branch into it, re-run checks and ask for a merge. Worktrees in
-`.claude/worktrees/<id>` (gitignored); heads at wrap-up:
-
-- **W3-B1** teams/roles/sharing/audit, `pkg/w3-b1` @ `7e81566` (10 commits).
-
-
-## Not started
-
-- **W2-D phase 2** (unblocked, W1-A2 is merged; plugs into the single `submitAnswer`): frontend offline queue (`submitAnswer`: socket ack → REST →
+- **W2-D phase 2** (unblocked, W1-A2 and W2-D phase 1 are merged; plugs into the single `submitAnswer`): frontend offline queue (`submitAnswer`: socket ack → REST →
   IndexedDB, in `live/store` + `live/offline/**`), frontend contract types (`slideTicket`, `AnswerResult`,
   error codes `NOT_ACCEPTING`, `TIME_UP`, `ALREADY_ANSWERED`, `RATE_LIMITED`, `NOT_JOINED`), await the
   `live:join` ack before `answer:submit` after a reconnect, remove the legacy `quiz:event` dual-emit.
@@ -213,36 +221,50 @@ integration branch into it, re-run checks and ask for a merge. Worktrees in
 - **Close-out:** refresh `01-competitive-roadmap.md` status tables, README "What's next",
   `backend/docs/wiki/quiz-roadmap.md`; push the branch and open a PR (ask the owner first).
 
-Remaining merge order (from the plan, flexible when a later package is ready early and conflicts
-are trivial; note deviations here): W1-A2 → W2-D → W2-A → W2-B → W2-E → W2-F → W2-C; Wave 3
-B1 → B2 → A → C → D → E → F → G; Wave 4 A → B → C → D → E. Already deviating: W3-F merged first;
-W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
+Remaining merge order (from the plan; flexible when a later package is ready early and conflicts are
+trivial, note deviations here): W2-D phase 2 → W2-A (adds the NotesTab and the `notes` field of the
+frontend `Presentation` type) → W2-F; Wave 3: W3-D and W3-B2 (W3-B1 is merged), W3-A after W2-A, then
+W3-G; Wave 4 A → B → C → D → E; then the close-out.
 
 ## Process notes
 
-- Work packages run as parallel agents, each on its own branch `pkg/<id>` in its own worktree
+- Work packages ran as parallel agents, each on its own branch `pkg/<id>` in its own worktree
   (`.claude/worktrees/<id>`), merged into `chore/backlog-and-roadmap` by an integrator in readiness
   order (plan order where conflicts matter). Package specs and rules used by the orchestration live in
   `.claude/orchestration/` (untracked local files: `agent-rules.md`, `integrator-rules.md`,
-  `orchestration-state.md`, `packages/<id>.md`); recreate from the plan if they are gone.
+  `orchestration-state.md`, `packages/<id>.md`); recreate from the plan if they are gone. A later
+  session can do the same: one worktree per package, `bun install` in `backend/` and `frontend/`, merge
+  `chore/backlog-and-roadmap` into the branch before asking for the merge.
 - Each agent has its own test Mongo DB / Redis index / ports (integrator: `openpoll_int` + redis 6390/9,
   `openpoll_e2e` + redis 6390/13, ports backend 5103 / frontend 3103). Heavy frontend commands
   (typecheck, build, e2e, `next dev`) are serialized with
   `flock /tmp/claude-1000/openpoll-heavy.lock <cmd>`; the machine has 15 GB RAM.
 - A second test Redis container, `openpoll-test-redis2` on :6391, exists beside `openpoll-test-redis` and
   `openpoll-test-mongo`; remove all three when the roadmap is done.
+- **Tenancy allow-list:** every new `/api` route must either run `workspaceContext()` /
+  `pathWorkspaceContext()` or be allow-listed with a reason in
+  `backend/tests/integration/tenancy-isolation.test.ts` (the route-table test fails otherwise).
+- **E2E specs** use the shared `test` / `host` from `e2e/fixtures.ts` (one login per worker; the proxy
+  cookie is set on the context) and `openLobby(hostPage, code)` before participants join (opening the host
+  page opens nothing since W1-A2).
+- `.claude/orchestration/` is excluded locally through `.git/info/exclude`: never commit anything under
+  `.claude/`. If `tsc` trips on a corrupt `frontend/.next/dev/types/validator.ts` (a killed `next dev`),
+  `rm -rf frontend/.next/dev`.
 - Every merge: `git merge --no-ff pkg/<id>`, never hand-merge `bun.lock` (take ours, `bun install`),
   regenerate route snapshots rather than hand-merging them, and re-run all checks listed above.
 
 ## Cross-package follow-ups
 
-- **AI deck mappers for W2-E types** (after W2-E lands): add one entry each in
-  `backend/src/modules/ai/deck/slideMappers.ts` and `deck/mock.ts`.
+- **AI deck mappers for W2-E types** (W2-E is merged): add one entry each in
+  `backend/src/modules/ai/deck/slideMappers.ts` and `deck/mock.ts` (and for `qna` if wanted).
 - **Q&A section in session reports and exports** (W2-B is merged, W2-C reports do not show Q&A yet).
-- **Plan gates still to apply** (feature keys exist from W3-C; W2-C already gates XLSX/PDF, W3-F already
-  consumes `ai_deck`): W3-A `brand_kits`; W3-D `sso` / `scim` and `assertLimit(ws,'seats',n)` (+
-  `syncWorkspaceSeats`); W3-B1 seats on invites (`assertLimit(ws,'seats',n)`); W4-E
-  `custom_domains` / `white_label`; W4-C retention; W3-E `consumeUsage(ws,'import')`.
+- **Plan gates still to apply** (feature keys exist from W3-C; W2-C gates XLSX/PDF, W3-F consumes
+  `ai_deck`, W3-E consumes `import`, W3-B1 enforces `seats` on invites): W3-A `brand_kits`; W3-D `sso` /
+  `scim` and seats (`assertSeats` from `workspaces/members.service.ts`, plus
+  `syncSeatsAfterMembershipChange` after provisioning a member); W4-E `custom_domains` /
+  `white_label`; W4-C retention.
+- **W3-B2 must delete a folder's `ResourceShare` rows when it deletes a folder** (sharing reads the raw
+  `folders` collection).
 - **Proxy protected prefixes:** add `/presentations` and `/presentation/create` (signed-out visitors
   currently see a load error instead of a login redirect; check the redirect works).
 - **E2E login rate limit** (10 per 5 min per IP): the `host` fixture logs in once per worker (W1-A2). Do not add per-test or per-file logins; billing.spec still logs in once in its own `beforeAll`.
@@ -293,6 +315,11 @@ W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
   authorship (owner awareness); PDF export uses Helvetica, so emoji/CJK print as `?`; session delete
   uses policy `deck:delete` (owner to confirm). XLSX/PDF export needs a plan that has them
   (`bun scripts/set-plan.ts <workspace|owner-email> pro`).
+- **W3-B1 (merged):** there is no `messages/en/workspaces.json` (the members, audit and invite pages
+  use plain English like the other settings pages); the Team plan needs more than one seat before a team
+  can invite (`bun scripts/set-plan.ts <workspace|owner-email> team`, or a Stripe subscription with
+  seats); invites are emailed only when Resend is configured, otherwise the link is returned once in
+  the create response (`inviteUrl`, `emailSent:false`) and logged in development.
 - **W3-C (merged):** Team seats = purchased capacity (the sync job only raises the quantity); the poll
   response cap reuses the plan `audienceCap`, so existing free polls with over 100 responses stop
   accepting; "Contact sales" uses `NEXT_PUBLIC_SALES_EMAIL` and is disabled while unset.
@@ -309,6 +336,9 @@ W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
   endpoint answers with mock data and labels it as mock.
 - **W2-D phase 1 (merged):** `METRICS_TOKEN` (at least 16 characters) enables `/metrics`;
   `SOCKET_REDIS_ADAPTER=on` for more than one backend instance; see `docs/deploy/multi-instance.md`.
+- **W3-B1 (merged):** `RESEND_API_KEY` + `RESEND_FROM_EMAIL` (optional for emailed workspace invites,
+  required in production anyway), `FRONTEND_URL` (invite links), a plan with more than one seat; migration
+  `100-workspace-invites`.
 - **W3-E (merged) owner setup:** an S3 bucket (`S3_*`, required for PPTX/PDF imports and stored
   pictures; without it those imports answer with a clear disabled-mode message), optional
   `GOTENBERG_URL` (`gotenberg/gotenberg:8`, high-fidelity PPTX), optional Google Cloud keys
