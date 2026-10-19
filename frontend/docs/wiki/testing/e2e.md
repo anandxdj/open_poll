@@ -59,12 +59,16 @@ browser context per participant.
   shares of respondents, explanation after reveal) and an ungraded 0-point slide (no right/wrong)
   live; the builder editing and saving an ungraded multi-select slide (checked through
   `host.getDeck`). ~30 s.
-
 - `e2e/advanced-slides.spec.ts` — a deck of `guess_number`, `hundred_points`, `grid_2x2` and
   `pin_on_image` run live with two participants (typed, slider, tapped and arrow-key answers, the
   100-point overshoot guard, reveal of each: correct answer, ranks, markers, correct area and tally,
   scores), the builder editing and saving all four, and the picker adding an ungraded guess slide.
   The slide image is served by `page.route`. ~70 s.
+- `e2e/ai-deck.spec.ts` - AI whole-deck authoring in mock mode (the e2e backend has no AI key): the
+  AI dialog's "Whole deck" tab, outline review and editing, the written deck with speaker notes,
+  the "Generated with mock data (no AI key configured)" label in the dialog and the builder banner,
+  the deck opening in the builder and keeping its notes on save; form validation; the quick-slides
+  tab. ~10 s.
 
 Run against your own database and ports when other suites share the machine, e.g.
 `E2E_MONGO_URI=mongodb://127.0.0.1:27117/openpoll_mine?directConnection=true

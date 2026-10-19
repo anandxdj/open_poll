@@ -97,7 +97,7 @@ export class AiService {
     return candidates;
   }
 
-  private static hasModel(): boolean {
+  static hasModel(): boolean {
     return this.getModelCandidates().length > 0;
   }
 
@@ -106,7 +106,7 @@ export class AiService {
    * rate-limited or unhealthy proxy degrades to the next provider instead of a mock.
    * Throws the last error if every provider fails.
    */
-  private static async invokeStructured<T>(schema: z.ZodType<T>, prompt: string): Promise<T> {
+  static async invokeStructured<T>(schema: z.ZodType<T>, prompt: string): Promise<T> {
     const candidates = this.getModelCandidates();
     if (candidates.length === 0) {
       throw ApiError.badRequest('No AI provider configured');

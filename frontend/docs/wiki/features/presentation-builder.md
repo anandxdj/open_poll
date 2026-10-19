@@ -18,6 +18,7 @@ Route `/presentation/create` (`app/(dashboard)/presentation/create/page.tsx`, `?
 | State | `components/builder/useDeckBuilder.ts` | Deck + selected slide, local draft (localStorage), silent backend drafts, explicit save, AI generation. |
 | Frame | `components/builder/BuilderShell.tsx` | Header on top, rail beside the inspector. |
 | Header | `components/builder/BuilderHeader.tsx` | Title, AI generate, Save Draft, Create/Save. |
+| AI dialog | `components/AiPresentationModal.tsx` | "Whole deck" (default for a new deck; see [`ai-deck.md`](./ai-deck.md): outline review, speaker notes, creates the deck and `handleDeckCreated` switches the builder to it) and "Quick slides" (questions merged into this deck). `AiDeckBanner` shows the mock-data notice under the header for `?aiSource=mock`. |
 | Rail | `components/builder/SlideRail.tsx` | Thumbnails, select, reorder, duplicate, delete, "New slide" picker. |
 | Inspector | `components/builder/Inspector.tsx` | Type badge + tabs from the `inspectorTabs` registry. |
 | Pure helpers | `components/builder/{deckDraft,slideRailOps}.ts` | Validation, payloads, local draft, rail operations (unit tested). |

@@ -25,7 +25,7 @@ describe('AI routes require authentication', () => {
     server.close();
   });
 
-  for (const path of ['/generate', '/generate-and-save', '/generate-quiz']) {
+  for (const path of ['/generate', '/generate-and-save', '/generate-quiz', '/generate-deck']) {
     it(`POST ${path} without a token is 401`, async () => {
       const res = await fetch(`${base}${path}`, {
         method: 'POST',
