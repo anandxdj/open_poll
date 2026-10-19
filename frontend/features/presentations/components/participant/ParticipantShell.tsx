@@ -40,7 +40,7 @@ export function ParticipantShell({ code }: { code: string }) {
 
 function ParticipantScreen({ code }: { code: string }) {
   const t = useTranslations("live.participant");
-  const { load, self, lost, newerSessionId, joinNewerSession } = useParticipantSession(code);
+  const { load, self, lost, rejoin, newerSessionId, joinNewerSession } = useParticipantSession(code);
 
   const status = useLive((s) => s.status);
   const title = useLive((s) => s.title);
@@ -61,7 +61,7 @@ function ParticipantScreen({ code }: { code: string }) {
 
   if (!self) {
     // Only a live session can be joined; an ended one without our standings is just over.
-    if (status === "lobby" || status === "active") return <JoinGate code={code} rejoin={lost === "stale" || lost === "missing"} />;
+    if (status === "lobby" || status === "active") return <JoinGate code={code} rejoin={rejoin} />;
     return <ParticipantSessionClosed />;
   }
 

@@ -27,6 +27,8 @@ export function useParticipantSession(code: string) {
   const [load, setLoad] = useState<ParticipantLoad>("loading");
   /** Id of a newer live session of the deck while this one is over. */
   const [newerSessionId, setNewerSessionId] = useState<string | null>(null);
+  /** The stored identity belonged to a session that is over: the nickname form says so. */
+  const [rejoin, setRejoin] = useState(false);
   const checkedForeign = useRef(new Set<string>());
 
   const presentationId = useLive((s) => s.presentationId);
@@ -74,7 +76,10 @@ export function useParticipantSession(code: string) {
       previous = state.lost;
       if (!state.lost) return;
       forgetCredentials(code, state.sessionId);
-      if (state.lost !== "kicked") void loadInfo();
+      if (state.lost !== "kicked") {
+        setRejoin(true);
+        void loadInfo();
+      }
     });
   }, [store, code, loadInfo]);
 
@@ -125,5 +130,5 @@ export function useParticipantSession(code: string) {
     await loadInfo();
   }, [loadInfo]);
 
-  return { load, self, sessionId, lost, newerSessionId, joinNewerSession };
+  return { load, self, sessionId, lost, rejoin, newerSessionId, joinNewerSession };
 }

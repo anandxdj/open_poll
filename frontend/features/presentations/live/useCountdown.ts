@@ -30,14 +30,19 @@ function subscribe(listener: () => void) {
   };
 }
 
-function getSnapshot() {
-  // Not ticking yet (first render of the first countdown): read the clock once.
-  if (!timer) now = Date.now();
+function getSnapshot(): number | null {
+  // Not ticking yet (first render of the first countdown): read the clock, but
+  // keep the value for one tick length so repeated reads agree (React checks).
+  if (!timer) {
+    const read = Date.now();
+    if (read - now > TICK_MS) now = read;
+  }
   return now;
 }
 
-// Server render: no clock; `countdownAt` shows the full budget.
-const getServerSnapshot = () => Number.NaN;
+// Server render and hydration: no clock (`countdownAt` shows the full budget).
+// `null`, not NaN: React compares server snapshots with `!==` and NaN never equals itself.
+const getServerSnapshot = (): number | null => null;
 
 /**
  * Server-synced countdown for an answer window. `timing.clockOffsetMs` was
@@ -47,5 +52,5 @@ const getServerSnapshot = () => Number.NaN;
  */
 export function useCountdown(timing: CountdownInput | null | undefined, totalSeconds: number = 30): CountdownValue {
   const clientNow = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  return countdownAt(timing, clientNow, totalSeconds);
+  return countdownAt(timing, clientNow ?? Number.NaN, totalSeconds);
 }

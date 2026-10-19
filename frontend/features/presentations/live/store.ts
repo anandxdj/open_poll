@@ -39,9 +39,9 @@ export interface LiveStore extends LiveState {
   loadMe: () => Promise<void>;
   /**
    * Replaces the state with a REST snapshot (`load` resolves to the action
-   * that applies it, or null to skip). Envelopes that arrive while the request
-   * is in flight are replayed on top, so a snapshot older than the latest
-   * event never wins. When resyncs overlap, only the latest one applies.
+   * that applies it, or null to skip). Envelopes (and host command responses)
+   * that arrive while the request is in flight are replayed on top, so a
+   * snapshot older than the latest event never wins. When resyncs overlap, only the latest one applies.
    * Resolves to whether the snapshot was applied; rejects with `load`'s error.
    */
   resync: (load: () => Promise<LiveAction | null>) => Promise<boolean>;
@@ -78,7 +78,11 @@ export function createLiveStore(role: LiveRole, init: Partial<LiveState> = {}): 
       ...createInitialLiveState(role, init),
 
       dispatch: (action) => {
-        if (action.type === "live/event") for (const buffer of recorders) buffer.push(action);
+        // What happens while a snapshot loads is replayed on top of it: envelopes, and the
+        // host's own command responses (a `goto` answered while an older read is in flight).
+        if (action.type === "live/event" || action.type === "host/command") {
+          for (const buffer of recorders) buffer.push(action);
+        }
         apply(action);
       },
 

@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { apiClient } from "@/lib/api-client";
 import { createLiveStore, participantLostReason } from "@/features/presentations/live/store";
 import { getSlotEntries, registerSlot, SLOT_NAMES, SlotOutlet } from "@/features/presentations/live/slots";
-import { PID, SELF, SID, SLIDE_IDS, T0, at, event, liveSlide, liveState } from "./live.fixtures";
+import { PID, SELF, SID, SLIDE_IDS, T0, at, deck, event, hostState, liveSlide, liveState, sessionView } from "./live.fixtures";
 
 /** A failed API call as axios reports it: `{ success: false, message, code }` with an HTTP status. */
 const apiFailure = (status: number, code?: string, message = "nope") =>
@@ -245,6 +245,26 @@ describe("resync", () => {
     expect(await pending).toBe(true);
     // The snapshot said "open"; the replayed event wins because it is newer.
     expect(store.getState()).toMatchObject({ status: "active", phase: "closed", slideId: SLIDE_IDS[0] });
+  });
+
+  test("a host command answered while an older host-state read is in flight is not overwritten by it", async () => {
+    const store = createLiveStore("host", { presentationId: PID });
+    const loaded = (session: ReturnType<typeof sessionView>) => ({ type: "host/state-loaded", state: hostState(session), receivedAt: T0 } as const);
+    store.getState().dispatch(loaded(sessionView()));
+    const gate = deferred<void>();
+    // The read was issued while slide 1 was current…
+    const pending = store.getState().resync(async () => {
+      await gate.promise;
+      return loaded(sessionView());
+    });
+    // …then the host moved to slide 2 and its command answered first.
+    store.getState().dispatch({
+      type: "host/command",
+      response: { ...deck({ status: "active" }), session: sessionView({ currentSlideId: SLIDE_IDS[1], currentSlideIndex: 1 }, { slideId: SLIDE_IDS[1], slideIndex: 1, type: "heading", lifecycle: "content", scored: false, phase: "shown", endsAt: null }) },
+    });
+    gate.resolve();
+    await pending;
+    expect(store.getState()).toMatchObject({ currentSlideIndex: 1, slideId: SLIDE_IDS[1], phase: "shown" });
   });
 
   test("overlapping resyncs: only the latest applies", async () => {
