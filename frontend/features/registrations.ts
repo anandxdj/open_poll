@@ -9,4 +9,5 @@
  *
  * See frontend/docs/wiki/features/live-surfaces.md.
  */
-export {};
+import "@/features/sessions/register";
+

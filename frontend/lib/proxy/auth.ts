@@ -7,7 +7,7 @@ import type { ProxyStep } from "./types";
 export const AUTH_COOKIE = "auth_session";
 
 const AUTH_ROUTES = ["/login", "/signup"];
-const PROTECTED_PREFIXES = ["/polls", "/create", "/settings", "/analytics"];
+const PROTECTED_PREFIXES = ["/polls", "/create", "/settings", "/analytics", "/presentations"];
 
 export const isAuthRoute = (pathname: string) => AUTH_ROUTES.includes(pathname);
 
