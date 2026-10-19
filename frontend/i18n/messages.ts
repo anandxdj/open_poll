@@ -1,6 +1,7 @@
 import type { Locale } from "./config";
 import ai from "@/messages/en/ai.json";
 import live from "@/messages/en/live.json";
+import sessions from "@/messages/en/sessions.json";
 
 /**
  * English messages by namespace, one file per feature under
@@ -10,6 +11,7 @@ import live from "@/messages/en/live.json";
 export const enMessages = {
   ai,
   live,
+  sessions,
 };
 
 export type Messages = typeof enMessages;

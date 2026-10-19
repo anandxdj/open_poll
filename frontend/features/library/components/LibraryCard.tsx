@@ -9,6 +9,7 @@ import {
   BarChart3,
   Copy,
   ExternalLink,
+  FileBarChart,
   Layers,
   Lock,
   MessageSquare,
@@ -42,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { slideTypeMeta } from "@/features/presentations/slides/meta";
+import { sessionsPath } from "@/features/sessions/query";
 import type { PresentationSlideType } from "@/features/presentations/types/deck";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
@@ -193,12 +195,19 @@ export function LibraryCard({ card, onRemoved, onChanged }: LibraryCardProps) {
                 onClose={() => setConfirm("close")}
               />
             ) : (
-              <DropdownMenuItem
-                className={menuItemClass}
-                onSelect={() => void copyText(links().share, "Join link copied!")}
-              >
-                <Copy className="size-4" /> Copy join link
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem asChild className={menuItemClass}>
+                  <Link href={sessionsPath(card.id)}>
+                    <FileBarChart className="size-4" /> Session history
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onSelect={() => void copyText(links().share, "Join link copied!")}
+                >
+                  <Copy className="size-4" /> Copy join link
+                </DropdownMenuItem>
+              </>
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
