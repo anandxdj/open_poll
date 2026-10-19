@@ -46,10 +46,10 @@ const ALLOWED: readonly Allowed[] = [
   // Identity and sign-in: nothing here belongs to a workspace yet.
   { path: '/api/auth/*', reason: 'sign-in, sign-up, token refresh and the profile of the signed-in user' },
   { path: '/api/capabilities', reason: 'public deployment capabilities, no tenant data' },
-  { path: '/api/plans', reason: 'public plan catalogue', planned: true },
+  { path: '/api/plans', reason: 'public plan catalogue' },
   { path: '/api/oembed', reason: 'public oEmbed discovery of published embeds', planned: true },
-  { path: '/api/public/*', reason: 'public by design: shared results by token, domain resolution for TLS', planned: true },
-  { path: '/api/billing/webhook', reason: 'Stripe webhook, authenticated by signature', planned: true },
+  { path: '/api/public/*', reason: 'public by design: shared results by token, domain resolution for TLS' },
+  { path: '/api/billing/webhook', reason: 'Stripe webhook, authenticated by signature' },
   { path: '/api/sso/*', reason: 'pre-sign-in SSO flow (discover, login redirect, ACS, metadata, callback)', planned: true },
 
   // Credentials of their own.
@@ -57,6 +57,8 @@ const ALLOWED: readonly Allowed[] = [
   { methods: ['POST'], path: '/api/ai/generate', reason: 'authenticated and rate limited; stores nothing' },
   { methods: ['POST'], path: '/api/ai/generate-quiz', reason: 'authenticated and rate limited; stores nothing' },
   { methods: ['POST'], path: '/api/ai/generate-and-save', reason: 'authenticated and rate limited; PollService.createPoll checks deck:create in the owner’s default workspace' },
+  { methods: ['GET'], path: '/api/imports/templates/questions.:format', reason: 'static question-file template (CSV or Excel), no tenant data; rate limited' },
+  { methods: ['GET'], path: '/api/imports/:id', reason: 'import job status: ImportService.get requires the job’s creator who is still an active member of its workspace (404 otherwise)' },
   { path: '/api/invites/:token*', reason: 'the single-use token is the credential; accepting also needs the invited verified email' },
   { path: '/api/remote/:token*', reason: 'remote-control token is the credential', planned: true },
 
@@ -71,8 +73,8 @@ const ALLOWED: readonly Allowed[] = [
   ...bothAliases('/api/presentations/:id/answer', 'participant answer, participant token', ['POST']),
   ...bothAliases('/api/presentations/:id/me', 'participant state, participant token', ['GET']),
   ...bothAliases('/api/presentations/:id/live-state', 'participant resync, participant token', ['GET']),
-  { path: '/api/presentations/:presentationId/qna*', reason: 'participant Q&A, participant token (the host side runs workspace context)', planned: true },
-  { path: '/api/sessions/:sessionId/me', methods: ['GET'], reason: 'participant take-home, participant token', planned: true },
+  { path: '/api/presentations/:presentationId/qna*', reason: 'participant Q&A, participant token (the host side runs workspace context)' },
+  { path: '/api/sessions/:sessionId/me', methods: ['GET'], reason: 'participant take-home, participant token' },
   { path: '/api/responses/poll/:pollId/ballot', methods: ['POST'], reason: 'public poll voting' },
   { path: '/api/responses/guest-token', methods: ['POST'], reason: 'public poll voting' },
   { path: '/api/responses', methods: ['POST'], reason: 'public poll voting, signed ballot' },
