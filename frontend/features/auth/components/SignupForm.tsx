@@ -1,15 +1,13 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { JSX, SVGProps, useState } from "react";
-import { motion } from "framer-motion";
 import Link from "next/link";
 import { isAxiosError } from "axios";
 import { Loader2, MailCheck } from "lucide-react";
-import { ProductLogo } from "@/components/ui/ProductLogo";
+import { textLink } from "@/features/landing/components/shared/styles";
+import { AuthShell, AuthStatus } from "./AuthShell";
+import { AuthDivider, AuthField, AuthSubmit, PasswordField, authSecondaryClass } from "./fields";
 import axios from "@/lib/api-client";
 import { toast } from "sonner";
 import { getGoogleAuthUrl } from "@/lib/env";
@@ -68,176 +66,107 @@ export function SignupForm() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-dvh bg-radial-glow px-6 overflow-hidden relative">
-      {/* Ambient backgrounds */}
-      <div className="absolute top-1/4 -right-20 size-96 bg-primary/10 blur-[120px] rounded-full animate-pulse" />
-      <div className="absolute bottom-1/4 -left-20 size-96 bg-primary/5 blur-[100px] rounded-full animate-pulse [animation-delay:2s]" />
+    <AuthShell
+      title={signedUpEmail ? "Check your email" : "Create your account"}
+      description={signedUpEmail ? undefined : "Build live polls, quizzes and Q&A for free."}
+      footer={
+        signedUpEmail ? null : (
+          <>
+            Already have an account?{" "}
+            <Link href="/login" className={textLink}>
+              Sign in
+            </Link>
+          </>
+        )
+      }
+    >
+      {!signedUpEmail ? (
+        <>
+          <form onSubmit={handleSignup} className="space-y-5">
+            <AuthField
+              type="text"
+              id="name"
+              name="name"
+              label="Full name"
+              autoComplete="name"
+              placeholder="Alex Rivera"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={loading}
+            />
+            <AuthField
+              type="email"
+              id="email"
+              name="email"
+              label="Email"
+              autoComplete="email"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+            />
+            <PasswordField
+              id="password"
+              name="password"
+              label="Password"
+              autoComplete="new-password"
+              placeholder="Create a password"
+              hint="At least 8 characters, with one uppercase letter and one number."
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+            />
+            <AuthSubmit loading={loading} disabled={loading}>
+              Sign up
+            </AuthSubmit>
+          </form>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.32, 0.72, 0, 1] }}
-        className="w-full max-w-sm relative z-10"
-      >
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-10 text-center">
-          <Link href="/" className="group flex items-center gap-3 mb-6">
-            <div className="relative">
-              <div className="absolute -inset-1.5 rounded-xl bg-primary/20 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative size-10 flex items-center justify-center">
-                <ProductLogo size={50} />
-              </div>
-            </div>
-            <span className="text-xl font-bold tracking-tight text-foreground/90">
-              Open Poll
-            </span>
-          </Link>
-        
-         
-            
-          
-          <h2 className="text-balance text-center text-xl font-semibold text-foreground">
-            {signedUpEmail ? "Check your email" : "Create your account"}
-          </h2>
-         
-        </div>
-
-        {/* Double Bezel Card */}
-        <div className="relative group">
-          <div className="absolute -inset-px rounded-3xl bg-gradient-to-b from-border/50 to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
-          <div className="absolute inset-[1px] rounded-[23px] bg-background/50 backdrop-blur-2xl" />
-          
-          <div className="relative p-8 space-y-6">
-            {!signedUpEmail ? (
-              <>
-                <form onSubmit={handleSignup} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name" className="font-medium text-foreground">
-                      Full Name
-                    </Label>
-                    <Input
-                      type="text"
-                      id="name"
-                      name="name"
-                      placeholder="John Doe"
-                      className="bg-secondary/10 border-border/50 h-11 px-4 rounded-xl"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="font-medium text-foreground">
-                      Email
-                    </Label>
-                    <Input
-                      type="email"
-                      id="email"
-                      name="email"
-                      autoComplete="email"
-                      placeholder="john@company.com"
-                      className="bg-secondary/10 border-border/50 h-11 px-4 rounded-xl"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password" className="font-medium text-foreground">
-                      Password
-                    </Label>
-                    <Input
-                      type="password"
-                      id="password"
-                      name="password"
-                      placeholder="••••••••"
-                      className="bg-secondary/10 border-border/50 h-11 px-4 rounded-xl"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={loading}
-                    />
-                  </div>
-                  <Button 
-                    type="submit" 
-                    className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all"
-                    disabled={loading}
-                  >
-                    {loading ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-                    Sign up
-                  </Button>
-                </form>
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <Separator className="w-full bg-border/50" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background/80 backdrop-blur-md px-3 text-muted-foreground font-medium tracking-wider">
-                      or continue with
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <Button
-                    variant="outline"
-                    className="h-11 rounded-xl border-border/50 bg-secondary/5 hover:bg-secondary/10 hover:text-foreground text-muted-foreground font-medium transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
-                    disabled={true}
-                    title="Coming soon"
-                  >
-                    <SSOIcon className="size-4" aria-hidden={true} />
-                    <span className="text-xs">SSO</span>
-                  </Button>
-
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="h-11 rounded-xl border-border/50 bg-secondary/5 hover:bg-secondary/10 hover:text-foreground text-muted-foreground font-medium transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
-                  >
-                    <a href={getGoogleAuthUrl()}>
-                      <GoogleIcon className="size-4" aria-hidden={true} />
-                      <span className="text-xs">Google</span>
-                    </a>
-                  </Button>
-                </div>
-
-                <p className="text-center text-sm text-muted-foreground pt-2">
-                  Already have an account?{" "}
-                  <Link href="/login" className="text-primary font-semibold hover:underline underline-offset-4">
-                    Sign in
-                  </Link>
-                </p>
-              </>
-            ) : (
-              <div className="text-center space-y-6 py-4">
-                <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                  <MailCheck className="size-8 text-primary" />
-                </div>
-                <div className="space-y-2">
-                  {/* The API answers identically whether or not the email is already registered. */}
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    We&apos;ve sent an email to <strong>{signedUpEmail}</strong>. If this is a new account,
-                    click the verification link to activate it. If you already have an account, the email
-                    explains how to log in or reset your password.
-                  </p>
-                </div>
-                <Button 
-                  onClick={handleResend}
-                  variant="outline"
-                  className="w-full h-11 rounded-xl border-primary/20 text-primary hover:bg-primary/5"
-                  disabled={resending}
-                >
-                  {resending ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-                  Resend Verification Email
-                </Button>
-                <Button asChild variant="ghost" className="w-full h-11 rounded-xl text-muted-foreground">
-                  <Link href="/login">Return to Login</Link>
-                </Button>
-              </div>
-            )}
+          <div className="my-6">
+            <AuthDivider>or continue with</AuthDivider>
           </div>
-        </div>
-      </motion.div>
-    </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="outline" className={authSecondaryClass} disabled={true} title="Coming soon">
+              <SSOIcon className="size-4" aria-hidden={true} />
+              SSO
+              <span className="sr-only">(coming soon)</span>
+            </Button>
+            <Button asChild variant="outline" className={authSecondaryClass}>
+              <a href={getGoogleAuthUrl()}>
+                <GoogleIcon className="size-4" aria-hidden={true} />
+                Google
+              </a>
+            </Button>
+          </div>
+        </>
+      ) : (
+        <AuthStatus
+          icon={MailCheck}
+          actions={
+            <>
+              <Button
+                onClick={handleResend}
+                variant="outline"
+                className={authSecondaryClass}
+                disabled={resending}
+              >
+                {resending ? <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" /> : null}
+                Resend verification email
+              </Button>
+              <Button asChild variant="ghost" className="h-11 w-full rounded-2xl text-base text-muted-foreground">
+                <Link href="/login">Return to login</Link>
+              </Button>
+            </>
+          }
+        >
+          {/* The API answers identically whether or not the email is already registered. */}
+          <p>
+            We&apos;ve sent an email to <strong className="text-foreground">{signedUpEmail}</strong>. If this is a new
+            account, click the verification link to activate it. If you already have an account, the email explains how
+            to log in or reset your password.
+          </p>
+        </AuthStatus>
+      )}
+    </AuthShell>
   );
 }
