@@ -96,3 +96,34 @@ Shown on PollCard for active polls. Updates every minute using `setInterval`.
 "Closes in 2h 14m"   → amber text
 "Closed"             → muted text
 ```
+
+## Marketing and auth surfaces (landing, sign-in, Privacy/Terms)
+
+The rendered app is warm near-black / off-white with **Sandy Tan `#d8ad87`** as the accent and
+**Amethysta** as the typeface (`app/globals.css`, `app/layout.tsx`); the yellow `#facc15` and Geist
+described above are the original direction and are no longer what the shared theme renders. These
+surfaces follow the theme as it is. Feature wiki: [`../features/landing-auth.md`](../features/landing-auth.md).
+
+**Tokens added to `globals.css`** (additive):
+
+| Token / class | Use |
+| --- | --- |
+| `--brand-ink` / `text-brand-ink` | Brand-coloured text and icons. Dark: `#d8ad87`. Light: `hsl(28 62% 33%)` (5.9:1 on the off-white; `#d8ad87` itself is about 1.9:1 there, so never use `text-primary` for text on light). |
+| `--field-border` / `border-field-border` | Input boundary with at least 3:1 against page and card in both themes (WCAG 1.4.11). |
+| `mk-focus` | Keyboard focus outline in `brand-ink`; use on links and custom controls. |
+| `mk-skip-link` | Off-screen "Skip to content" link, visible on focus. |
+| `mk-dot-grid` | Hero dot grid, masked toward the edges. |
+| `.mk-surface` | Marks a page that honours `prefers-reduced-motion` (animations and transitions collapse to ~0). `html` also drops smooth scrolling for reduced motion. |
+
+**Scales** (landing; `features/landing/components/shared/styles.ts`):
+
+- Gutters `px-5 sm:px-6 lg:px-8`, max width `max-w-7xl`. Section rhythm `py-20 sm:py-24 lg:py-28`.
+- Type: h1 48/60 (hero), h2 30/36/48 (`SectionHeading`), h3 20-24, body 16/18, labels and hints 14.
+  Nothing below 12px, no all-caps eyebrow labels, no text-opacity tricks (`/50`) for readable copy.
+- Buttons: `button.primary|secondary` 44px, `*Lg` 48px, `rounded-2xl`, ease `cubic-bezier(0.32,0.72,0,1)`.
+  Touch targets are at least 44px (menu toggle, links in lists, FAQ rows, form fields).
+- Cards: double bezel (`p-1.5` outer, inner radius `calc(2rem - 0.375rem)`); a feature grid is one
+  bezel with hairline dividers (`gap-px bg-border`) instead of a row of separate cards.
+- Motion: one page-load reveal in the hero, one reveal per showcase row; the live preview is the only
+  looping motion and stops for reduced motion. `MotionConfig reducedMotion="user"` on the landing and auth shell.
+- Copy: sentence case, plain verbs, only claims the product backs (see the feature wiki).
