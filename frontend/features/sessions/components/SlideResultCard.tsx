@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { StageView } from "@/features/presentations/components/stage/StageView";
 import type { LiveParticipant } from "@/features/presentations/types/live";
 import { asRevealDistribution, toStageSlide } from "../query";
+import { ScaledStage, STAGE_DESIGN_WIDTH } from "./ScaledStage";
 import type { SlideDistribution } from "../types";
 
 interface SlideResultCardProps {
@@ -60,7 +61,9 @@ export const SlideResultCard = memo(function SlideResultCard({
           {label}
         </h3>
         <div className="mx-auto w-full max-w-3xl">
-          <StageView slide={stageSlide} mode="report" live={live} participants={participants} />
+          <ScaledStage designWidth={STAGE_DESIGN_WIDTH[stageSlide.type] ?? 0}>
+            <StageView slide={stageSlide} mode="report" live={live} participants={participants} />
+          </ScaledStage>
         </div>
       </div>
     </article>

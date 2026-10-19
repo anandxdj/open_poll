@@ -21,6 +21,7 @@ import { ParticipantsTable } from "@/features/sessions/components/ParticipantsTa
 import { PublicResultsContent } from "@/features/sessions/components/PublicResultsView";
 import { TakeHomeContent } from "@/features/sessions/components/ParticipantSummary";
 import { ReportContent } from "@/features/sessions/components/SessionReportView";
+import { ScaledStage, STAGE_DESIGN_WIDTH } from "@/features/sessions/components/ScaledStage";
 import { SlideResultCard } from "@/features/sessions/components/SlideResultCard";
 import { StatusBadge } from "@/features/sessions/components/ui";
 import type { PublicResults, ReportParticipant, SessionReport, TakeHome } from "@/features/sessions/types";
@@ -174,6 +175,23 @@ describe("report content", () => {
     );
     expect(markup).toContain("Slide 5");
     expect(markup).toContain("Future slide");
+  });
+});
+
+describe("scaled stage", () => {
+  test("only fixed-layout types ask for a design width", () => {
+    expect(STAGE_DESIGN_WIDTH.wordcloud).toBeGreaterThan(600);
+    expect(STAGE_DESIGN_WIDTH.select_answer).toBeUndefined();
+  });
+
+  test("renders its children as they are before it has measured anything (server render)", () => {
+    const markup = renderToStaticMarkup(
+      <ScaledStage designWidth={720}>
+        <p>chart</p>
+      </ScaledStage>
+    );
+    expect(markup).toContain("<p>chart</p>");
+    expect(markup).not.toContain("scale(");
   });
 });
 

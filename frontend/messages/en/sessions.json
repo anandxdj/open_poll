@@ -11,7 +11,6 @@
     "colStarted": "Started",
     "colParticipants": "Participants",
     "colResponses": "Responses",
-    "colStatus": "Status",
     "run": "Session {number}",
     "shared": "Shared",
     "openReport": "Open report",
@@ -47,7 +46,6 @@
       "slideNumber": "Slide {number}",
       "responses": "{count, plural, =0 {No responses} one {# response} other {# responses}}",
       "empty": "No response slides were shown in this session.",
-      "notShown": "Not shown",
       "notShownList": "Not shown in this session: {slides}"
     },
     "leaderboard": {
@@ -86,13 +84,11 @@
       "lockedHint": "CSV export is included in every plan. Upgrade to download the report as {format}.",
       "seePlan": "See your plan",
       "done": "{format} export downloaded.",
-      "failed": "Couldn't export the {format} file.",
-      "notAllowed": "You don't have permission to export this session."
+      "failed": "Couldn't export the {format} file."
     },
     "share": {
       "button": "Share results",
-      "buttonShared": "Shared",
-      "needsEnd": "End the session to share its results."
+      "buttonShared": "Shared"
     },
     "delete": {
       "button": "Delete session",
@@ -100,7 +96,6 @@
       "body": "This permanently deletes the session with its participants, answers and results. The deck is kept. This cannot be undone.",
       "confirm": "Delete session",
       "cancel": "Cancel",
-      "liveHint": "End the session before deleting it.",
       "done": "Session deleted.",
       "failed": "Couldn't delete the session."
     }
@@ -124,7 +119,6 @@
     "expiry30d": "In 30 days",
     "expiryKeep": "Keep current expiry",
     "expiresOn": "Expires {date}",
-    "expiredOn": "Expired {date}",
     "neverExpires": "Never expires",
     "inactive": "This link is switched off. People opening it see a “not available” page.",
     "expired": "This link has expired. Pick a new expiry to turn it on again.",
@@ -192,8 +186,7 @@
       "unscored": "Recorded",
       "skipped": "Skipped"
     },
-    "emptySlides": "No questions were answered in this session.",
-    "back": "Back to the session"
+    "emptySlides": "No questions were answered in this session."
   },
   "endScreen": {
     "participantLink": "See my results",

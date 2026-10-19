@@ -69,49 +69,49 @@ export function TakeHomeContent({ data }: { data: TakeHome }) {
   const t = useTranslations("sessions.summary");
   return (
     <>
-        <header className="space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-primary">{t("kicker")}</p>
-          <h1 className="text-2xl font-extrabold tracking-tight">{data.me.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            {t("run", { title: data.session.title, number: data.session.runNumber })}
-          </p>
-        </header>
+      <header className="space-y-1">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-primary">{t("kicker")}</p>
+        <h1 className="text-2xl font-extrabold tracking-tight">{data.me.name}</h1>
+        <p className="text-sm text-muted-foreground">
+          {t("run", { title: data.session.title, number: data.session.runNumber })}
+        </p>
+      </header>
 
-        <dl className="grid grid-cols-2 gap-3">
-          <StatTile
-            label={t("rank")}
-            value={t("rankOf", { rank: data.me.rank, total: data.session.participantCount })}
-          />
-          <StatTile label={t("score")} value={data.me.score.toLocaleString()} />
-          <StatTile label={t("correct")} value={data.me.correctCount} />
-          <StatTile
-            label={t("answered")}
-            value={t("answeredOf", { answered: data.me.answeredCount, total: data.slides.length })}
-          />
-        </dl>
+      <dl className="grid grid-cols-2 gap-3">
+        <StatTile
+          label={t("rank")}
+          value={t("rankOf", { rank: data.me.rank, total: data.session.participantCount })}
+        />
+        <StatTile label={t("score")} value={data.me.score.toLocaleString()} />
+        <StatTile label={t("correct")} value={data.me.correctCount} />
+        <StatTile
+          label={t("answered")}
+          value={t("answeredOf", { answered: data.me.answeredCount, total: data.slides.length })}
+        />
+      </dl>
 
-        {data.session.status !== "ended" ? (
-          <p role="status" className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">
-            {t("liveHint")}
-          </p>
-        ) : null}
+      {data.session.status !== "ended" ? (
+        <p role="status" className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">
+          {t("liveHint")}
+        </p>
+      ) : null}
 
-        <section aria-labelledby="answers-title" className="space-y-3">
-          <h2 id="answers-title" className="text-base font-bold tracking-tight">
-            {t("slidesTitle")}
-          </h2>
-          {data.slides.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("emptySlides")}</p>
-          ) : (
-            <ol className="space-y-3">
-              {data.slides.map((slide) => (
-                <li key={slide.slideId}>
-                  <AnswerCard slide={slide} />
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
+      <section aria-labelledby="answers-title" className="space-y-3">
+        <h2 id="answers-title" className="text-base font-bold tracking-tight">
+          {t("slidesTitle")}
+        </h2>
+        {data.slides.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("emptySlides")}</p>
+        ) : (
+          <ol className="space-y-3">
+            {data.slides.map((slide) => (
+              <li key={slide.slideId}>
+                <AnswerCard slide={slide} />
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
     </>
   );
 }

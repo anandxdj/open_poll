@@ -34,9 +34,19 @@ export function StatusBadge({ status }: { status: SessionStatus }) {
   );
 }
 
-export function StatTile({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
+export function StatTile({
+  label,
+  value,
+  hint,
+  className,
+}: {
+  label: string;
+  value: ReactNode;
+  hint?: string;
+  className?: string;
+}) {
   return (
-    <div className="rounded-2xl border border-border bg-card px-4 py-3" title={hint}>
+    <div className={cn("rounded-2xl border border-border bg-card px-4 py-3", className)} title={hint}>
       <dt className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">{label}</dt>
       <dd className="mt-1 truncate text-xl font-bold tabular-nums tracking-tight text-foreground/90">{value}</dd>
     </div>

@@ -64,35 +64,39 @@ export function PublicResultsContent({ results }: { results: PublicResults }) {
 
   return (
     <>
-        <header className="space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-primary">{t("kicker")}</p>
-          <h1 className="text-3xl font-extrabold tracking-tight">{results.title}</h1>
-          <p className="text-sm text-muted-foreground">
-            {t("run", { number: results.runNumber })} · {formatDate(results.startedAt)}
-          </p>
-        </header>
-        <dl className="grid grid-cols-3 gap-3">
-          <StatTile label={t("stats.participants")} value={results.participantCount.toLocaleString()} />
-          <StatTile label={t("stats.responses")} value={results.answerCount.toLocaleString()} />
-          <StatTile label={t("stats.date")} value={<span className="text-sm">{formatDate(results.endedAt ?? results.startedAt)}</span>} />
-        </dl>
+      <header className="space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-primary">{t("kicker")}</p>
+        <h1 className="text-3xl font-extrabold tracking-tight">{results.title}</h1>
+        <p className="text-sm text-muted-foreground">
+          {t("run", { number: results.runNumber })} · {formatDate(results.startedAt)}
+        </p>
+      </header>
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StatTile label={t("stats.participants")} value={results.participantCount.toLocaleString()} />
+        <StatTile label={t("stats.responses")} value={results.answerCount.toLocaleString()} />
+        <StatTile
+          className="col-span-2 sm:col-span-1"
+          label={t("stats.date")}
+          value={<span className="text-sm">{formatDate(results.endedAt ?? results.startedAt)}</span>}
+        />
+      </dl>
 
-        {slides.length === 0 ? (
-          <p className="rounded-2xl border border-border bg-card px-5 py-6 text-sm text-muted-foreground">{t("empty")}</p>
-        ) : (
-          slides.map((slide) => (
-            <SlideResultCard
-              key={slide.slideIndex}
-              slideIndex={slide.slideIndex}
-              slide={slide.slide}
-              label={slide.label}
-              answeredCount={slide.answeredCount}
-              distribution={slide.distribution}
-              participants={headcount}
-            />
-          ))
-        )}
-        {results.leaderboard ? <LeaderboardPanel rows={results.leaderboard} /> : null}
+      {slides.length === 0 ? (
+        <p className="rounded-2xl border border-border bg-card px-5 py-6 text-sm text-muted-foreground">{t("empty")}</p>
+      ) : (
+        slides.map((slide) => (
+          <SlideResultCard
+            key={slide.slideIndex}
+            slideIndex={slide.slideIndex}
+            slide={slide.slide}
+            label={slide.label}
+            answeredCount={slide.answeredCount}
+            distribution={slide.distribution}
+            participants={headcount}
+          />
+        ))
+      )}
+      {results.leaderboard ? <LeaderboardPanel rows={results.leaderboard} /> : null}
     </>
   );
 }
