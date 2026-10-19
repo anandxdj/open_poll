@@ -31,6 +31,10 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/quiz-roadmap.md` (phases / what to build next)
 - Add `backend/docs/wiki/realtime/presentations.md` only if touching events.
 
+### Session history, reports, exports, public results links, participant take-home
+- `backend/docs/wiki/modules/sessions.md`
+- Add `backend/docs/wiki/modules/presentations-live.md` only if touching what the engine stores per session.
+
 ### Realtime Socket/Redis tasks
 - `backend/docs/wiki/realtime/envelope.md` (core: registry, auth, envelope, rooms, delivery)
 - `backend/docs/wiki/realtime/presentations.md` or `realtime/polls.md` (the module you touch)
