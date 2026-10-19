@@ -60,6 +60,7 @@ ROUTER /api/ai
 POST /api/ai/generate
 POST /api/ai/generate-and-save
 POST /api/ai/generate-quiz
+POST /api/ai/generate-deck
 ROUTER /api/presentations
 ROUTER /api/presentations
 GET /api/presentations/code/:code
