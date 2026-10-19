@@ -1,0 +1,94 @@
+{
+  "tab": "Q&A",
+  "title": "Questions",
+  "closed": "Q&A isn't open right now.",
+  "closedHint": "Questions open when the host turns Q&A on.",
+  "ended": "This session has ended.",
+  "loadFailed": "Could not load the questions.",
+  "retry": "Try again",
+  "ask": {
+    "label": "Your question",
+    "placeholder": "Ask a question…",
+    "left": "{count} left",
+    "anonymous": "Ask anonymously",
+    "send": "Send question",
+    "sending": "Sending…",
+    "moderated": "The host reviews questions before they appear.",
+    "sentVisible": "Question sent.",
+    "sentPending": "Sent — waiting for the host to approve it.",
+    "failed": "Could not send your question.",
+    "anonymousOff": "This presentation does not take anonymous questions."
+  },
+  "list": {
+    "label": "Questions from the audience",
+    "empty": "No questions yet. Be the first to ask.",
+    "sortTop": "Top",
+    "sortNew": "New",
+    "anonymousAuthor": "Anonymous",
+    "you": "You",
+    "pending": "Waiting for approval",
+    "answered": "Answered",
+    "pinned": "Pinned",
+    "onScreen": "On screen",
+    "votes": "{count, plural, one {# vote} other {# votes}}",
+    "upvote": "Upvote: {text}",
+    "ownQuestion": "You can't upvote your own question.",
+    "voteFailed": "Could not save your vote."
+  },
+  "stage": {
+    "title": "Questions",
+    "empty": "Questions from the audience will show up here.",
+    "ask": "Ask from your phone with join code {code}",
+    "highlight": "Question from the audience",
+    "more": "{count, plural, one {# more question} other {# more questions}}"
+  },
+  "reactions": {
+    "label": "Send a reaction",
+    "send": "Send reaction {emoji}",
+    "disabled": "Reactions are off.",
+    "stage": "Reactions"
+  },
+  "host": {
+    "open": "Open Q&A panel",
+    "close": "Close Q&A panel",
+    "title": "Audience questions",
+    "pendingBadge": "{count} waiting for approval",
+    "moderationOn": "Moderation on",
+    "moderationOff": "Moderation off",
+    "closed": "Q&A is closed for this session.",
+    "noSession": "Questions appear once the session is open.",
+    "sortLabel": "Sort",
+    "sortTop": "Most votes",
+    "sortNew": "Newest",
+    "filters": {
+      "pending": "Pending",
+      "visible": "Visible",
+      "answered": "Answered",
+      "archived": "Archived",
+      "rejected": "Rejected"
+    },
+    "empty": {
+      "pending": "Nothing waiting for approval.",
+      "visible": "No visible questions yet.",
+      "answered": "No answered questions yet.",
+      "archived": "No archived questions.",
+      "rejected": "No rejected questions."
+    },
+    "actions": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "answered": "Mark answered",
+      "reopen": "Back to visible",
+      "archive": "Archive",
+      "restore": "Restore",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "highlight": "Show on screen",
+      "unhighlight": "Hide from screen"
+    },
+    "failed": "Could not update the question.",
+    "loadFailed": "Could not load the questions.",
+    "anonymousAuthor": "Anonymous",
+    "highlighted": "On screen"
+  }
+}

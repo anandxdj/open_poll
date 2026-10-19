@@ -9,4 +9,7 @@
  *
  * See frontend/docs/wiki/features/live-surfaces.md.
  */
+import "@/features/qna/register";
+import "@/features/reactions/register";
+
 export {};

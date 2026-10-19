@@ -82,7 +82,7 @@ export const settingsTab: InspectorTabDef = {
   label: "Settings",
   Icon: Settings2,
   order: 20,
-  // Content slides have no timer and no scoring.
-  appliesTo: (slide) => !isContentSlide(slide.type),
+  // Content slides and the Q&A board have no timer and no scoring.
+  appliesTo: (slide) => !isContentSlide(slide.type) && slide.type !== "qna",
   Panel: SettingsPanel,
 };

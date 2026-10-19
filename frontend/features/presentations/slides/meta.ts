@@ -9,6 +9,7 @@ import { meta as instructions } from "./types/instructions/meta";
 import { meta as leaderboard } from "./types/leaderboard/meta";
 import { meta as open_ended } from "./types/open_ended/meta";
 import { meta as paragraph } from "./types/paragraph/meta";
+import { meta as qna } from "./types/qna/meta";
 import { meta as quote } from "./types/quote/meta";
 import { meta as ranking } from "./types/ranking/meta";
 import { meta as scales } from "./types/scales/meta";
@@ -51,6 +52,7 @@ export const SLIDE_META: Record<PresentationSlideType, SlideTypeMeta> = {
   leaderboard,
   open_ended,
   paragraph,
+  qna,
   quote,
   ranking,
   scales,
@@ -74,7 +76,7 @@ export const SLIDE_TYPE_META: SlideTypeMeta[] = Object.values(SLIDE_META)
 
 /** Types the AI deck draft (`POST /api/ai/generate-quiz`) can produce, in display order. */
 export const AI_SLIDE_TYPE_META: SlideTypeMeta[] = SLIDE_TYPE_META.filter(
-  (m) => m.section === "interactive" || m.section === "competition"
+  (m) => (m.section === "interactive" || m.section === "competition") && m.type !== "qna"
 );
 
 export const slideTypeMeta = (type: PresentationSlideType): SlideTypeMeta =>

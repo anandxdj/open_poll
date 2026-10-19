@@ -12,6 +12,7 @@ export type PresentationSlideType =
   | "scales"
   | "ranking"
   | "leaderboard"
+  | "qna"
   | ContentSlideType;
 
 export const SCORED_SLIDE_TYPES: PresentationSlideType[] = ["select_answer", "type_answer"];
