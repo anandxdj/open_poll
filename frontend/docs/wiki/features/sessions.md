@@ -14,7 +14,7 @@ and shows a participant their own results. Backend contract and rules:
 
 | Route | Page | Who |
 | --- | --- | --- |
-| `/presentations/[id]/sessions` | `SessionsList`: runs newest first (run number, date, status badge, participants, responses, shared badge), "Present again", load more | signed-in members (`/presentations` is a protected prefix) |
+| `/presentations/[id]/sessions` | `SessionsList`: runs newest first (run number, date, status badge, participants, responses, shared badge), "Present again", load more | signed-in members (the API enforces it; `/presentations` is not yet a protected prefix of the proxy, so a signed-out visitor sees a load error instead of the login page) |
 | `/presentations/[id]/sessions/[sessionId]` | `SessionReportView`: stats, one chart per response slide, leaderboard, participants table, Export, Share, Delete | signed-in members |
 | `/r/[token]` | `PublicResultsView`: aggregated results of a shared session. `noindex` (metadata `robots` + `referrer: no-referrer`) | anyone with the link |
 | `/live/[code]/summary?sid=` | `ParticipantSummary`: the participant's own answers, correctness, points, rank | the participant, from this browser's storage |

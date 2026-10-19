@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { e2eEnv } from "./env";
-import { expect, test } from "./fixtures";
+import { expect, test, type Host } from "./fixtures";
 
 /**
  * Session history and reports: a deck is run through the real join and answer
@@ -86,6 +86,17 @@ async function runDeck(deckId: string, hostToken: string) {
   return { sessionId, joined };
 }
 
+/**
+ * Opens `path` signed in. The fixture seeds the auth cookie with an init script, which runs after
+ * the first response, so a protected route as the first request would bounce to /login: land on a
+ * public page first, then navigate.
+ */
+async function openSignedIn(host: Host, path: string) {
+  const page = await host.open("/live");
+  await page.goto(path);
+  return page;
+}
+
 test.describe.configure({ mode: "serial" });
 
 test("history, report, exports, sharing, participant results and deletion", async ({ browser, contexts, host }) => {
@@ -95,7 +106,7 @@ test("history, report, exports, sharing, participant results and deletion", asyn
   const [ada, grace] = joined as [Joined, Joined];
 
   // --- History: the finished run is listed with its numbers ---
-  const page = await host.open(`/presentations/${deck._id}/sessions`);
+  const page = await openSignedIn(host, `/presentations/${deck._id}/sessions`);
   await expect(page.getByRole("heading", { name: deck.title })).toBeVisible();
   const row = page.getByRole("link", { name: /Session 1/ });
   await expect(row).toContainText("Ended");
@@ -241,7 +252,7 @@ test("Excel and PDF download on a plan that includes them", async ({ host }) => 
   try {
     const deck = await host.createDeck(`E2E sessions export ${Date.now()}`, slides);
     const { sessionId } = await runDeck(deck._id, host.accessToken);
-    const page = await host.open(`/presentations/${deck._id}/sessions/${sessionId}`);
+    const page = await openSignedIn(host, `/presentations/${deck._id}/sessions/${sessionId}`);
     await expect(page.getByText("Results by slide")).toBeVisible();
 
     for (const [label, extension] of [
@@ -267,7 +278,7 @@ test("the library menu leads to a deck's sessions, and a running session shows a
   const deck = await host.createDeck(`E2E sessions live ${Date.now()}`, slides);
   await api(`/presentations/${deck._id}/host/open-lobby`, { method: "POST", token: host.accessToken });
 
-  const page = await host.open(`/polls?type=presentation&q=${encodeURIComponent(deck.title)}`);
+  const page = await openSignedIn(host, `/polls?type=presentation&q=${encodeURIComponent(deck.title)}`);
   await page.getByRole("button", { name: `More actions for ${deck.title}` }).click();
   await page.getByRole("menuitem", { name: "Session history" }).click();
   await expect(page).toHaveURL(new RegExp(`/presentations/${deck._id}/sessions$`));
