@@ -1,105 +1,95 @@
 "use client";
 
+import Link from "next/link";
 import { MotionConfig, motion } from "framer-motion";
-import { AlertCircle, CheckCircle2, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { ThemeSwitch } from "@/components/unlumen-ui/theme-switch";
 import { BrandMark } from "@/features/landing/components/shared/BrandMark";
-import { container } from "@/features/landing/components/shared/styles";
 import { cn } from "@/lib/utils";
+import { AuthAside } from "./AuthAside";
 
 const ease = [0.32, 0.72, 0, 1] as const;
+
+const TONES = {
+  info: "border-primary/30 bg-primary/10 text-accent-ink",
+  success: "border-success/30 bg-success/10 text-success",
+  error: "border-destructive/30 bg-destructive/10 text-destructive",
+  neutral: "border-border bg-secondary text-muted-foreground",
+} as const;
+
+export type AuthTone = keyof typeof TONES;
 
 interface AuthShellProps {
   /** The page's h1. */
   title: string;
   description?: React.ReactNode;
-  children: React.ReactNode;
-  /** Quiet line under the card, e.g. "No account yet? Sign up". */
+  /** A status icon above the title (result states). */
+  icon?: LucideIcon;
+  tone?: AuthTone;
+  children?: React.ReactNode;
+  /** Quiet line under the content, e.g. "No account yet? Sign up". */
   footer?: React.ReactNode;
-  /** Wider card for pages with more content. */
-  width?: "sm" | "md";
+  /** Show the product panel beside the form on large screens (forms and "sent" states). */
+  aside?: boolean;
 }
 
 /**
- * The frame every sign-in page shares: brand and theme switch on top, one
- * double-bezel card with an h1 above it. Presentation only; the forms inside
- * own their behaviour.
+ * The frame every sign-in page shares: brand and theme switch on top, a narrow
+ * column with an h1 and the form, Privacy and Terms underneath, and on large
+ * screens a product panel beside it. Presentation only; the forms own their behaviour.
  */
-export function AuthShell({ title, description, children, footer, width = "md" }: AuthShellProps) {
+export function AuthShell({ title, description, icon: Icon, tone = "info", children, footer, aside = true }: AuthShellProps) {
   return (
     <MotionConfig reducedMotion="user">
-      <div className="mk-surface relative flex min-h-dvh flex-col overflow-x-clip bg-radial-glow text-foreground">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-0 size-[32rem] -translate-x-1/2 -translate-y-1/3 rounded-full bg-primary/10 blur-[120px]"
-        />
+      <div className={cn("mk-surface min-h-dvh bg-background text-foreground", aside && "lg:grid lg:grid-cols-2")}>
+        <div className="flex min-h-dvh flex-col">
+          <header className="flex h-16 shrink-0 items-center justify-between px-4 sm:px-6 lg:px-10">
+            <BrandMark />
+            <ThemeSwitch className="size-10 lg:size-9" />
+          </header>
 
-        <header className={cn(container, "relative z-10 flex h-16 shrink-0 items-center justify-between")}>
-          <BrandMark />
-          <ThemeSwitch className="size-11" />
-        </header>
-
-        <main id="main" className="relative z-10 flex flex-1 items-center justify-center px-5 pb-16 pt-6 sm:px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease }}
-            className={cn("w-full", width === "sm" ? "max-w-sm" : "max-w-md")}
-          >
-            <div className="mb-8 text-center">
-              <h1 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
-              {description ? (
-                <p className="mt-3 text-pretty text-base leading-relaxed text-muted-foreground">{description}</p>
+          <main id="main" className="flex flex-1 items-center justify-center px-4 pb-12 pt-6 sm:px-6">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease }}
+              className="w-full max-w-sm"
+            >
+              {Icon ? (
+                <div className={cn("mb-6 flex size-12 items-center justify-center rounded-xl border", TONES[tone])}>
+                  <Icon className="size-6" aria-hidden="true" />
+                </div>
               ) : null}
-            </div>
+              <h1 className="text-balance text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">{title}</h1>
+              {description ? (
+                <p className="mt-2 text-pretty text-base leading-relaxed text-muted-foreground">{description}</p>
+              ) : null}
 
-            {/* Double bezel */}
-            <div className="rounded-[2rem] border border-foreground/10 bg-foreground/5 p-1.5 shadow-2xl shadow-black/10 dark:shadow-black/50">
-              <div className="rounded-[calc(2rem-0.375rem)] bg-card p-6 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)] sm:p-8 dark:shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)]">
-                {children}
-              </div>
-            </div>
+              {children ? <div className="mt-8">{children}</div> : null}
 
-            {footer ? <div className="mt-6 text-center text-base text-muted-foreground">{footer}</div> : null}
-          </motion.div>
-        </main>
+              {footer ? <div className="mt-8 text-sm text-muted-foreground">{footer}</div> : null}
+            </motion.div>
+          </main>
+
+          <footer className="flex items-center justify-center gap-6 px-4 pb-8 text-sm text-muted-foreground">
+            <Link
+              href="/privacy"
+              className="rounded-sm transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              Privacy
+            </Link>
+            <Link
+              href="/terms"
+              className="rounded-sm transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              Terms of use
+            </Link>
+          </footer>
+        </div>
+
+        {aside ? <AuthAside /> : null}
       </div>
     </MotionConfig>
   );
 }
 
-const TONES = {
-  info: { ring: "bg-primary/10 text-brand-ink", icon: CheckCircle2 },
-  success: { ring: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", icon: CheckCircle2 },
-  error: { ring: "bg-destructive/10 text-destructive dark:text-red-400", icon: AlertCircle },
-} as const;
-
-interface AuthStatusProps {
-  tone?: keyof typeof TONES;
-  icon?: LucideIcon;
-  /** h2 inside the card. */
-  title?: string;
-  children?: React.ReactNode;
-  actions?: React.ReactNode;
-  className?: string;
-}
-
-/** Icon, headline, message and actions for the result states (sent, verified, expired, invalid). */
-export function AuthStatus({ tone = "info", icon, title, children, actions, className }: AuthStatusProps) {
-  const t = TONES[tone];
-  const Icon = icon ?? t.icon;
-  return (
-    <div className={cn("space-y-6 text-center", className)}>
-      <div className={cn("mx-auto flex size-16 items-center justify-center rounded-full", t.ring)}>
-        <Icon className="size-8" aria-hidden="true" />
-      </div>
-      {title || children ? (
-        <div className="space-y-2">
-          {title ? <h2 className="text-xl font-bold tracking-tight text-foreground">{title}</h2> : null}
-          {children ? <div className="text-base leading-relaxed text-muted-foreground">{children}</div> : null}
-        </div>
-      ) : null}
-      {actions ? <div className="grid gap-3">{actions}</div> : null}
-    </div>
-  );
-}

@@ -59,10 +59,10 @@ function AuthCallbackHandler() {
 /** One quiet centered state for both the Suspense fallback and the exchange in progress. */
 function CompleteStatus({ label }: { label: string }) {
   return (
-    <main className="mk-surface flex min-h-dvh items-center justify-center bg-radial-glow px-5">
-      <div role="status" className="flex flex-col items-center gap-4 text-center">
-        <Loader2 className="size-9 animate-spin text-brand-ink" aria-hidden="true" />
-        <p className="text-base text-muted-foreground">{label}</p>
+    <main className="mk-surface flex min-h-dvh items-center justify-center bg-background px-5">
+      <div role="status" className="flex items-center gap-3 text-base text-muted-foreground">
+        <Loader2 className="size-5 animate-spin text-accent-ink" aria-hidden="true" />
+        {label}
       </div>
     </main>
   );

@@ -112,7 +112,7 @@ export function LoginForm() {
           onChange={(e) => setPassword(e.target.value)}
           disabled={loading}
           aside={
-            <Link href="/forgot-password" className={cn(textLink, "inline-flex min-h-11 items-center text-sm")}>
+            <Link href="/forgot-password" className={cn(textLink, "inline-flex min-h-10 items-center text-sm")}>
               Forgot password?
             </Link>
           }
@@ -123,20 +123,20 @@ export function LoginForm() {
       </form>
 
       <div className="my-6">
-        <AuthDivider>or continue with</AuthDivider>
+        <AuthDivider>or</AuthDivider>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Button asChild variant="outline" className={authSecondaryClass}>
-          <a href={getAuthLoginUrl()}>
-            <SSOIcon className="size-4" aria-hidden={true} />
-            SSO
-          </a>
-        </Button>
+      <div className="grid gap-3">
         <Button asChild variant="outline" className={authSecondaryClass}>
           <a href={getGoogleAuthUrl()}>
             <GoogleIcon className="size-4" aria-hidden={true} />
-            Google
+            Continue with Google
+          </a>
+        </Button>
+        <Button asChild variant="outline" className={authSecondaryClass}>
+          <a href={getAuthLoginUrl()}>
+            <SSOIcon className="size-4" aria-hidden={true} />
+            Continue with SSO
           </a>
         </Button>
       </div>

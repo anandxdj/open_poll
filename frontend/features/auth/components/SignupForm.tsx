@@ -6,7 +6,7 @@ import Link from "next/link";
 import { isAxiosError } from "axios";
 import { Loader2, MailCheck } from "lucide-react";
 import { textLink } from "@/features/landing/components/shared/styles";
-import { AuthShell, AuthStatus } from "./AuthShell";
+import { AuthShell } from "./AuthShell";
 import { AuthDivider, AuthField, AuthSubmit, PasswordField, authSecondaryClass } from "./fields";
 import axios from "@/lib/api-client";
 import { toast } from "sonner";
@@ -65,108 +65,102 @@ export function SignupForm() {
     }
   };
 
+  if (signedUpEmail) {
+    return (
+      <AuthShell
+        icon={MailCheck}
+        title="Check your email"
+        description={
+          <>
+            We&apos;ve sent an email to <strong className="font-medium text-foreground">{signedUpEmail}</strong>.
+            {/* The API answers identically whether or not the email is already registered. */}{" "}
+            If this is a new account, click the verification link to activate it. If you already have an account,
+            the email explains how to log in or reset your password.
+          </>
+        }
+        footer={
+          <Link href="/login" className={textLink}>
+            Return to login
+          </Link>
+        }
+      >
+        <Button onClick={handleResend} variant="outline" className={authSecondaryClass} disabled={resending}>
+          {resending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+          Resend verification email
+        </Button>
+      </AuthShell>
+    );
+  }
+
   return (
     <AuthShell
-      title={signedUpEmail ? "Check your email" : "Create your account"}
-      description={signedUpEmail ? undefined : "Build live polls, quizzes and Q&A for free."}
+      title="Create your account"
+      description="Build live polls, quizzes and Q&A for free."
       footer={
-        signedUpEmail ? null : (
-          <>
-            Already have an account?{" "}
-            <Link href="/login" className={textLink}>
-              Sign in
-            </Link>
-          </>
-        )
+        <>
+          Already have an account?{" "}
+          <Link href="/login" className={textLink}>
+            Sign in
+          </Link>
+        </>
       }
     >
-      {!signedUpEmail ? (
-        <>
-          <form onSubmit={handleSignup} className="space-y-5">
-            <AuthField
-              type="text"
-              id="name"
-              name="name"
-              label="Full name"
-              autoComplete="name"
-              placeholder="Alex Rivera"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={loading}
-            />
-            <AuthField
-              type="email"
-              id="email"
-              name="email"
-              label="Email"
-              autoComplete="email"
-              placeholder="you@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
-            />
-            <PasswordField
-              id="password"
-              name="password"
-              label="Password"
-              autoComplete="new-password"
-              placeholder="Create a password"
-              hint="At least 8 characters, with one uppercase letter and one number."
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-            />
-            <AuthSubmit loading={loading} disabled={loading}>
-              Sign up
-            </AuthSubmit>
-          </form>
+      <form onSubmit={handleSignup} className="space-y-5">
+        <AuthField
+          type="text"
+          id="name"
+          name="name"
+          label="Full name"
+          autoComplete="name"
+          placeholder="Alex Rivera"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={loading}
+        />
+        <AuthField
+          type="email"
+          id="email"
+          name="email"
+          label="Email"
+          autoComplete="email"
+          placeholder="you@company.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={loading}
+        />
+        <PasswordField
+          id="password"
+          name="password"
+          label="Password"
+          autoComplete="new-password"
+          placeholder="Create a password"
+          hint="At least 8 characters, with one uppercase letter and one number."
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          disabled={loading}
+        />
+        <AuthSubmit loading={loading} disabled={loading}>
+          Sign up
+        </AuthSubmit>
+      </form>
 
-          <div className="my-6">
-            <AuthDivider>or continue with</AuthDivider>
-          </div>
+      <div className="my-6">
+        <AuthDivider>or</AuthDivider>
+      </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" className={authSecondaryClass} disabled={true} title="Coming soon">
-              <SSOIcon className="size-4" aria-hidden={true} />
-              SSO
-              <span className="sr-only">(coming soon)</span>
-            </Button>
-            <Button asChild variant="outline" className={authSecondaryClass}>
-              <a href={getGoogleAuthUrl()}>
-                <GoogleIcon className="size-4" aria-hidden={true} />
-                Google
-              </a>
-            </Button>
-          </div>
-        </>
-      ) : (
-        <AuthStatus
-          icon={MailCheck}
-          actions={
-            <>
-              <Button
-                onClick={handleResend}
-                variant="outline"
-                className={authSecondaryClass}
-                disabled={resending}
-              >
-                {resending ? <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" /> : null}
-                Resend verification email
-              </Button>
-              <Button asChild variant="ghost" className="h-11 w-full rounded-2xl text-base text-muted-foreground">
-                <Link href="/login">Return to login</Link>
-              </Button>
-            </>
-          }
-        >
-          {/* The API answers identically whether or not the email is already registered. */}
-          <p>
-            We&apos;ve sent an email to <strong className="text-foreground">{signedUpEmail}</strong>. If this is a new
-            account, click the verification link to activate it. If you already have an account, the email explains how
-            to log in or reset your password.
-          </p>
-        </AuthStatus>
-      )}
+      <div className="grid gap-3">
+        <Button asChild variant="outline" className={authSecondaryClass}>
+          <a href={getGoogleAuthUrl()}>
+            <GoogleIcon className="size-4" aria-hidden={true} />
+            Continue with Google
+          </a>
+        </Button>
+        <Button variant="outline" className={authSecondaryClass} disabled={true} title="Coming soon">
+          <SSOIcon className="size-4" aria-hidden={true} />
+          Continue with SSO
+          <span className="sr-only">(coming soon)</span>
+        </Button>
+      </div>
     </AuthShell>
   );
 }

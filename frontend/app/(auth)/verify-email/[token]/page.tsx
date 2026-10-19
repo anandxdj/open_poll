@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import axios from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
 import { getApiErrorMessage } from "@/lib/api-error";
-import { AuthShell, AuthStatus } from "@/features/auth/components/AuthShell";
+import { AuthShell } from "@/features/auth/components/AuthShell";
 import { authSecondaryClass } from "@/features/auth/components/fields";
 
 interface PageProps {
@@ -35,48 +35,36 @@ export default function VerifyEmailPage({ params }: PageProps) {
     }
   }, [token]);
 
+  if (status === "success") {
+    return (
+      <AuthShell aside={false} icon={CheckCircle2} tone="success" title="Email verified" description={message}>
+        <Button asChild className={authSecondaryClass}>
+          <Link href="/login">Continue to login</Link>
+        </Button>
+      </AuthShell>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <AuthShell aside={false} icon={AlertCircle} tone="error" title="Verification failed" description={message}>
+        <div className="grid gap-3">
+          <Button asChild variant="outline" className={authSecondaryClass}>
+            <Link href="/signup">Back to sign up</Link>
+          </Button>
+          <Button asChild variant="ghost" className={authSecondaryClass}>
+            <Link href="/">Back to home</Link>
+          </Button>
+        </div>
+      </AuthShell>
+    );
+  }
+
   return (
-    <AuthShell title="Email verification" width="sm">
-      <div aria-live="polite">
-        {status === "loading" && (
-          <div className="flex flex-col items-center gap-4 py-8 text-center" role="status">
-            <Loader2 className="size-10 animate-spin text-brand-ink" aria-hidden="true" />
-            <p className="text-base text-muted-foreground">Verifying your email…</p>
-          </div>
-        )}
-
-        {status === "success" && (
-          <AuthStatus
-            tone="success"
-            title="Email verified"
-            actions={
-              <Button asChild className="h-11 w-full rounded-2xl text-base font-semibold shadow-lg shadow-primary/20">
-                <Link href="/login">Continue to login</Link>
-              </Button>
-            }
-          >
-            {message}
-          </AuthStatus>
-        )}
-
-        {status === "error" && (
-          <AuthStatus
-            tone="error"
-            title="Verification failed"
-            actions={
-              <>
-                <Button asChild variant="outline" className={authSecondaryClass}>
-                  <Link href="/signup">Back to sign up</Link>
-                </Button>
-                <Button asChild variant="ghost" className="h-11 w-full rounded-2xl text-base text-muted-foreground">
-                  <Link href="/">Back to home</Link>
-                </Button>
-              </>
-            }
-          >
-            {message}
-          </AuthStatus>
-        )}
+    <AuthShell aside={false} title="Verifying your email" description="This takes a moment.">
+      <div role="status" className="flex items-center gap-3 text-base text-muted-foreground">
+        <Loader2 className="size-5 animate-spin text-accent-ink" aria-hidden="true" />
+        Verifying your email…
       </div>
     </AuthShell>
   );

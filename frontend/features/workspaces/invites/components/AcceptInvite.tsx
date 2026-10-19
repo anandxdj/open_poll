@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, MailWarning, ShieldCheck } from "lucide-react";
+import { Loader2, MailWarning, ShieldCheck, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { AuthShell } from "@/features/auth/components/AuthShell";
+import { AuthShell, type AuthTone } from "@/features/auth/components/AuthShell";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/api-error";
 import { switchWorkspace } from "../../api/workspaces.api";
@@ -19,16 +19,25 @@ import { forgetInvite, invitePath, rememberInvite } from "../pendingInvite";
 
 type PreviewState = { status: "loading" } | { status: "ready"; invite: InvitePreview } | { status: "invalid" } | { status: "error" };
 
-const ACTION_PRIMARY =
-  "h-11 w-full rounded-2xl text-base font-semibold shadow-lg shadow-primary/20 focus-visible:border-brand-ink focus-visible:ring-brand-ink/40";
-const ACTION_OUTLINE =
-  "h-11 w-full rounded-2xl border-foreground/20 text-base font-medium focus-visible:border-brand-ink focus-visible:ring-brand-ink/40";
+const ACTION = "h-11 w-full text-sm font-medium md:h-10";
 
-/** Presentation only: the shared auth frame (brand, theme switch, one bezel card, an h1). */
-function Shell({ title, description, children }: { title: string; description?: React.ReactNode; children: React.ReactNode }) {
+/** Presentation only: the shared sign-in frame (brand, theme switch, an h1, no product panel). */
+function Shell({
+  title,
+  description,
+  icon,
+  tone,
+  children,
+}: {
+  title: string;
+  description?: React.ReactNode;
+  icon?: LucideIcon;
+  tone?: AuthTone;
+  children?: React.ReactNode;
+}) {
   return (
-    <AuthShell title={title} description={description}>
-      <div className="space-y-5">{children}</div>
+    <AuthShell aside={false} title={title} description={description} icon={icon} tone={tone}>
+      <div className="space-y-3">{children}</div>
     </AuthShell>
   );
 }
@@ -89,8 +98,8 @@ export function AcceptInvite({ token }: { token: string }) {
   if (preview.status === "loading" || isLoading) {
     return (
       <Shell title="Loading your invitation">
-        <div role="status" className="flex items-center justify-center gap-2 py-4 text-base text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+        <div role="status" className="flex items-center gap-3 text-base text-muted-foreground">
+          <Loader2 className="size-5 animate-spin text-accent-ink" aria-hidden="true" />
           Loading invitation…
         </div>
       </Shell>
@@ -100,6 +109,8 @@ export function AcceptInvite({ token }: { token: string }) {
   if (preview.status === "invalid" || preview.status === "error") {
     return (
       <Shell
+        icon={MailWarning}
+        tone="neutral"
         title={preview.status === "invalid" ? "This invitation can't be used" : "Couldn't load the invitation"}
         description={
           preview.status === "invalid"
@@ -107,12 +118,7 @@ export function AcceptInvite({ token }: { token: string }) {
             : "Check your connection and try again."
         }
       >
-        <div className="flex justify-center">
-          <span className="flex size-16 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <MailWarning className="size-8" aria-hidden="true" />
-          </span>
-        </div>
-        <Button asChild variant="outline" className={ACTION_OUTLINE}>
+        <Button asChild variant="outline" className={ACTION}>
           <Link href={isAuthenticated ? "/polls" : "/login"}>{isAuthenticated ? "Go to your polls" : "Sign in"}</Link>
         </Button>
       </Shell>
@@ -122,6 +128,7 @@ export function AcceptInvite({ token }: { token: string }) {
   const { invite } = preview;
   return (
     <Shell
+      icon={ShieldCheck}
       title={`Join ${invite.workspaceName} on Open Poll`}
       description={
         <>
@@ -130,43 +137,38 @@ export function AcceptInvite({ token }: { token: string }) {
         </>
       }
     >
-      <div className="flex flex-col items-center gap-3 text-center">
-        <span className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-brand-ink">
-          <ShieldCheck className="size-8" aria-hidden="true" />
-        </span>
-        <p className="text-sm text-muted-foreground">
-          Invitation for <span className="font-mono text-foreground">{invite.email}</span>
-        </p>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Invitation for <span className="font-mono text-foreground">{invite.email}</span>
+      </p>
 
       {isAuthenticated && user ? (
         <div className="space-y-4">
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Signed in as <span className="font-medium text-foreground">{user.email}</span>
           </p>
           {error ? (
-            <div role="alert" className="space-y-3 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive dark:text-red-400">
+            <div role="alert" className="space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
               <p>{error.message}</p>
               {error.code === "INVITE_EMAIL_MISMATCH" || error.code === "EMAIL_NOT_VERIFIED" ? (
-                <Button type="button" variant="outline" className="min-h-11 rounded-xl" onClick={() => void signOutAndReturn()}>
+                <Button type="button" variant="outline" className="min-h-10" onClick={() => void signOutAndReturn()}>
                   Sign in with a different account
                 </Button>
               ) : null}
             </div>
           ) : null}
-          <Button className={ACTION_PRIMARY} disabled={accepting} onClick={() => void accept()}>
+          <Button className={ACTION} disabled={accepting} onClick={() => void accept()}>
             {accepting ? <Loader2 className="size-4 animate-spin" aria-label="Joining" /> : `Join ${invite.workspaceName}`}
           </Button>
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Sign in with the invited email address to accept. New here? Create an account with that address first.
           </p>
-          <Button asChild className={ACTION_PRIMARY}>
+          <Button asChild className={ACTION}>
             <Link href={`/login?next=${encodeURIComponent(invitePath(token))}`}>Sign in to accept</Link>
           </Button>
-          <Button asChild variant="outline" className={ACTION_OUTLINE}>
+          <Button asChild variant="outline" className={ACTION}>
             <Link href="/signup">Create an account</Link>
           </Button>
         </div>
