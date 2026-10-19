@@ -20,8 +20,16 @@ The `quiz:event` **channel** is gone: deck events are published once, on `live:e
 Keys: `live:{presentationId}:seq` — the envelope `seq` counter, incremented in the same Lua script
 that publishes, 7-day sliding TTL.
 
+With `SOCKET_REDIS_ADAPTER=on` the Socket.io adapter adds its own pub/sub channels
+(`socket.io#/#…`, prefix = the adapter `key`) on two extra connections per instance. They carry room
+operations only; live events still use `live:event`.
+
+Live answer keys (`psess:{sid}:dirty`, `:dirty:slides`, `:rate:{participantId}`, the global
+`live:autoreveal` ZSET) are listed in [`../modules/presentations-live.md`](../modules/presentations-live.md#redis-keys).
+
 Poll analytics path:
-1. Responses service writes buffered counters to Redis keys and adds the poll id to `buffer:active_polls`.
+1. Responses service writes buffered counters to Redis keys, adds the question id to the poll's
+   `buffer:poll:{pollId}:questions` SET (so the worker never scans keys) and the poll id to `buffer:active_polls`.
 2. The 2-second analytics worker applies one Mongo `bulkWrite` to the analytics doc and clears the buffer keys.
 3. The worker deletes the analytics cache and publishes `{ pollId, analytics }` on `analytics:update`.
 4. Each instance's subscriber emits `analytics:update` to its sockets in `poll_{pollId}`.

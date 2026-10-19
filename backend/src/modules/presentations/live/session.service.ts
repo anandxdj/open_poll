@@ -49,6 +49,10 @@ import {
 } from './state';
 import { answeredCounts, buildSessionView, sessionListItem, slideStateView, visitedSlides } from './views';
 import { buildSessionSnapshot } from './snapshot';
+import { issueSlideTicket } from './ticket';
+import { flushDirty } from './coalescer';
+import { AUTO_REVEAL_DELAY_MS } from './autoReveal';
+import { autoReveals } from '../../../common/observability/metrics';
 
 export { loadAnswerWindow, type AnswerWindow } from './state';
 
@@ -232,6 +236,7 @@ const finishSession = async (presentation: IPresentation, session: IPresentation
     console.error('[Presentation] Failed to update the ended session in Redis:', error);
   }
 
+  await flushDirty(pid, sid); // last host update goes out before session:ended
   const snapshot = await buildSessionSnapshot(session);
   Object.assign(session, snapshot);
   await saveSession(session);
@@ -343,6 +348,7 @@ const publishOpened = async (
     serverNow: new Date().toISOString(),
     isLastSlide: slideIndex === slides.length - 1,
     reopened,
+    slideTicket: issueSlideTicket(String(session._id), slideIdOf(slide), state.openedAt!.getTime()),
   });
 };
 
@@ -411,7 +417,10 @@ const moveTo = async (
   } catch (error) {
     console.error('[Presentation] Failed to cache the current slide:', error);
   }
-  if (left) await cacheClosedWindow(session, left);
+  if (left) {
+    await cacheClosedWindow(session, left);
+    await flushDirty(pid, sid); // the host sees the last counts of the slide it leaves, before the move
+  }
   if (def.lifecycle === 'response') {
     await cacheAnswerWindow(sid, buildAnswerWindow(slide, index, state, true));
   }
@@ -536,6 +545,7 @@ export const closeCurrentSlide = async (presentationId: string, actor: Actor): P
   await saveSession(session);
   await mirrorDeck(presentation, session);
   await cacheClosedWindow(session, slideId);
+  await flushDirty(String(presentation._id), String(session._id));
   await publishClosed(String(presentation._id), session, slide, index, readSlideState(session, slideId)!, false);
   return result(presentation, session);
 };
@@ -580,8 +590,52 @@ export const revealCurrentSlide = async (presentationId: string, actor: Actor): 
     await mirrorDeck(presentation, session);
     await cacheClosedWindow(session, slideId);
   }
+  await flushDirty(String(presentation._id), String(session._id));
   await publishRevealed(String(presentation._id), session, slide, index, readSlideState(session, slideId)!, false);
   return result(presentation, session);
+};
+
+/**
+ * Reveals a scored, timed slide on its own once its timer plus the auto-reveal
+ * delay has passed (`autoReveal.ts` schedules it; the poller calls this). It
+ * does what the host's reveal does, without a host: the slide must still be the
+ * current open one, so a host who closed, revealed, paused or moved on first
+ * wins. `retry` means "try again shortly" (not due yet, or a host command held
+ * the session); the caller reschedules.
+ */
+export const autoRevealSlide = async (sessionId: string, slideId: string): Promise<'revealed' | 'skipped' | 'retry'> => {
+  const session: IPresentationSession | null = await PresentationSessionModel.findById(sessionId);
+  if (!session || !session.isLive || session.status !== 'active' || session.pace !== 'presenter') return 'skipped';
+  if (!session.currentSlideId || String(session.currentSlideId) !== slideId) return 'skipped';
+
+  const slides = sessionSlides(session);
+  const index = slides.findIndex((slide) => slideIdOf(slide) === slideId);
+  const slide = slides[index];
+  const state = readSlideState(session, slideId);
+  if (!slide || lifecycleOf(slide.type) !== 'response' || !isSlideScored(slide)) return 'skipped';
+  if (!isOpenState(state) || !state?.endsAt || state.pausedRemainingMs !== null) return 'skipped';
+  if (Date.now() < state.endsAt.getTime() + AUTO_REVEAL_DELAY_MS) return 'retry';
+
+  let presentation: IPresentation;
+  try {
+    presentation = await getPresentationById(String(session.presentationId));
+  } catch {
+    return 'skipped';
+  }
+  const now = new Date();
+  writeSlideState(session, slideId, { closedAt: now, revealedAt: now, pausedRemainingMs: null });
+  try {
+    await saveSession(session);
+  } catch (error) {
+    if (error instanceof ApiError && error.code === LIVE_ERROR_CODES.sessionBusy) return 'retry';
+    throw error;
+  }
+  await mirrorDeck(presentation, session);
+  await cacheClosedWindow(session, slideId);
+  await flushDirty(String(presentation._id), String(session._id));
+  await publishRevealed(String(presentation._id), session, slide, index, readSlideState(session, slideId)!, false);
+  autoReveals.inc();
+  return 'revealed';
 };
 
 /** Ends the live session (snapshot, reconciliation, retention). Idempotent once ended. */

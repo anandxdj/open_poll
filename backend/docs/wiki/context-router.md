@@ -30,11 +30,16 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/modules/presentations-live.md` (sessions, slide phases, host/participant API, events — the live contract)
 - `backend/docs/wiki/quiz-roadmap.md` (phases / what to build next)
 - Add `backend/docs/wiki/realtime/presentations.md` only if touching events.
+- Answer hot path (Lua script, replays, grace/tickets, coalescer, write-behind, auto-reveal, socket `answer:submit`/`live:resync`): the "Answer path" section of `modules/presentations-live.md`.
 
 ### Realtime Socket/Redis tasks
-- `backend/docs/wiki/realtime/envelope.md` (core: registry, auth, envelope, rooms, delivery)
+- `backend/docs/wiki/realtime/envelope.md` (core: registry, auth, envelope, rooms, delivery, the optional cluster adapter)
 - `backend/docs/wiki/realtime/presentations.md` or `realtime/polls.md` (the module you touch)
 - `backend/docs/wiki/realtime/redis-channels.md`
+
+### Metrics, load test, multi-instance operation
+- `backend/docs/wiki/platform/observability.md` (`GET /metrics`, series, answer-storm load test, `loadtest-smoke` CI job)
+- `docs/deploy/multi-instance.md` (several backend instances: what is shared, settings, load balancer, scaling numbers)
 
 ### HTTP app, middleware order and route mounting tasks
 - `backend/docs/wiki/http/app-and-routes.md` (app factory, special mounts, mount table, route snapshot)

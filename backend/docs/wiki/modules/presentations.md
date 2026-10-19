@@ -30,7 +30,12 @@ feature in `modules/polls` — see `modules/polls.md`.
 | `crud.service.ts` | Create (in the request's workspace), workspace-scoped list, update (settings/theme patched field by field), delete (with sessions and their Redis keys). |
 | `live/session.service.ts` | The session engine: `openLobby`, `startSession`, `gotoSlide`/`advanceSlide`, `closeCurrentSlide`, `reopenCurrentSlide`, `revealCurrentSlide`, `endPresentation`, `getHostState`, `listSessions`, `getPresentationByCode`. Only writer of the deck mirror. |
 | `live/state.ts` | Slide states and phases, the Redis **answer windows** (`loadAnswerWindow`, rebuilt from the session document on a miss), live-session lookup, `StoredAnswerResult`. |
-| `live/answer.service.ts` | `submitAnswer` hot path: window/grace check, auth, dedup, registry `accept`/`score`, one `MULTI` with the type's Redis ops, write-behind. |
+| `live/answer.service.ts` | `submitAnswer` hot path: window lookup, registry `accept`/`score` in JS, then ONE Redis script call; replays by `clientAnswerId`; metrics. |
+| `live/answerScript.ts`, `live/lua/answer.lua` | The answer script: window/grace, auth, rate limit, dedup, the type's ops (run generically), scores, stored result, coalescer mark. KEYS/ARGV builders and `EVALSHA` runner. |
+| `live/writeBehind.ts` | Batched Mongo write-behind of accepted answers (50 ms / 200 answers); participant totals unless final. |
+| `live/coalescer.ts` | One host `answer:received` per dirty slide per 250 ms window, exactly once across instances. |
+| `live/ticket.ts` | Slide tickets (HMAC) that stretch the timer grace. |
+| `live/autoReveal.ts`, `live/autoRevealWorker.ts` | Schedule (`live:autoreveal` ZSET) and poller of the 1.5 s auto-reveal of scored timed slides. |
 | `live/participant.service.ts` | `joinPresentation` (audience cap), `verifyParticipant`, `isAuthorizedParticipant`, `getParticipantState` (`/me`), `getParticipantLiveState` (`/live-state`). |
 | `live/distribution.ts` | `computeSlideDistributionHelper` (registry `distribution`), `replayDistribution` (from stored answers), `getLeaderboard`, `getStoredLeaderboard`, `getParticipantCount`. |
 | `live/snapshot.ts` | End-of-session reconciliation (Redis results → missing Mongo answers, participant totals) and the snapshot (`slideStats`, `finalLeaderboard`, counts). |
@@ -43,8 +48,7 @@ feature in `modules/polls` — see `modules/polls.md`.
 | `presentations.schema.ts` | Request schemas; the slide schema dispatches to the registry. |
 | `routes/{participant,crud,host}.route.ts` | Sub-routers composed (in that match order) by `presentations.route.ts`. |
 | `controllers/{participant,crud,host}.controller.ts` | Thin HTTP handlers calling the facade. |
-| `presentations.socket.ts` | Socket join handlers (see `realtime/presentations.md`). |
-| `liveDistribution.worker.ts` | Coalesced host distribution push (`runLiveDistributionTick`). |
+| `presentations.socket.ts` | Socket handlers: joins, `answer:submit` (acked), `live:resync` (see `realtime/presentations.md`). |
 
 ## Slide type registry (`slides/`)
 
@@ -64,16 +68,19 @@ Mongoose model and worker look the type up instead of switching on `slide.type`.
 | `sanitize(slide)` | **Explicit allow-list** of participant-facing fields. The registry's `toParticipantSlide` adds `slideIndex`, `totalSlides`, `type`, `kind`, `scored`, `media` (`{url, alt, layout}`, never `key`) and `layout`. Notes and answer keys never leave the server because nothing copies them. |
 | `acceptConfig?(slide)` | JSON snapshot cached in the answer window (answer keys, counts, points, `timeLimitMs`). |
 | `answerSchema?` | Zod check of the answer payload's structure; config-dependent checks live in `accept`. |
-| `accept?(cfg, payload, {elapsedMs})` | Grades one answer → `{isCorrect, ops, persist}`. Throws `ApiError.badRequest` to reject; the dedup marker is rolled back. |
+| `accept?(cfg, payload, {elapsedMs})` | Grades one answer → `{isCorrect, ops, persist}`. Throws `ApiError.badRequest` to reject; nothing has been written yet (grading runs before the answer script). |
 | `score?(cfg, {isCorrect, elapsedMs})` | Points for scored types (`speedScore` in `slides/ops.ts`). |
-| `distribution?(slide, {dist, disp, feed})` | Results payload for reveal, host state and the worker. |
+| `distribution?(slide, {dist, disp, feed})` | Results payload for reveal, host state and the coalesced host update. |
 | `feedLength?` | Capacity of the per-slide `feed` list; when set, `distribution` receives it. |
 | `exportColumns?(slide)` / `exportCells?(slide, answer)` | Per-participant export columns and cells (for session exports). |
 | `label(slide)` | Short label for one slide (question, or the type name). |
 
 `RedisOp` (built with `hincrby`, `hsetnx`, `lpushTrim` from `slides/ops.ts`) targets a logical
 per-slide structure — `dist` (HASH), `disp` (HASH), `feed` (LIST) — that `live/keys.ts` maps to
-the real key; `lpush_trim` keeps the newest `max` entries. `persist` is
+the real key; `lpush_trim` keeps the newest `max` entries. The answer script executes every op
+kind generically (JSON in `ARGV`, `dist`/`disp`/`feed` passed as `KEYS`), so a new type that
+combines these ops needs no change to the script; a new op KIND needs a branch in `answer.lua`,
+its JS port in `tests/presentations/answerScript.fake.ts` and a parity case. `persist` is
 `{optionIndex, text, payload}` for the answer document.
 
 Registry API (`slides/registry.ts`): `defineSlideType`, `registerSlideType` (returns a
@@ -194,7 +201,8 @@ Summary; the contract is [`presentations-live.md`](./presentations-live.md).
 Server-clock only (`now - openedAt`); clients never report timing. Wrong = 0.
 Correct with `scoreDependsOnTime`: `round(points * (1 - ratio/2))` where
 `ratio = elapsed/timeLimit` — fastest ≈ full points, slowest ≈ 50% (Kahoot/Mentimeter style).
-Answers rejected after `endsAt` + 750ms grace, and as soon as the slide is closed or revealed.
+Answers rejected after `endsAt` + 750ms grace (15 s with a valid slide ticket), and as soon as the
+slide is closed or revealed.
 Type answers matched case/whitespace-insensitively against `acceptedAnswers`.
 
 Interactive types are never scored: score=0, no correct count, leaderboard unchanged.
@@ -205,7 +213,9 @@ submission), open_ended `text`, scales `ratings[]` (one per statement, 1..scaleM
 
 ## Redis-first hot path
 
-`submitAnswer` never reads Mongo on the happy path; Mongo is async write-behind.
+`submitAnswer` never reads Mongo on the happy path; Mongo is batched write-behind. The full
+answer path (script steps, grace and tickets, replays, errors, the socket `answer:submit`, the
+coalescer and auto-reveal) is in [`presentations-live.md`](./presentations-live.md#answer-path).
 
 Keys are session-scoped and hash-tagged (`psess:{<sid>}:…`, one Cluster slot per session);
 the full map is in [`presentations-live.md`](./presentations-live.md#redis-keys). TTL ~6h
@@ -213,23 +223,18 @@ after the last transition. Per slide (by slideId): `answered` (SET, dedup + coun
 `disp` / `feed` (the type's counters: optionIndex/normalized text → count; scales
 `s{i}:sum`/`s{i}:count`; ranking itemIndex → Borda points + `voters`; first-seen casing;
 newest-first `lpush_trim` entries), `results` (participantId → full answer JSON).
-`buffer:active_presentation_distributions` (SET of deck ids) feeds the live distribution worker.
 
-Answer flow: resolve the live session (`presentation:{pid}:active`, or the client's
-`sessionId`) → load the window (`:current` → `:slides[slideId]`) and the participant's token
-together → open + grace check → token check → `SADD answered` (dedup) → `answerSchema` +
-`accept` + `score` → one `MULTI` for score/correct/type ops/results → `SADD` the buffer set →
-publish a light `answer:received` (counts only) → fire-and-forget Mongo writes (the
-participant total is incremented only after the answer document is stored).
-
-`liveDistribution.worker.ts` drains the buffer set every 2s and publishes
-`answer:received` with the full distribution (`computeSlideDistributionHelper`) to the
-host, for `response` slides only, so the host chart updates without a per-answer recompute.
+Answer flow in one line: load the window (`:slides[slideId]`) → grade in JS → ONE script call
+(auth, rate limit, dedup, window and grace, scores, the type's ops, stored result, dirty mark) →
+queue the Mongo write → the window owner schedules the host update. The host sees one
+`answer:received` with the distribution per slide per 250 ms (`live/coalescer.ts`), not one per
+answer.
 
 Resilience: Redis reads fall back to Mongo and re-hydrate (restart mid-session degrades,
-doesn't break); `end` reconciles answers the write-behind lost and replays distributions
-from Mongo when the Redis counters are incomplete. Multi-instance safe: state lives in
-Redis/Mongo; events fan out over Redis pub/sub → Socket.io.
+doesn't break; a lost script cache reloads on the next call); `end` reconciles answers the
+write-behind lost and replays distributions from Mongo when the Redis counters are incomplete.
+Multi-instance safe: state lives in Redis/Mongo; events fan out over Redis pub/sub → Socket.io
+(`docs/deploy/multi-instance.md`).
 
 ## Security
 
@@ -242,7 +247,8 @@ Redis/Mongo; events fan out over Redis pub/sub → Socket.io.
   decks without one).
 - **Rate limiting** (per-IP, sized for classroom NAT): code lookup 60/min plus a global
   5000/min cap against code enumeration, join 500/5min, answer 2000/min, me + live-state
-  600/min.
+  600/min. On top, every authenticated answer attempt counts against its participant (30 per
+  10 s, any channel), and a socket may send 120 `answer:submit` per 10 s.
 - Answer keys and speaker notes never leave the server: every participant payload is
   built by the type's allow-list `sanitize` (`toParticipantSlide`), and the pre-reveal
   live distribution only reaches the host.
@@ -256,10 +262,11 @@ Public (participants):
   slide whatever its lifecycle with its id and phase, plus `questionStartedAt`/`questionEndsAt`
   when it has an answer window (404 while draft)
 - `POST /:id/join` — `{ name, deviceToken?, locale? }` → `{ participantId, sessionId, name, score, token, deviceToken }`
-- `POST /:id/answer` — `{ participantId, participantToken, slideIndex, sessionId?, slideId?, clientAnswerId? }`
+- `POST /:id/answer` — `{ participantId, participantToken, slideIndex, sessionId?, slideId?, clientAnswerId?, slideTicket?, offline? }`
   plus either the legacy `optionIndex|text|entries[]|ratings[]|ranking[]` or a generic
   `payload` object (validated by the type's `answerSchema`; wins over legacy fields; errors
-  read `payload.<path>: …`)
+  read `payload.<path>: …`). Returns `AnswerResult`; a repeat with the same `clientAnswerId` is a
+  replay (`replay: true`, nothing counted twice)
 - `GET /:id/me?participantId=&token=` — score/rank; `lastAnswer` once the slide is no longer open
 - `GET /:id/live-state?participantId=&token=` — full participant resync
 
@@ -275,7 +282,8 @@ Creator (JWT + workspace context):
 Every state change goes through `live/events.ts` → `publishLiveEvent` (Redis channel
 `live:event`) with the session's id on the envelope; each instance delivers `live:event` to
 the `live:{presentationId}` rooms and the legacy `quiz:event` copy to `quiz_{presentationId}`
-(`answer:received` only to the host rooms). Socket handlers live in `presentations.socket.ts`.
+(`answer:received` only to the host rooms). Socket handlers live in `presentations.socket.ts`
+(`answer:submit`, `live:resync` included).
 See `realtime/presentations.md` for the event contract.
 
 ## Tests
@@ -286,7 +294,11 @@ See `realtime/presentations.md` for the event contract.
   `tests/presentations/harness.ts`). Changes made by the session engine are marked in place.
 - `tests/presentations/routes.test.ts` — route table snapshot (order + middleware count).
 - `tests/presentations/registry.test.ts` — registry contract, content lifecycle via a
-  test-only type, additive fields, generic payload, `lpush_trim`, exports, worker.
+  test-only type, additive fields, generic payload, `lpush_trim`, exports.
+- `tests/presentations/answerPath.test.ts` — replays, grace and tickets, channels and metrics,
+  kicked/stale/rate-limited participants, the coalescer, auto-reveal, the end-of-session score
+  race, write-behind batches (in-memory Redis whose script is a JS port of `answer.lua`).
+- `tests/presentations/ticket.test.ts` — slide ticket HMAC.
 - `tests/presentations/sessions.test.ts` — session engine on the fakes: runs, navigation,
   close/reopen/reveal, untimed slides, audience cap, reconciliation, live-state, policy.
 - `tests/presentations/content.test.ts` — the eight content types: schema accept/reject
@@ -295,6 +307,10 @@ See `realtime/presentations.md` for the event contract.
   and a content-only deck run live (`slide:shown` only).
 - `tests/presentations/live.integration.test.ts` — full HTTP lifecycle against real Mongo +
   Redis; skipped unless `TEST_MONGO_URI` and `TEST_REDIS_URL` are set (header has the command).
+- `tests/integration/{answerScript,liveScale,multiInstance,metrics}.test.ts` — the answer script
+  against a real Redis (and parity with its JS port), socket answers and resync, auto-reveal, the
+  score race on real Mongo, two instances with and without the Socket.io adapter, `/metrics`
+  (`testing/integration.md`).
 - `tests/integration/sessions.test.ts` — sessions through `createApp()` (two runs with
   independent results, navigation, reveal, untimed close, reconciliation, audience cap,
   workspace scoping); `tests/integration/migration-030.test.ts` — migration 030 on fixtures.

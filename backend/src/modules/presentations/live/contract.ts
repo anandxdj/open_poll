@@ -278,6 +278,8 @@ export interface ParticipantLiveState {
     slide: ParticipantSlide;
     startedAt: string | null;
     endsAt: string | null;
+    /** Open response slides only: send it back as `slideTicket` with the answer. */
+    slideTicket: string | null;
     /** Revealed response slides only. */
     results: SlideResultsView | null;
     /** System (leaderboard) slides only. */
@@ -318,6 +320,12 @@ export interface PresentationEventPayloads {
     serverNow: string;
     isLastSlide: boolean;
     reopened: boolean;
+    /**
+     * HMAC proof that the client saw this window open (`slideTicket` in answers):
+     * the same value for every viewer of this run of the slide, never a secret
+     * about who answers. A reopened slide gets a new one.
+     */
+    slideTicket: string;
   };
   /** A content or board slide is on screen; no answer window. */
   'slide:shown': {
@@ -339,7 +347,10 @@ export interface PresentationEventPayloads {
     revisit: boolean;
     serverNow: string;
   };
-  /** Host only (forced): per answer `{slideId, slideIndex, answeredCount}`; the worker adds the distribution. */
+  /**
+   * Host only (forced), coalesced: at most one per dirty slide per 250 ms window per session
+   * (`live/coalescer.ts`), carrying the slide's current counts and distribution.
+   */
   'answer:received': {
     slideId: string;
     slideIndex: number;
@@ -401,4 +412,69 @@ export const LIVE_ERROR_CODES = {
   participantKicked: 'PARTICIPANT_KICKED',
   /** 409 on answers: the participant belongs to another (ended) session; rejoin. */
   participantStale: 'PARTICIPANT_STALE',
+  /** 400 on answers: the slide is closed, revealed, left or its session ended. */
+  notAccepting: 'NOT_ACCEPTING',
+  /** 400 on answers: the timer ran out (plus grace) before the answer arrived. */
+  timeUp: 'TIME_UP',
+  /** 409 on answers: this participant already answered the slide (and this is not a replay). */
+  alreadyAnswered: 'ALREADY_ANSWERED',
+  /** 429 on answers: more than the per-participant budget of attempts. */
+  answerRateLimited: 'RATE_LIMITED',
 } as const;
+
+// ---------------------------------------------------------------------------
+// Answers (REST `POST /:id/answer` and socket `answer:submit`)
+// ---------------------------------------------------------------------------
+
+export type AnswerVia = 'rest' | 'socket' | 'offline';
+
+/**
+ * `data` of an accepted answer, on REST and in the socket ack. A repeat of an
+ * accepted answer (same `clientAnswerId`) returns the original with
+ * `replay: true` and counts nothing twice. Grading is never included: results
+ * stay hidden until the slide is revealed.
+ */
+export interface AnswerResult {
+  accepted: true;
+  replay: boolean;
+  slideId: string;
+  slideIndex: number;
+  clientAnswerId: string | null;
+  /** The channel the original answer arrived on. */
+  via: AnswerVia;
+  answeredAt: string;
+}
+
+/**
+ * Socket `answer:submit` payload: the REST body plus the deck. The socket must have joined the deck
+ * as this participant (`live:join` ack `{ok: true}` first), else the ack is 403 `NOT_JOINED`.
+ */
+export type AnswerSubmitPayload = { presentationId: string } & Record<string, unknown>;
+
+/**
+ * Socket ack of `answer:submit`: the REST envelope (`{success, message, code?, data}`)
+ * plus the HTTP `status` the same call would have returned, so a client can treat
+ * both channels alike (2xx done; 409/400 final; 429/5xx retry).
+ */
+export type AnswerSubmitAck =
+  | { success: true; status: 200; message: string; data: AnswerResult }
+  | { success: false; status: number; message: string; code?: string; data: null };
+
+/** Socket `live:resync` payload; credentials as in `live:join`. */
+export interface LiveResyncPayload {
+  presentationId: string;
+  role: 'host' | 'participant';
+  accessToken?: string;
+  participantId?: string;
+  participantToken?: string;
+}
+
+/**
+ * Ack of `live:resync`: the same document the HTTP read returns (`live-state` for
+ * a participant, `host/state` for the host) and the deck's current envelope `seq`,
+ * so the client can restart gap detection from it.
+ */
+export type LiveResyncAck =
+  | { ok: true; role: 'participant'; seq: number; state: ParticipantLiveState }
+  | { ok: true; role: 'host'; seq: number; state: HostStateResponse }
+  | { ok: false; error: 'INVALID_PAYLOAD' | 'RATE_LIMITED' | 'UNAUTHENTICATED' | 'FORBIDDEN' | 'NOT_FOUND' | 'UNAVAILABLE' };

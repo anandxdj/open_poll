@@ -38,4 +38,8 @@ export const PRESENTATION_SOCKET_EVENTS = {
   quizEvent: 'quiz:event',
   liveJoin: 'live:join',
   liveLeave: 'live:leave',
+  // Participant answers over the socket, acked with the REST result shape (W2-D).
+  answerSubmit: 'answer:submit',
+  // Full state over the socket for a reconnecting host or participant (W2-D).
+  liveResync: 'live:resync',
 } as const;

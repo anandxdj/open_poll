@@ -15,6 +15,11 @@ export interface IPresentationParticipant extends Document {
   kickedAt: Date | null;
   /** Participant UI language chosen on join, if any. */
   locale: string | null;
+  /**
+   * Set when the session ended and `score`/`correctCount` were recomputed from the
+   * stored answers; from then on the answer write-behind adds nothing (it would count twice).
+   */
+  scoreFinalAt: Date | null;
 }
 
 const PresentationParticipantSchema = new Schema<IPresentationParticipant>({
@@ -28,6 +33,7 @@ const PresentationParticipantSchema = new Schema<IPresentationParticipant>({
   joinedAt: { type: Date, default: Date.now },
   kickedAt: { type: Date, default: null },
   locale: { type: String, default: null, maxlength: 10 },
+  scoreFinalAt: { type: Date, default: null },
 });
 
 // One participant per device per session (rejoin returns the same participant).

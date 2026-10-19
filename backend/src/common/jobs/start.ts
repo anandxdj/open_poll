@@ -1,4 +1,4 @@
-import { startLiveDistributionWorker } from '../../modules/presentations/liveDistribution.worker';
+import { startAutoRevealWorker } from '../../modules/presentations/live/autoRevealWorker';
 import { startAnalyticsWorker } from '../../modules/responses/analytics.worker';
 import { startScheduler } from './scheduler';
 
@@ -10,6 +10,6 @@ import { startScheduler } from './scheduler';
  */
 export const startJobs = () => {
   startAnalyticsWorker();
-  startLiveDistributionWorker();
+  startAutoRevealWorker();
   startScheduler();
 };

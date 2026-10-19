@@ -144,6 +144,11 @@ export const submitPresentationAnswerSchema = z
     slideId: objectIdString.optional(),
     // Client-generated idempotency id, stored with the answer.
     clientAnswerId: z.string().min(1).max(64).optional(),
+    // HMAC proof the client saw the slide open (question:started / live-state): lets a late
+    // answer through the grace window. Anything malformed is simply not a valid ticket.
+    slideTicket: z.string().max(80).optional(),
+    // The client held this answer offline before sending it (stored as `via: 'offline'`).
+    offline: z.boolean().optional(),
   })
   .refine(
     (v) =>

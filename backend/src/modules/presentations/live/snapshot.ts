@@ -90,8 +90,15 @@ export const reconcileAnswers = async (session: IPresentationSession): Promise<n
   return added;
 };
 
-/** Sets every participant's score and correct count from their stored answers. */
+/**
+ * Sets every participant's score and correct count from their stored answers,
+ * and freezes them. Order matters: participants are marked final FIRST, so a
+ * write-behind batch still in flight (here or on another instance) cannot add
+ * its answer's points after the totals below were computed from that same
+ * answer. Anything it added before the mark is overwritten by the recount.
+ */
 const reconcileParticipantTotals = async (session: IPresentationSession) => {
+  await PresentationParticipantModel.updateMany({ sessionId: session._id }, { $set: { scoreFinalAt: new Date() } });
   const totals = await PresentationAnswerModel.aggregate<{ _id: unknown; score: number; correctCount: number }>([
     { $match: { sessionId: new mongoose.Types.ObjectId(String(session._id)) } },
     {

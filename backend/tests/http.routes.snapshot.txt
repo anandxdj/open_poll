@@ -1,4 +1,5 @@
 USE / securityHeaders
+USE / httpMetrics
 USE /api/billing/webhook rawParser
 ROUTER /api/billing/webhook
 USE /api/sso/saml/:connectionId/acs urlencodedParser
@@ -6,6 +7,7 @@ ROUTER /api/sso/saml/:connectionId/acs
 USE /scim/v2 jsonParser
 ROUTER /scim/v2
 ROUTER /metrics
+GET /metrics
 USE / corsMiddleware
 USE [/api/presentations,/api/quizzes] jsonParser
 USE / jsonParser
