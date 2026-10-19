@@ -142,7 +142,17 @@ Per-event server clock offset (the countdown bug is fixed, unit-tested). Strings
 endScreen link. The e2e host fixture logs in once per worker (fixes the login 429 as the suite grows).
 Deleted unused `api/presentationApi.ts`. Specs: `e2e/live-session.spec.ts`.
 
-**Checks at handoff** (integration branch after the W1-A2 merge): backend 996 tests in `bun test` (780 run without containers, 216 integration/spike tests skip without `TEST_MONGO_URI`), 179 integration/spike tests pass with the containers (6 skipped by design); frontend 463 unit tests; Playwright e2e 24 tests green; backend and frontend typecheck clean, frontend lint 0 errors (7 pre-existing warnings), build green.
+**Wave 2 — W2-E advanced question types** (merged; `pkg/w2-e`). Four registry types, backend
+(`slides/types/advanced/*`: schema, grading, results, sanitizing) and frontend (builder editor, stage,
+participant view each): `guess_number` (graded within a tolerance, flat points, histogram), `hundred_points`
+(split 100 points over items, overshoot guard), `grid_2x2` (place items on a 2x2 grid, tap or arrow keys)
+and `pin_on_image` (pin on an image, correct area, markers). New picker section "advanced"; strings in
+`messages/en/slides-advanced.json` (namespace `slidesAdvanced`, listed in `LiveIntlProvider`). Specs:
+`e2e/advanced-slides.spec.ts`; docs in `presentations.md`, `live-surfaces.md`,
+`presentation-builder.md`. Merge fixes: the e2e spec opens the lobby explicitly (W1-A2), and the
+backend answer test accepts W2-D's richer `AnswerResult`.
+
+**Checks at handoff** (integration branch after the W2-E merge): backend 1040 tests in `bun test` (819 run without containers, 221 integration/spike tests skip without `TEST_MONGO_URI`), 182 integration/spike tests pass with the containers (6 skipped by design); frontend 529 unit tests; Playwright e2e 27 tests green; backend and frontend typecheck clean, frontend lint 0 errors (7 pre-existing warnings), build green.
 
 ## Ready, NOT merged
 
@@ -157,10 +167,6 @@ chore/backlog-and-roadmap..pkg/<id>`, `git diff`), keep what is sound, then fini
 integration branch into it, re-run checks and ask for a merge. Worktrees in
 `.claude/worktrees/<id>` (gitignored); heads at wrap-up:
 
-- **W2-E** advanced question types, `pkg/w2-e` @ `73ba71b` (7 commits; merged with the branch at
-  `3b3a95f`). Nearly done. Left: full Playwright suite after the merge; visual check of the compact
-  guess/grid stages. Cosmetics: the picker is clipped by the rail's overflow-hidden (pre-existing); the
-  inspector badge says "Scored" for ungraded guess/pin.
 - **W2-B** Q&A + reactions, `pkg/w2-b` @ `bf9f7c3` (11 commits).
 - **W3-B1** teams/roles/sharing/audit, `pkg/w3-b1` @ `7e81566` (10 commits).
 - **W3-E** import (PPTX/PDF/CSV/XLSX/Google Slides), `pkg/w3-e` @ `42c14de` (5 commits). Must call
@@ -230,6 +236,9 @@ W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
   host-only events (resync on reconnect, seq reset and tab focus only). `frontend/i18n/LiveIntlProvider.tsx`
   lists its namespaces by hand (`["live","presenter"]`): every package that adds a namespace used on
   live surfaces (W2-E `slides-advanced`, W2-B `qna`) must append to it, keeping all of them.
+- **W2-E (merged), cosmetics:** the slide picker is clipped by the rail's overflow-hidden (pre-existing
+  rail layout); the inspector badge says "Scored" for ungraded guess/pin slides. AI whole-deck authoring
+  does not know the four types yet: add one entry each in `ai/deck/slideMappers.ts` and `deck/mock.ts`.
 - **W2-D phase 1 (merged):** socket.io's polling fallback needs sticky sessions across instances (or a
   websocket-only client), see `docs/deploy/multi-instance.md`; CI load-test thresholds are unverified on
   GitHub runners (tune `STORM_MIN_RPS` / `STORM_MAX_P95_MS`); a crashed instance can lose up to 50 ms of
