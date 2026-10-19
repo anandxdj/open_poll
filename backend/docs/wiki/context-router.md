@@ -31,6 +31,10 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/quiz-roadmap.md` (phases / what to build next)
 - Add `backend/docs/wiki/realtime/presentations.md` only if touching events.
 
+### Audience Q&A, upvotes, moderation, highlight, emoji reactions, the `qna` slide
+- `backend/docs/wiki/modules/qna.md` (API, settings, limits, Redis keys, coalescing)
+- Add `backend/docs/wiki/realtime/qna.md` only if touching events or the `reaction:send` socket message.
+
 ### Realtime Socket/Redis tasks
 - `backend/docs/wiki/realtime/envelope.md` (core: registry, auth, envelope, rooms, delivery)
 - `backend/docs/wiki/realtime/presentations.md` or `realtime/polls.md` (the module you touch)

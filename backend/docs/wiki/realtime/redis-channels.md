@@ -18,7 +18,8 @@ The `quiz:event` **channel** is gone: deck events are published once, on `live:e
 `quiz:event` **socket event** still exists as the legacy copy.
 
 Keys: `live:{presentationId}:seq` — the envelope `seq` counter, incremented in the same Lua script
-that publishes, 7-day sliding TTL.
+that publishes, 7-day sliding TTL. Q&A and reaction coalescing keys (`qna:{<sid>}:*`,
+`reactions:{<sid>}:*`, 6 h TTL): [`../modules/qna.md`](../modules/qna.md#redis-keys).
 
 Poll analytics path:
 1. Responses service writes buffered counters to Redis keys and adds the poll id to `buffer:active_polls`.
