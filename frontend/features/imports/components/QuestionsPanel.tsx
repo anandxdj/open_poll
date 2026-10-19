@@ -21,7 +21,13 @@ export type QuestionsTarget =
   /** A new deck is created on the server (the library's Import). */
   | { kind: "newDeck" }
   /** The deck open in the builder: slides are handed to `onAdd`, nothing is written until the deck is saved. */
-  | { kind: "localDeck"; room: number; onAdd: (slides: NonNullable<QuestionsResult["slides"]>) => void };
+  | {
+      kind: "localDeck";
+      room: number;
+      onAdd: (slides: NonNullable<QuestionsResult["slides"]>) => void;
+      /** The person is finished with the confirmation (closes the dialog). */
+      onDone: () => void;
+    };
 
 /** CSV or Excel questions: templates, file, preview with row errors, import. */
 export function QuestionsPanel({ target }: { target: QuestionsTarget }) {
@@ -76,6 +82,9 @@ export function QuestionsPanel({ target }: { target: QuestionsTarget }) {
         <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4" role="status">
           <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-500" aria-hidden />
           <p className="text-sm font-semibold">{t("builder.added", { count: added })}</p>
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={() => (target.kind === "localDeck" ? target.onDone() : undefined)}>{t("dialog.done")}</Button>
         </div>
       </div>
     );

@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import mongoose from 'mongoose';
 import { env } from '../../src/common/config/env';
 import { redisClient } from '../../src/common/config/redis';
+import { getUsage } from '../../src/common/plans/usage';
 import { setStorageDriver, type StorageDriver } from '../../src/common/storage/storage';
 import { resolveWorkspaceContext } from '../../src/common/tenancy/workspaceContext.middleware';
 import { ImportJobModel } from '../../src/modules/imports/import.model';
@@ -304,6 +305,8 @@ describeIntegration('imports', () => {
         const job = await waitFor(queued.id);
         expect(job.status).toBe('completed');
         expect((await ImportJobModel.findById(queued.id))!.attempts).toBe(2);
+        // Two attempts, one import: retries never count again.
+        expect((await getUsage({ _id: workspaceId, plan: 'free' } as never, 'import')).used).toBe(1);
 
         await worker!.stop();
         failures = 99;
@@ -313,6 +316,8 @@ describeIntegration('imports', () => {
         expect(dead).toMatchObject({ status: 'failed', error: { code: 'IMPORT_FAILED' } });
         expect(dead.error.message).not.toContain('hiccup');
         expect((await ImportJobModel.findById(again.id))!.attempts).toBe(2);
+        // The failed job counted once (when it was created) and its retries did not count.
+        expect((await getUsage({ _id: workspaceId, plan: 'free' } as never, 'import')).used).toBe(2);
       } finally {
         memory.getObject = original;
       }

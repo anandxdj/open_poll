@@ -26,7 +26,7 @@ function Inner({
           <DialogTitle className="text-base">{t("builder.title")}</DialogTitle>
           <DialogDescription>{t("builder.description")}</DialogDescription>
         </DialogHeader>
-        {open ? <QuestionsPanel target={{ kind: "localDeck", room, onAdd }} /> : null}
+        {open ? <QuestionsPanel target={{ kind: "localDeck", room, onAdd, onDone: () => onOpenChange(false) }} /> : null}
       </DialogContent>
     </Dialog>
   );

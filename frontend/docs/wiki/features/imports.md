@@ -14,7 +14,7 @@ Backend contract: `backend/docs/wiki/modules/imports.md`. Entry points:
 - **Builder**: "Import questions" in `BuilderHeader` (one optional prop, `onImportQuestions`) opens
   `ImportQuestionsDialog`. The file is checked on the server (`mode=preview`, which also returns the parsed
   slides) and the slides go through the builder's own `handleGenerated` (the AI-draft path: kept slides stay, new ones
-  are appended, the deck is saved as a draft), so nothing writes behind the builder's back. The deck's room
+  are appended, the deck is saved as a draft), so nothing writes behind the builder's back; the dialog stays open with a confirmation and a Done button. The deck's room
   (50 slides minus the ones with content) caps what is added.
 
 | File | Role |
@@ -44,6 +44,8 @@ Server-side limits show as messages from the API (plan limit, permission, queue 
 ## Tests
 
 - `tests/unit/imports.logic.test.ts`, `tests/unit/imports.ui.test.tsx` (panels per capability, preview table, job states, error wording).
-- `e2e/imports.spec.ts`: CSV → deck with the right slides (skipped rows explained, deck verified through the API), template
+- `e2e/imports.spec.ts` (signs in once per worker and builds its own `host` on that session, because the API allows
+  10 sign-ins per 5 minutes per IP and the shared `host` fixture signs in per test; it also sets the `auth_session`
+  cookie with `addCookies`, since the proxy guards `/polls` and `/presentation/create` before any page script runs): CSV → deck with the right slides (skipped rows explained, deck verified through the API), template
   downloads, refused file types, the storage-off explanation (the e2e backend has no `S3_*`), and questions added to a deck open
   in the builder.

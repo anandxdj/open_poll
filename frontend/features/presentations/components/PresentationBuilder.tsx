@@ -90,7 +90,6 @@ export function PresentationBuilder() {
             (slide) => ({ ...blankSlide(slide.type as PresentationSlideType), ...slide }) as unknown as PresentationSlide
           );
           builder.handleGenerated({ title: "", slides: imported });
-          setImportOpen(false);
         }}
       />
     </>

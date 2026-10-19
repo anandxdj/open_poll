@@ -48,6 +48,14 @@ All routes except the templates need `authenticate()`; creating things also need
   `ENCRYPTION_KEY` when set) and deleted when the job ends.
 - Repeating the request for a source whose job is still `queued`/`running` returns that job and counts nothing.
 
+**Usage counting (`importsPerMonth`, counter `import`).** An import is counted **once, when its job is created**
+(`consumeUsage(workspace, 'import')` after the request is validated and before the job is queued; over the limit
+→ 403 `PLAN_LIMIT_REACHED` and nothing is created). Everything that happens to a job afterwards never counts again:
+worker attempts, retries after a transient failure, reaper requeues, a repeated `POST` for a source whose job is still
+queued or running (it returns that job). A job that ends `failed` stays counted (the work was accepted and capacity
+spent); starting the same file again is a new import and counts as one. The question import counts once when it
+writes (`mode=import`); `preview` is free.
+
 **Job** (`GET`/`POST` response `data`): `{ id, kind, status: 'queued'|'running'|'completed'|'failed', stage, title,
 warnings: [{code, message, slide}], error: {code, message} | null, resultPresentationId, createdAt, startedAt,
 finishedAt }`. `error.message` is written for the person who started the import. `resultPresentationId` is
