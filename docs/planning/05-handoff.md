@@ -92,10 +92,21 @@ before it finishes.
   16.9 ms; socket 2k/s p95 8.8 ms.
 - Phase 2 (not started, after W1-A2 merges): see "Not started".
 
-**Checks at handoff** (integration branch after the W2-D phase 1 merge): backend 814 tests in
-`bun test` (645 run without containers, 169 integration/spike tests skip without `TEST_MONGO_URI`), 136
-integration/spike tests pass with the containers (6 skipped by design); frontend 253 unit tests;
-Playwright e2e 7 tests green; backend and frontend typecheck clean, frontend lint 0 errors, build green.
+**Wave 2 — W2-C session history, reports, export, share, take-home** (merged; `pkg/w2-c`, 8 commits).
+- Backend `modules/sessions`: `GET /api/sessions?presentationId&cursor&limit`, `GET /api/sessions/:sid`
+  (report; ended → `slideStats`, live → Redis aggregates), `GET /api/sessions/:sid/export.{csv,xlsx,pdf}`
+  (CSV free; XLSX/PDF `requireFeature` → 403 `FEATURE_NOT_IN_PLAN`; registry-driven columns;
+  formula-injection safe; audited), `POST|DELETE /api/sessions/:sid/share` (192-bit token,
+  `includeNames`, `expiresAt`, `rotate`; ended sessions only, else 409 `SESSION_LIVE`), public
+  `GET /api/public/results/:token` (300/min/IP, noindex, aggregates only), `DELETE /api/sessions/:sid`
+  (policy `deck:delete`; removes participants, answers, Redis keys, Q&A rows if present; audited),
+  `GET /api/sessions/:sid/me?participantId&token` (take-home). Ties ranked by score → final
+  leaderboard order → join order everywhere.
+- Frontend: `/presentations/[id]/sessions`, `/presentations/[id]/sessions/[sessionId]` (StageView
+  `mode="report"`, live refresh 5 s, plan-gated export, share dialog, delete), `/r/[token]`,
+  `/live/[code]/summary`; `endScreen` slot links; library menu "Session history".
+
+**Checks at handoff** (integration branch after the W2-C merge): backend 875 tests in `bun test` (694 run without containers, 181 integration/spike tests skip without `TEST_MONGO_URI`), 146 integration/spike tests pass with the containers (6 skipped by design); frontend 305 unit tests; Playwright e2e 10 tests green; backend and frontend typecheck clean, frontend lint 0 errors (7 pre-existing warnings), build green.
 
 ## Ready, NOT merged (all checks green on their branch; merge in this order)
 
@@ -103,23 +114,6 @@ Merge rule: `git merge --no-ff pkg/<id>` into `chore/backlog-and-roadmap`, then 
 tsc + unit + integration, frontend typecheck + lint + unit + build + e2e). Expect small conflicts in
 append-only files (route snapshot, `i18n/messages.ts`, settings sections, `.env.example`).
 
-2. **W2-C — session history, reports, export, share, take-home**, `pkg/w2-c` @ `15b5add` (8 commits;
-   already merged with the branch at the W3-F state).
-   - Backend `modules/sessions`: `GET /api/sessions?presentationId&cursor&limit`, `GET /api/sessions/:sid`
-     (report; ended → `slideStats`, live → Redis aggregates), `GET /api/sessions/:sid/export.{csv,xlsx,pdf}`
-     (CSV free; XLSX/PDF `requireFeature` → 403 `FEATURE_NOT_IN_PLAN`; registry-driven columns;
-     formula-injection safe; audited), `POST|DELETE /api/sessions/:sid/share` (192-bit token,
-     `includeNames`, `expiresAt`, `rotate`; ended sessions only, else 409 `SESSION_LIVE`), public
-     `GET /api/public/results/:token` (300/min/IP, noindex, aggregates only), `DELETE /api/sessions/:sid`
-     (policy `deck:delete`; removes participants, answers, Redis keys, Q&A rows if present; audited),
-     `GET /api/sessions/:sid/me?participantId&token` (take-home). Ties ranked by score → final
-     leaderboard order → join order everywhere.
-   - Frontend: `/presentations/[id]/sessions`, `/presentations/[id]/sessions/[sessionId]` (StageView
-     `mode="report"`, live refresh 5 s, plan-gated export, share dialog, delete), `/r/[token]`,
-     `/live/[code]/summary`; `endScreen` slot links; library menu "Session history".
-   - Also on merge: update `backend/docs/wiki/modules/presentations-live.md` so the session `share` field
-     row points to `modules/sessions.md` instead of "Reserved for result sharing (W2-C)" (one-line docs
-     commit).
 3. **W3-C — billing and plan gates**, `pkg/w3-c` @ `12b237d` (9 commits; 3 behind).
    - `GET /api/plans` (public, 120/min, prices only for configured Stripe price ids), `GET /api/billing`
      (`workspace:billing`), `POST /api/billing/checkout {plan, interval, seats?}` and
@@ -226,7 +220,11 @@ W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
   websocket-only client), see `docs/deploy/multi-instance.md`; CI load-test thresholds are unverified on
   GitHub runners (tune `STORM_MIN_RPS` / `STORM_MAX_P95_MS`); a crashed instance can lose up to 50 ms of
   queued answer writes.
-- **Lands with W2-C:** public share links show free-text answers (word cloud, open ended) without
+- **W2-D / e2e (observed once, not reproduced):** one full Playwright run after the W2-C merge printed
+  `[Presentation] Answer reconciliation failed: ...` (a non-duplicate-key bulk write error from
+  `reconcileAnswers` in `live/snapshot.ts`; the test still passed and two re-runs were clean). If it
+  recurs, capture the whole error (`bun run test:e2e` output, unfiltered) before changing anything.
+- **W2-C (merged):** public share links show free-text answers (word cloud, open ended) without
   authorship (owner awareness); PDF export uses Helvetica, so emoji/CJK print as `?`; session delete
   uses policy `deck:delete` (owner to confirm). XLSX/PDF export needs a plan that has them
   (`bun scripts/set-plan.ts <workspace|owner-email> pro`).
