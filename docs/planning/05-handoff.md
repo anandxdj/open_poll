@@ -90,7 +90,7 @@ before it finishes.
   `loadtest-smoke` (500/s, p95 150 ms, tunable with repo vars `STORM_MIN_RPS` / `STORM_MAX_P95_MS`),
   nightly workflow `loadtest-nightly.yml`. Local numbers: REST 600/s p95 5.6 ms; REST 2k/s p95
   16.9 ms; socket 2k/s p95 8.8 ms.
-- Phase 2 (not started, after W1-A2 merges): see "Not started".
+- Phase 2 (not started): see "Not started".
 
 **Wave 2 — W2-C session history, reports, export, share, take-home** (merged; `pkg/w2-c`, 8 commits).
 - Backend `modules/sessions`: `GET /api/sessions?presentationId&cursor&limit`, `GET /api/sessions/:sid`
@@ -129,7 +129,20 @@ before it finishes.
   worker and reuse `storageState`, or have the e2e backend env set a higher limit through an
   existing env knob). Never disable rate limiting in production code paths.
 
-**Checks at handoff** (integration branch after the W3-C merge, before W1-A2): backend 996 tests in `bun test` (780 run without containers, 216 integration/spike tests skip without `TEST_MONGO_URI`), 179 integration/spike tests pass with the containers (6 skipped by design); frontend 330 unit tests; Playwright e2e 19 tests (18 green; the 19th hit the login rate limit, see Cross-package follow-ups: W1-A2's per-worker login fixture fixes it); backend and frontend typecheck clean, frontend lint 0 errors (7 pre-existing warnings), build green.
+**Wave 1 — W1-A2 session-aware live UI** (merged; `pkg/w1-a2`). The client speaks `live:join` /
+`live:event` only (sessionId filter, seq tracking; the host resyncs on a seq gap at most once per
+second, participants on reconnect, seq reset and tab focus). The host reads `GET /:id/host/state` on
+mount and chooses Start presenting / Open lobby / Present again (no auto-opened lobby; content-only
+decks start without one); goto back/forward shows stored results; Close voting / Reopen / Reveal;
+mid-run End Session; the host re-reads state on `question:started` / `slide:closed`. Participants
+keep per-session credentials (`openpoll_participant_{code}_{sessionId}`) with rejoin and error codes.
+Per-event server clock offset (the countdown bug is fixed, unit-tested). Strings in `presenter.json` /
+`live.json`. The slots and a single `submitAnswer` are adapted to W2-D phase 1 (fresh `clientAnswerId`,
+`slideTicket`, retries on transient errors, error-code toasts). The store exposes `sessionId` for W2-C's
+endScreen link. The e2e host fixture logs in once per worker (fixes the login 429 as the suite grows).
+Deleted unused `api/presentationApi.ts`. Specs: `e2e/live-session.spec.ts`.
+
+**Checks at handoff** (integration branch after the W1-A2 merge): backend 996 tests in `bun test` (780 run without containers, 216 integration/spike tests skip without `TEST_MONGO_URI`), 179 integration/spike tests pass with the containers (6 skipped by design); frontend 463 unit tests; Playwright e2e 24 tests green; backend and frontend typecheck clean, frontend lint 0 errors (7 pre-existing warnings), build green.
 
 ## Ready, NOT merged
 
@@ -144,8 +157,6 @@ chore/backlog-and-roadmap..pkg/<id>`, `git diff`), keep what is sound, then fini
 integration branch into it, re-run checks and ask for a merge. Worktrees in
 `.claude/worktrees/<id>` (gitignored); heads at wrap-up:
 
-- **W1-A2** session-aware live UI, `pkg/w1-a2` @ `0faa74a` (8 commits). Must merge `pkg/w2-d` before it
-  finishes (plan-order swap), then the frontend contract changes of W2-D phase 1 apply to it.
 - **W2-E** advanced question types, `pkg/w2-e` @ `73ba71b` (7 commits; merged with the branch at
   `3b3a95f`). Nearly done. Left: full Playwright suite after the merge; visual check of the compact
   guess/grid stages. Cosmetics: the picker is clipped by the rail's overflow-hidden (pre-existing); the
@@ -157,7 +168,7 @@ integration branch into it, re-run checks and ask for a merge. Worktrees in
 
 ## Not started
 
-- **W2-D phase 2** (after W1-A2 merges): frontend offline queue (`submitAnswer`: socket ack → REST →
+- **W2-D phase 2** (unblocked, W1-A2 is merged; plugs into the single `submitAnswer`): frontend offline queue (`submitAnswer`: socket ack → REST →
   IndexedDB, in `live/store` + `live/offline/**`), frontend contract types (`slideTicket`, `AnswerResult`,
   error codes `NOT_ACCEPTING`, `TIME_UP`, `ALREADY_ANSWERED`, `RATE_LIMITED`, `NOT_JOINED`), await the
   `live:join` ack before `answer:submit` after a reconnect, remove the legacy `quiz:event` dual-emit.
@@ -195,14 +206,13 @@ W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
 - **AI deck mappers for W2-E types** (after W2-E lands): add one entry each in
   `backend/src/modules/ai/deck/slideMappers.ts` and `deck/mock.ts`.
 - **Q&A section in session reports and exports** once W2-B merges (W2-C reports).
-- **W1-A2** must expose `sessionId` in participant live state so the take-home summary link pins `?sid=`.
 - **Plan gates still to apply** (feature keys exist from W3-C; W2-C already gates XLSX/PDF, W3-F already
   consumes `ai_deck`): W3-A `brand_kits`; W3-D `sso` / `scim` and `assertLimit(ws,'seats',n)` (+
   `syncWorkspaceSeats`); W3-B1 seats on invites (`assertLimit(ws,'seats',n)`); W4-E
   `custom_domains` / `white_label`; W4-C retention; W3-E `consumeUsage(ws,'import')`.
 - **Proxy protected prefixes:** add `/presentations` and `/presentation/create` (signed-out visitors
   currently see a load error instead of a login redirect; check the redirect works).
-- **E2E login rate limit** (10 per 5 min per IP): see W3-C notes above; fix once specs accumulate.
+- **E2E login rate limit** (10 per 5 min per IP): the `host` fixture logs in once per worker (W1-A2). Do not add per-test or per-file logins; billing.spec still logs in once in its own `beforeAll`.
 
 ## Known follow-ups
 
@@ -216,6 +226,10 @@ W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
 - **W3-F (merged):** mock decks (no AI key) are not counted against `ai_deck` usage (owner to confirm); a
   reviewed deck (outline step then deck step) uses two `ai` rate-limit hits; the frontend `Presentation`
   type has no `notes` until W2-A's NotesTab lands.
+- **W1-A2 (merged):** participants do not resync on seq gaps because the room seq also counts
+  host-only events (resync on reconnect, seq reset and tab focus only). `frontend/i18n/LiveIntlProvider.tsx`
+  lists its namespaces by hand (`["live","presenter"]`): every package that adds a namespace used on
+  live surfaces (W2-E `slides-advanced`, W2-B `qna`) must append to it, keeping all of them.
 - **W2-D phase 1 (merged):** socket.io's polling fallback needs sticky sessions across instances (or a
   websocket-only client), see `docs/deploy/multi-instance.md`; CI load-test thresholds are unverified on
   GitHub runners (tune `STORM_MIN_RPS` / `STORM_MAX_P95_MS`); a crashed instance can lose up to 50 ms of
