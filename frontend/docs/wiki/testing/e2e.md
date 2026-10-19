@@ -59,6 +59,11 @@ browser context per participant.
   shares of respondents, explanation after reveal) and an ungraded 0-point slide (no right/wrong)
   live; the builder editing and saving an ungraded multi-select slide (checked through
   `host.getDeck`). ~30 s.
+- `e2e/qna-reactions.spec.ts` — Q&A with moderation (a participant asks, the host sees it pending
+  and approves or rejects, another participant upvotes, the host puts a question on screen and
+  takes it down, marks it answered), a reaction floating up the stage, and the builder's Audience
+  tab plus adding a Q&A slide. The deck is created with `settings` through the API directly (the
+  `host.createDeck` fixture sends title and slides only). ~20 s.
 
 Run against your own database and ports when other suites share the machine, e.g.
 `E2E_MONGO_URI=mongodb://127.0.0.1:27117/openpoll_mine?directConnection=true

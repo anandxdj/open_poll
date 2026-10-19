@@ -31,6 +31,9 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Changing the live host console, participant view, stage, slide runtime views, the live store/slots, deck theme tokens, or live i18n.
 - **Action**: Read `frontend/docs/wiki/features/live-surfaces.md`
 
+- **Task**: Audience Q&A (ask, upvote, moderation, highlight, the Q&A slide), emoji reactions, or the builder's Audience tab.
+- **Action**: Read `frontend/docs/wiki/features/qna.md` (add `features/live-surfaces.md` only for the store/slot internals)
+
 - **Task**: Workspaces (switcher, selected workspace, `X-Workspace-Id`) or any `/settings` page or section.
 - **Action**: Read `frontend/docs/wiki/features/workspaces.md`
 
