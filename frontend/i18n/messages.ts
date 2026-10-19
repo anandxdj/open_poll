@@ -1,4 +1,5 @@
 import type { Locale } from "./config";
+import ai from "@/messages/en/ai.json";
 import live from "@/messages/en/live.json";
 import presenter from "@/messages/en/presenter.json";
 
@@ -8,6 +9,7 @@ import presenter from "@/messages/en/presenter.json";
  * alphabetical. The shape types every `useTranslations` key (see global.d.ts).
  */
 export const enMessages = {
+  ai,
   live,
   presenter,
 };

@@ -76,6 +76,12 @@ lookup's HTTP status (404 until a session was opened).
   live; the builder editing and saving an ungraded multi-select slide (checked through
   `host.getDeck`). ~30 s.
 
+- `e2e/ai-deck.spec.ts` - AI whole-deck authoring in mock mode (the e2e backend has no AI key): the
+  AI dialog's "Whole deck" tab, outline review and editing, the written deck with speaker notes,
+  the "Generated with mock data (no AI key configured)" label in the dialog and the builder banner,
+  the deck opening in the builder and keeping its notes on save; form validation; the quick-slides
+  tab. ~10 s.
+
 Run against your own database and ports when other suites share the machine, e.g.
 `E2E_MONGO_URI=mongodb://127.0.0.1:27117/openpoll_mine?directConnection=true
 E2E_REDIS_URL=redis://127.0.0.1:6390/11 E2E_BACKEND_PORT=5111 E2E_FRONTEND_PORT=3111 bun run test:e2e`.
