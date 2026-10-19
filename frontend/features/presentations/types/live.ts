@@ -86,9 +86,10 @@ export interface AnswerPayload {
   /**
    * Generic answer, checked by the slide type's own answer schema; the server
    * uses it instead of the per-type fields. select_answer with
-   * `allowMultiple`: `{ optionIndices }`.
+   * `allowMultiple`: `{ optionIndices }`; guess_number `{ value }`;
+   * hundred_points `{ points }`; grid_2x2 `{ positions }`; pin_on_image `{ x, y }`.
    */
-  payload?: { optionIndices: number[] };
+  payload?: Record<string, unknown>;
   /** type_answer, open_ended */
   text?: string;
   /** wordcloud */
