@@ -153,7 +153,8 @@ and `pin_on_image` (pin on an image, correct area, markers). New picker section 
 backend answer test accepts W2-D's richer `AnswerResult`.
 
 **Wave 3 — W3-E imports** (merged; `pkg/w3-e`). `POST /api/imports` (PPTX, PDF, Google Slides link or
-Drive file as queued jobs; CSV/XLSX question files synchronously), job status routes, question templates.
+Drive file as queued jobs), `GET /api/imports/:id` (job status), `POST /api/imports/questions` (CSV/XLSX
+question files, synchronously), `GET /api/imports/templates/questions.:format`.
 PPTX: slide order from `sldIdLst`, title → heading, body → bullets/paragraph, picture-dominated → image,
 notesSlide → notes, charts/SmartArt/EMF/video → warnings (+ rendered fallback when Gotenberg is set);
 PDF pages → image slides with text as notes and alt. Redis list + BLMOVE queue with a reaper
