@@ -1,10 +1,9 @@
 import mongoose, { Schema, type Document, type Types } from 'mongoose';
 import { env } from '../../common/config/env';
-import type { WorkspaceRole } from '../../common/tenancy/roles';
+import { SHARE_ROLES, type ShareRole } from '../../common/tenancy/roles';
 
-/** Owner and admin are workspace-wide; a share grants at most editor. */
-export const SHARE_ROLES = ['editor', 'presenter', 'viewer'] as const satisfies readonly WorkspaceRole[];
-export type ShareRole = (typeof SHARE_ROLES)[number];
+// Owner and admin are workspace-wide; a share grants at most editor (roles.ts).
+export { SHARE_ROLES, type ShareRole };
 export const SHARE_RESOURCE_TYPES = ['presentation', 'folder'] as const;
 export type ShareResourceType = (typeof SHARE_RESOURCE_TYPES)[number];
 export const SHARE_PRINCIPAL_TYPES = ['user', 'group'] as const;

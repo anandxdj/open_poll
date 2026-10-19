@@ -71,18 +71,53 @@ export async function resolveWorkspaceContext(userId: string, requestedId?: stri
 }
 
 /**
+ * Marks the workspace-context middlewares so the route-table isolation test
+ * (tests/integration/tenancy-isolation.test.ts) can tell which routes run one:
+ * `header` = X-Workspace-Id / default workspace, `path` = the workspace in the URL.
+ */
+export const WORKSPACE_CONTEXT_MARK = Symbol.for('openpoll.tenancy.workspaceContext');
+export type WorkspaceContextKind = 'header' | 'path';
+
+type Middleware = (req: WorkspaceRequest, res: Response, next: NextFunction) => Promise<void>;
+const mark = (middleware: Middleware, kind: WorkspaceContextKind): Middleware =>
+  Object.assign(middleware, { [WORKSPACE_CONTEXT_MARK]: kind });
+
+/**
  * Sets `req.workspace` and `req.membership`. Mount after authenticate().
  * Routes then authorize with `assertCan(req, action, resource)`.
  */
-export const workspaceContext = () => async (req: WorkspaceRequest, _res: Response, next: NextFunction) => {
-  try {
-    if (!req.user) throw ApiError.unauthorized('Not authenticated');
-    const header = req.get(WORKSPACE_HEADER)?.trim();
-    const { workspace, membership } = await resolveWorkspaceContext(req.user.id, header || undefined);
-    req.workspace = workspace;
-    req.membership = membership;
-    next();
-  } catch (error) {
-    next(error);
-  }
-};
+export const workspaceContext = () =>
+  mark(async function workspaceContextMiddleware(req, _res, next) {
+    try {
+      if (!req.user) throw ApiError.unauthorized('Not authenticated');
+      const header = req.get(WORKSPACE_HEADER)?.trim();
+      const { workspace, membership } = await resolveWorkspaceContext(req.user.id, header || undefined);
+      req.workspace = workspace;
+      req.membership = membership;
+      next();
+    } catch (error) {
+      next(error);
+    }
+  }, 'header');
+
+/**
+ * Like workspaceContext(), but for routes that name the workspace in the path
+ * (`/api/workspaces/:workspaceId/...`): the path's workspace must be live and
+ * the caller an active member of it, else 403 WORKSPACE_FORBIDDEN.
+ * X-Workspace-Id is ignored, so a stale selection never locks a user out.
+ */
+export const pathWorkspaceContext = (param = 'workspaceId') =>
+  mark(async function pathWorkspaceContextMiddleware(req, _res, next) {
+    try {
+      if (!req.user) throw ApiError.unauthorized('Not authenticated');
+      const value = req.params[param];
+      const requested = typeof value === 'string' ? value : '';
+      if (!requested) throw notAMember();
+      const { workspace, membership } = await resolveWorkspaceContext(req.user.id, requested);
+      req.workspace = workspace;
+      req.membership = membership;
+      next();
+    } catch (error) {
+      next(error);
+    }
+  }, 'path');
