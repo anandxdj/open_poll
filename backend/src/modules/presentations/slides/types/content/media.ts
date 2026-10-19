@@ -80,8 +80,8 @@ export const mediaUrlOf = (slide: Slide): string | null => {
   return textField(content.url) || null;
 };
 
-/** What kind of upload each content type may reference by key. */
-const MEDIA_KIND: Record<string, 'image' | 'video'> = { image: 'image', video: 'video' };
+/** What kind of upload each slide type may reference by `content.key` (pin_on_image keeps its image there too). */
+const MEDIA_KIND: Record<string, 'image' | 'video'> = { image: 'image', pin_on_image: 'image', video: 'video' };
 
 interface MediaRef {
   slideNumber: number;
