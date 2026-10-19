@@ -59,6 +59,11 @@ browser context per participant.
   shares of respondents, explanation after reveal) and an ungraded 0-point slide (no right/wrong)
   live; the builder editing and saving an ungraded multi-select slide (checked through
   `host.getDeck`). ~30 s.
+- `e2e/sessions.spec.ts` — session history and reports (`features/sessions`): a deck is run through the
+  real join/answer routes, then history, report, CSV download, the locked Excel dialog, a share link
+  opened in a signed-out context, a participant's own results, deletion; Excel/PDF downloads on the Pro
+  plan (the spec sets and restores the plan with `backend/scripts/set-plan.ts`); the library menu entry.
+  ~25 s.
 
 Run against your own database and ports when other suites share the machine, e.g.
 `E2E_MONGO_URI=mongodb://127.0.0.1:27117/openpoll_mine?directConnection=true
