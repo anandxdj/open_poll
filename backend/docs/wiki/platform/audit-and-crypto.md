@@ -17,8 +17,11 @@ void audit({ actorType: 'system' | 'scim' | 'api', actorId?, workspace?, ip?, ua
   promise always fulfils (await it only in scripts/tests).
 - From a request: actor = `req.user` (`actorType: 'user'`, else `system`), workspace =
   `req.workspace`, plus `req.ip` and the user agent (≤512 chars).
-- Actions are dotted verbs: `media.upload`, `workspace.plan.set`, … The UI (W3-B1) lists by
-  `{workspaceId, createdAt: -1}`.
+- Actions are dotted verbs: `media.upload`, `workspace.plan.set`, … `GET /api/audit` (W3-B1, see
+  `modules/members-sharing.md`) lists by `{workspaceId, createdAt: -1}`. Recorded by W3-B1:
+  `member.role.update`, `member.status.update`, `member.remove`, `member.leave`,
+  `workspace.owner.transfer`, `invite.create`, `invite.refresh`, `invite.revoke`, `invite.accept`,
+  `share.grant`, `share.update`, `share.revoke`.
 - `AuditEvent {workspaceId, actorId, actorType: user|scim|system|api, action, targetType,
   targetId (string), ip, ua, meta, expiresAt, createdAt}`. `expiresAt` = now + the plan's
   `auditRetentionDays` (free plan's value without a workspace); `null` (unlimited) keeps it.

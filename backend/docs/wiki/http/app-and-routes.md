@@ -52,6 +52,8 @@ One line per entry.
 | `/api/presentations/:presentationId/host/qna` | `qnaHostRouter` (`modules/qna/qna.route.ts`) | W2-B |
 | `/api/presentations/:presentationId/qna` | default (`modules/qna/qna.route.ts`) | W2-B |
 | `/api/workspaces/:workspaceId/domains` | default (`modules/domains/domains.route.ts`) | W4-E |
+| `/api/workspaces/:workspaceId/invites` | default (`modules/workspaces/invites.route.ts`) | W3-B1 |
+| `/api/workspaces/:workspaceId/members` | default (`modules/workspaces/members.route.ts`) | W3-B1 |
 | `/api/auth`, `/api/polls`, `/api/responses`, `/api/ai`, `/api/presentations`, `/api/quizzes` (alias), `/api/mcp`, `/mcp` | existing modules | — |
 | `/api/audit` | `modules/audit/audit.route.ts` | W3-B1 |
 | `/api/billing` | `modules/billing/billing.route.ts` | W3-C |
@@ -61,6 +63,7 @@ One line per entry.
 | `/api/folders` | `modules/folders/folders.route.ts` | W3-B2 |
 | `/api/imports` | `modules/imports/imports.route.ts` | W3-E |
 | `/api/insights` | `modules/insights/insights.route.ts` | W3-G |
+| `/api/invites` | `invitesRouter` (`modules/workspaces/invites.route.ts`) | W3-B1 |
 | `/api/library` | `modules/library/library.route.ts` | W1-C |
 | `/api/me` | `modules/privacy/privacy.route.ts` | W4-C |
 | `/api/oembed` | `oembedRouter` (`modules/embeds/embeds.route.ts`) | W4-D |
@@ -69,6 +72,7 @@ One line per entry.
 | `/api/public/results` | `publicResultsRouter` (`modules/sessions/sessions.route.ts`) | W2-C |
 | `/api/remote` | `modules/remote/remote.route.ts` | W2-A |
 | `/api/sessions` | `modules/sessions/sessions.route.ts` | W2-C |
+| `/api/shares` | `modules/workspaces/sharing.route.ts` | W3-B1 |
 | `/api/sso` | `modules/sso/sso.route.ts` | W3-D |
 | `/api/templates` | `modules/templates/templates.route.ts` | W3-B2 |
 | `/api/themes` | `modules/themes/themes.route.ts` | W3-A |
@@ -83,6 +87,8 @@ Pre-parser stubs: `billingWebhookRouter` (W3-C), `samlAcsRouter` (W3-D), `scim.r
 - A planned module only fills its router file; `routes.ts` already mounts it. Routers mounted on a
   path with params (`qna`, `domains`, `samlAcsRouter`) are `Router({ mergeParams: true })`.
 - A path the table does not cover yet gets one new line in the right block of `MOUNTS`.
+- Every new `/api` route must run `workspaceContext()`/`pathWorkspaceContext()` or be allow-listed
+  with a reason in `tests/integration/tenancy-isolation.test.ts` (see `platform/tenancy.md`).
 - Any change to middleware, mounts or routes changes the route snapshot. Regenerate it with
   `UPDATE_ROUTE_SNAPSHOT=1 bun test tests/http.routes.test.ts` and review the diff of
   `tests/http.routes.snapshot.txt` (one line per layer, in order: `USE <path> <fn>`,
