@@ -446,6 +446,8 @@ describe("live slots", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => cleanups.splice(0).forEach((fn) => fn()));
   const props = { presentationId: "p", participantId: "x" };
+  // `participantBody` has no built-in entry: Q&A, reactions and sessions register on the other slots
+  // (as soon as any test imports `features/registrations`), which would show up in these assertions.
 
   test("the slot list is the documented one", () => {
     expect([...SLOT_NAMES]).toEqual([
@@ -461,34 +463,34 @@ describe("live slots", () => {
   });
 
   test("an empty slot renders nothing at all", () => {
-    expect(renderToStaticMarkup(<SlotOutlet name="participantFooter" props={props} />)).toBe("");
+    expect(renderToStaticMarkup(<SlotOutlet name="participantBody" props={props} />)).toBe("");
   });
 
   test("entries render in order, without wrapper markup, with the slot props", () => {
     cleanups.push(
-      registerSlot("participantFooter", { id: "b", order: 20, Component: ({ participantId }) => <i>b:{participantId}</i> }),
-      registerSlot("participantFooter", { id: "a", order: 10, Component: () => <i>a</i> }),
-      registerSlot("participantFooter", { id: "c", Component: () => <i>c</i> })
+      registerSlot("participantBody", { id: "b", order: 20, Component: ({ participantId }) => <i>b:{participantId}</i> }),
+      registerSlot("participantBody", { id: "a", order: 10, Component: () => <i>a</i> }),
+      registerSlot("participantBody", { id: "c", Component: () => <i>c</i> })
     );
-    expect(renderToStaticMarkup(<SlotOutlet name="participantFooter" props={props} />)).toBe("<i>a</i><i>b:x</i><i>c</i>");
+    expect(renderToStaticMarkup(<SlotOutlet name="participantBody" props={props} />)).toBe("<i>a</i><i>b:x</i><i>c</i>");
   });
 
   test("`when` filters entries per render", () => {
     cleanups.push(
-      registerSlot("participantBanner", { id: "only-x", when: (p) => p.participantId === "x", Component: () => <b>x</b> })
+      registerSlot("participantBody", { id: "only-x", when: (p) => p.participantId === "x", Component: () => <b>x</b> })
     );
-    expect(getSlotEntries("participantBanner", props).map((e) => e.id)).toEqual(["only-x"]);
-    expect(getSlotEntries("participantBanner", { ...props, participantId: "y" })).toEqual([]);
-    expect(getSlotEntries("participantBanner").map((e) => e.id)).toEqual(["only-x"]);
+    expect(getSlotEntries("participantBody", props).map((e) => e.id)).toEqual(["only-x"]);
+    expect(getSlotEntries("participantBody", { ...props, participantId: "y" })).toEqual([]);
+    expect(getSlotEntries("participantBody").map((e) => e.id)).toEqual(["only-x"]);
   });
 
   test("registering an id again replaces the entry; unregister removes it", () => {
-    const first = registerSlot("hostToolbar", { id: "remote", label: "v1", Component: () => null });
-    const second = registerSlot("hostToolbar", { id: "remote", label: "v2", Component: () => null });
-    expect(getSlotEntries("hostToolbar").map((e) => e.label)).toEqual(["v2"]);
+    const first = registerSlot("participantBody", { id: "remote", label: "v1", Component: () => null });
+    const second = registerSlot("participantBody", { id: "remote", label: "v2", Component: () => null });
+    expect(getSlotEntries("participantBody").map((e) => e.label)).toEqual(["v2"]);
     first(); // stale unregister: no-op
-    expect(getSlotEntries("hostToolbar")).toHaveLength(1);
+    expect(getSlotEntries("participantBody")).toHaveLength(1);
     second();
-    expect(getSlotEntries("hostToolbar")).toHaveLength(0);
+    expect(getSlotEntries("participantBody")).toHaveLength(0);
   });
 });

@@ -106,10 +106,14 @@ const slideTypeOf = (payload: Record<string, unknown>): string | null => {
   return typeof slide?.type === "string" ? slide.type : null;
 };
 
-/** A new session starts from nothing: its own questions, its own settings. */
-const NEW_SESSION_EVENTS = new Set(["session:lobby", "lobby:opened"]);
+/**
+ * A new session starts from nothing: its own questions, its own settings. The legacy copies
+ * (`lobby:opened`, `quiz:ended`) are ignored like the core reducer ignores them; the `session:*`
+ * events carry the same information.
+ */
+const NEW_SESSION_EVENTS = new Set(["session:lobby"]);
 const SLIDE_EVENTS = new Set(["slide:shown", "question:started"]);
-const NO_SLIDE_EVENTS = new Set(["leaderboard:shown", "quiz:ended", "session:ended"]);
+const NO_SLIDE_EVENTS = new Set(["leaderboard:shown", "session:ended"]);
 
 function reduceEvent(state: QnaState, event: Extract<LiveAction, { type: "live/event" }>["event"], root: LiveState): QnaState {
   if (NEW_SESSION_EVENTS.has(event.type)) return state === initialQnaState ? state : initialQnaState;

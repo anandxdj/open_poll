@@ -1,5 +1,5 @@
 import { e2eEnv } from "./env";
-import { expect, joinAsParticipant, test, type Host } from "./fixtures";
+import { expect, joinAsParticipant, openLobby, test, type Host } from "./fixtures";
 
 /**
  * Q&A and reactions end to end: with moderation on a participant asks, the
@@ -40,7 +40,7 @@ test("a participant asks, the host approves, another upvotes, the host puts it o
   const deck = await createDeck(host, `E2E Q&A ${Date.now()}`);
   const hostPage = await host.open(`/presentation/host/${deck._id}`);
   const stage = hostPage.locator("main");
-  await expect(stage.getByText(deck.joinCode, { exact: true })).toBeVisible();
+  await openLobby(hostPage, deck.joinCode);
 
   const ada = await joinAsParticipant(browser, contexts, deck.joinCode, "Ada");
   const grace = await joinAsParticipant(browser, contexts, deck.joinCode, "Grace");

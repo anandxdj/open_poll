@@ -75,6 +75,8 @@ function renderWith(
 ): string {
   const base = createInitialLiveState(role, {
     presentationId: PID,
+    // Events of another session are ignored by the reducer.
+    sessionId: SID,
     status: "active",
     self: role === "participant" ? SELF : null,
     ...init,
