@@ -75,12 +75,26 @@ lookup's HTTP status (404 until a session was opened).
   shares of respondents, explanation after reveal) and an ungraded 0-point slide (no right/wrong)
   live; the builder editing and saving an ungraded multi-select slide (checked through
   `host.getDeck`). ~30 s.
+- `e2e/sessions.spec.ts` — session history and reports (`features/sessions`): a deck is run through the
+  real join/answer routes, then history, report, CSV download, the locked Excel dialog, a share link
+  opened in a signed-out context, a participant's own results, deletion; Excel/PDF downloads on the Pro
+  plan (the spec sets and restores the plan with `backend/scripts/set-plan.ts`); the library menu entry.
+  ~25 s.
 
 - `e2e/ai-deck.spec.ts` - AI whole-deck authoring in mock mode (the e2e backend has no AI key): the
   AI dialog's "Whole deck" tab, outline review and editing, the written deck with speaker notes,
   the "Generated with mock data (no AI key configured)" label in the dialog and the builder banner,
   the deck opening in the builder and keeping its notes on save; form validation; the quick-slides
   tab. ~10 s.
+
+- `e2e/billing.spec.ts` — `/settings/billing` against the real API with billing off (disabled
+  notice, plan, usage meters, no fake buttons; 503 from checkout and portal), then the enabled
+  flows with `page.route` patching the real `/api/plans` and `/api/billing` responses (prices,
+  yearly toggle, Team seats, checkout redirect to a stand-in Stripe page, the wait for the plan
+  after `?checkout=success`), and the landing pricing from the API, with prices, and on the
+  built-in fallback when the API is unreachable. Stripe is never called. It logs in once in
+  `beforeAll` instead of through the `host` fixture: `/api/auth/login` allows 10 logins per 5
+  minutes per IP, which the whole suite shares. ~20 s.
 
 Run against your own database and ports when other suites share the machine, e.g.
 `E2E_MONGO_URI=mongodb://127.0.0.1:27117/openpoll_mine?directConnection=true

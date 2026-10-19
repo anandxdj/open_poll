@@ -36,8 +36,14 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Workspaces (switcher, selected workspace, `X-Workspace-Id`) or any `/settings` page or section.
 - **Action**: Read `frontend/docs/wiki/features/workspaces.md`
 
+- **Task**: Billing: `/settings/billing` (plan, usage, checkout, portal) or the landing pricing section.
+- **Action**: Read `frontend/docs/wiki/features/billing.md`
+
 - **Task**: Changing the library at `/polls` (poll + deck cards, filters, convert to presentation).
 - **Action**: Read `frontend/docs/wiki/features/library.md`
+
+- **Task**: Session history, the session report, exports, public results links (`/r/[token]`), the participant results page (`/live/[code]/summary`) or the end-screen links to them.
+- **Action**: Read `frontend/docs/wiki/features/sessions.md`
 
 ## 4. API & Data
 

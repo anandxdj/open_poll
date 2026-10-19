@@ -29,7 +29,7 @@ participants, answers, scores and a final snapshot. At most one session per deck
 | `deckSnapshot`, `settingsSnapshot`, `themeSnapshot`, `entitlementsSnapshot` | Frozen at open; the engine runs from `deckSnapshot`, so slide ids and answer keys never shift under a session |
 | `participantCount`, `answerCount`, `finalLeaderboard` (≤100), `slideStats[]` | Written by `end` |
 | `retainUntil` | `endedAt` + workspace retention (setting capped by the plan); null = no limit |
-| `share` | Reserved for result sharing (W2-C) |
+| `share` | Result-sharing link (token, `includeNames`, `expiresAt`); see [sessions](./sessions.md) |
 
 The deck keeps a **mirror** of its live session — `status` (`draft` before the first run, `ended`
 between runs), `currentSlideIndex`, `questionStartedAt`, `questionEndsAt`, `activeSessionId`,
@@ -366,7 +366,7 @@ Runbook:
   (`close`); participants resync with `live-state`.
 - **W2-A** (`timing.service`): `slideStates.pausedRemainingMs` and the window's
   `pausedRemainingMs` are reserved for pause/resume; `close`/`reopen` already exist for remotes.
-- **W2-C**: `slideStats`, `finalLeaderboard`, `retainUntil`, `share` are on the session;
+- **W2-C** (done, [sessions](./sessions.md)): `slideStats`, `finalLeaderboard`, `retainUntil`, `share` are on the session;
   answers are keyed by `{sessionId, slideId, participantId}`.
 - **W2-D** (done): the answer path is one Redis script (below); `clientAnswerId` and `via`
   (`rest`/`socket`/`offline`) are stored; `psess:{sid}:results` holds what reconciliation needs.

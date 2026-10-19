@@ -32,6 +32,10 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - Add `backend/docs/wiki/realtime/presentations.md` only if touching events.
 - Answer hot path (Lua script, replays, grace/tickets, coalescer, write-behind, auto-reveal, socket `answer:submit`/`live:resync`): the "Answer path" section of `modules/presentations-live.md`.
 
+### Session history, reports, exports, public results links, participant take-home
+- `backend/docs/wiki/modules/sessions.md`
+- Add `backend/docs/wiki/modules/presentations-live.md` only if touching what the engine stores per session.
+
 ### Realtime Socket/Redis tasks
 - `backend/docs/wiki/realtime/envelope.md` (core: registry, auth, envelope, rooms, delivery, the optional cluster adapter)
 - `backend/docs/wiki/realtime/presentations.md` or `realtime/polls.md` (the module you touch)
@@ -57,6 +61,10 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 ### Workspaces API, poll tenancy, migration 020
 - `backend/docs/wiki/modules/workspaces.md`
 - Add `backend/docs/wiki/platform/tenancy.md` only if changing the policy or workspace context.
+
+### Billing: Stripe checkout, portal, webhook, plan catalogue, poll response cap, plan gates
+- `backend/docs/wiki/modules/billing.md` (owner's Stripe setup and the list of gates other packages apply)
+- Add `backend/docs/wiki/platform/plans.md` only if changing plan numbers, entitlements or usage counters.
 
 ### Platform primitives (load only the one you touch)
 - Workspaces, roles, `assertCan`, workspace context, provider identities: `backend/docs/wiki/platform/tenancy.md`
