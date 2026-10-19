@@ -33,6 +33,8 @@ const enabled = Boolean(TEST_REDIS_URL && TEST_MONGO_URI);
 const previousRedisUrl = process.env.REDIS_URL;
 if (enabled) process.env.REDIS_URL = TEST_REDIS_URL;
 const { redisClient } = await import('../src/common/config/redis');
+const { flushScheduledNow } = await import('../src/modules/presentations/live/coalescer');
+const { flushWriteBehind } = await import('../src/modules/presentations/live/writeBehind');
 if (enabled) {
   if (previousRedisUrl === undefined) delete process.env.REDIS_URL;
   else process.env.REDIS_URL = previousRedisUrl;
@@ -158,6 +160,8 @@ describe.skipIf(!inProcess)('realtime integration', () => {
   }, 20_000);
 
   afterAll(async () => {
+    await flushWriteBehind();
+    await flushScheduledNow();
     for (const client of clients) client.socket.disconnect();
     for (const server of servers) {
       await server.close();
@@ -182,7 +186,6 @@ describe.skipIf(!inProcess)('realtime integration', () => {
         for await (const batch of redisClient.scanIterator({ MATCH: pattern })) keys.push(...batch);
       }
       await redisClient.del(keys);
-      await redisClient.sRem('buffer:active_presentation_distributions', presentationId);
     }
     await mongoose.disconnect();
     await redisClient.close();
