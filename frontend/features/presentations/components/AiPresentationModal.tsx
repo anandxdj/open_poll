@@ -15,11 +15,21 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AiDeckPanel } from "@/features/ai/deck/AiDeckPanel";
+import type { DeckCreatedResponse } from "@/features/ai/deck/types";
 import { cn } from "@/lib/utils";
 import { generatePresentationDraft } from "../api/ai";
 import { AI_SLIDE_TYPE_META } from "../slides/meta";
 import type { GeneratedPresentationDraft, PresentationSlideType } from "../types/deck";
 import { getApiErrorMessage } from "@/lib/api-error";
+
+/** `deck`: a whole new deck (outline, slides, speaker notes). `slides`: quick questions merged into this deck. */
+type Mode = "deck" | "slides";
+
+const MODES: { id: Mode; label: string }[] = [
+  { id: "deck", label: "Whole deck" },
+  { id: "slides", label: "Quick slides" },
+];
 
 type Props = {
   open: boolean;
@@ -28,9 +38,25 @@ type Props = {
   onGenerated?: (draft: GeneratedPresentationDraft) => void;
   onGenerate?: (params: { topic: string; slideCount: number; slideTypes: PresentationSlideType[] }) => void;
   isGenerating?: boolean;
+  /** Editing a saved deck: quick slides stay the default (a whole deck is a new deck). */
+  isEditing?: boolean;
+  /** A whole deck was generated (it already exists on the server): switch the builder to it. */
+  onDeckCreated?: (response: DeckCreatedResponse) => void;
 };
 
-export function AiPresentationModal({ open, onOpenChange, initialTopic, onGenerated, onGenerate, isGenerating }: Props) {
+export function AiPresentationModal({
+  open,
+  onOpenChange,
+  initialTopic,
+  onGenerated,
+  onGenerate,
+  isGenerating,
+  isEditing = false,
+  onDeckCreated,
+}: Props) {
+  const [mode, setMode] = useState<Mode>(isEditing ? "slides" : "deck");
+  // A whole-deck request is in flight: the dialog stays open until it answers.
+  const [deckBusy, setDeckBusy] = useState(false);
   const [topic, setTopic] = useState("");
   const [slideCount, setSlideCount] = useState(5);
   const [types, setTypes] = useState<PresentationSlideType[]>(["select_answer", "type_answer"]);
@@ -83,6 +109,52 @@ export function AiPresentationModal({ open, onOpenChange, initialTopic, onGenera
 
   const isBusy = isGenerating || generating;
 
+  const modeSwitch = (
+    <div role="tablist" aria-label="What to generate" className="grid grid-cols-2 gap-1 rounded-xl bg-secondary/40 p-1">
+      {MODES.map(({ id, label }) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={mode === id}
+          disabled={deckBusy}
+          onClick={() => setMode(id)}
+          className={cn(
+            "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all disabled:pointer-events-none",
+            mode === id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (mode === "deck") {
+    return (
+      <Dialog open={open} onOpenChange={(next) => (next || !deckBusy) && onOpenChange(next)}>
+        <DialogContent showCloseButton={!deckBusy} className="max-h-[92vh] overflow-y-auto rounded-2xl sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="size-4 text-primary" /> Generate a whole deck
+            </DialogTitle>
+            <DialogDescription>
+              Describe your talk. AI plans an outline for you to review, then writes the slides with speaker notes.
+            </DialogDescription>
+          </DialogHeader>
+          {modeSwitch}
+          <AiDeckPanel
+            initialTopic={initialTopic?.trim()}
+            deckTitle={initialTopic?.trim()}
+            onBusyChange={setDeckBusy}
+            onCancel={() => onOpenChange(false)}
+            onOpenDeck={(response) => onDeckCreated?.(response)}
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg rounded-2xl sm:max-w-lg">
@@ -94,6 +166,7 @@ export function AiPresentationModal({ open, onOpenChange, initialTopic, onGenera
             Describe your topic — AI drafts the slides straight into the builder.
           </DialogDescription>
         </DialogHeader>
+        {modeSwitch}
         <div className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="ai-deck-topic">Topic</Label>

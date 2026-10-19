@@ -28,6 +28,8 @@ Before generating any code, identify your task type and read the corresponding s
 
 - **Task**: Changing the deck builder, slide editors, slide types, or inspector tabs.
 - **Action**: Read `frontend/docs/wiki/features/presentation-builder.md`
+- **Task**: Changing AI whole-deck generation in the builder (the AI dialog's "Whole deck" mode, outline review, mock-mode labelling, `features/ai/deck/`).
+- **Action**: Read `frontend/docs/wiki/features/ai-deck.md`
 - **Task**: Changing the live host console, participant view, stage, slide runtime views, the live store/slots, deck theme tokens, or live i18n.
 - **Action**: Read `frontend/docs/wiki/features/live-surfaces.md`
 

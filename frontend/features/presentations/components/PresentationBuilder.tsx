@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
+import { AiDeckBanner } from "@/features/ai/deck/AiDeckBanner";
 import { ImportQuestionsDialog } from "@/features/imports";
 import { blankSlide } from "../slides/editor";
 import type { PresentationSlide, PresentationSlideType } from "../types/deck";
@@ -30,18 +31,21 @@ export function PresentationBuilder() {
     <>
       <BuilderShell
         header={
-          <BuilderHeader
-            title={builder.title}
-            onTitleChange={builder.setTitle}
-            isEditing={Boolean(builder.editId)}
-            isAiGenerating={builder.isAiGenerating}
-            onOpenAi={() => builder.setAiOpen(true)}
-            onImportQuestions={() => setImportOpen(true)}
-            saving={builder.saving}
-            savingDraft={builder.savingDraft}
-            onSave={builder.handleSave}
-            onSaveDraft={builder.handleSaveDraft}
-          />
+          <>
+            <BuilderHeader
+              title={builder.title}
+              onTitleChange={builder.setTitle}
+              isEditing={Boolean(builder.editId)}
+              isAiGenerating={builder.isAiGenerating}
+              onOpenAi={() => builder.setAiOpen(true)}
+              onImportQuestions={() => setImportOpen(true)}
+              saving={builder.saving}
+              savingDraft={builder.savingDraft}
+              onSave={builder.handleSave}
+              onSaveDraft={builder.handleSaveDraft}
+            />
+            <AiDeckBanner />
+          </>
         }
         rail={
           <SlideRail
@@ -71,6 +75,8 @@ export function PresentationBuilder() {
         onGenerated={builder.handleGenerated}
         onGenerate={builder.handleAiGenerate}
         isGenerating={builder.isAiGenerating}
+        isEditing={Boolean(builder.editId)}
+        onDeckCreated={({ presentation, source }) => builder.handleDeckCreated(presentation, source)}
       />
 
       <ImportQuestionsDialog
