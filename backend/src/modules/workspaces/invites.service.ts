@@ -121,7 +121,7 @@ export class InvitesService {
     const existingUser = await UserModel.findOne({ email: input.email }).select('_id').lean();
     if (existingUser) {
       const member = await WorkspaceMemberModel.findOne({ workspaceId: workspace._id, userId: existingUser._id }).lean();
-      if (member) {
+      if (member && member.status !== 'invited') {
         throw new ApiError(409, 'This person is already a member of the workspace', 'ALREADY_MEMBER', { status: member.status });
       }
     }
@@ -202,7 +202,7 @@ export class InvitesService {
     if (existing && existing.status === 'suspended') {
       throw new ApiError(403, 'Your membership of this workspace is suspended', 'MEMBER_SUSPENDED');
     }
-    if (!existing) assertSeats(workspace, (await countActiveMembers(workspace._id)) + 1);
+    if (!existing || existing.status === 'invited') assertSeats(workspace, (await countActiveMembers(workspace._id)) + 1);
 
     // The claim: whoever deletes the invite first owns this acceptance.
     const claimed = await WorkspaceInviteModel.findOneAndDelete({ _id: invite._id, tokenHash: invite.tokenHash });
@@ -210,7 +210,15 @@ export class InvitesService {
 
     let membership: IWorkspaceMember | null = existing;
     let created = false;
-    if (!membership) {
+    if (membership?.status === 'invited') {
+      // A pending membership (provisioned ahead by an identity provider) is completed by accepting.
+      membership = await WorkspaceMemberModel.findOneAndUpdate(
+        { _id: membership._id, status: 'invited' },
+        { $set: { status: 'active', role: claimed.role } },
+        { returnDocument: 'after' },
+      );
+      created = membership !== null;
+    } else if (!membership) {
       try {
         membership = await WorkspaceMemberModel.create({
           workspaceId: workspace._id,

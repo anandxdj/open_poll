@@ -113,7 +113,8 @@ export const sendWorkspaceInviteEmail = async (
   const url = escapeHtml(invite.url);
   const delivered = await sendEmail(
     email,
-    `${invite.inviterName} invited you to ${invite.workspaceName} on OpenPoll`.slice(0, 200),
+    // Names are user-supplied: keep the subject on one line.
+    `${invite.inviterName} invited you to ${invite.workspaceName} on OpenPoll`.replace(/\s+/g, ' ').slice(0, 200),
     `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
       <h2 style="color: #d8ad87;">Join ${workspace} on OpenPoll</h2>

@@ -14,7 +14,7 @@ import { expect, test } from "./fixtures";
  * create response (the form shows it, as it does for any server without mail).
  */
 
-type Json = Record<string, any>;
+type Json = Record<string, unknown>;
 
 const backendEnv = {
   ...process.env,
@@ -34,7 +34,7 @@ interface Account {
   accessToken: string;
 }
 
-async function api<T = Json>(path: string, init: RequestInit & { token?: string; workspaceId?: string; body?: unknown } = {}) {
+async function api<T = Json>(path: string, init: Omit<RequestInit, "body"> & { token?: string; workspaceId?: string; body?: unknown } = {}) {
   const { token, workspaceId, body, headers, ...rest } = init;
   const res = await fetch(`${e2eEnv.apiOrigin}/api${path}`, {
     ...rest,

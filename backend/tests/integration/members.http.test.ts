@@ -439,6 +439,14 @@ describeIntegration('members, invites, shares and audit', () => {
       expect(await roleOf(bob)).toBe('admin');
     });
 
+    it('completes a pending (invited) membership instead of adding another', async () => {
+      await WorkspaceMemberModel.create({ workspaceId: wsId, userId: bob.id, role: 'viewer', status: 'invited', source: 'scim' });
+      const token = inviteToken((await call(alice, 'POST', invitesPath(), { email: bob.email, role: 'editor' })).body.data.inviteUrl);
+      // An invited membership is not an active one: the address can still be invited, then accepts.
+      expect((await accept(bob, token)).body.data).toMatchObject({ alreadyMember: false, membership: { role: 'editor', status: 'active' } });
+      expect(await WorkspaceMemberModel.countDocuments({ workspaceId: wsId, userId: bob.id })).toBe(1);
+    });
+
     it('previews an invite without authentication and with the address masked', async () => {
       const token = inviteToken((await invite('someone@example.com', 'viewer')).body.data.inviteUrl);
       const preview = await call(null, 'GET', `/api/invites/${token}`);
