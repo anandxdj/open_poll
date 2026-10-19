@@ -46,8 +46,12 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
       const result = await submitAnswer(payload);
       if (result.status === "error") {
         // Credentials gone (kicked, stale session): the shell reacts; no toast on top of its screen.
+        if (result.code === LIVE_ERROR_CODES.participantKicked) return;
         if (result.code === LIVE_ERROR_CODES.participantStale) toast.error(t("rejoinHint"));
-        else if (result.code !== LIVE_ERROR_CODES.participantKicked) toast.error(result.message || t("submitFailed"));
+        else if (result.code === LIVE_ERROR_CODES.notAccepting) toast.error(t("votingClosed"));
+        else if (result.code === LIVE_ERROR_CODES.timeUp) toast.error(t("timesUp"));
+        else if (result.code === LIVE_ERROR_CODES.rateLimited) toast.error(t("tooManyAttempts"));
+        else toast.error(result.message || t("submitFailed"));
       }
     } finally {
       setSubmitting(false);

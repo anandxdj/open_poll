@@ -81,6 +81,8 @@ export interface LiveState {
   slide: LiveSlide | null;
   /** The open answer window of the current slide; null unless `phase === "open"`. */
   timing: LiveTiming | null;
+  /** Participant: proof the window was seen open, sent with answers; null unless `phase === "open"`. */
+  slideTicket: string | null;
   /** Latest server-minus-client clock sample (ms); null until a `serverNow` arrived. */
   clockOffsetMs: number | null;
   /** Revealed results of the current slide. */
@@ -158,6 +160,7 @@ export function createInitialLiveState(
     deck: null,
     slide: null,
     timing: null,
+    slideTicket: null,
     clockOffsetMs: null,
     reveal: null,
     distribution: null,
@@ -302,6 +305,7 @@ const sessionScoped = (): Partial<LiveState> => ({
   isLastSlide: false,
   slide: null,
   timing: null,
+  slideTicket: null,
   reveal: null,
   distribution: null,
   answeredCount: 0,
@@ -383,6 +387,7 @@ function atSlide(state: LiveState, at: SlidePosition): LiveState {
     isLastSlide: at.isLastSlide,
     phase: at.phase,
     timing: at.phase === "open" && sameSlide ? state.timing : null,
+    slideTicket: at.phase === "open" && sameSlide ? state.slideTicket : null,
     reveal: at.phase === "revealed" && sameSlide ? state.reveal : null,
     submittedSlideIndex: sameSlide ? state.submittedSlideIndex : null,
   };
@@ -599,6 +604,7 @@ function hostEvent(state: LiveState, event: PresentationRealtimeEvent, receivedA
       phase: null,
       isLastSlide: false,
       timing: null,
+      slideTicket: null,
       reveal: null,
       distribution: null,
       answeredCount: 0,
@@ -696,6 +702,7 @@ const sessionEnded = (state: LiveState, leaderboard: LeaderboardEntry[] | undefi
   status: "ended",
   phase: null,
   timing: null,
+  slideTicket: null,
   leaderboard: leaderboard ?? state.leaderboard,
 });
 
@@ -738,7 +745,7 @@ function participantInfoLoaded(
           : null,
     };
   }
-  if (info.status !== "active") return { ...next, slideId: null, phase: null, slide: null, timing: null };
+  if (info.status !== "active") return { ...next, slideId: null, phase: null, slide: null, timing: null, slideTicket: null };
   return next;
 }
 
@@ -776,6 +783,7 @@ function participantLiveState(state: LiveState, live: ParticipantLiveState, rece
       phase: null,
       slide: null,
       timing: null,
+      slideTicket: null,
       reveal: null,
       submittedSlideIndex: null,
     };
@@ -795,6 +803,7 @@ function participantLiveState(state: LiveState, live: ParticipantLiveState, rece
       live.status === "active" && current.phase === "open"
         ? { startedAt: current.startedAt, endsAt: current.endsAt, clockOffsetMs: clockOffsetMs ?? 0 }
         : null,
+    slideTicket: live.status === "active" && current.phase === "open" ? (current.slideTicket ?? null) : null,
     reveal:
       current.phase === "revealed" && current.results
         ? revealFromResults(current.results, current.slide?.question ?? "", current.isLastSlide)
@@ -826,6 +835,7 @@ function participantEvent(
       isLastSlide: false,
       slide: null,
       timing: null,
+      slideTicket: null,
       reveal: null,
       submittedSlideIndex: null,
     };
@@ -839,6 +849,7 @@ function participantEvent(
       ...next,
       slide: p.slide,
       timing: { startedAt: p.startedAt, endsAt: p.endsAt, clockOffsetMs: clockOffsetMs ?? 0 },
+      slideTicket: p.slideTicket ?? null,
       clockOffsetMs,
       reveal: null,
       // A reopened slide stays answered for those who answered; a new one starts fresh.

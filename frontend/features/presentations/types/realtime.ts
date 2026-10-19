@@ -53,6 +53,12 @@ export interface RealtimePayloads {
     serverNow: string;
     isLastSlide: boolean;
     reopened: boolean;
+    /**
+     * HMAC proof that the client saw this window open: send it with the answer
+     * (`slideTicket`) so a slow connection still gets the grace period. The
+     * same value for every viewer of this run of the slide; a reopen gets a new one.
+     */
+    slideTicket: string;
   };
   /** A content or board slide is on screen; no answer window. */
   "slide:shown": {
@@ -74,7 +80,10 @@ export interface RealtimePayloads {
     revisit: boolean;
     serverNow: string;
   };
-  /** Host room only — never reaches participant sockets. The 2 s worker adds the distribution. */
+  /**
+   * Host room only — never reaches participant sockets. Coalesced by the server: at most one
+   * per dirty slide per 250 ms, carrying the slide's current counts and distribution.
+   */
   "answer:received": {
     slideId: string;
     slideIndex: number;

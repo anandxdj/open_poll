@@ -177,6 +177,25 @@ export interface RevealPayload {
   isLastSlide: boolean;
 }
 
+/** The channel an answer arrived on (`AnswerResult.via`); the original's channel on a replay. */
+export type AnswerVia = "rest" | "socket" | "offline";
+
+/**
+ * `data` of an accepted `POST /:id/answer` (and of the socket ack). A repeat
+ * of an accepted answer — same `clientAnswerId` — returns the original with
+ * `replay: true` and counts nothing twice. Grading is never included: results
+ * stay hidden until the slide is revealed.
+ */
+export interface AnswerResult {
+  accepted: true;
+  replay: boolean;
+  slideId: string;
+  slideIndex: number;
+  clientAnswerId: string | null;
+  via: AnswerVia;
+  answeredAt: string;
+}
+
 /** One participant's answer, as the slide type's ParticipantView submits it. */
 export interface AnswerPayload {
   /** select_answer */
@@ -273,6 +292,8 @@ export interface ParticipantLiveState {
     slide: LiveSlide;
     startedAt: string | null;
     endsAt: string | null;
+    /** Open response slides only: send it back as `slideTicket` with the answer (late answers need it). */
+    slideTicket: string | null;
     /** Revealed response slides only. */
     results: SlideResultsView | null;
     /** System (leaderboard) slides only. */

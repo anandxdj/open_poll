@@ -1,6 +1,7 @@
 import { apiClient } from "@/lib/api-client";
 import type {
   AnswerPayload,
+  AnswerResult,
   ParticipantLiveState,
   ParticipantState,
   PresentationParticipantSelf,
@@ -33,8 +34,14 @@ export const submitAnswer = async (
     slideIndex: number;
     sessionId?: string;
     slideId?: string;
+    /** Idempotency key (≤ 64 chars): repeating an accepted answer with it returns the original, `replay: true`. */
+    clientAnswerId?: string;
+    /** From `question:started` / `live-state`: lets a late answer through the grace period. */
+    slideTicket?: string;
+    /** Held offline before sending (stored as `via: "offline"`). */
+    offline?: boolean;
   }
-) => (await apiClient.post<ApiOk<{ accepted: boolean }>>(`/presentations/${presentationId}/answer`, input)).data.data;
+) => (await apiClient.post<ApiOk<AnswerResult>>(`/presentations/${presentationId}/answer`, input)).data.data;
 
 export const getParticipantState = async (presentationId: string, participantId: string, token: string) =>
   (

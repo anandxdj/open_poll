@@ -3,6 +3,7 @@ import { AxiosError, type AxiosResponse } from "axios";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { apiClient } from "@/lib/api-client";
+import { isRetryableAnswerFailure } from "@/features/presentations/live/errors";
 import { createLiveStore, participantLostReason } from "@/features/presentations/live/store";
 import { getSlotEntries, registerSlot, SLOT_NAMES, SlotOutlet } from "@/features/presentations/live/slots";
 import { PID, SELF, SID, SLIDE_IDS, T0, at, deck, event, hostState, liveSlide, liveState, sessionView } from "./live.fixtures";
@@ -14,16 +15,37 @@ const apiFailure = (status: number, code?: string, message = "nope") =>
     data: { success: false, message, ...(code ? { code } : {}) },
   } as AxiosResponse);
 
+/** What a successful `POST /answer` resolves to. */
+const accepted = (data: Record<string, unknown> = {}) => ({
+  data: {
+    data: {
+      accepted: true,
+      replay: false,
+      slideId: SLIDE_IDS[0],
+      slideIndex: 0,
+      clientAnswerId: "x",
+      via: "rest",
+      answeredAt: at(5),
+      ...data,
+    },
+  },
+});
+
+// Retries wait for real; keep them short.
 const participantStore = (init = {}) =>
-  createLiveStore("participant", {
-    presentationId: PID,
-    sessionId: SID,
-    slideId: SLIDE_IDS[0],
-    self: SELF,
-    slide: liveSlide(),
-    status: "active",
-    ...init,
-  });
+  createLiveStore(
+    "participant",
+    {
+      presentationId: PID,
+      sessionId: SID,
+      slideId: SLIDE_IDS[0],
+      self: SELF,
+      slide: liveSlide(),
+      status: "active",
+      ...init,
+    },
+    { answerRetryDelaysMs: [1, 1] }
+  );
 
 describe("createLiveStore", () => {
   test("each store is independent and changes only through dispatch", () => {
@@ -49,7 +71,7 @@ describe("createLiveStore", () => {
   });
 
   test("submitAnswer posts a multi-select answer as the generic payload", async () => {
-    const post = spyOn(apiClient, "post").mockResolvedValue({ data: { data: { accepted: true } } });
+    const post = spyOn(apiClient, "post").mockResolvedValue(accepted());
     const get = spyOn(apiClient, "get").mockRejectedValue(new Error("offline"));
     try {
       const store = createLiveStore("participant", {
@@ -76,15 +98,15 @@ describe("createLiveStore", () => {
           scoreDependsOnTime: true,
         },
       });
-      expect(await store.getState().submitAnswer({ payload: { optionIndices: [0, 2] } })).toEqual({
-        status: "accepted",
-      });
+      const result = await store.getState().submitAnswer({ payload: { optionIndices: [0, 2] } });
+      expect(result).toMatchObject({ status: "accepted", replay: false });
       expect(post).toHaveBeenCalledWith("/presentations/p/answer", {
         participantId: "u1",
         participantToken: "t".repeat(16),
         slideIndex: 2,
         sessionId: "s1",
         slideId: "sl2",
+        clientAnswerId: (result as { clientAnswerId: string }).clientAnswerId,
         payload: { optionIndices: [0, 2] },
       });
       expect(store.getState().submittedSlideIndex).toBe(2);
@@ -128,6 +150,21 @@ describe("participant API failures", () => {
       expect(store.getState()).toMatchObject({ lost: "kicked", self: null });
     } finally {
       post.mockRestore();
+    }
+  });
+
+  test("ALREADY_ANSWERED counts as submitted; so does a bare 409", async () => {
+    for (const failure of [apiFailure(409, "ALREADY_ANSWERED"), apiFailure(409)]) {
+      const post = spyOn(apiClient, "post").mockRejectedValue(failure);
+      const get = spyOn(apiClient, "get").mockRejectedValue(new Error("offline"));
+      try {
+        const store = participantStore();
+        expect(await store.getState().submitAnswer({ optionIndex: 0 })).toEqual({ status: "duplicate" });
+        expect(store.getState().submittedSlideIndex).toBe(0);
+      } finally {
+        post.mockRestore();
+        get.mockRestore();
+      }
     }
   });
 
@@ -219,6 +256,119 @@ describe("participant API failures", () => {
     } finally {
       get.mockRestore();
     }
+  });
+});
+
+describe("answer path", () => {
+  const sentBodies = (post: ReturnType<typeof spyOn>) => post.mock.calls.map((call) => call[1] as Record<string, unknown>);
+
+  test("each attempt carries a fresh clientAnswerId and the slide ticket", async () => {
+    const post = spyOn(apiClient, "post").mockResolvedValue(accepted());
+    const get = spyOn(apiClient, "get").mockRejectedValue(new Error("offline"));
+    try {
+      const store = participantStore({ slideTicket: "st1.ticket-open" });
+      const first = await store.getState().submitAnswer({ optionIndex: 0 });
+      const second = await store.getState().submitAnswer({ optionIndex: 1 });
+      const [one, two] = sentBodies(post);
+      expect(one).toMatchObject({ slideTicket: "st1.ticket-open", sessionId: SID, slideId: SLIDE_IDS[0], optionIndex: 0 });
+      expect(typeof one.clientAnswerId).toBe("string");
+      expect((one.clientAnswerId as string).length).toBeLessThanOrEqual(64);
+      expect(one.clientAnswerId).not.toBe(two.clientAnswerId);
+      expect(first).toMatchObject({ status: "accepted", clientAnswerId: one.clientAnswerId });
+      expect(second).toMatchObject({ status: "accepted", clientAnswerId: two.clientAnswerId });
+    } finally {
+      post.mockRestore();
+      get.mockRestore();
+    }
+  });
+
+  test("without a ticket (late join before live-state) none is sent", async () => {
+    const post = spyOn(apiClient, "post").mockResolvedValue(accepted());
+    const get = spyOn(apiClient, "get").mockRejectedValue(new Error("offline"));
+    try {
+      await participantStore().getState().submitAnswer({ optionIndex: 0 });
+      expect("slideTicket" in sentBodies(post)[0]).toBe(false);
+    } finally {
+      post.mockRestore();
+      get.mockRestore();
+    }
+  });
+
+  test("a transient failure is re-sent with the same clientAnswerId, and a replay counts once", async () => {
+    const post = spyOn(apiClient, "post")
+      .mockRejectedValueOnce(new AxiosError("Network Error"))
+      .mockRejectedValueOnce(apiFailure(503))
+      .mockResolvedValue(accepted({ replay: true }));
+    const get = spyOn(apiClient, "get").mockRejectedValue(new Error("offline"));
+    try {
+      const store = participantStore();
+      const result = await store.getState().submitAnswer({ optionIndex: 0 });
+      expect(result).toMatchObject({ status: "accepted", replay: true });
+      const bodies = sentBodies(post);
+      expect(bodies).toHaveLength(3);
+      expect(new Set(bodies.map((body) => body.clientAnswerId)).size).toBe(1);
+      expect(store.getState().submittedSlideIndex).toBe(0);
+    } finally {
+      post.mockRestore();
+      get.mockRestore();
+    }
+  });
+
+  test("the per-participant rate limit (429 RATE_LIMITED) is retried, then reported", async () => {
+    const post = spyOn(apiClient, "post").mockRejectedValue(apiFailure(429, "RATE_LIMITED", "Slow down"));
+    try {
+      const store = participantStore();
+      expect(await store.getState().submitAnswer({ optionIndex: 0 })).toEqual({ status: "error", message: "Slow down", code: "RATE_LIMITED" });
+      expect(post).toHaveBeenCalledTimes(3);
+      expect(store.getState().submittedSlideIndex).toBeNull();
+    } finally {
+      post.mockRestore();
+    }
+  });
+
+  test("final answers from the server are not retried", async () => {
+    for (const [failure, code] of [
+      [apiFailure(400, "NOT_ACCEPTING"), "NOT_ACCEPTING"],
+      [apiFailure(400, "TIME_UP"), "TIME_UP"],
+      [apiFailure(400, undefined, "payload.optionIndex: Required"), undefined],
+    ] as const) {
+      const post = spyOn(apiClient, "post").mockRejectedValue(failure);
+      const get = spyOn(apiClient, "get").mockRejectedValue(new Error("offline"));
+      try {
+        const store = participantStore();
+        expect(await store.getState().submitAnswer({ optionIndex: 0 })).toMatchObject({ status: "error", code });
+        expect(post).toHaveBeenCalledTimes(1);
+        expect(store.getState().submittedSlideIndex).toBeNull();
+      } finally {
+        post.mockRestore();
+        get.mockRestore();
+      }
+    }
+  });
+
+  test("NOT_ACCEPTING and TIME_UP make the phone re-read the live state", async () => {
+    for (const code of ["NOT_ACCEPTING", "TIME_UP"]) {
+      const post = spyOn(apiClient, "post").mockRejectedValue(apiFailure(400, code));
+      const get = spyOn(apiClient, "get").mockResolvedValue({ data: { data: liveState({}, { phase: "closed", slideTicket: null }) } });
+      try {
+        const store = participantStore({ slideTicket: "st1.ticket-open", phase: "open" });
+        await store.getState().submitAnswer({ optionIndex: 0 });
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(get).toHaveBeenCalledWith(`/presentations/${PID}/live-state`, expect.anything());
+        expect(store.getState()).toMatchObject({ phase: "closed", slideTicket: null });
+      } finally {
+        post.mockRestore();
+        get.mockRestore();
+      }
+    }
+  });
+
+  test("isRetryableAnswerFailure: network, 5xx and 429 only", () => {
+    expect(isRetryableAnswerFailure(new AxiosError("Network Error"))).toBe(true);
+    expect(isRetryableAnswerFailure(apiFailure(500))).toBe(true);
+    expect(isRetryableAnswerFailure(apiFailure(429, "RATE_LIMITED"))).toBe(true);
+    for (const status of [400, 401, 403, 404, 409]) expect(isRetryableAnswerFailure(apiFailure(status))).toBe(false);
+    expect(isRetryableAnswerFailure(new Error("bug"))).toBe(false);
   });
 });
 

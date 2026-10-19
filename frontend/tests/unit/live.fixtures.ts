@@ -203,6 +203,7 @@ export const liveState = (
           slide: liveSlide(),
           startedAt: at(0),
           endsAt: at(30),
+          slideTicket: "st1.ticket-open",
           results: null,
           leaderboard: null,
           ...current,

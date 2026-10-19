@@ -120,11 +120,29 @@ with `LiveStoreProvider`), so client-side navigation never shows another session
 - `useLiveOptional(selector)` — for views that also render outside a session (previews,
   thumbnails); reads an empty participant store there.
 - Store actions: `dispatch(action)`; `submitAnswer(payload)` → `accepted | duplicate | skipped |
-  error` — **the one function answers leave the client through** (REST today, with `sessionId` and
-  `slideId`; W2-D adds socket ack → REST → offline queue here); `loadMe()`; `loadLiveState()`
-  (participant: resync from `live-state`, credential failures land in `lost`); `resync(load)`
-  (replaces state with a REST snapshot and replays the envelopes that arrived while it loaded, so a
-  snapshot older than the latest event never wins; overlapping resyncs: the latest wins).
+  error` — **the one function answers leave the client through** (REST today; the socket
+  `answer:submit` ack and the offline queue of W2-D phase 2 plug in here); `loadMe()`;
+  `loadLiveState()` (participant: resync from `live-state`, credential failures land in `lost`);
+  `resync(load)` (replaces state with a REST snapshot and replays the envelopes that arrived while it
+  loaded, so a snapshot older than the latest event never wins; overlapping resyncs: the latest wins).
+
+### Answers (`submitAnswer`)
+
+Each call is one **attempt**: it gets a fresh `clientAnswerId` (`live/answerId.ts`, 32 hex chars,
+`crypto.getRandomValues` so it also works on plain-http phones) and sends it with `sessionId`,
+`slideId` and the slide's `slideTicket` (`LiveState.slideTicket`, from `question:started` and
+`live-state.current.slideTicket`; null unless the window is open; a reopen brings a new one). The
+server counts an answer once per `clientAnswerId`: a repeat returns the original with `replay: true`.
+So transient failures — no response, 5xx, 429 — are sent again with the **same id** (twice, after
+400 ms and 1.2 s; `createLiveStore(role, init, {answerRetryDelaysMs})` shortens it for tests).
+Outcomes: `accepted {replay, clientAnswerId}`; `duplicate` (409 `ALREADY_ANSWERED`: counts as
+answered); `error {code, message}` with `NOT_ACCEPTING` / `TIME_UP` (window closed or over — the
+store also re-reads `live-state`, so the phone catches up), `RATE_LIMITED`, `PARTICIPANT_STALE` /
+`PARTICIPANT_KICKED` (these also set `lost`). `ParticipantSlide` maps the codes to localized toasts.
+Grading is never in the response: results stay hidden until the reveal. The ticket extends the
+server's late-answer grace from 0.75 s to 15 s while the host has not closed or revealed the slide.
+Scored timed slides are also auto-revealed by the server 1.5 s after their timer; the host console's
+own timer-driven reveal still covers unscored slides and a reveal being repeated is harmless.
 
 `LiveState` (see `reducer.ts`): `role`, `presentationId`, `connected` (socket joined), `sessionId`,
 `runNumber`, `status` (`draft` = never presented, host only; `lobby`, `active`, `ended`), `title`,
@@ -134,7 +152,7 @@ included), `slide` (participant, sanitized; a leaderboard slide is synthesized),
 {startedAt, endsAt, clockOffsetMs}` (only while `open`; `endsAt` null = untimed), `clockOffsetMs`
 (latest sample), `reveal`, `distribution` (host only), `answeredCount`, `participants`,
 `leaderboard`, `results` (host: stored results of visited response slides, by slide id),
-`settings` (participant, from `live-state`), `self`, `me`, `submittedSlideIndex`, `lost`,
+`slideTicket` (participant), `settings` (participant, from `live-state`), `self`, `me`, `submittedSlideIndex`, `lost`,
 `lastSeq`, `modules`.
 
 `liveReducer(state, action)` is pure. An envelope whose `sessionId` is not the followed session
@@ -151,7 +169,8 @@ only updates `lastSeq`. Actions:
 Events handled (host and participant): `session:lobby`, `slide:shown`, `question:started`
 (`reopened` keeps answers / the participant's "answered"), `slide:closed` (`revisit`),
 `question:revealed` (`revisit`), `leaderboard:shown`, `session:ended`, `participant:joined`,
-`answer:received` (host only; counts only grow on the slide on screen and fill the per-slide
+`answer:received` (host only, coalesced by the server to one per dirty slide per 250 ms with the
+slide's counts and distribution; counts only grow on the slide on screen and fill the per-slide
 `results`). The legacy copies `lobby:opened` / `quiz:ended` are ignored.
 `planEnvelope(state, event)` decides per envelope: `foreign`, `duplicate`, or `apply` with an
 optional resync (`gap` for the host only, `reset` for everyone).

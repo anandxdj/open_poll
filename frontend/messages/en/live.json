@@ -50,7 +50,8 @@
     "newSessionJoin": "Join the new session",
     "rejoinHint": "That session is over. Enter a nickname to join the current one.",
     "syncing": "Catching up…",
-    "waitingForSlide": "Loading the current slide…"
+    "waitingForSlide": "Loading the current slide…",
+    "tooManyAttempts": "Too many attempts. Wait a moment and try again."
   },
   "leaderboard": {
     "title": "Leaderboard",

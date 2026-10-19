@@ -6,7 +6,8 @@ import { createStore, useStore, type StoreApi } from "zustand";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/api-error";
 import { getParticipantLiveState, getParticipantState, submitAnswer as postAnswer } from "../api/participant";
 import type { AnswerPayload } from "../types";
-import { getApiErrorCode, LIVE_ERROR_CODES } from "./errors";
+import { newClientAnswerId } from "./answerId";
+import { getApiErrorCode, isRetryableAnswerFailure, LIVE_ERROR_CODES } from "./errors";
 import {
   createInitialLiveState,
   liveReducer,
@@ -17,13 +18,19 @@ import {
 } from "./reducer";
 
 export type SubmitAnswerResult =
-  | { status: "accepted" }
-  /** The server already had an answer for this slide (409) — counts as submitted. */
+  /**
+   * The answer counted. `replay`: the server already had this exact attempt
+   * (a retry whose first send landed) and counted nothing twice.
+   * `clientAnswerId` identifies the attempt.
+   */
+  | { status: "accepted"; replay: boolean; clientAnswerId: string }
+  /** The server already had a different answer for this slide (409 `ALREADY_ANSWERED`) — counts as submitted. */
   | { status: "duplicate" }
   | { status: "skipped" }
   /**
    * `message` is the API's error text when it sent one; the caller supplies the
-   * fallback. `code` is the live error code (`PARTICIPANT_STALE`, …) when sent.
+   * fallback. `code` is the live error code (`NOT_ACCEPTING`, `TIME_UP`,
+   * `RATE_LIMITED`, `PARTICIPANT_STALE`, …) when sent.
    */
   | { status: "error"; message?: string; code?: string };
 
@@ -31,8 +38,12 @@ export interface LiveStore extends LiveState {
   dispatch: (action: LiveAction) => void;
   /**
    * Participant: submit an answer for the slide on screen, then refresh `me`.
-   * The one place answers leave the client (the offline queue and socket ack
-   * plug in here).
+   * The one place answers leave the client (the socket ack and offline queue
+   * plug in here). Each call is one **attempt** with its own `clientAnswerId`;
+   * transient failures (network, 5xx, 429) are sent again with the same id, so
+   * the server counts the answer once. The slide's `slideTicket` goes along.
+   * After `NOT_ACCEPTING` or `TIME_UP` the participant's state is re-read — the
+   * window closed while the phone was not looking.
    */
   submitAnswer: (payload: AnswerPayload) => Promise<SubmitAnswerResult>;
   /** Participant: refresh own score/rank/last answer. Failures keep the old value. */
@@ -51,6 +62,15 @@ export interface LiveStore extends LiveState {
 
 export type LiveStoreApi = StoreApi<LiveStore>;
 
+export interface LiveStoreOptions {
+  /** Waits before each re-send of a transiently failed answer (default 400 ms, then 1.2 s). */
+  answerRetryDelaysMs?: readonly number[];
+}
+
+const DEFAULT_ANSWER_RETRY_DELAYS_MS = [400, 1200] as const;
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 /** Maps a participant API failure to the reason the credentials stopped working, if it is one. */
 export function participantLostReason(err: unknown): ParticipantLostReason | null {
   const code = getApiErrorCode(err);
@@ -66,7 +86,12 @@ export function participantLostReason(err: unknown): ParticipantLostReason | nul
  * client-side navigation never shows another session's state. State changes
  * only through `dispatch` → `liveReducer`.
  */
-export function createLiveStore(role: LiveRole, init: Partial<LiveState> = {}): LiveStoreApi {
+export function createLiveStore(
+  role: LiveRole,
+  init: Partial<LiveState> = {},
+  options: LiveStoreOptions = {}
+): LiveStoreApi {
+  const retryDelays = options.answerRetryDelaysMs ?? DEFAULT_ANSWER_RETRY_DELAYS_MS;
   // Event actions recorded while a resync request is in flight, per request.
   const recorders = new Set<LiveAction[]>();
   let resyncToken = 0;
@@ -118,36 +143,53 @@ export function createLiveStore(role: LiveRole, init: Partial<LiveState> = {}): 
       },
 
       submitAnswer: async (payload) => {
-        const { presentationId, sessionId, self, slide, slideId, dispatch, loadMe } = get();
+        const { presentationId, sessionId, self, slide, slideId, slideTicket, dispatch, loadMe, loadLiveState } = get();
         if (!presentationId || !self || !slide) return { status: "skipped" };
         const slideIndex = slide.slideIndex;
-        try {
-          await postAnswer(presentationId, {
-            participantId: self.participantId,
-            participantToken: self.token,
-            slideIndex,
-            ...(sessionId ? { sessionId } : {}),
-            ...(slideId ? { slideId } : {}),
-            ...payload,
-          });
-          dispatch({ type: "participant/submitted", slideIndex });
-          // Scored slides show green/red on the participant's own pick right
-          // away; the correct answer itself stays hidden until reveal.
-          void loadMe();
-          return { status: "accepted" };
-        } catch (err: unknown) {
-          const code = getApiErrorCode(err);
-          const reason = participantLostReason(err);
-          if (reason) {
-            dispatch({ type: "participant/lost", reason });
-            return { status: "error", message: getApiErrorMessage(err), code };
-          }
-          if (getApiErrorStatus(err) === 409) {
+        // One attempt = one id, however many times it is sent.
+        const clientAnswerId = newClientAnswerId();
+        const body = {
+          participantId: self.participantId,
+          participantToken: self.token,
+          slideIndex,
+          ...(sessionId ? { sessionId } : {}),
+          ...(slideId ? { slideId } : {}),
+          ...(slideTicket ? { slideTicket } : {}),
+          clientAnswerId,
+          ...payload,
+        };
+
+        for (let attempt = 0; ; attempt++) {
+          try {
+            const result = await postAnswer(presentationId, body);
             dispatch({ type: "participant/submitted", slideIndex });
+            // Scored slides show green/red on the participant's own pick right
+            // away; the correct answer itself stays hidden until reveal.
             void loadMe();
-            return { status: "duplicate" };
+            return { status: "accepted", replay: result.replay, clientAnswerId };
+          } catch (err: unknown) {
+            if (isRetryableAnswerFailure(err) && attempt < retryDelays.length) {
+              await wait(retryDelays[attempt]);
+              continue;
+            }
+            const code = getApiErrorCode(err);
+            const message = getApiErrorMessage(err);
+            const reason = participantLostReason(err);
+            if (reason) {
+              dispatch({ type: "participant/lost", reason });
+              return { status: "error", message, code };
+            }
+            if (code === LIVE_ERROR_CODES.alreadyAnswered || (!code && getApiErrorStatus(err) === 409)) {
+              dispatch({ type: "participant/submitted", slideIndex });
+              void loadMe();
+              return { status: "duplicate" };
+            }
+            if (code === LIVE_ERROR_CODES.notAccepting || code === LIVE_ERROR_CODES.timeUp) {
+              // The window closed (or was left) without this phone hearing about it.
+              void loadLiveState();
+            }
+            return { status: "error", message, code };
           }
-          return { status: "error", message: getApiErrorMessage(err), code };
         }
       },
 

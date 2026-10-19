@@ -35,8 +35,9 @@ last_updated: 2026-10-19
 - **Event**: envelope `live:event` → `{ v, presentationId, sessionId, seq, type, audience, payload,
   emittedAt }`, typed as `PresentationRealtimeEvent`, per-type payloads in `RealtimePayloads`
   (`types/realtime.ts`, mirror of `backend/src/modules/presentations/live/contract.ts`). Types:
-  `session:lobby`, `participant:joined`, `slide:shown`, `question:started`, `slide:closed`,
-  `answer:received` (host only), `question:revealed`, `leaderboard:shown`, `session:ended`
+  `session:lobby`, `participant:joined`, `slide:shown`, `question:started` (with `slideTicket`),
+  `slide:closed`, `answer:received` (host only, coalesced: one per dirty slide per 250 ms, with the
+  distribution), `question:revealed`, `leaderboard:shown`, `session:ended`
   (legacy copies `lobby:opened` and `quiz:ended` are ignored by the reducer).
 - **Session scoping**: an envelope whose `sessionId` is not the session the surface follows is
   **ignored** (the reducer records only its `seq`; `onForeignSession` lets the surface check which
@@ -62,6 +63,10 @@ last_updated: 2026-10-19
   `useCountdown(timing, totalSeconds)` turn it into the countdown. Never reuse a `serverNow` read
   earlier (the old bug: the page-load value inflated every countdown by the time since load).
   `endsAt: null` is an untimed window: no timer, open until the host closes or reveals.
+- **Answers**: sent over REST (`POST /:id/answer`) by `submitAnswer` in `live/store.ts` with a
+  per-attempt `clientAnswerId` and the slide's `slideTicket` (from `question:started`, or
+  `live-state.current.slideTicket` after a resync); the socket `answer:submit` / `live:resync` of
+  W2-D phase 2 are not used yet. See the answers section of the live-surfaces doc.
 - **State recovery**: on refresh/late join the participant's code lookup returns the live slide,
   its `currentSlideId`, phase and timing; `live-state` adds results, standings and whether the
   slide was answered — render immediately, then follow socket events.

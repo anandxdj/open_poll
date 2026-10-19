@@ -66,6 +66,7 @@ const started = (slideIndex: number, extra: Record<string, unknown> = {}) => ({
   serverNow: at(40),
   isLastSlide: false,
   reopened: false,
+  slideTicket: "st1.ticket-a",
   ...extra,
 });
 
@@ -562,6 +563,15 @@ describe("participant — code lookup and live-state", () => {
     expect(next.me).toMatchObject({ participantId: "p1", name: "Ada", totalScore: 700, rank: 2, sessionId: SID });
   });
 
+  test("live-state of an open slide carries its ticket; closed and revealed slides have none", () => {
+    const open = liveReducer(participantIn(), { type: "participant/live-state", state: liveState() });
+    expect(open.slideTicket).toBe("st1.ticket-open");
+    const closed = liveReducer(open, { type: "participant/live-state", state: liveState({}, { phase: "closed", slideTicket: null }) });
+    expect(closed.slideTicket).toBeNull();
+    const lobby = liveReducer(open, { type: "participant/live-state", state: liveState({ status: "lobby" }, null) });
+    expect(lobby.slideTicket).toBeNull();
+  });
+
   test("live-state of a not yet answered slide clears 'answered'", () => {
     const next = liveReducer(participantIn({ submittedSlideIndex: 0, slideId: SLIDE_IDS[0], currentSlideIndex: 0 }), {
       type: "participant/live-state",
@@ -634,6 +644,29 @@ describe("participant — events", () => {
     const next = liveReducer(participantIn(), event("question:started", started(0, { endsAt: null })));
     expect(next.timing?.endsAt).toBeNull();
     expect(next.phase).toBe("open");
+  });
+
+  test("question:started brings the slide ticket; a reopen replaces it; closing, leaving and ending drop it", () => {
+    const open = run(participantIn(), event("question:started", started(0)));
+    expect(open.slideTicket).toBe("st1.ticket-a");
+
+    const closed = liveReducer(open, event("slide:closed", { slideId: SLIDE_IDS[0], slideIndex: 0, slide: liveSlide(), closedAt: at(50), answeredCount: 1, participantCount: 2, isLastSlide: false, revisit: false, serverNow: at(50) }));
+    expect(closed.slideTicket).toBeNull();
+
+    const reopened = liveReducer(closed, event("question:started", started(0, { reopened: true, slideTicket: "st1.ticket-b" })));
+    expect(reopened.slideTicket).toBe("st1.ticket-b");
+
+    expect(liveReducer(reopened, event("slide:shown", { slideId: SLIDE_IDS[1], slideIndex: 1, slide: headingSlide(), isLastSlide: false, serverNow: at(60) })).slideTicket).toBeNull();
+    expect(liveReducer(reopened, event("question:revealed", revealedPayload())).slideTicket).toBeNull();
+    expect(liveReducer(reopened, event("session:ended", { runNumber: 1, endedAt: at(99), leaderboard: [], participantCount: 2, answerCount: 1 })).slideTicket).toBeNull();
+    expect(liveReducer(reopened, event("session:lobby", { runNumber: 2, joinCode: "123456", pace: "presenter" })).slideTicket).toBeNull();
+  });
+
+  test("the ticket survives anything that leaves the same open window in place", () => {
+    const open = run(participantIn(), event("question:started", started(0)));
+    // Another envelope for the same slide, then the participant list changing.
+    const next = run(open, event("participant:joined", { participantId: "p2", name: "Grace", participantCount: 2 }));
+    expect(next.slideTicket).toBe("st1.ticket-a");
   });
 
   test("a multi-select slide arrives with allowMultiple; single-select slides keep their shape", () => {
