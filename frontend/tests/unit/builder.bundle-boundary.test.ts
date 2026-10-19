@@ -16,6 +16,7 @@ const FORBIDDEN = [
   /^features\/presentations\/slides\/editorKit\.tsx$/,
   /^features\/presentations\/slides\/types\/[^/]+\/editor\.tsx$/,
   /^features\/presentations\/slides\/content\/editorFields\.tsx$/,
+  /^features\/presentations\/slides\/advanced\/editorFields\.tsx$/,
   /^features\/presentations\/components\/builder\//,
   /^features\/media\/(ImagePicker|useUpload)\.tsx?$/,
 ];
