@@ -43,7 +43,15 @@ const QUESTION_TYPES = [
 
 type QuestionType = (typeof QUESTION_TYPES)[number];
 
-const ALL_TYPES: PresentationSlideType[] = [...QUESTION_TYPES, ...CONTENT_SLIDE_TYPES];
+/** The advanced interactive types; their editors, validation and views are tested in slides.advanced.test.tsx. */
+const ADVANCED_TYPES = [
+  "guess_number",
+  "hundred_points",
+  "grid_2x2",
+  "pin_on_image",
+] as const satisfies readonly PresentationSlideType[];
+
+const ALL_TYPES: PresentationSlideType[] = [...QUESTION_TYPES, ...ADVANCED_TYPES, ...CONTENT_SLIDE_TYPES];
 
 /** Smallest edit that makes a blank slide of each type saveable. */
 const FILL: Record<QuestionType, (s: PresentationSlide) => PresentationSlide> = {
@@ -92,8 +100,8 @@ describe("slide meta registry", () => {
     for (const type of ALL_TYPES) expect(SLIDE_META[type].scored).toBe(isScoredSlideType(type));
   });
 
-  test("picker offers the interactive, quiz and content types in order, never leaderboard", () => {
-    expect(PICKER_SECTIONS.map((s) => s.id)).toEqual(["interactive", "competition", "content"]);
+  test("picker offers the interactive, quiz, advanced and content types in order, never leaderboard", () => {
+    expect(PICKER_SECTIONS.map((s) => s.id)).toEqual(["interactive", "competition", "advanced", "content"]);
     expect(slideMetaInSection("interactive").map((m) => m.type)).toEqual([
       "wordcloud",
       "open_ended",
@@ -101,12 +109,13 @@ describe("slide meta registry", () => {
       "ranking",
     ]);
     expect(slideMetaInSection("competition").map((m) => m.type)).toEqual(["select_answer", "type_answer"]);
+    expect(slideMetaInSection("advanced").map((m) => m.type)).toEqual([...ADVANCED_TYPES]);
     expect(slideMetaInSection("content").map((m) => m.type)).toEqual([...CONTENT_SLIDE_TYPES]);
     expect(SLIDE_TYPE_META.map((m) => m.type)).not.toContain("leaderboard");
-    expect(SLIDE_TYPE_META).toHaveLength(14);
+    expect(SLIDE_TYPE_META).toHaveLength(18);
   });
 
-  test("the AI draft offers only the six types the generate endpoint accepts, in the original order", () => {
+  test("the AI draft offers only the six types the generate endpoint accepts, in the original order (never the advanced types)", () => {
     expect(AI_SLIDE_TYPE_META.map((m) => m.type)).toEqual([
       "select_answer",
       "type_answer",
@@ -138,7 +147,8 @@ describe("slide editor registry", () => {
     expect(blankSlide("ranking").items).toEqual(["", ""]);
     expect(blankSlide("open_ended").timeLimit).toBe(60);
     expect(blankSlide("wordcloud")).toMatchObject({ timeLimit: 30, maxEntries: 3, scaleMax: 5 });
-    for (const type of ALL_TYPES) {
+    // The advanced types start ungraded (scored: they can award points once a correct answer is set).
+    for (const type of ALL_TYPES.filter((t) => !(ADVANCED_TYPES as readonly string[]).includes(t))) {
       const scored = isScoredSlideType(type);
       expect(blankSlide(type)).toMatchObject({
         type,

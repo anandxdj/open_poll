@@ -13,8 +13,14 @@ import { BigNumberParticipant } from "./types/big_number/participant";
 import { BigNumberStage } from "./types/big_number/stage";
 import { BulletsParticipant } from "./types/bullets/participant";
 import { BulletsStage } from "./types/bullets/stage";
+import { Grid2x2Participant } from "./types/grid_2x2/participant";
+import { Grid2x2Stage } from "./types/grid_2x2/stage";
+import { GuessNumberParticipant } from "./types/guess_number/participant";
+import { GuessNumberStage } from "./types/guess_number/stage";
 import { HeadingParticipant } from "./types/heading/participant";
 import { HeadingStage } from "./types/heading/stage";
+import { HundredPointsParticipant } from "./types/hundred_points/participant";
+import { HundredPointsStage } from "./types/hundred_points/stage";
 import { ImageParticipant } from "./types/image/participant";
 import { ImageStage } from "./types/image/stage";
 import { InstructionsParticipant } from "./types/instructions/participant";
@@ -25,6 +31,8 @@ import { OpenEndedParticipant } from "./types/open_ended/participant";
 import { OpenEndedStage } from "./types/open_ended/stage";
 import { ParagraphParticipant } from "./types/paragraph/participant";
 import { ParagraphStage } from "./types/paragraph/stage";
+import { PinOnImageParticipant } from "./types/pin_on_image/participant";
+import { PinOnImageStage } from "./types/pin_on_image/stage";
 import { QuoteParticipant } from "./types/quote/participant";
 import { QuoteStage } from "./types/quote/stage";
 import { RankingParticipant } from "./types/ranking/participant";
@@ -103,12 +111,16 @@ export interface SlideRuntime {
 const RUNTIMES: Partial<Record<PresentationSlideType | (string & {}), SlideRuntime>> = {
   big_number: { lifecycle: "content", ParticipantView: BigNumberParticipant, StageView: BigNumberStage },
   bullets: { lifecycle: "content", ParticipantView: BulletsParticipant, StageView: BulletsStage },
+  grid_2x2: { lifecycle: "response", ParticipantView: Grid2x2Participant, StageView: Grid2x2Stage },
+  guess_number: { lifecycle: "response", ParticipantView: GuessNumberParticipant, StageView: GuessNumberStage },
   heading: { lifecycle: "content", ParticipantView: HeadingParticipant, StageView: HeadingStage },
+  hundred_points: { lifecycle: "response", ParticipantView: HundredPointsParticipant, StageView: HundredPointsStage },
   image: { lifecycle: "content", ParticipantView: ImageParticipant, StageView: ImageStage },
   instructions: { lifecycle: "content", ParticipantView: InstructionsParticipant, StageView: InstructionsStage },
   leaderboard: { lifecycle: "system", ParticipantView: LeaderboardParticipant, StageView: LeaderboardStage },
   open_ended: { lifecycle: "response", ParticipantView: OpenEndedParticipant, StageView: OpenEndedStage },
   paragraph: { lifecycle: "content", ParticipantView: ParagraphParticipant, StageView: ParagraphStage },
+  pin_on_image: { lifecycle: "response", ParticipantView: PinOnImageParticipant, StageView: PinOnImageStage },
   quote: { lifecycle: "content", ParticipantView: QuoteParticipant, StageView: QuoteStage },
   ranking: { lifecycle: "response", ParticipantView: RankingParticipant, StageView: RankingStage },
   scales: { lifecycle: "response", ParticipantView: ScalesParticipant, StageView: ScalesStage },

@@ -80,7 +80,11 @@ lookup's HTTP status (404 until a session was opened).
   opened in a signed-out context, a participant's own results, deletion; Excel/PDF downloads on the Pro
   plan (the spec sets and restores the plan with `backend/scripts/set-plan.ts`); the library menu entry.
   ~25 s.
-
+- `e2e/advanced-slides.spec.ts` — a deck of `guess_number`, `hundred_points`, `grid_2x2` and
+  `pin_on_image` run live with two participants (typed, slider, tapped and arrow-key answers, the
+  100-point overshoot guard, reveal of each: correct answer, ranks, markers, correct area and tally,
+  scores), the builder editing and saving all four, and the picker adding an ungraded guess slide.
+  The slide image is served by `page.route`. ~70 s.
 - `e2e/ai-deck.spec.ts` - AI whole-deck authoring in mock mode (the e2e backend has no AI key): the
   AI dialog's "Whole deck" tab, outline review and editing, the written deck with speaker notes,
   the "Generated with mock data (no AI key configured)" label in the dialog and the builder banner,

@@ -12,7 +12,7 @@ import { pickMessages } from "./messages";
  * locales; the participant's browser language picks among them then.
  */
 export function LiveIntlProvider({ locale = defaultLocale, children }: { locale?: Locale; children: ReactNode }) {
-  const messages = useMemo(() => pickMessages(locale, ["live", "presenter"]), [locale]);
+  const messages = useMemo(() => pickMessages(locale, ["live", "presenter", "slidesAdvanced"]), [locale]);
   return (
     <NextIntlClientProvider locale={locale} messages={messages} timeZone="UTC">
       {children}

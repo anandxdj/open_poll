@@ -4,6 +4,7 @@ import billing from "@/messages/en/billing.json";
 import live from "@/messages/en/live.json";
 import presenter from "@/messages/en/presenter.json";
 import sessions from "@/messages/en/sessions.json";
+import slidesAdvanced from "@/messages/en/slides-advanced.json";
 
 /**
  * English messages by namespace, one file per feature under
@@ -16,6 +17,7 @@ export const enMessages = {
   live,
   presenter,
   sessions,
+  slidesAdvanced,
 };
 
 export type Messages = typeof enMessages;

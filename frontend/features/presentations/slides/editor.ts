@@ -4,12 +4,16 @@ import type { PresentationSlide, PresentationSlideType } from "../types/deck";
 import type { SlideTypeMeta } from "./meta";
 import { editor as big_number } from "./types/big_number/editor";
 import { editor as bullets } from "./types/bullets/editor";
+import { editor as grid_2x2 } from "./types/grid_2x2/editor";
+import { editor as guess_number } from "./types/guess_number/editor";
 import { editor as heading } from "./types/heading/editor";
+import { editor as hundred_points } from "./types/hundred_points/editor";
 import { editor as image } from "./types/image/editor";
 import { editor as instructions } from "./types/instructions/editor";
 import { editor as leaderboard } from "./types/leaderboard/editor";
 import { editor as open_ended } from "./types/open_ended/editor";
 import { editor as paragraph } from "./types/paragraph/editor";
+import { editor as pin_on_image } from "./types/pin_on_image/editor";
 import { editor as quote } from "./types/quote/editor";
 import { editor as ranking } from "./types/ranking/editor";
 import { editor as scales } from "./types/scales/editor";
@@ -53,12 +57,16 @@ export interface SlideEditorDef {
 export const SLIDE_EDITORS: Record<PresentationSlideType, SlideEditorDef> = {
   big_number,
   bullets,
+  grid_2x2,
+  guess_number,
   heading,
+  hundred_points,
   image,
   instructions,
   leaderboard,
   open_ended,
   paragraph,
+  pin_on_image,
   quote,
   ranking,
   scales,
