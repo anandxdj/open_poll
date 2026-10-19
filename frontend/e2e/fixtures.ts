@@ -144,6 +144,9 @@ export const test = base.extend<{ host: Host; contexts: BrowserContext[] }, { ho
       open: async (path) => {
         const context = await browser.newContext();
         contexts.push(context);
+        // The proxy guards /polls, /settings, ... by this cookie before any script of the page
+        // runs, so it is set on the context (the init script below only keeps it fresh).
+        await context.addCookies([{ name: "auth_session", value: "1", url: e2eEnv.frontendUrl }]);
         // Same shape zustand's `persist` writes for useAuthStore ("auth-storage").
         await context.addInitScript(
           ({ user, accessToken }) => {
