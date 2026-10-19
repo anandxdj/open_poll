@@ -2,3 +2,4 @@
 // Append-only, alphabetical by module, one import per line.
 import './polls.socket';
 import '../../modules/presentations/presentations.socket';
+import '../../modules/reactions/reactions.socket';

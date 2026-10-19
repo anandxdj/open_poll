@@ -10,6 +10,7 @@ import './types/content/quote';
 import './types/content/video';
 import './types/leaderboard';
 import './types/open_ended';
+import './types/qna';
 import './types/ranking';
 import './types/scales';
 import './types/select_answer';
