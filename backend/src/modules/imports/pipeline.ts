@@ -229,7 +229,20 @@ async function importPptx(bytes: Uint8Array, job: IImportJob, deps: PipelineDeps
   const warnings = [...mapped.warnings];
   const hidden = new Set(deck.slides.filter((s) => s.hidden).map((s) => s.number));
 
-  let drafts = await withRenderedFallback(bytes, hidden, deck.slides.length, mapped.drafts, deps, warnings);
+  // Nothing past the deck's slide cap is worth rendering or storing pictures for.
+  const maxSlides = deps.maxSlides ?? IMPORT_LIMITS.maxSlides;
+  const kept: DraftSlide[] = [];
+  let counted = 0;
+  for (const draft of mapped.drafts) {
+    if (!draft.skip && counted >= maxSlides) {
+      warnings.push(warning('SLIDES_LIMIT', `Only the first ${maxSlides} slides were imported (a deck holds at most ${maxSlides}).`));
+      break;
+    }
+    kept.push(draft);
+    if (!draft.skip) counted++;
+  }
+
+  let drafts = await withRenderedFallback(bytes, hidden, deck.slides.length, kept, deps, warnings);
 
   await deps.stage?.('Importing pictures');
   const target = mediaTarget(job);

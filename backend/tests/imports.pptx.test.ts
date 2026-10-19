@@ -228,6 +228,9 @@ describe('pptx mapping', () => {
   it('takes the deck title from the document properties, else the first title', () => {
     expect(map({ title: 'Board deck', slides: [{ title: 'Hello' }] }).title).toBe('Board deck');
     expect(map({ slides: [{ title: 'Hello' }] }).title).toBe('Hello');
+    for (const generic of ['PowerPoint Presentation', 'Presentation1', 'Untitled', 'untitled presentation 2']) {
+      expect(map({ title: generic, slides: [{ title: 'Hello' }] }).title).toBe('Hello');
+    }
     expect(map({ slides: [{}] }).title).toBe('Imported presentation');
   });
 

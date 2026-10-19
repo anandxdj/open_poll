@@ -253,6 +253,21 @@ describeIntegration('imports', () => {
       }
     });
 
+    it('keeps the first 50 slides of a longer deck and says so', async () => {
+      const slides = Array.from({ length: 55 }, (_, i) => ({ title: `Slide number ${i + 1}`, pictures: i % 11 === 0 ? [{ descr: `pic ${i}` }] : [] }));
+      const key = await upload(buildPptx({ slides }), PPTX_MIME, 'pptx');
+      const queued = ((await (await post({ kind: 'pptx', key })).json()) as any).data;
+      startWorker();
+      const job = await waitFor(queued.id);
+      expect(job.status).toBe('completed');
+      expect(job.warnings.map((w: any) => w.code)).toEqual(['SLIDES_LIMIT']);
+      const deck = await PresentationModel.findById(job.resultPresentationId).lean();
+      expect(deck!.slides).toHaveLength(50);
+      // Pictures past the cap were never stored.
+      const stored = [...memory.objects.keys()].filter((k) => k.includes('/import/'));
+      expect(stored).toHaveLength(5);
+    });
+
     it('fails with a readable message, once, when the file is not a presentation', async () => {
       const key = await upload(new TextEncoder().encode('PK not really a deck'), PPTX_MIME, 'pptx');
       const queued = ((await (await post({ kind: 'pptx', key })).json()) as any).data;

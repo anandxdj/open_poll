@@ -143,8 +143,8 @@ Pictures: PNG, JPEG, GIF, WebP, AVIF are stored as they are (judged by content);
 by the canvas (an SVG is rasterised, never stored); anything else, or over 20 MB, is skipped with a warning
 (`IMAGE_FORMAT_UNSUPPORTED`, `IMAGE_TOO_LARGE`). Without storage (Google links only) pictures stay placeholders
 and one `PICTURES_NOT_STORED` warning says so. Long text is cut to the slide field limits with a warning.
-The deck title is the document title, else the first slide title, else "Imported presentation" (a `title` in the
-request wins).
+The deck title is the document title (not a program default such as "PowerPoint Presentation"), else the first slide
+title, else "Imported presentation" (a `title` in the request wins). Slides past the 50th are not rendered or stored.
 
 **Rendered fallback (`renderers/gotenberg.ts`).** `POST {GOTENBERG_URL}/forms/libreoffice/convert` with the PPTX; the
 returned PDF is rendered like any PDF. LibreOffice leaves hidden slides out of the PDF, so pages are matched to

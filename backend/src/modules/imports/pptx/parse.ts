@@ -311,7 +311,7 @@ export class PptxReader {
 // ---------- Shapes ----------
 
 /** Collapses runs of spaces and tabs; keeps the text otherwise as typed. */
-export const clean = (value: string) => value.replace(/[\t  ]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim();
+export const clean = (value: string) => value.replace(/[\t\u00a0 ]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim();
 
 const SKIPPED_PLACEHOLDERS = new Set(['dt', 'ftr', 'sldNum', 'hdr', 'sldImg']);
 

@@ -59,6 +59,9 @@ const MAX_ALT = 500;
 const MAX_CAPTION = 300;
 const MAX_DECK_TITLE = 120;
 const FALLBACK_DECK_TITLE = 'Imported presentation';
+/** Titles an office program writes when nobody named the file ("PowerPoint Presentation", "Presentation1", "Untitled"). */
+const isDefaultTitle = (title: string) =>
+  /^(power ?point presentation|presentation ?\d*|untitled( presentation)?( \d+)?|slides?|new presentation)$/i.test(title.trim());
 
 const UNSUPPORTED_TEXT: Record<PptxUnsupportedKind, string> = {
   chart: 'a chart (OpenPoll cannot edit PowerPoint charts)',
@@ -271,7 +274,8 @@ export function mapPptxDeck(deck: PptxDeck, options: MapOptions = {}): MappedDec
 
   const firstTitle = drafts.find((d) => d.slide.type === 'heading' || d.slide.type === 'bullets' || d.slide.type === 'paragraph');
   const fromContent = firstTitle ? oneLine(String((firstTitle.slide.content as { title?: string } | undefined)?.title ?? '')) : '';
-  const title = clip(oneLine(deck.title ?? '') || fromContent || FALLBACK_DECK_TITLE, MAX_DECK_TITLE);
+  const documentTitle = oneLine(deck.title ?? '');
+  const title = clip((isDefaultTitle(documentTitle) ? '' : documentTitle) || fromContent || FALLBACK_DECK_TITLE, MAX_DECK_TITLE);
 
   return { title, drafts, warnings };
 }
