@@ -7,19 +7,40 @@ import { httpRequestDuration } from './metrics';
  * (`/api/presentations/:id/answer`), so ids never reach a label; requests no
  * route matched share one `unmatched` label, so scanners cannot grow the series.
  * `/metrics` itself is not measured.
+ *
+ * Express resets `req.baseUrl` when an error leaves a router, so by the time the
+ * error handler answers, `baseUrl + route.path` would lose its mount prefix.
+ * The label is therefore taken at the moment the router assigns `req.route`,
+ * while the prefix is still right.
  */
-export const routeLabel = (req: Pick<Request, 'baseUrl' | 'route'>): string => {
-  const path = req.route?.path;
-  if (typeof path !== 'string') return 'unmatched';
-  return `${req.baseUrl ?? ''}${path === '/' && req.baseUrl ? '' : path}` || '/';
+export const joinRoute = (baseUrl: string | undefined, path: unknown): string | null => {
+  if (typeof path !== 'string') return null;
+  const base = baseUrl ?? '';
+  return `${base}${path === '/' && base ? '' : path}` || '/';
 };
 
+const isMetricsRequest = (url: string) =>
+  url === '/metrics' || url.startsWith('/metrics?') || url.startsWith('/metrics/');
+
 export const httpMetrics = (req: Request, res: Response, next: NextFunction) => {
-  if (req.originalUrl === '/metrics' || req.originalUrl.startsWith('/metrics?') || req.originalUrl.startsWith('/metrics/')) return next();
+  if (isMetricsRequest(req.originalUrl)) return next();
+
+  let route: string | null = null;
+  let current: unknown;
+  Object.defineProperty(req, 'route', {
+    configurable: true,
+    enumerable: true,
+    get: () => current,
+    set: (value: { path?: unknown } | undefined) => {
+      current = value;
+      route = joinRoute(req.baseUrl, value?.path) ?? route;
+    },
+  });
+
   const started = process.hrtime.bigint();
   res.once('finish', () => {
     httpRequestDuration.observe(
-      { method: req.method, route: routeLabel(req), status_code: String(res.statusCode) },
+      { method: req.method, route: route ?? 'unmatched', status_code: String(res.statusCode) },
       Number(process.hrtime.bigint() - started) / 1e9
     );
   });

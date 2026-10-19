@@ -305,11 +305,9 @@ export class FakeRedis {
       {
         get(_target, prop: string) {
           if (prop === 'exec' || prop === 'execAsPipeline') {
-            return async () => {
-              const replies: unknown[] = [];
-              for (const [name, args] of queued) replies.push(await (self as any)[name](...args));
-              return replies;
-            };
+            // Like MULTI, nothing else runs in between: every command executes in this tick
+            // (the fake's commands have no awaits inside), only the replies are awaited.
+            return async () => Promise.all(queued.map(([name, args]) => (self as any)[name](...args)));
           }
           if (typeof (self as any)[prop] !== 'function') {
             throw new Error(`FakeRedis.multi() does not implement ${prop}`);
