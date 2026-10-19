@@ -44,3 +44,6 @@ package-lock.json
 backend/scratch/
 frontend/scratch/
 .claude/worktrees/
+
+# Load test fixture (backend/loadtest/answer-storm.ts --prepare-only)
+backend/loadtest/.fixture.json

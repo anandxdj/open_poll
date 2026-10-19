@@ -10,7 +10,8 @@
     "start:prod": "bun scripts/migrate.ts && bun src/app.ts",
     "migrate": "bun scripts/migrate.ts",
     "test": "bun test",
-    "typecheck": "bun x tsc --noEmit"
+    "typecheck": "bun x tsc --noEmit",
+    "loadtest": "bun loadtest/answer-storm.ts"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
