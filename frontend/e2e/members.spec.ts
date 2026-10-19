@@ -60,6 +60,8 @@ const signIn = async (email: string, password: string): Promise<Account> => {
 async function openAs(browser: Browser, contexts: BrowserContext[], account: Account, workspaceId: string, path: string): Promise<Page> {
   const context = await browser.newContext();
   contexts.push(context);
+  // The proxy guards /settings and /polls by this cookie, before any script of the page runs.
+  await context.addCookies([{ name: "auth_session", value: "1", url: e2eEnv.frontendUrl }]);
   await context.addInitScript(
     ({ user, accessToken, workspaceId }) => {
       window.localStorage.setItem("auth-storage", JSON.stringify({ state: { user, accessToken }, version: 0 }));
@@ -67,7 +69,6 @@ async function openAs(browser: Browser, contexts: BrowserContext[], account: Acc
         "openpoll_workspace",
         JSON.stringify({ state: { userId: user._id, currentWorkspaceId: workspaceId }, version: 1 }),
       );
-      document.cookie = "auth_session=1; path=/; samesite=lax";
     },
     { user: account.user, accessToken: account.accessToken, workspaceId },
   );
