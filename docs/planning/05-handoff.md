@@ -167,7 +167,21 @@ library, job status, questions preview, "Import questions" in the builder). Wiki
 keeps the auto-reveal and import workers (the live distribution worker is gone with W2-D), and the
 spec uses the shared `host` fixture (which now sets the `auth_session` cookie on the context).
 
-**Checks at handoff** (integration branch after the W3-E merge): backend 1156 tests in `bun test` (900 run without containers, 256 integration/spike tests skip without `TEST_MONGO_URI`), 215 integration/spike tests pass with the containers (6 skipped by design); frontend 553 unit tests; Playwright e2e 32 tests green; backend and frontend typecheck clean, frontend lint 0 errors (7 pre-existing warnings), build green.
+**Wave 2 — W2-B Q&A and reactions** (merged; `pkg/w2-b`). Backend `modules/qna` (questions, upvotes,
+moderation, pin, answered, highlight on stage, per-participant rate limits, profanity mask, coalesced
+`qna:votes`, migration `050-qna`) and `modules/reactions` (`reaction:send` socket event, coalesced
+`reaction:burst`, 300/s cap); the `qna` board slide type; deck settings `qna` / `reactions`. Frontend
+`features/qna` and `features/reactions` plug into the live slots and the reducer registry (participant
+tab and sync, host moderation drawer, presenter panel, highlight overlay, reactions bar and floating
+emoji), the builder gets an Audience tab; strings in `messages/en/qna.json` (listed in
+`LiveIntlProvider`). Wiki `modules/qna.md`, `realtime/qna.md`, `features/qna.md`; spec
+`e2e/qna-reactions.spec.ts`. Merge fixes after W1-A2: the Q&A reducer ignores the legacy
+`lobby:opened` / `quiz:ended` copies (as the core does), the Q&A state tests start from a surface that
+follows the session (the reducer drops events of other sessions), W1-A2's slot tests use the one slot
+no module registers on (`participantBody`, because importing `features/registrations` in any test
+registers Q&A, reactions and sessions process-wide), and the e2e spec opens the lobby explicitly.
+
+**Checks at handoff** (integration branch after the W2-B merge): backend 1234 tests in `bun test` (948 run without containers, 286 integration/spike tests skip without `TEST_MONGO_URI`), 243 integration/spike tests pass with the containers (6 skipped by design); frontend 614 unit tests; Playwright e2e 34 tests green (the full run, plus the Q&A spec re-run after its lobby fix); backend and frontend typecheck clean, frontend lint 0 errors (7 pre-existing warnings), build green.
 
 ## Ready, NOT merged
 
@@ -182,7 +196,6 @@ chore/backlog-and-roadmap..pkg/<id>`, `git diff`), keep what is sound, then fini
 integration branch into it, re-run checks and ask for a merge. Worktrees in
 `.claude/worktrees/<id>` (gitignored); heads at wrap-up:
 
-- **W2-B** Q&A + reactions, `pkg/w2-b` @ `bf9f7c3` (11 commits).
 - **W3-B1** teams/roles/sharing/audit, `pkg/w3-b1` @ `7e81566` (10 commits).
 
 
@@ -225,7 +238,7 @@ W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
 
 - **AI deck mappers for W2-E types** (after W2-E lands): add one entry each in
   `backend/src/modules/ai/deck/slideMappers.ts` and `deck/mock.ts`.
-- **Q&A section in session reports and exports** once W2-B merges (W2-C reports).
+- **Q&A section in session reports and exports** (W2-B is merged, W2-C reports do not show Q&A yet).
 - **Plan gates still to apply** (feature keys exist from W3-C; W2-C already gates XLSX/PDF, W3-F already
   consumes `ai_deck`): W3-A `brand_kits`; W3-D `sso` / `scim` and `assertLimit(ws,'seats',n)` (+
   `syncWorkspaceSeats`); W3-B1 seats on invites (`assertLimit(ws,'seats',n)`); W4-E
@@ -260,6 +273,14 @@ W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
 - **E2E noise:** a full run logs `Logout failed: AxiosError ... 429` from the browser (an auth route
   rate limit hit by a signed-in page whose refresh failed); harmless so far, look at it if it ever
   coincides with a failure.
+- **W2-B (merged):** the participant Q&A tab shows until the deck is known not to use Q&A (the slot's
+  `when` has no store access and runs at render, so an unknown deck counts as available; W1-A2's store
+  now makes a proper fix possible); `QnaParticipantSync` bridges participant-addressed events from
+  `live:event` and goes away with the legacy `quiz:event` dual-emit (W2-D phase 2); the W2-A audience
+  window must forward `reaction:burst`; add a Q&A section to session reports and exports (W2-C).
+- **Test registries:** `features/registrations` registers modules process-wide as soon as a unit test
+  imports a host/participant surface, so unit tests that count slot entries or compare whole live
+  states must use unregistered slots / cope with the extra module slices (`demo` in reducer tests).
 - **W2-D phase 1 (merged):** socket.io's polling fallback needs sticky sessions across instances (or a
   websocket-only client), see `docs/deploy/multi-instance.md`; CI load-test thresholds are unverified on
   GitHub runners (tune `STORM_MIN_RPS` / `STORM_MAX_P95_MS`); a crashed instance can lose up to 50 ms of
