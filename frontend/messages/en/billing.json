@@ -1,0 +1,77 @@
+{
+  "title": "Billing",
+  "description": "Your workspace's plan, what you have used this month, and how to change it.",
+  "loading": "Loading billing…",
+  "loadError": "Couldn't load billing for this workspace.",
+  "retry": "Try again",
+  "ownerOnly": "Only the workspace owner can manage billing.",
+  "disabled": {
+    "title": "Billing is not configured on this server",
+    "body": "Plans on this server are assigned by an administrator, so there is nothing to buy here. The limits of your current plan still apply."
+  },
+  "plan": {
+    "heading": "{plan} plan",
+    "workspace": "Workspace: {name}",
+    "status": {
+      "free": "No subscription",
+      "active": "Active",
+      "trialing": "Trial",
+      "pastDue": "Payment failed",
+      "canceled": "Canceled",
+      "unpaid": "Unpaid",
+      "incomplete": "Incomplete",
+      "paused": "Paused",
+      "manual": "Managed by an administrator"
+    },
+    "renews": "Renews on {date}",
+    "endsOn": "Ends on {date}; it will not renew",
+    "interval": {
+      "monthly": "Billed monthly",
+      "yearly": "Billed yearly"
+    },
+    "paymentFailed": "Your last payment failed. Update your payment method in the billing portal; your plan stays active while we retry.",
+    "managedManually": "This plan is assigned by an administrator, so it does not change with payments.",
+    "manage": "Manage billing",
+    "opening": "Opening…",
+    "portalError": "Could not open the billing portal",
+    "portalHint": "Update your payment method, download invoices, change seats or cancel."
+  },
+  "usage": {
+    "heading": "Usage",
+    "description": "Monthly allowances reset on the first day of each month (UTC).",
+    "aiDecks": "AI-generated decks",
+    "imports": "Imports",
+    "members": "Members",
+    "ofLimit": "{used} of {limit}",
+    "ofUnlimited": "{used} (unlimited)",
+    "participants": "Participants per live session or poll",
+    "perMonth": "this month"
+  },
+  "upgrade": {
+    "heading": "Change plan",
+    "description": "Subscribe to unlock higher limits and more features for this workspace.",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "save": "Save {percent}%",
+    "perMonth": "/month",
+    "perSeatMonth": "/seat/month",
+    "billedYearly": "Billed {amount} a year",
+    "priceAtCheckout": "Price shown at checkout",
+    "seats": "Seats",
+    "seatsHint": "At least one per member ({members} now).",
+    "choose": "Choose {plan}",
+    "redirecting": "Redirecting…",
+    "unavailable": "Not available at this interval",
+    "current": "Current plan",
+    "alreadySubscribed": "This workspace already has a subscription. Change the plan, seats or payment method in the billing portal.",
+    "managedManually": "This workspace's plan is managed by an administrator, so it can't be changed here.",
+    "checkoutError": "Could not start checkout",
+    "enterprise": "Need single sign-on, SCIM or custom domains? Those come with the Enterprise plan, which an administrator assigns."
+  },
+  "checkout": {
+    "activating": "Thanks! We're activating your plan. This usually takes a few seconds.",
+    "activated": "Your plan is active.",
+    "delayed": "Your payment went through, but the plan is not active yet. Refresh in a moment; if it stays like this, contact support.",
+    "canceled": "Checkout was canceled. You haven't been charged."
+  }
+}

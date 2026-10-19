@@ -1,4 +1,5 @@
 import type { Locale } from "./config";
+import billing from "@/messages/en/billing.json";
 import live from "@/messages/en/live.json";
 
 /**
@@ -7,6 +8,7 @@ import live from "@/messages/en/live.json";
  * alphabetical. The shape types every `useTranslations` key (see global.d.ts).
  */
 export const enMessages = {
+  billing,
   live,
 };
 
