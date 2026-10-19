@@ -286,7 +286,7 @@ const socketAnswer = async (fx: Fixture, socket: ClientSocket, phone: Phone, sli
   }
 };
 
-const connectSockets = async (count: number) => {
+const connectSockets = async (fx: Fixture, count: number) => {
   const sockets: (ClientSocket | null)[] = new Array(count).fill(null);
   await pool(Array.from({ length: count }), 100, async (_, i) => {
     const socket = connectClient(baseUrl, { transports: ['websocket'], forceNew: true, extraHeaders: { 'x-forwarded-for': phoneIp(i) } });
@@ -294,6 +294,15 @@ const connectSockets = async (count: number) => {
       socket.once('connect', () => resolve());
       socket.once('connect_error', reject);
     });
+    // A socket answers only as a participant it joined, like a phone that opened the live page.
+    const phone = fx.phones[i]!;
+    const joined = (await socket.timeout(10_000).emitWithAck('live:join', {
+      presentationId: fx.presentationId,
+      role: 'participant',
+      participantId: phone.participantId,
+      participantToken: phone.token,
+    })) as { ok: boolean };
+    if (!joined.ok) throw new Error(`live:join refused for phone ${i}`);
     sockets[i] = socket;
   });
   return sockets as ClientSocket[];
@@ -368,7 +377,7 @@ const main = async () => {
   }
 
   const wantSockets = MODE === 'socket' ? PARTICIPANTS : MODE === 'mixed' ? Math.ceil(PARTICIPANTS / 2) : 0;
-  const sockets = wantSockets > 0 ? await connectSockets(wantSockets) : [];
+  const sockets = wantSockets > 0 ? await connectSockets(fx, wantSockets) : [];
   const viaSocket = (phoneIndex: number) => phoneIndex < sockets.length;
 
   const all: Outcome[] = [];

@@ -216,10 +216,14 @@ AnswerSubmitAck = { success: true,  status: 200, message: 'Answer accepted', dat
                 | { success: false, status: number, message: string, code?: string, data: null }
 ```
 
-Identity is the participant token in the payload; the socket needs no `live:join` first (joining
-rooms only decides what it receives). Two budgets apply: the participant's script budget above and
+The socket must first have joined the deck **as that participant** (`live:join` with the participant's
+credentials, or the legacy `quiz:join`): an anonymous connection never reaches the answer path, and an
+answer for a participant the socket did not join is 403 `NOT_JOINED` (a reconnected socket has no
+rooms: await the `live:join` ack, then send). Identity is still the participant token in the payload,
+checked by the script on every answer; the room only gates who may call. Two budgets apply: the participant's script budget above and
 120 `answer:submit` per socket per 10 s (429 `RATE_LIMITED`, before any Redis work). Client rule:
-2xx done; 409/400/401/403 final; 429, 5xx and ack timeouts retry with the same `clientAnswerId`.
+2xx done; 409/400/401 and 403 `PARTICIPANT_KICKED` final; 403 `NOT_JOINED` means join and retry; 429, 5xx
+and ack timeouts retry with the same `clientAnswerId`.
 
 `live:resync` takes `{presentationId, role, …credentials}` as `live:join` does and acks
 `{ok: true, role, seq, state}` — `state` is `ParticipantLiveState` (what `GET /:id/live-state` returns,

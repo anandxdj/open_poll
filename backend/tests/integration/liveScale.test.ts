@@ -97,7 +97,16 @@ describeIntegration('live scale: socket answers, resync, replays, auto-reveal', 
     const ada = await join(pid, 'Ada');
     const linus = await join(pid, 'Linus');
     await hostCommand(pid, 'advance');
-    const { socket } = await connect(); // no live:join: the token in the payload is the identity
+    const { socket } = await connect();
+    // The socket answers only as participants it joined (anyone can open a socket; the token is the identity).
+    expect(await emit(socket, 'answer:submit', { presentationId: pid, participantId: ada.participantId, participantToken: ada.token, slideIndex: 0, optionIndex: 0 })).toMatchObject({
+      success: false,
+      status: 403,
+      code: 'NOT_JOINED',
+    });
+    for (const who of [ada, linus]) {
+      expect(await emit(socket, 'live:join', { presentationId: pid, role: 'participant', participantId: who.participantId, participantToken: who.token })).toEqual({ ok: true, role: 'participant' });
+    }
 
     const payload = (who: any, extra: Record<string, unknown> = {}) => ({
       presentationId: pid,
@@ -149,6 +158,7 @@ describeIntegration('live scale: socket answers, resync, replays, auto-reveal', 
     const ada = await join(pid, 'Ada');
     await hostCommand(pid, 'advance');
     const { socket } = await connect();
+    expect(await emit(socket, 'live:join', { presentationId: pid, role: 'participant', participantId: ada.participantId, participantToken: ada.token })).toEqual({ ok: true, role: 'participant' });
     const base = { presentationId: pid, participantId: ada.participantId, slideIndex: 0, optionIndex: 0 };
 
     expect(await emit(socket, 'answer:submit', { ...base, participantToken: 'x'.repeat(48) })).toMatchObject({

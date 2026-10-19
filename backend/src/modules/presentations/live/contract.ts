@@ -445,7 +445,10 @@ export interface AnswerResult {
   answeredAt: string;
 }
 
-/** Socket `answer:submit` payload: the REST body plus the deck. */
+/**
+ * Socket `answer:submit` payload: the REST body plus the deck. The socket must have joined the deck
+ * as this participant (`live:join` ack `{ok: true}` first), else the ack is 403 `NOT_JOINED`.
+ */
 export type AnswerSubmitPayload = { presentationId: string } & Record<string, unknown>;
 
 /**

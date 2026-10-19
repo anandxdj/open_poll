@@ -145,9 +145,13 @@ const failedAnswer = (status: number, message: string, code?: string): AnswerSub
 
 /**
  * `answer:submit` — the REST answer, over the socket. The payload is the REST
- * body plus `presentationId`; the participant token inside it is the identity
- * (the socket's rooms prove nothing). The ack is the REST envelope with the
- * status the HTTP call would have returned.
+ * body plus `presentationId`. Two things are required: the socket joined the
+ * deck as that participant (`live:join` / `quiz:join` with the participant's
+ * token, so an anonymous connection never reaches the answer path), and the
+ * participant token travels in the payload (the identity is the token, checked
+ * by the answer script on every answer — being in a room proves nothing by
+ * itself). The ack is the REST envelope with the status the HTTP call would
+ * have returned.
  */
 const handleAnswerSubmit = async (socket: Socket, data: unknown, ack: unknown) => {
   const reply = ackWith(ack);
@@ -160,6 +164,9 @@ const handleAnswerSubmit = async (socket: Socket, data: unknown, ack: unknown) =
   if (!parsed.success) {
     const message = parsed.error.issues.map((issue) => `${issue.path.join('.') || 'body'}: ${issue.message}`).join('; ');
     return reply(failedAnswer(400, message, 'INVALID_PAYLOAD'));
+  }
+  if (!socket.rooms.has(liveRooms.participant(presentationId, parsed.data.participantId))) {
+    return reply(failedAnswer(403, 'Join the presentation as this participant before answering', 'NOT_JOINED'));
   }
   try {
     const result = await PresentationService.submitAnswer(presentationId, parsed.data, { via: 'socket' });

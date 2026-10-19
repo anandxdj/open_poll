@@ -21,7 +21,7 @@ the quizzes module was folded in; `quizId` carries the presentation id.
 | `quiz:leave` (legacy) | `quizId` | leaves every room of that presentation | none |
 | `live:join` | `{ presentationId, role: 'host', accessToken? }` or `{ presentationId, role: 'participant', participantId, participantToken }` | live rooms only | ack `{ ok: true, role }` or `{ ok: false, error: 'INVALID_PAYLOAD' \| 'RATE_LIMITED' \| 'UNAUTHENTICATED' \| 'FORBIDDEN' }` |
 | `live:leave` | `{ presentationId }` (or the bare id) | leaves every room of that presentation | ack `{ ok }` |
-| `answer:submit` | the `POST /:id/answer` body plus `presentationId` (identity = the participant token inside; no join needed) | none | ack with the REST envelope: `{ success, status, message, code?, data: AnswerResult \| null }` |
+| `answer:submit` | the `POST /:id/answer` body plus `presentationId` (the socket must have joined as that participant; the participant token inside is the identity) | none | ack with the REST envelope: `{ success, status, message, code?, data: AnswerResult \| null }` |
 | `live:resync` | `{ presentationId, role, accessToken? \| participantId + participantToken }` | none | ack `{ ok: true, role, seq, state }` (`ParticipantLiveState` or `HostStateResponse`) or `{ ok: false, error }` |
 
 Authorization (same for both protocols):
