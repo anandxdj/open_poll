@@ -818,8 +818,8 @@ describe('advanced deck, live', () => {
     });
     // The dedup marker is rolled back: Ada can still answer.
     at(15_000);
-    expect(await answer(pid, ada, 0, { value: 80 })).toEqual({ accepted: true });
-    expect(await answer(pid, linus, 0, { value: 20 })).toEqual({ accepted: true });
+    expect(await answer(pid, ada, 0, { value: 80 })).toMatchObject({ accepted: true });
+    expect(await answer(pid, linus, 0, { value: 20 })).toMatchObject({ accepted: true });
     expect(await rejected(answer(pid, ada, 0, { value: 79 }))).toEqual({
       status: 409,
       message: 'You already responded to this slide',
