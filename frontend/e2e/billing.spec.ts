@@ -1,4 +1,4 @@
-import type { Page, Route } from "@playwright/test";
+import type { Browser, BrowserContext, Page, Route } from "@playwright/test";
 import { e2eEnv } from "./env";
 import { expect, test } from "./fixtures";
 
@@ -51,13 +51,46 @@ const billingOn = (data: Json): Json => ({
   checkout: { pro: { monthly: true, yearly: true }, team: { monthly: true, yearly: true } },
 });
 
-/** Signs in on a protected page first, so routes registered next outlive the navigation to the page under test. */
-async function openSignedIn(host: { open(path: string): Promise<Page> }) {
-  return host.open("/polls");
+interface Session {
+  user: Json;
+  accessToken: string;
 }
 
-test("billing settings says billing is off, and still shows the plan and usage", async ({ host }) => {
-  const page = await openSignedIn(host);
+let session: Session;
+
+// One login for the whole file: the auth routes allow 10 logins per 5 minutes per IP, and the
+// suite's other specs log in too.
+test.beforeAll(async () => {
+  const res = await fetch(`${e2eEnv.apiOrigin}/api/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: e2eEnv.hostEmail, password: e2eEnv.hostPassword }),
+  });
+  if (!res.ok) throw new Error(`POST /auth/login -> ${res.status}`);
+  session = ((await res.json()) as { data: Session }).data;
+});
+
+/**
+ * A page signed in as the host, already on a protected page, so routes registered next
+ * outlive the navigation to the page under test. Same seeding as the `host` fixture.
+ */
+async function openSignedIn(browser: Browser, contexts: BrowserContext[]): Promise<Page> {
+  const context = await browser.newContext();
+  contexts.push(context);
+  await context.addInitScript(
+    ({ user, accessToken }) => {
+      window.localStorage.setItem("auth-storage", JSON.stringify({ state: { user, accessToken }, version: 0 }));
+      document.cookie = "auth_session=1; path=/; samesite=lax";
+    },
+    session,
+  );
+  const page = await context.newPage();
+  await page.goto("/polls");
+  return page;
+}
+
+test("billing settings says billing is off, and still shows the plan and usage", async ({ browser, contexts }) => {
+  const page = await openSignedIn(browser, contexts);
   await page.goto("/settings/billing");
 
   await expect(page.getByTestId("billing-disabled")).toContainText("Billing is not configured on this server");
@@ -79,23 +112,23 @@ test("billing settings says billing is off, and still shows the plan and usage",
   await expect(page.getByRole("link", { name: /^Billing/ })).toBeVisible();
 });
 
-test("the billing API refuses checkout and the portal without Stripe keys", async ({ host }) => {
+test("the billing API refuses checkout and the portal without Stripe keys", async () => {
   const checkout = await fetch(`${e2eEnv.apiOrigin}/api/billing/checkout`, {
     method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${host.accessToken}` },
+    headers: { "content-type": "application/json", authorization: `Bearer ${session.accessToken}` },
     body: JSON.stringify({ plan: "pro", interval: "monthly" }),
   });
   expect(checkout.status).toBe(503);
   expect(((await checkout.json()) as Json).code).toBe("BILLING_DISABLED");
   const portal = await fetch(`${e2eEnv.apiOrigin}/api/billing/portal`, {
     method: "POST",
-    headers: { authorization: `Bearer ${host.accessToken}` },
+    headers: { authorization: `Bearer ${session.accessToken}` },
   });
   expect(portal.status).toBe(503);
 });
 
-test("subscribing sends the owner to Stripe Checkout with the chosen plan", async ({ host }) => {
-  const page = await openSignedIn(host);
+test("subscribing sends the owner to Stripe Checkout with the chosen plan", async ({ browser, contexts }) => {
+  const page = await openSignedIn(browser, contexts);
   await page.route("**/api/plans", (route) => patched(route, pricedPlans));
   await page.route("**/api/billing", (route) =>
     route.request().method() === "GET" ? patched(route, billingOn) : route.continue(),
@@ -135,8 +168,8 @@ test("subscribing sends the owner to Stripe Checkout with the chosen plan", asyn
   expect(checkoutBody).toEqual({ plan: "pro", interval: "yearly" });
 });
 
-test("a Team checkout asks for at least one seat per member", async ({ host }) => {
-  const page = await openSignedIn(host);
+test("a Team checkout asks for at least one seat per member", async ({ browser, contexts }) => {
+  const page = await openSignedIn(browser, contexts);
   await page.route("**/api/plans", (route) => patched(route, pricedPlans));
   await page.route("**/api/billing", (route) =>
     route.request().method() === "GET"
@@ -166,8 +199,8 @@ test("a Team checkout asks for at least one seat per member", async ({ host }) =
   await expect(team.getByTestId("choose-team")).toBeEnabled();
 });
 
-test("after paying, the page waits for the plan and then confirms it", async ({ host }) => {
-  const page = await openSignedIn(host);
+test("after paying, the page waits for the plan and then confirms it", async ({ browser, contexts }) => {
+  const page = await openSignedIn(browser, contexts);
   let reads = 0;
   await page.route("**/api/billing", (route) => {
     if (route.request().method() !== "GET") return route.continue();
@@ -199,8 +232,8 @@ test("after paying, the page waits for the plan and then confirms it", async ({ 
   await expect(page.getByTestId("upgrade-blocked")).toContainText("already has a subscription");
 });
 
-test("a canceled checkout says nothing was charged", async ({ host }) => {
-  const page = await openSignedIn(host);
+test("a canceled checkout says nothing was charged", async ({ browser, contexts }) => {
+  const page = await openSignedIn(browser, contexts);
   await page.goto("/settings/billing?checkout=canceled");
   await expect(page.getByTestId("checkout-status")).toContainText("You haven't been charged");
 });

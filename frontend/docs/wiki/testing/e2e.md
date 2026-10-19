@@ -65,7 +65,9 @@ browser context per participant.
   flows with `page.route` patching the real `/api/plans` and `/api/billing` responses (prices,
   yearly toggle, Team seats, checkout redirect to a stand-in Stripe page, the wait for the plan
   after `?checkout=success`), and the landing pricing from the API, with prices, and on the
-  built-in fallback when the API is unreachable. Stripe is never called. ~20 s.
+  built-in fallback when the API is unreachable. Stripe is never called. It logs in once in
+  `beforeAll` instead of through the `host` fixture: `/api/auth/login` allows 10 logins per 5
+  minutes per IP, which the whole suite shares. ~20 s.
 
 Run against your own database and ports when other suites share the machine, e.g.
 `E2E_MONGO_URI=mongodb://127.0.0.1:27117/openpoll_mine?directConnection=true
