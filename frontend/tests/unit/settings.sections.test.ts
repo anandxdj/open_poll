@@ -89,8 +89,8 @@ describe("SETTINGS_SECTIONS", () => {
     for (const s of SETTINGS_SECTIONS) expect(s.href).toBe(`/settings/${s.id}`);
   });
 
-  test("ships the profile, MCP and workspace pages", () => {
-    expect(SETTINGS_SECTIONS.filter((s) => s.ready).map((s) => s.id)).toEqual(["profile", "mcp", "workspace"]);
+  test("ships the profile, MCP, workspace and billing pages", () => {
+    expect(SETTINGS_SECTIONS.filter((s) => s.ready).map((s) => s.id)).toEqual(["profile", "mcp", "workspace", "billing"]);
   });
 });
 
@@ -106,10 +106,16 @@ describe("resolveSection", () => {
     expect(resolveSection(section("brand"), { capabilities: everything, workspace: null })).toEqual({ available: false, reason: null });
   });
 
+  test("billing stays reachable without Stripe: its page explains that billing is off", () => {
+    expect(resolveSection(section("billing"), { capabilities: capabilities(), workspace: workspace() })).toEqual({
+      available: true,
+      reason: null,
+    });
+  });
+
   test("explains a capability this server lacks first", () => {
     const result = resolveSection(section("sso"), { capabilities: capabilities(), workspace: workspace({ type: "personal", plan: "free" }) });
     expect(result).toEqual({ available: false, reason: "Single sign-on isn't enabled on this server." });
-    expect(resolveSection(section("billing"), { capabilities: capabilities(), workspace: workspace() }).reason).toMatch(/Billing isn't set up/);
   });
 
   test("then team-only sections in a personal workspace", () => {
@@ -132,7 +138,7 @@ describe("resolveSection", () => {
   });
 
   test("and last whether the page has shipped", () => {
-    for (const id of ["members", "brand", "billing", "sso", "scim", "domains", "audit"] as const) {
+    for (const id of ["members", "brand", "sso", "scim", "domains", "audit"] as const) {
       expect(resolveSection(section(id), { capabilities: everything, workspace: workspace() })).toEqual({
         available: false,
         reason: "Coming soon.",
@@ -142,7 +148,7 @@ describe("resolveSection", () => {
   });
 
   test("a shipped section with every gate passing is available", () => {
-    const shipped = { ...section("billing"), ready: true };
+    const shipped = { ...section("audit"), ready: true };
     expect(resolveSection(shipped, { capabilities: everything, workspace: workspace() })).toEqual({ available: true, reason: null });
   });
 });

@@ -29,6 +29,11 @@ last_updated: 2026-05-11
   until they pass; attempts are serialized by a short per-respondent lock.
 - Ballot, guest-token and submit routes are rate-limited per IP.
 
+## Plan response cap
+- A poll accepts at most its workspace plan's `audienceCap` responses (`modules/billing.md`,
+  "Poll response cap"): a full poll answers 403 `PLAN_LIMIT_REACHED` before a ballot or identity
+  marker is spent. The slot is taken atomically after the dedup claims (trial attempts count).
+
 ## Analytics Responsibility
 - After successful response persistence, module computes poll analytics snapshot.
 - Snapshot is published to Redis `responses.accepted` channel for socket fanout.

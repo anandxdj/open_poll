@@ -81,8 +81,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     href: "/settings/billing",
     icon: CreditCard,
     group: "workspace",
-    ready: false,
-    capability: { key: "billing", reason: "Billing isn't set up on this server; plans are assigned by an administrator." },
+    ready: true,
+    // No capability gate: without Stripe the page still shows the plan and usage, and says billing is off.
     action: { name: "workspace:billing", minimumRole: "owner" },
   },
   {

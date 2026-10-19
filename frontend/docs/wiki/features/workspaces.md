@@ -45,7 +45,7 @@ Everything lives in `features/workspaces/`. Backend contract: `backend/docs/wiki
 `app/(dashboard)/settings/layout.tsx` renders the title and `SettingsNav` beside the page. `/settings`
 redirects to `SETTINGS_HOME` (`/settings/profile`). Pages render only their own sections:
 `settings/profile` (profile, appearance, notifications, security), `settings/mcp`
-(`McpSettingsSection`), `settings/workspace` (`WorkspaceSettings`).
+(`McpSettingsSection`), `settings/workspace` (`WorkspaceSettings`), `settings/billing` (`BillingSettings`).
 
 The nav lists **every** section in `SETTINGS_SECTIONS`, grouped Account / Workspace. Each entry is a
 link when available, otherwise disabled with one line saying why. `resolveSection` checks, in order:
@@ -65,7 +65,7 @@ While capabilities or the workspace detail are loading, gated entries are disabl
 | members | team only | W3-B1 |
 | audit | `workspace:manage` (admin) | W3-B1 |
 | brand | `brand_kits`, `workspace:brand` (admin) | W3-A |
-| billing | capability `billing`, `workspace:billing` (owner) | W3-C |
+| billing | `workspace:billing` (owner); no capability gate: the page explains when billing is off (`features/billing.md`) | W3-C (shipped) |
 | sso | capability `samlSso`, team only, `sso`, `workspace:sso` (admin) | W3-D |
 | scim | capability `scim`, team only, `scim`, `workspace:sso` (admin) | W3-D |
 | domains | capability `customDomains`, `custom_domains`, `workspace:domains` (admin) | W4-E |

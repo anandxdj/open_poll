@@ -36,6 +36,9 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Workspaces (switcher, selected workspace, `X-Workspace-Id`) or any `/settings` page or section.
 - **Action**: Read `frontend/docs/wiki/features/workspaces.md`
 
+- **Task**: Billing: `/settings/billing` (plan, usage, checkout, portal) or the landing pricing section.
+- **Action**: Read `frontend/docs/wiki/features/billing.md`
+
 - **Task**: Changing the library at `/polls` (poll + deck cards, filters, convert to presentation).
 - **Action**: Read `frontend/docs/wiki/features/library.md`
 

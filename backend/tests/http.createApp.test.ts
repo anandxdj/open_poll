@@ -3,7 +3,7 @@ import { createServer, type Server } from 'http';
 import type { AddressInfo } from 'net';
 import type { Request, Response, Router } from 'express';
 import { createApp } from '../src/http/createApp';
-import { billingWebhookRouter } from '../src/modules/billing/billing.route';
+import { setBillingRuntime, type StripeClient } from '../src/modules/billing/stripe';
 import libraryRouter from '../src/modules/library/library.route';
 import scimRouter from '../src/modules/scim/scim.route';
 import { samlAcsRouter } from '../src/modules/sso/sso.route';
@@ -23,7 +23,6 @@ const echo = (req: Request, res: Response) => {
 };
 
 const probes: Array<[Router, string]> = [
-  [billingWebhookRouter, '/'],
   [samlAcsRouter, '/'],
   [scimRouter, '/Users'],
   [libraryRouter, '/__probe'],
@@ -66,12 +65,33 @@ const jsonBodyOfSize = (bytes: number) => JSON.stringify({ title: 'x'.repeat(byt
 
 describe('createApp special mounts', () => {
   it('hands the Stripe webhook the exact raw bytes', async () => {
-    const payload = '{"id":"evt_1","data":{"a.b":1,"$set":2}}';
-    const res = await post('/api/billing/webhook', payload, { 'content-type': 'application/json; charset=utf-8' });
-    expect(res.status).toBe(200);
-    const body = await readEcho(res);
-    expect(body.isBuffer).toBe(true);
-    expect(body.raw).toBe(payload);
+    // The real billing route, with a Stripe double that records what it is asked to verify.
+    let verified: { body: unknown; signature: unknown } | null = null;
+    const previous = setBillingRuntime({
+      config: { secretKey: 'sk_test_x', webhookSecret: 'whsec_x', prices: {} },
+      automaticTax: false,
+      stripe: {
+        webhooks: {
+          constructEventAsync: async (body: unknown, signature: unknown) => {
+            verified = { body, signature };
+            return { id: 'evt_1', type: 'test.unhandled', livemode: false, created: 0, data: { object: {} } };
+          },
+        },
+      } as unknown as StripeClient,
+    });
+    try {
+      const payload = '{"id":"evt_1","data":{"a.b":1,"$set":2}}';
+      const res = await post('/api/billing/webhook', payload, {
+        'content-type': 'application/json; charset=utf-8',
+        'stripe-signature': 't=1,v1=abc',
+      });
+      expect(res.status).toBe(200);
+      expect(Buffer.isBuffer(verified!.body)).toBe(true);
+      expect((verified!.body as Buffer).toString('utf8')).toBe(payload);
+      expect(verified!.signature).toBe('t=1,v1=abc');
+    } finally {
+      setBillingRuntime(previous);
+    }
   });
 
   it('accepts a cross-origin SAML form post and parses it', async () => {
