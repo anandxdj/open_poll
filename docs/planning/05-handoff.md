@@ -106,36 +106,36 @@ before it finishes.
   `mode="report"`, live refresh 5 s, plan-gated export, share dialog, delete), `/r/[token]`,
   `/live/[code]/summary`; `endScreen` slot links; library menu "Session history".
 
-**Checks at handoff** (integration branch after the W2-C merge): backend 875 tests in `bun test` (694 run without containers, 181 integration/spike tests skip without `TEST_MONGO_URI`), 146 integration/spike tests pass with the containers (6 skipped by design); frontend 305 unit tests; Playwright e2e 10 tests green; backend and frontend typecheck clean, frontend lint 0 errors (7 pre-existing warnings), build green.
+**Wave 3 — W3-C billing and plan gates** (merged; `pkg/w3-c`, 9 commits).
+- `GET /api/plans` (public, 120/min, prices only for configured Stripe price ids), `GET /api/billing`
+  (`workspace:billing`), `POST /api/billing/checkout {plan, interval, seats?}` and
+  `POST /api/billing/portal` (503 `BILLING_DISABLED` without keys/price id; 409
+  `ALREADY_SUBSCRIBED` / `PLAN_MANAGED_MANUALLY` / `NO_BILLING_ACCOUNT`; Stripe errors → 502),
+  webhook (raw body, `constructEventAsync`, atomic StripeEvent claim, replay 200 `duplicate`,
+  concurrent 409, failure 500 + retry takeover, 2-min lease; re-reads the subscription under a
+  per-subscription Redis lock; never overwrites `planSource:'manual'`), job `billing-seat-sync`
+  (15 min, raises Team quantity only), migration `120-stripe-events` (TTL 90 d), poll response cap =
+  plan `audienceCap` (403 `PLAN_LIMIT_REACHED`, Redis counter rebuilt from stored responses; polls
+  without a workspace uncapped). Frontend `/settings/billing` (disabled state, checkout/portal,
+  post-checkout polling) and landing `Pricing.tsx` fed by `/api/plans` with a static fallback. The
+  Billing nav entry is no longer capability-gated (owner gate kept).
+- Likely merge conflicts: `backend/tests/http.routes.snapshot.txt`,
+  `frontend/features/workspaces/settings/sections.ts` + `tests/unit/settings.sections.test.ts`,
+  `frontend/i18n/messages.ts`, `.env.example` files.
+- After merging #2 and #3, verify that W2-C's export gating uses the same feature keys
+  (`export_xlsx`, `export_pdf`) as `common/plans/plans.ts`; fix with a small commit if not.
+- Known risk: `/api/auth/login` allows 10 logins per 5 min per IP and the whole e2e suite shares it.
+  If e2e starts failing on login rate limits as specs accumulate, fix it properly (log in once per
+  worker and reuse `storageState`, or have the e2e backend env set a higher limit through an
+  existing env knob). Never disable rate limiting in production code paths.
 
-## Ready, NOT merged (all checks green on their branch; merge in this order)
+**Checks at handoff** (integration branch after the W3-C merge, before W1-A2): backend 996 tests in `bun test` (780 run without containers, 216 integration/spike tests skip without `TEST_MONGO_URI`), 179 integration/spike tests pass with the containers (6 skipped by design); frontend 330 unit tests; Playwright e2e 19 tests (18 green; the 19th hit the login rate limit, see Cross-package follow-ups: W1-A2's per-worker login fixture fixes it); backend and frontend typecheck clean, frontend lint 0 errors (7 pre-existing warnings), build green.
 
-Merge rule: `git merge --no-ff pkg/<id>` into `chore/backlog-and-roadmap`, then full checks (backend
+## Ready, NOT merged
+
+Nothing is waiting for a merge right now besides what is under "In progress". Merge rule: `git merge --no-ff pkg/<id>` into `chore/backlog-and-roadmap`, then full checks (backend
 tsc + unit + integration, frontend typecheck + lint + unit + build + e2e). Expect small conflicts in
 append-only files (route snapshot, `i18n/messages.ts`, settings sections, `.env.example`).
-
-3. **W3-C — billing and plan gates**, `pkg/w3-c` @ `12b237d` (9 commits; 3 behind).
-   - `GET /api/plans` (public, 120/min, prices only for configured Stripe price ids), `GET /api/billing`
-     (`workspace:billing`), `POST /api/billing/checkout {plan, interval, seats?}` and
-     `POST /api/billing/portal` (503 `BILLING_DISABLED` without keys/price id; 409
-     `ALREADY_SUBSCRIBED` / `PLAN_MANAGED_MANUALLY` / `NO_BILLING_ACCOUNT`; Stripe errors → 502),
-     webhook (raw body, `constructEventAsync`, atomic StripeEvent claim, replay 200 `duplicate`,
-     concurrent 409, failure 500 + retry takeover, 2-min lease; re-reads the subscription under a
-     per-subscription Redis lock; never overwrites `planSource:'manual'`), job `billing-seat-sync`
-     (15 min, raises Team quantity only), migration `120-stripe-events` (TTL 90 d), poll response cap =
-     plan `audienceCap` (403 `PLAN_LIMIT_REACHED`, Redis counter rebuilt from stored responses; polls
-     without a workspace uncapped). Frontend `/settings/billing` (disabled state, checkout/portal,
-     post-checkout polling) and landing `Pricing.tsx` fed by `/api/plans` with a static fallback. The
-     Billing nav entry is no longer capability-gated (owner gate kept).
-   - Likely merge conflicts: `backend/tests/http.routes.snapshot.txt`,
-     `frontend/features/workspaces/settings/sections.ts` + `tests/unit/settings.sections.test.ts`,
-     `frontend/i18n/messages.ts`, `.env.example` files.
-   - After merging #2 and #3, verify that W2-C's export gating uses the same feature keys
-     (`export_xlsx`, `export_pdf`) as `common/plans/plans.ts`; fix with a small commit if not.
-   - Known risk: `/api/auth/login` allows 10 logins per 5 min per IP and the whole e2e suite shares it.
-     If e2e starts failing on login rate limits as specs accumulate, fix it properly (log in once per
-     worker and reuse `storageState`, or have the e2e backend env set a higher limit through an
-     existing env knob). Never disable rate limiting in production code paths.
 
 ## In progress, NOT merged (branches with WIP commits)
 
@@ -228,7 +228,7 @@ W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
   authorship (owner awareness); PDF export uses Helvetica, so emoji/CJK print as `?`; session delete
   uses policy `deck:delete` (owner to confirm). XLSX/PDF export needs a plan that has them
   (`bun scripts/set-plan.ts <workspace|owner-email> pro`).
-- **Lands with W3-C:** Team seats = purchased capacity (the sync job only raises the quantity); the poll
+- **W3-C (merged):** Team seats = purchased capacity (the sync job only raises the quantity); the poll
   response cap reuses the plan `audienceCap`, so existing free polls with over 100 responses stop
   accepting; "Contact sales" uses `NEXT_PUBLIC_SALES_EMAIL` and is disabled while unset.
 
@@ -244,7 +244,7 @@ W2-D (phase 1), W2-C, W3-C are queued ahead of W1-A2 because they are ready.
   endpoint answers with mock data and labels it as mock.
 - **W2-D phase 1 (merged):** `METRICS_TOKEN` (at least 16 characters) enables `/metrics`;
   `SOCKET_REDIS_ADAPTER=on` for more than one backend instance; see `docs/deploy/multi-instance.md`.
-- **Lands with W3-C (billing, disabled without keys):** two Stripe products (Pro, Team) with monthly and
+- **W3-C (merged; billing is disabled without keys):** two Stripe products (Pro, Team) with monthly and
   yearly recurring prices (Team per seat); env `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
   `STRIPE_PRICE_{PRO,TEAM}_{MONTHLY,YEARLY}`; webhook endpoint `/api/billing/webhook` subscribed to
   `checkout.session.completed`, `customer.subscription.{created,updated,deleted}`, `invoice.paid`,
