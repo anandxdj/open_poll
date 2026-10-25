@@ -16,18 +16,18 @@ export function Timer({ secondsLeft, progress }: TimerProps) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-deck-muted-fg/50 flex items-center gap-1.5">
-          <TimerIcon className="size-3" /> {t("timeLeft")}
+        <span className="flex items-center gap-1.5 text-sm text-deck-muted-fg">
+          <TimerIcon className="size-4" /> {t("timeLeft")}
         </span>
         <span
-          className={`text-2xl font-bold tabular-nums tracking-tight ${
-            urgent ? "text-deck-wrong animate-pulse" : "text-deck-primary"
+          className={`font-mono text-2xl font-semibold tabular-nums ${
+            urgent ? "text-deck-wrong motion-safe:animate-pulse" : "text-deck-fg"
           }`}
         >
           {t("seconds", { seconds: secondsLeft })}
         </span>
       </div>
-      <div className="h-2 rounded-full bg-deck-stage-fg/5 border border-deck-stage-fg/10 overflow-hidden">
+      <div className="h-2 overflow-hidden rounded-full bg-deck-secondary">
         <div
           className={`h-full rounded-full transition-[width] duration-100 ease-linear ${
             urgent ? "bg-deck-wrong" : "bg-deck-primary"

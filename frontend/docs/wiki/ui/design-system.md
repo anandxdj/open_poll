@@ -109,8 +109,13 @@ data series and small check/step marks.
 
 ## App screens
 
-The creator shell, `/polls`, every `/settings` page, `/analytics` and both builders follow these; the live
-surfaces (host console, stage, participant views) still need their layout pass (they re-skin through the tokens only).
+The creator shell, `/polls`, every `/settings` page, `/analytics`, both builders and the live surfaces
+(host console, stage, phones, `/live`; see `features/live-surfaces.md` for the deck tokens) follow these.
+
+**Heading defaults.** `globals.css` gives `h1`–`h6` semibold, `-0.02em` and ink only where the heading has no
+`font-*`, `tracking-*` or `text-*` utility of its own. The rule compiles unlayered (a `@layer base` wrapper is
+flattened in the build) and unlayered CSS beats every utility, so a blanket heading rule would override, for
+example, `text-deck-stage-fg` on the dark stage or a display heading's tracking.
 
 - **Shell**: the sidebar is paper (`sidebar`), 14px nav items, the active one a white sheet with a ring and an
   ember icon; on phones a top bar opens it as a drawer (`core/routing-and-layouts.md`).

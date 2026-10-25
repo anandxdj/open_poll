@@ -32,7 +32,7 @@ export function HighlightOverlay() {
             data-qna-highlight={item.id}
             className="w-full rounded-3xl border border-deck-accent/40 bg-deck-stage-scrim px-8 py-6 text-center shadow-2xl backdrop-blur-xl"
           >
-            <figcaption className="mb-2 flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-widest text-deck-accent-soft">
+            <figcaption className="mb-2 flex items-center justify-center gap-2 text-sm font-medium text-deck-accent-soft">
               <MessageCircleQuestion className="size-4" aria-hidden /> {t("stage.highlight")}
             </figcaption>
             <blockquote className="text-2xl font-bold leading-snug text-balance break-words text-deck-stage-fg sm:text-3xl">

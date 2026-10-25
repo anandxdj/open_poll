@@ -64,10 +64,10 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
         <Timer secondsLeft={secondsLeft} progress={progress} />
       )}
       <div className="space-y-2 text-center">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-deck-primary/60">
+        <span className="text-sm tabular-nums text-deck-muted-fg">
           {t("slideCounter", { current: slide.slideIndex + 1, total: slide.totalSlides })}
         </span>
-        <h2 className="text-xl font-bold">{slide.question}</h2>
+        <h2 className="text-balance text-2xl font-semibold leading-tight tracking-[-0.03em]">{slide.question}</h2>
       </div>
 
       {/* Post-reveal feedback */}
@@ -75,61 +75,61 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
         <div className="text-center space-y-3">
           {!lastAnswer.scored || !graded ? (
             <>
-              <CheckCircle2 className="size-12 text-deck-info mx-auto" />
-              <p className="font-bold">{t("responseReceived")}</p>
+              <CheckCircle2 className="mx-auto size-12 text-info" />
+              <p className="font-semibold">{t("responseReceived")}</p>
             </>
           ) : lastAnswer.isCorrect ? (
             <>
-              <CheckCircle2 className="size-12 text-deck-correct-soft mx-auto" />
-              <p className="text-xl font-bold text-deck-correct-soft">{t("correct")}</p>
-              <p className="text-3xl font-black text-deck-primary tabular-nums">
+              <CheckCircle2 className="mx-auto size-12 text-success" />
+              <p className="text-xl font-semibold text-success">{t("correct")}</p>
+              <p className="font-mono text-3xl font-semibold tabular-nums text-deck-fg">
                 {t("points", { points: lastAnswer.score.toLocaleString() })}
               </p>
             </>
           ) : (
             <>
-              <XCircle className="size-12 text-deck-wrong mx-auto" />
-              <p className="text-xl font-bold text-deck-wrong">{t("notQuite")}</p>
+              <XCircle className="mx-auto size-12 text-destructive" />
+              <p className="text-xl font-semibold text-destructive">{t("notQuite")}</p>
               <p className="text-sm text-deck-muted-fg">{t("noPoints")}</p>
             </>
           )}
-          <div className="rounded-2xl border border-deck-stage-fg/10 bg-deck-stage-fg/[0.03] px-5 py-3 flex items-center justify-between text-sm">
+          <div className="rounded-xl border border-deck-border bg-deck-surface px-5 py-3 flex items-center justify-between text-sm">
             <span className="text-deck-muted-fg">
               {t.rich("rank", {
                 rank: me.rank,
-                b: (chunks) => <span className="font-bold text-deck-fg">{chunks}</span>,
+                b: (chunks) => <span className="font-semibold text-deck-fg">{chunks}</span>,
               })}
             </span>
-            <span className="font-bold text-deck-primary tabular-nums">
+            <span className="font-mono font-semibold tabular-nums text-deck-fg">
               {t("totalPoints", { score: me.totalScore.toLocaleString() })}
             </span>
           </div>
-          <p className="text-xs text-deck-muted-fg">{t("waitingAdvance")}</p>
+          <p className="text-sm text-deck-muted-fg">{t("waitingAdvance")}</p>
         </div>
       ) : reveal && !hasAnswered ? (
         <div className="text-center py-8 space-y-2">
           <Hourglass className="size-10 text-deck-muted-fg/40 mx-auto" />
-          <p className="font-bold text-sm">{wasTimed ? t("timesUp") : t("votingClosed")}</p>
-          <p className="text-xs text-deck-muted-fg">{t("waitingAdvance")}</p>
+          <p className="text-base font-semibold">{wasTimed ? t("timesUp") : t("votingClosed")}</p>
+          <p className="text-sm text-deck-muted-fg">{t("waitingAdvance")}</p>
         </div>
       ) : hasAnswered ? (
         <div className="text-center py-8 space-y-2">
-          <CheckCircle2 className="size-10 text-deck-correct-soft mx-auto" />
-          <p className="font-bold text-sm">{graded ? t("lockedIn") : t("responseReceived")}</p>
-          <p className="text-xs text-deck-muted-fg">
+          <CheckCircle2 className="mx-auto size-10 text-success" />
+          <p className="text-base font-semibold">{graded ? t("lockedIn") : t("responseReceived")}</p>
+          <p className="text-sm text-deck-muted-fg">
             {graded ? t("waitingReveal") : t("waitingClose")}
           </p>
         </div>
       ) : phase === "closed" ? (
         <div className="text-center py-8 space-y-2">
           <Hourglass className="size-10 text-deck-muted-fg/40 mx-auto" />
-          <p className="font-bold text-sm">{t("votingClosed")}</p>
-          <p className="text-xs text-deck-muted-fg">{t("votingClosedHint")}</p>
+          <p className="text-base font-semibold">{t("votingClosed")}</p>
+          <p className="text-sm text-deck-muted-fg">{t("votingClosedHint")}</p>
         </div>
       ) : expired ? (
         <div className="text-center py-8 space-y-2">
           <Hourglass className="size-10 text-deck-muted-fg/40 mx-auto" />
-          <p className="font-bold text-sm">{t("timesUp")}</p>
+          <p className="text-base font-semibold">{t("timesUp")}</p>
         </div>
       ) : (
         <div className="space-y-4">

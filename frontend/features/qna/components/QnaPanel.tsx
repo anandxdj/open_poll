@@ -186,8 +186,8 @@ export function QnaPanel({ className }: { className?: string }) {
       )}
 
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-deck-muted-fg/70">{t("list.label")}</h3>
-        <div className="inline-flex rounded-full border border-deck-border/50 p-0.5 text-[11px] font-semibold" role="group" aria-label={t("list.label")}>
+        <h3 className="text-sm font-medium text-deck-muted-fg">{t("list.label")}</h3>
+        <div className="inline-flex rounded-full border border-deck-border/50 p-0.5 text-xs font-semibold" role="group" aria-label={t("list.label")}>
           {(["top", "new"] as const).map((value) => (
             <button
               key={value}

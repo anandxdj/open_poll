@@ -41,9 +41,8 @@ export default function LiveJoinPage() {
   return (
     <DeckThemeProvider>
       <div className="min-h-screen bg-deck-bg text-deck-fg flex flex-col">
-        <div className="fixed inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-64 bg-deck-primary/[0.04] blur-[120px] rounded-full" />
-        </div>
+        {/* The app's graph paper, fading toward the edges */}
+        <div aria-hidden="true" className="mk-grid pointer-events-none fixed inset-0" />
 
         <main className="relative z-10 flex-1 flex items-center justify-center px-6">
           <motion.div
@@ -53,11 +52,11 @@ export default function LiveJoinPage() {
             className="w-full max-w-sm space-y-8 text-center"
           >
             <div className="space-y-3">
-              <div className="size-14 rounded-2xl bg-deck-primary/15 border border-deck-primary/30 flex items-center justify-center mx-auto">
+              <div className="mx-auto flex size-12 items-center justify-center rounded-xl border border-deck-border bg-deck-surface">
                 <PresentationIcon className="size-6 text-deck-primary" />
               </div>
-              <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
-              <p className="text-sm text-deck-muted-fg/60">{t("subtitle")}</p>
+              <h1 className="text-4xl font-semibold tracking-[-0.04em]">{t("title")}</h1>
+              <p className="text-base text-deck-muted-fg">{t("subtitle")}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-3">
@@ -67,12 +66,12 @@ export default function LiveJoinPage() {
                 placeholder={t("codePlaceholder")}
                 inputMode="numeric"
                 autoFocus
-                className="h-16 rounded-2xl bg-deck-secondary/15 border-deck-border/40 text-center text-3xl font-black tracking-[0.4em] tabular-nums placeholder:text-deck-muted-fg/20"
+                className="h-16 rounded-xl bg-deck-surface text-center font-mono text-3xl font-semibold tracking-[0.3em] tabular-nums placeholder:text-deck-muted-fg/40 md:text-3xl"
               />
               <Button
                 type="submit"
                 disabled={checking || code.length < 6}
-                className="w-full h-12 rounded-2xl bg-deck-primary text-deck-primary-fg font-semibold text-base"
+                className="h-12 w-full rounded-lg bg-deck-primary text-base font-semibold text-deck-primary-fg"
               >
                 {checking ? (
                   <Loader2 className="size-4 animate-spin" />
@@ -86,7 +85,7 @@ export default function LiveJoinPage() {
           </motion.div>
         </main>
 
-        <footer className="relative z-10 text-center py-4 text-[10px] font-medium text-deck-muted-fg/30 uppercase tracking-widest">
+        <footer className="relative z-10 py-5 text-center text-sm text-deck-muted-fg">
           {t("poweredBy")}
         </footer>
       </div>

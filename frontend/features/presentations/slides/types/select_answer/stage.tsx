@@ -24,7 +24,7 @@ export function SelectAnswerStage({ slide, live, reveal, participants, mode }: S
   return (
     <div className="pt-2 max-h-[55vh] overflow-y-auto">
       {allowMultiple && (
-        <p className="text-center text-[11px] font-bold uppercase tracking-widest text-deck-stage-fg/40 font-mono">
+        <p className="text-center text-sm font-medium text-deck-stage-fg/60">
           Multiple answers allowed
         </p>
       )}
@@ -45,7 +45,7 @@ export function SelectAnswerStage({ slide, live, reveal, participants, mode }: S
         >
           <Lightbulb className="mt-0.5 size-4 shrink-0 text-deck-accent" />
           <div className="space-y-1 min-w-0">
-            <p className="text-[10px] font-extrabold uppercase tracking-widest text-deck-stage-fg/40 font-mono">
+            <p className="text-sm font-medium text-deck-stage-fg/60">
               Explanation
             </p>
             <p className="text-sm sm:text-base leading-relaxed text-deck-stage-fg/80whitespace-pre-line break-words">
@@ -104,7 +104,7 @@ function OptionColumns({
                   <span className="text-base sm:text-lg font-bold text-deck-stage-fg leading-none">
                     {count}
                   </span>
-                  <span className="block text-[11px] text-deck-stage-fg/40 font-semibold leading-none mt-0.5">
+                  <span className="block text-sm font-medium text-deck-stage-fg/60 leading-none mt-0.5">
                     {sharePct}%
                   </span>
                 </div>
@@ -139,7 +139,7 @@ function OptionColumns({
               {/* Option label and letter badge */}
               <div className="flex flex-col items-center space-y-1.5 text-center max-w-full">
                 <div
-                  className={`flex size-8 shrink-0 items-center justify-center rounded-xl text-xs font-extrabold uppercase tracking-wider ${
+                  className={`flex size-8 shrink-0 items-center justify-center rounded-lg font-mono text-sm font-semibold ${
                     isCorrect
                       ? "bg-deck-correct text-deck-stage-fg shadow-sm"
                       : "bg-deck-stage-fg/10 text-deck-stage-fg/90 border border-deck-stage-fg/15"

@@ -240,10 +240,18 @@
   }
 }
 
-/* Headings: semibold, tight tracking from the display sizes up (set per class). */
-h1, h2, h3, h4, h5, h6 {
-  @apply font-semibold text-foreground;
+/* Heading defaults: semibold, -0.02em, ink. This CSS ends up unlayered, and
+   unlayered rules beat every utility, so each default only applies where the
+   heading has no utility of its own for it (the dark stage colours its
+   headings with `text-deck-stage-fg`; display headings set their tracking). */
+:is(h1, h2, h3, h4, h5, h6):not([class*="font-"]) {
+  font-weight: var(--font-weight-semibold);
+}
+:is(h1, h2, h3, h4, h5, h6):not([class*="tracking-"]) {
   letter-spacing: -0.02em;
+}
+:is(h1, h2, h3, h4, h5, h6):not([class*="text-"]) {
+  color: var(--foreground);
 }
 
 /* ── Scrollbars ─────────────────────────────────────────────────────────── */

@@ -12,10 +12,10 @@ export function LeaderboardModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-deck-stage-scrim/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="max-w-md w-full rounded-3xl border border-deck-accent/20 bg-deck-stage-panel p-6 space-y-5 shadow-2xl relative">
+      <div className="relative w-full max-w-md space-y-5 rounded-2xl border border-deck-stage-fg/15 bg-deck-stage-panel p-6 shadow-[0_32px_64px_-24px_rgb(0_0_0/0.7)]">
         <div className="flex items-center justify-between border-b border-deck-stage-fg/10 pb-4">
-          <div className="flex items-center gap-2 text-deck-accent font-bold text-base">
-            <Trophy className="size-5" /> {t("title")}
+          <div className="flex items-center gap-2 text-lg font-semibold text-deck-stage-fg">
+            <Trophy className="size-5 text-deck-rank-1" /> {t("title")}
           </div>
           <button
             onClick={onClose}

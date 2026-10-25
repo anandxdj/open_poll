@@ -52,7 +52,7 @@ export function ScalesParticipant({ slide, mode, onSubmit, submitting }: Partici
                 className="w-full h-2 rounded-lg accent-deck-primary bg-deck-secondary cursor-pointer"
               />
 
-              <div className="flex justify-between text-[11px] font-medium text-deck-muted-fg/80">
+              <div className="flex justify-between text-xs font-medium text-deck-muted-fg">
                 <span>{minLabel || t("minLabel")}</span>
                 <span>{maxLabel || t("maxLabel")}</span>
               </div>

@@ -1,7 +1,7 @@
 ---
 summary: Live deck surfaces — host console, participant shell, stage — their session-aware flows, and their extension points: live store/reducer, slots, slide runtime registry, deck theme tokens, live i18n.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-10-25
 ---
 
 # Live Surfaces
@@ -310,13 +310,21 @@ has a runtime.
 
 - Every live surface colours itself through `--deck-*` variables via Tailwind colours
   `deck-*` (`bg-deck-stage-bg`, `text-deck-accent/40`, `border-deck-correct/50`…), registered with
-  `@theme inline` in `tokens.css` (imported by `app/globals.css`). No raw palette or app-theme
-  colours in live UI.
-- Defaults reproduce the built-in look: audience surfaces (`bg`, `fg`, `surface`, `secondary`,
-  `muted-fg`, `border`, `input`, `ring`, `primary`, `primary-fg`) follow the app's light/dark
-  tokens; the stage (`stage-bg` #050505, `stage-chrome`, `stage-panel`, `stage-fg`…) is always
-  dark; accents (`accent`, `correct*`, `danger*`, `wrong`, `info`, `bar`, `rank-1..3`,
-  `cloud-1..12`, glows) are the Tailwind palette values used before.
+  `@theme inline` in `tokens.css` (imported by `app/globals.css`). No raw palette colours in live
+  UI; the phone's result states (correct / wrong / received) use the app's theme-aware `success`,
+  `destructive` and `info`, because the audience surface follows the app's light or dark theme.
+- Defaults are the Graph paper look (`../ui/design-system.md`): audience surfaces (`bg`, `fg`,
+  `surface`, `secondary`, `muted-fg`, `border`, `input`, `ring`, `primary`, `primary-fg`) follow the
+  app's light/dark tokens; the stage is always dark, the app's warm graphite (`stage-bg` #141413,
+  `stage-chrome`, `stage-panel`, `stage-fg` #f2f1ec); `accent` is the brand ember (#f97316), the
+  status accents match the app (green correct and live, red danger), `rank-1..3` gold / silver /
+  bronze, and `cloud-1..12` start with the app's categorical chart hues.
+- `.stage-grid` (in `tokens.css`) draws the graph paper in the stage's own ink behind the ready,
+  lobby and end screens; a running slide has a plain stage.
+- Stage chrome (host header and controls, lobby, ready, end, response counter, leaderboard) uses
+  sentence case and 14px+ labels, neutral outline pills for secondary controls, the accent only on
+  the main action (Start, Next) and the join code; ending the session is an ink (`stage-fg`)
+  button, not red.
 - `<DeckThemeProvider theme={{ tokens: { primary: '#…' } }}>` sets overrides as inline variables
   on a `display: contents` element; inside it the shadcn tokens (`--primary`, `--background`…)
   are remapped to the deck ones so `Button`/`Input` follow. `DECK_TOKENS` lists every token.

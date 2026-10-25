@@ -21,7 +21,7 @@ export function InstructionsParticipant({ slide, mode }: ParticipantViewProps) {
       <p className="font-bold">{t("connected")}</p>
       {showCode && joinCode && (
         <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-widest text-deck-muted-fg">{t("code")}</p>
+          <p className="text-sm font-medium text-deck-muted-fg">{t("code")}</p>
           <p className="font-mono text-4xl font-black tracking-[0.15em] text-deck-primary tabular-nums">{joinCode}</p>
         </div>
       )}

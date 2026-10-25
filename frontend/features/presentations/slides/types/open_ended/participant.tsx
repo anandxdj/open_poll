@@ -25,7 +25,7 @@ export function OpenEndedParticipant({ mode, onSubmit, submitting }: Participant
           disabled={locked}
           className="min-h-[140px] rounded-2xl bg-deck-surface border-deck-border/80 text-base p-4 resize-none focus:ring-2 focus:ring-deck-primary/30"
         />
-        <div className="absolute bottom-3 right-3 text-[11px] font-mono text-deck-muted-fg/60">
+        <div className="absolute bottom-3 right-3 font-mono text-xs text-deck-muted-fg">
           {typedText.length}/{MAX_LENGTH}
         </div>
       </div>

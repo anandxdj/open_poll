@@ -14,7 +14,7 @@ export function ParticipantNotFound() {
     <div className={centered}>
       <div className="space-y-3">
         <PresentationIcon className="size-10 text-deck-muted-fg/40 mx-auto" />
-        <h1 className="text-xl font-bold">{t("notFoundTitle")}</h1>
+        <h1 className="text-2xl font-semibold tracking-[-0.03em]">{t("notFoundTitle")}</h1>
         <p className="text-sm text-deck-muted-fg">{t("notFoundHint")}</p>
       </div>
     </div>
@@ -28,7 +28,7 @@ export function ParticipantKicked() {
     <div className={centered}>
       <div className="space-y-3 max-w-sm">
         <Ban className="size-10 text-deck-wrong mx-auto" />
-        <h1 className="text-xl font-bold">{t("kickedTitle")}</h1>
+        <h1 className="text-2xl font-semibold tracking-[-0.03em]">{t("kickedTitle")}</h1>
         <p className="text-sm text-deck-muted-fg">{t("kickedHint")}</p>
       </div>
     </div>
@@ -42,7 +42,7 @@ export function ParticipantSessionClosed() {
     <div className={centered}>
       <div className="space-y-3 max-w-sm">
         <PartyPopper className="size-10 text-deck-muted-fg/40 mx-auto" />
-        <h1 className="text-xl font-bold">{t("endedTitle")}</h1>
+        <h1 className="text-2xl font-semibold tracking-[-0.03em]">{t("endedTitle")}</h1>
         <p className="text-sm text-deck-muted-fg">{t("endedHint")}</p>
       </div>
     </div>
@@ -55,13 +55,13 @@ export function NewSessionNotice({ onJoin }: { onJoin: () => void }) {
   return (
     <div
       role="status"
-      className="flex flex-wrap items-center justify-center gap-3 border-b border-deck-primary/20 bg-deck-primary/10 px-4 py-2.5 text-center text-xs"
+      className="flex flex-wrap items-center justify-center gap-3 border-b border-deck-border bg-deck-surface px-4 py-2.5 text-center text-sm"
     >
-      <span className="flex items-center gap-1.5 font-semibold text-deck-primary">
+      <span className="flex items-center gap-1.5 font-semibold text-deck-fg">
         <Radio className="size-3.5 animate-pulse" /> {t("newSessionTitle")}
       </span>
       <span className="text-deck-muted-fg">{t("newSessionHint")}</span>
-      <Button size="sm" onClick={onJoin} className="h-7 rounded-full bg-deck-primary px-3 text-xs font-semibold text-deck-primary-fg">
+      <Button size="sm" onClick={onJoin} className="h-8 rounded-full bg-deck-primary px-3.5 text-sm font-semibold text-deck-primary-fg">
         {t("newSessionJoin")}
       </Button>
     </div>

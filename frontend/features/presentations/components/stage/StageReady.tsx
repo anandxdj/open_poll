@@ -16,14 +16,14 @@ export function StageReady({ actions }: { actions?: ReactNode }) {
   const totalSlides = useLive((s) => s.totalSlides);
 
   return (
-    <div className="max-w-xl w-full text-center space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700 my-auto">
-      <Presentation className="size-12 text-deck-primary mx-auto" />
-      <div className="space-y-2">
-        <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-deck-stage-fg">{t("title")}</h2>
-        <p className="text-sm font-semibold text-deck-stage-fg/70 truncate">
-          {title} · {totalSlides}
+    <div className="relative my-auto w-full max-w-xl space-y-6 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <Presentation className="mx-auto size-10 text-deck-accent" />
+      <div className="space-y-3">
+        <h2 className="text-4xl font-semibold tracking-[-0.04em] text-deck-stage-fg sm:text-5xl">{t("title")}</h2>
+        <p className="truncate text-base text-deck-stage-fg/80">
+          {title} <span className="font-mono text-sm text-deck-stage-fg/50">({totalSlides})</span>
         </p>
-        <p className="text-xs text-deck-stage-fg/50 max-w-md mx-auto">{t("hint")}</p>
+        <p className="mx-auto max-w-md text-sm text-deck-stage-fg/60">{t("hint")}</p>
       </div>
       {actions && <div className="flex flex-wrap items-center justify-center gap-3 pt-2">{actions}</div>}
     </div>

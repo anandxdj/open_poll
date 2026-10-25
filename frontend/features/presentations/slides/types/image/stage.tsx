@@ -20,7 +20,7 @@ export function ImageStage({ slide, mode }: StageViewProps) {
       <figure className="flex flex-col items-center gap-[2cqw]">
         <div
           className={cn(
-            "w-full overflow-hidden rounded-[2cqw] border border-deck-stage-fg/10 bg-deck-stage-panel shadow-2xl",
+            "w-full overflow-hidden rounded-[2cqw] border border-deck-stage-fg/10 bg-deck-stage-panel shadow-[0_32px_64px_-24px_rgb(0_0_0/0.6)]",
             mode === "thumbnail" ? "h-[360px]" : "h-[58vh]"
           )}
         >
