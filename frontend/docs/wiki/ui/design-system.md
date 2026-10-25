@@ -32,7 +32,7 @@ and `.dark`); components read tokens, never raw hex. Live surfaces layer their `
 | `destructive` | `#c81e1e` | `#ef4444` | Danger |
 | `success` / `warning` / `info` | `#15803d` / `#a14a06` / `#1d4ed8` | `#22c55e` / `#f59e0b` / `#60a5fa` | Status |
 | `ring` | `#b93d0b` | `#fb923c` | Focus outline and border |
-| `chart-1..6` | ember, blue, green, violet, pink, cyan | the same hues, lighter | Categorical series, ember first, 3:1+ on white |
+| `chart-1..6` | ember, blue, green, violet, pink, cyan | the same hues, steps for the dark card | Categorical series in fixed order, ember first; validated with the dataviz palette checks in both themes |
 
 Compatibility: screens that were not redesigned still use `text-primary`; in light mode that class
 (and its hover/focus/group/opacity variants) resolves to `accent-ink` through a shim at the end of
@@ -109,7 +109,7 @@ data series and small check/step marks.
 
 ## App screens
 
-The creator shell, `/polls` and every `/settings` page follow these; analytics, the builders and the live
+The creator shell, `/polls`, every `/settings` page and `/analytics` follow these; the builders and the live
 surfaces still need their layout pass (they re-skin through the tokens only).
 
 - **Shell**: the sidebar is paper (`sidebar`), 14px nav items, the active one a white sheet with a ring and an
