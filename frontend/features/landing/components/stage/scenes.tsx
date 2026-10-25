@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import { WordCloud } from "@/features/presentations/slides/types/wordcloud/WordCloud";
 import { Check, ChevronUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CountUp, ease, useStepper } from "../shared/motion";
@@ -108,39 +109,45 @@ function TypeAnswerScene() {
 
 // Answers in the order they arrive; a word grows with every repeat.
 const WORD_STREAM = [
-  "practical", "fun", "insightful", "practical", "clear", "inspiring", "practical",
-  "insightful", "long", "useful", "practical", "fun", "insightful", "practical",
+  "practical", "fun", "clear", "practical", "useful", "hands-on", "fun", "practical",
+  "engaging", "clear", "relevant", "practical", "insightful", "fun", "useful", "hands-on",
+  "practical", "clear", "inspiring", "engaging", "fun", "practical", "relevant", "useful",
+  "helpful", "hands-on", "clear", "fast", "practical", "interactive", "fun", "deep",
+  "engaging", "focused", "insightful", "friendly", "energizing", "useful", "practical", "new",
+  "clear", "eye-opening", "concrete", "lively", "relevant", "honest", "hands-on", "smart",
+  "inspiring", "creative", "valuable", "sharp", "actionable", "open", "playful", "warm",
+  "fresh", "collaborative", "real", "bold", "simple", "motivating", "candid", "thoughtful",
+  "timely", "solid", "curious", "calm",
 ];
-const WORD_ORDER = ["clear", "insightful", "fun", "practical", "inspiring", "useful", "long"];
+// Answers that land per tick.
+const PER_TICK = 2;
+
+// The product's cloud colours are deck tokens tuned for the dark stage; here they map to the
+// app's categorical chart colours, which hold 3:1 on the stage in both themes.
+const CLOUD_COLOURS = {
+  "--deck-cloud-1": "var(--chart-1)",
+  "--deck-cloud-2": "var(--chart-2)",
+  "--deck-cloud-3": "var(--chart-3)",
+  "--deck-cloud-4": "var(--chart-4)",
+  "--deck-cloud-5": "var(--chart-5)",
+  "--deck-cloud-6": "var(--chart-6)",
+  "--deck-cloud-7": "var(--foreground)",
+  "--deck-cloud-8": "var(--chart-1)",
+  "--deck-cloud-9": "var(--chart-2)",
+  "--deck-cloud-10": "var(--chart-4)",
+  "--deck-cloud-11": "var(--chart-5)",
+  "--deck-cloud-12": "var(--chart-3)",
+} as React.CSSProperties;
 
 function WordCloudScene() {
-  const step = useStepper(WORD_STREAM.length, 260);
+  const step = useStepper(Math.ceil(WORD_STREAM.length / PER_TICK), 130);
   const counts = new Map<string, number>();
-  for (const w of WORD_STREAM.slice(0, step + 1)) counts.set(w, (counts.get(w) ?? 0) + 1);
-  const top = Math.max(...counts.values());
-  const from = useFrom({ opacity: 0, scale: 0.6 });
+  for (const w of WORD_STREAM.slice(0, (step + 1) * PER_TICK)) counts.set(w, (counts.get(w) ?? 0) + 1);
+  const words = [...counts].map(([text, count]) => ({ text, count }));
 
   return (
-    <div className="flex h-full flex-wrap content-center items-center justify-center gap-x-5 gap-y-2">
-      {WORD_ORDER.filter((w) => counts.has(w)).map((w) => {
-        const n = counts.get(w)!;
-        return (
-          // No layout animation: the font size eases (CSS) and the row reflows with it.
-          <motion.span
-            key={w}
-            initial={from}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4, ease }}
-            className={cn(
-              "font-semibold leading-none tracking-[-0.03em] transition-[font-size] duration-300",
-              n === top ? "text-accent-ink" : n > 1 ? "text-foreground" : "text-muted-foreground",
-            )}
-            style={{ fontSize: `${16 + n * 9}px` }}
-          >
-            {w}
-          </motion.span>
-        );
-      })}
+    <div className="h-full" style={CLOUD_COLOURS}>
+      <WordCloud words={words} className="relative size-full overflow-hidden select-none" />
     </div>
   );
 }

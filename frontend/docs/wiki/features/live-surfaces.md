@@ -281,6 +281,15 @@ the explanation shows in `reveal`/`report`, and only graded slides (`points > 0`
 options — an ungraded one shows plain results. `isGradedSlide(slide)` (`slides/shared.ts`) is the
 participant shell's rule: a 0-point select answer gets "response received", never right/wrong.
 
+**wordcloud.** `slides/types/wordcloud/WordCloud.tsx` lays the words out on the client once
+mounted: it measures each word's ink on a canvas in the cloud's own font (900 weight,
+`tracking-tight`), places the most frequent first on an Archimedean spiral stretched to the box's
+aspect ratio (big words read across, about 40% of the smaller ones run vertically), then scales the
+whole cloud to fit its box (up to 1.5× when sparse). It lays out again when the box resizes or a
+font finishes loading. Colours come from `cloud-1..12`, hashed from the word, so a word keeps its
+colour as the cloud grows. New words fade in at their spot; the rest spring to new places.
+`className` replaces the default box (the landing sample uses it).
+
 **Advanced interactive types** (`guess_number`, `hundred_points`, `grid_2x2`, `pin_on_image`; all
 `response`). The participant slide carries the type's sanitized settings (`config`, and `content` for
 the pin image: never the correct number, tolerance or area), read with the defensive readers in
