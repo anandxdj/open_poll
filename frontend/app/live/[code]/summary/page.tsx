@@ -5,6 +5,9 @@ import { ParticipantSummary } from "@/features/sessions/components/ParticipantSu
 export const metadata: Metadata = {
   title: "Your results",
   robots: { index: false, follow: false },
+  // Not the parent's "Join the live session" card: this page is one participant's results.
+  openGraph: { title: "Your results | Open Poll", url: null },
+  twitter: { title: "Your results | Open Poll" },
 };
 
 // A participant's own results: `?sid=` pins the session (the end screen links it),

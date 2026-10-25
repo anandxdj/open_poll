@@ -1,4 +1,5 @@
 // Landing page sections and shared marketing building blocks.
+export * from "./components/LandingPage";
 export * from "./components/hero/Hero";
 export * from "./components/hero/LiveRoomPreview";
 export * from "./components/hero/Navbar";

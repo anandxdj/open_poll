@@ -1,42 +1,16 @@
-"use client";
+import type { Metadata } from "next";
 
-import { MotionConfig } from "framer-motion";
-import {
-  Capabilities,
-  Faq,
-  FinalCta,
-  Footer,
-  Hero,
-  Navbar,
-  Pricing,
-  QuestionTypes,
-  ShowcaseSections,
-  Steps,
-} from "@/features/landing";
+import { LandingPage } from "@/features/landing";
+import { landingJsonLd, serializeJsonLd } from "@/lib/seo/json-ld";
+import { pageMetadata } from "@/lib/seo/site";
 
-export default function LandingPage() {
+export const metadata: Metadata = pageMetadata("/");
+
+export default function Home() {
   return (
-    // reducedMotion="user": framer-motion skips transform animations for people who ask for less motion.
-    <MotionConfig reducedMotion="user">
-      <div className="mk-surface relative min-h-dvh overflow-x-clip bg-background text-foreground">
-        <a href="#main" className="mk-skip-link">
-          Skip to content
-        </a>
-        <Navbar />
-
-        <main id="main">
-          <Hero />
-          <QuestionTypes />
-          <Steps />
-          <ShowcaseSections />
-          <Capabilities />
-          <Pricing />
-          <Faq />
-          <FinalCta />
-        </main>
-
-        <Footer />
-      </div>
-    </MotionConfig>
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(landingJsonLd()) }} />
+      <LandingPage />
+    </>
   );
 }

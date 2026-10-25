@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Instrument_Serif, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import GlobalClientLayout from "@/components/layouts/GlobalClientLayout";
+import { getSiteUrl, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE } from "@/lib/seo/site";
 
 // UI and display type.
 const interTight = Inter_Tight({
@@ -26,24 +27,52 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
+// Site-wide defaults; public pages add their own title, description and
+// canonical URL with `pageMetadata` (lib/seo/site.ts), private ones `NO_INDEX`.
 export const metadata: Metadata = {
+  metadataBase: getSiteUrl(),
   title: {
-    default: "Open Poll — Live polls, quizzes and Q&A",
-    template: "%s | Open Poll",
+    default: SITE_TITLE,
+    template: `%s | ${SITE_NAME}`,
   },
-  description:
-    "Build decks of polls, quizzes, word clouds and Q&A, or draft one with AI. Your audience joins with a code and answers live.",
-  keywords: ["live polls", "quiz", "audience response", "Q&A", "word cloud", "presentation"],
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    "live polls",
+    "quiz",
+    "audience response",
+    "Q&A",
+    "word cloud",
+    "interactive presentation",
+    "audience engagement",
+  ],
+  category: "productivity",
   icons: {
     icon: [{ url: "/logo-openpoll.svg", type: "image/svg+xml" }],
     shortcut: "/logo-openpoll.svg",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Open Poll — Live polls, quizzes and Q&A",
-    description: "Live polls, quizzes and Q&A for presentations. Your audience joins with a code.",
     type: "website",
+    siteName: SITE_NAME,
+    locale: "en_US",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
   },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  formatDetection: { telephone: false, email: false, address: false },
+};
+
+export const viewport: Viewport = {
+  // Browser chrome takes the page colour: paper in light, warm graphite in dark.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f6f6f3" },
+    { media: "(prefers-color-scheme: dark)", color: "#141413" },
+  ],
 };
 
 export default function RootLayout({

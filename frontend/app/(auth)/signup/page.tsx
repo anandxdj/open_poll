@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/site";
 import { Suspense } from "react";
 import { SignupForm } from "@/features/auth";
+
+// The auth group is noindex by default (reset and verify links); this page is a public entry point.
+export const metadata: Metadata = { ...pageMetadata("/signup"), robots: { index: true, follow: true } };
 
 export default function SignupPage() {
   return (
