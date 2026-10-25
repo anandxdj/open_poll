@@ -11,8 +11,9 @@ Presentation only: no API, route or data-flow changes. Visual rules, tokens and 
 
 ## Landing (`app/page.tsx`, `features/landing/`)
 
-`app/page.tsx` wraps everything in `MotionConfig reducedMotion="user"` and `.mk-surface`, adds a
-skip link and renders, in order:
+`app/page.tsx` is a server component: it sets the page metadata, renders the landing JSON-LD (see
+`seo.md`) and `LandingPage` (`components/LandingPage.tsx`, client), which wraps everything in
+`MotionConfig reducedMotion="user"` and `.mk-surface`, adds a skip link and renders, in order:
 
 | Section | File | Notes |
 | --- | --- | --- |
@@ -23,7 +24,7 @@ skip link and renders, in order:
 | Showcase | `components/features/ShowcaseSections.tsx`, `components/mockups/*` | Three alternating rows (copy 5 columns, visual 7) with a hairline check list; each visual sits on a `PlotPanel` (graph paper) and `MockFrame` is the shared bordered illustration frame (sample content, one image to assistive tech). |
 | Features | `components/features/Capabilities.tsx`, `CapabilityArt.tsx` | A bento in one bordered block: four featured cells (Q&A, AI drafts, import, reports; spans 7/5/5/7 on `lg`), then four compact cells (live decks, teams, privacy, quick polls; 3 each). Every cell has an illustration that plays once when half on screen. |
 | Pricing | `components/pricing/Pricing.tsx` | Unchanged data flow: `usePlanCatalog()` (`/api/plans` with `FALLBACK_CATALOG`). The most popular plan is the one dark sheet (`dark` class on the card). A paid plan with no configured price reads "Pricing soon", Enterprise "Custom". "Contact sales" stays disabled without `NEXT_PUBLIC_SALES_EMAIL`, with a visible note. |
-| FAQ | `components/faq/Faq.tsx` | Radix accordion (`type="single" collapsible`), questions are h3 buttons, heading sticky beside it on `lg`. |
+| FAQ | `components/faq/Faq.tsx`, `content.ts` | Radix accordion (`type="single" collapsible`, controlled), questions are h3 buttons, heading sticky beside it on `lg`. The questions and answers live in `features/landing/content.ts`, shared with the FAQ JSON-LD and `/llms.txt`. Closed answers stay in the HTML (`forceMount` + `hidden`) so crawlers that do not run scripts read them; opening animates, closing is instant. |
 | Final CTA, footer | `components/cta/FinalCta.tsx`, `components/social/Footer.tsx` | The CTA ends on the hero's graph paper, heading left, pills right. The footer lists only real destinations, then the "Open Poll." wordmark sized to the column with container units (`24.6cqw`, `aria-hidden`), then the copyright and theme switch. |
 
 Illustrations in the bento and the steps share `components/shared/ArtFrame.tsx`: graph paper, a "Sample"
