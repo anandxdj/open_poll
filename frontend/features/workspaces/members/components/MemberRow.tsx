@@ -66,12 +66,13 @@ export function MemberRow({ member, selfId, myRole, canManage, isPrimaryOwner, b
     <li className="flex flex-wrap items-center gap-3 py-3" data-testid="member-row" data-email={member.email}>
       <span
         aria-hidden="true"
-        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary"
+        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary font-mono text-xs font-medium text-foreground"
       >
         {initials(member.name)}
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground/90">
+      {/* At least 14rem for who they are; on phones the role and actions wrap below. */}
+      <div className="min-w-0 flex-1 basis-56">
+        <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
           <span className="truncate">{member.name}</span>
           {isSelf ? <Badge>You</Badge> : null}
           {member.isPrimaryOwner ? <Badge tone="primary">Primary owner</Badge> : null}
@@ -96,19 +97,17 @@ export function MemberRow({ member, selfId, myRole, canManage, isPrimaryOwner, b
         ) : actions.length > 0 ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="ghost" size="icon" className="rounded-xl" aria-label={`Actions for ${member.name}`}>
+              <Button type="button" variant="ghost" size="icon" aria-label={`Actions for ${member.name}`}>
                 <MoreHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 rounded-2xl p-1">
+            <DropdownMenuContent align="end" className="w-56 p-1.5">
               {actions.map((entry, index) => (
                 <div key={entry.action}>
                   {entry.danger && index > 0 ? <DropdownMenuSeparator /> : null}
                   <DropdownMenuItem
-                    className={cn(
-                      "flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium",
-                      entry.danger && "text-red-500 focus:bg-red-500/10 focus:text-red-500",
-                    )}
+                    variant={entry.danger ? "destructive" : "default"}
+                    className="cursor-pointer"
                     onSelect={() => onAction(member, entry.action)}
                   >
                     {entry.icon}
@@ -128,10 +127,10 @@ function Badge({ children, tone = "muted" }: { children: React.ReactNode; tone?:
   return (
     <span
       className={cn(
-        "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-        tone === "primary" && "border-primary/30 bg-primary/10 text-primary",
-        tone === "warn" && "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
-        tone === "muted" && "border-border bg-secondary/40 text-muted-foreground",
+        "rounded-full border px-2 py-0.5 text-xs font-medium",
+        tone === "primary" && "border-primary/30 bg-primary/10 text-accent-ink",
+        tone === "warn" && "border-warning/30 bg-warning/10 text-warning",
+        tone === "muted" && "border-border bg-secondary text-muted-foreground",
       )}
     >
       {children}

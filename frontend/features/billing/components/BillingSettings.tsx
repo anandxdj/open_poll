@@ -5,13 +5,14 @@ import { Info, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useCurrentWorkspace } from "@/features/workspaces/hooks/useWorkspaces";
+import { SettingsHeading } from "@/features/workspaces/settings/blocks";
 import { useBilling } from "../hooks/useBilling";
 import { BillingIntlProvider } from "./BillingIntlProvider";
 import { PlanCard } from "./PlanCard";
 import { UpgradePlans } from "./UpgradePlans";
 import { UsageCard } from "./UsageCard";
 
-const card = "rounded-[1.5rem] border border-border bg-card p-6";
+const card = "rounded-xl border border-border bg-card p-5 sm:p-6";
 const ACTIVATION_POLLS = 10;
 const ACTIVATION_POLL_MS = 3_000;
 
@@ -42,18 +43,13 @@ function BillingContent() {
     return () => window.clearTimeout(timer);
   }, [waitingForPlan, polls, refresh]);
 
-  const header = (
-    <div className="space-y-1">
-      <h2 className="sr-only">{t("title")}</h2>
-      <p className="text-sm text-muted-foreground">{t("description")}</p>
-    </div>
-  );
+  const header = <SettingsHeading title={t("title")} description={t("description")} />;
 
   if (workspaceFailed || failed) {
     return (
       <div className={`${card} space-y-3`}>
         <p className="text-sm text-muted-foreground">{t("loadError")}</p>
-        <Button variant="outline" className="rounded-xl" onClick={workspaceFailed ? retry : reload}>
+        <Button variant="outline" onClick={workspaceFailed ? retry : reload}>
           {t("retry")}
         </Button>
       </div>
@@ -87,17 +83,17 @@ function BillingContent() {
       {header}
 
       {!overview.enabled ? (
-        <div role="status" className={`${card} flex gap-3 border-primary/30 bg-primary/5`} data-testid="billing-disabled">
-          <Info className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
+        <div role="status" className="flex gap-3 rounded-xl border border-border bg-secondary/60 p-5 sm:p-6" data-testid="billing-disabled">
+          <Info className="mt-0.5 size-5 shrink-0 text-accent-ink" aria-hidden />
           <div className="space-y-1">
-            <p className="font-semibold text-foreground/90">{t("disabled.title")}</p>
+            <p className="font-semibold text-foreground">{t("disabled.title")}</p>
             <p className="text-sm text-muted-foreground">{t("disabled.body")}</p>
           </div>
         </div>
       ) : null}
 
       {returned === "success" ? (
-        <p role="status" className={`${card} text-sm text-foreground/90`} data-testid="checkout-status">
+        <p role="status" className={`${card} text-sm text-foreground`} data-testid="checkout-status">
           {planActivated ? t("checkout.activated") : polls >= ACTIVATION_POLLS ? t("checkout.delayed") : t("checkout.activating")}
         </p>
       ) : null}

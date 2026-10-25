@@ -43,7 +43,7 @@ export function PendingInvites({ workspaceId, invites, onChanged }: PendingInvit
             <Mail className="size-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground/90">{invite.email}</p>
+            <p className="truncate text-sm font-medium text-foreground">{invite.email}</p>
             <p className="text-xs text-muted-foreground">
               {ROLE_NAMES[invite.role]} · expires {formatDistanceToNowStrict(new Date(invite.expiresAt), { addSuffix: true })}
               {invite.invitedBy ? ` · invited by ${invite.invitedBy.name}` : ""}
@@ -53,7 +53,7 @@ export function PendingInvites({ workspaceId, invites, onChanged }: PendingInvit
             type="button"
             variant="ghost"
             size="sm"
-            className="rounded-xl text-muted-foreground hover:text-destructive"
+            className="text-muted-foreground hover:text-destructive"
             disabled={revoking === invite.id}
             onClick={() => void revoke(invite)}
             aria-label={`Revoke invitation for ${invite.email}`}

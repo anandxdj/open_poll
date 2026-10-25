@@ -16,7 +16,7 @@ function Meter({ label, used, limit }: { label: string; used: number; limit: num
   return (
     <div className="space-y-2" data-testid="usage-meter">
       <div className="flex items-baseline justify-between gap-4 text-sm">
-        <span className="font-medium text-foreground/90">{label}</span>
+        <span className="font-medium text-foreground">{label}</span>
         <span className="tabular-nums text-muted-foreground">{text}</span>
       </div>
       <Progress
@@ -38,15 +38,15 @@ export function UsageCard({ overview }: { overview: BillingOverview }) {
   return (
     <section className="space-y-4">
       <div className="space-y-1">
-        <h2 className="text-xl font-bold text-foreground/90">{t("heading")}</h2>
+        <h2 className="text-xl font-semibold tracking-[-0.02em] text-foreground">{t("heading")}</h2>
         <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
-      <div className="space-y-6 rounded-[1.5rem] border border-border bg-card p-6">
+      <div className="space-y-6 rounded-xl border border-border bg-card p-5 sm:p-6">
         {decks ? <Meter label={t("aiDecks")} used={decks.used} limit={decks.limit} /> : null}
         {imports ? <Meter label={t("imports")} used={imports.used} limit={imports.limit} /> : null}
         <Meter label={t("members")} used={overview.seats.used} limit={overview.seats.limit} />
         <div className="flex items-baseline justify-between gap-4 border-t border-border pt-4 text-sm">
-          <span className="font-medium text-foreground/90">{t("participants")}</span>
+          <span className="font-medium text-foreground">{t("participants")}</span>
           <span className="tabular-nums text-muted-foreground">
             {formatLimit(overview.entitlements.limits.audienceCap)}
           </span>

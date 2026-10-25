@@ -26,13 +26,13 @@ interface ConfirmDialogProps {
 export function ConfirmDialog({ open, title, description, confirmLabel, destructive, busy, onConfirm, onCancel }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={(next) => !next && !busy && onCancel()}>
-      <AlertDialogContent className="rounded-3xl border-border bg-card">
+      <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-xl font-bold">{title}</AlertDialogTitle>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription className="text-sm text-muted-foreground">{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="mt-4 gap-3">
-          <AlertDialogCancel className="rounded-xl border-border bg-secondary/50 hover:bg-secondary" disabled={busy}>
+          <AlertDialogCancel disabled={busy}>
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
@@ -41,7 +41,7 @@ export function ConfirmDialog({ open, title, description, confirmLabel, destruct
               event.preventDefault();
               onConfirm();
             }}
-            className={destructive ? "rounded-xl bg-red-500 font-bold text-white hover:bg-red-600" : "rounded-xl font-bold"}
+            className={destructive ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : undefined}
           >
             {confirmLabel}
           </AlertDialogAction>

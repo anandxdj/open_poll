@@ -99,15 +99,15 @@ export function McpSettingsSection() {
   return (
     <section id="mcp" className="scroll-mt-20 space-y-6">
       <div className="space-y-1">
-        <h2 className="text-xl font-bold text-foreground/90">MCP Integration</h2>
+        <h2 className="text-xl font-semibold tracking-[-0.02em] text-foreground">MCP integration</h2>
         <p className="text-sm text-muted-foreground">
           Connect Open Poll to Claude or other MCP clients using a personal access token.
         </p>
       </div>
 
-      <div className="rounded-[1.5rem] border border-border bg-card p-6 space-y-6">
-        <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-secondary/20 p-4">
-          <Plug className="mt-0.5 size-4 shrink-0 text-primary" />
+      <div className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-6">
+        <div className="flex items-start gap-3 rounded-lg border border-border bg-secondary/50 p-4">
+          <Plug className="mt-0.5 size-4 shrink-0 text-accent-ink" />
           <div className="space-y-1 text-sm text-muted-foreground">
             <p>
               Generate a token, copy the connector config, and paste it into your MCP client settings.
@@ -116,7 +116,7 @@ export function McpSettingsSection() {
             <p>Deletion and closing polls stay in the web app only.</p>
             {mcpUrl ? (
               <p className="text-xs">
-                MCP endpoint: <span className="font-mono text-foreground/80">{mcpUrl}</span>
+                MCP endpoint: <span className="font-mono text-foreground">{mcpUrl}</span>
               </p>
             ) : null}
           </div>
@@ -134,40 +134,40 @@ export function McpSettingsSection() {
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="Claude Desktop"
-              className="rounded-xl"
+             
             />
           </div>
           <Button
             onClick={() => void handleGenerate()}
             disabled={submitting || !label.trim()}
-            className="rounded-xl"
+           
           >
             {submitting ? <Loader2 className="size-4 animate-spin" /> : "Generate token"}
           </Button>
         </div>
 
         {issued ? (
-          <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+          <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-foreground/90">Copy this config now</p>
+                <p className="text-sm font-semibold text-foreground">Copy this config now</p>
                 <p className="text-xs text-muted-foreground">
                   The raw token is embedded below and won&apos;t be shown again.
                 </p>
               </div>
-              <Button variant="outline" size="sm" className="rounded-xl" onClick={() => void copyConfig()}>
+              <Button variant="outline" size="sm" onClick={() => void copyConfig()}>
                 <Copy className="mr-2 size-3.5" />
                 {copied ? "Copied" : "Copy config"}
               </Button>
             </div>
-            <pre className="max-h-64 overflow-auto rounded-lg border border-border bg-background p-3 text-xs font-mono text-foreground/80">
+            <pre className="max-h-64 overflow-auto rounded-lg border border-border bg-background p-3 text-xs font-mono text-foreground">
               {configText}
             </pre>
           </div>
         ) : null}
 
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-foreground/90">Active tokens</h3>
+          <h3 className="text-sm font-semibold text-foreground">Active tokens</h3>
           {loading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
@@ -180,10 +180,10 @@ export function McpSettingsSection() {
               {tokens.map((token) => (
                 <li
                   key={token.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-secondary/10 px-3 py-2.5"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2.5"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground/90">{token.label}</p>
+                    <p className="truncate text-sm font-medium text-foreground">{token.label}</p>
                     <p className="font-mono text-xs text-muted-foreground">
                       {token.prefix}…{token.last4}
                     </p>

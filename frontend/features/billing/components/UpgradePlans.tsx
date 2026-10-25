@@ -47,8 +47,8 @@ export function UpgradePlans({ overview }: { overview: BillingOverview }) {
   if (blocked) {
     return (
       <section className="space-y-4">
-        <h2 className="text-xl font-bold text-foreground/90">{t("heading")}</h2>
-        <p className="rounded-[1.5rem] border border-border bg-card p-6 text-sm text-muted-foreground" data-testid="upgrade-blocked">
+        <h2 className="text-xl font-semibold tracking-[-0.02em] text-foreground">{t("heading")}</h2>
+        <p className="rounded-xl border border-border bg-card p-5 sm:p-6 text-sm text-muted-foreground" data-testid="upgrade-blocked">
           {blocked === "already_subscribed" ? t("alreadySubscribed") : t("managedManually")}
         </p>
       </section>
@@ -58,7 +58,7 @@ export function UpgradePlans({ overview }: { overview: BillingOverview }) {
   return (
     <section className="space-y-6">
       <div className="space-y-1">
-        <h2 className="text-xl font-bold text-foreground/90">{t("heading")}</h2>
+        <h2 className="text-xl font-semibold tracking-[-0.02em] text-foreground">{t("heading")}</h2>
         <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
 
@@ -71,7 +71,7 @@ export function UpgradePlans({ overview }: { overview: BillingOverview }) {
           <Label htmlFor="billing-interval" className={cn("text-sm", interval === "yearly" ? "text-foreground" : "text-muted-foreground")}>
             {t("yearly")}
             {savings ? (
-              <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary ring-1 ring-inset ring-primary/20">
+              <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-accent-ink ring-1 ring-inset ring-primary/20">
                 {t("save", { percent: savings })}
               </span>
             ) : null}
@@ -87,13 +87,13 @@ export function UpgradePlans({ overview }: { overview: BillingOverview }) {
           const available = overview.checkout[id][interval];
           const current = overview.plan === id;
           return (
-            <div key={id} className="flex flex-col gap-5 rounded-[1.5rem] border border-border bg-card p-6" data-testid={`upgrade-${id}`}>
+            <div key={id} className="flex flex-col gap-5 rounded-xl border border-border bg-card p-5 sm:p-6" data-testid={`upgrade-${id}`}>
               <div className="space-y-2">
-                <h3 className="text-lg font-bold text-foreground/90">{plan.name}</h3>
+                <h3 className="text-lg font-semibold tracking-[-0.02em] text-foreground">{plan.name}</h3>
                 {price ? (
                   <div>
                     <p className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold tracking-tight">{formatMoney(perMonth(price, interval).amount, price.currency)}</span>
+                      <span className="text-3xl font-semibold tracking-[-0.03em]">{formatMoney(perMonth(price, interval).amount, price.currency)}</span>
                       <span className="text-sm text-muted-foreground">{plan.perSeat ? t("perSeatMonth") : t("perMonth")}</span>
                     </p>
                     {interval === "yearly" ? (
@@ -109,8 +109,8 @@ export function UpgradePlans({ overview }: { overview: BillingOverview }) {
                 {planHighlights(plan)
                   .slice(0, 6)
                   .map((line) => (
-                    <li key={line} className="flex gap-2 text-sm text-foreground/80">
-                      <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                    <li key={line} className="flex gap-2 text-sm text-foreground">
+                      <Check className="mt-0.5 size-4 shrink-0 text-accent-ink" aria-hidden />
                       {line}
                     </li>
                   ))}
@@ -127,14 +127,14 @@ export function UpgradePlans({ overview }: { overview: BillingOverview }) {
                     max={SEATS_MAX}
                     value={seatsInput ?? String(Math.max(members, 1))}
                     onChange={(event) => setSeatsInput(event.target.value)}
-                    className="w-28 rounded-xl"
+                    className="w-28"
                   />
                   <p className="text-xs text-muted-foreground">{t("seatsHint", { members })}</p>
                 </div>
               ) : null}
 
               <Button
-                className="w-full rounded-xl"
+                className="w-full"
                 disabled={!available || current || busy !== null}
                 onClick={() => void choose(id)}
                 data-testid={`choose-${id}`}

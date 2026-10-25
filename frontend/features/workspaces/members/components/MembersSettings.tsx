@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { SettingsHeading, settingsCard } from "../../settings/blocks";
 import { useCurrentWorkspace } from "../../hooks/useWorkspaces";
 import { useWorkspaceStore } from "../../store/useWorkspaceStore";
 import { PLAN_NAMES, ROLE_NAMES, type WorkspaceDetail, type WorkspaceRole } from "../../types";
@@ -17,16 +18,7 @@ import { InviteForm } from "./InviteForm";
 import { MemberRow, type MemberAction } from "./MemberRow";
 import { PendingInvites } from "./PendingInvites";
 
-const card = "rounded-[1.5rem] border border-border bg-card p-6";
 
-function SectionHeading({ title, description }: { title: string; description?: string }) {
-  return (
-    <div className="space-y-1">
-      <h2 className="text-xl font-bold text-foreground/90">{title}</h2>
-      {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
-    </div>
-  );
-}
 
 interface Loaded {
   list: MemberList;
@@ -149,9 +141,9 @@ function MembersPanel({ detail }: { detail: WorkspaceDetail }) {
 
   if (error && !data) {
     return (
-      <div className={`${card} space-y-3`}>
+      <div className={`${settingsCard} space-y-3`}>
         <p className="text-sm text-muted-foreground">{error}</p>
-        <Button variant="outline" className="rounded-xl" onClick={reload}>
+        <Button variant="outline" onClick={reload}>
           Try again
         </Button>
       </div>
@@ -173,16 +165,16 @@ function MembersPanel({ detail }: { detail: WorkspaceDetail }) {
   return (
     <div className="space-y-12">
       <section className="space-y-6">
-        <SectionHeading
+        <SettingsHeading
           title="Members"
           description={`${describeSeats(list.seats)} on the ${PLAN_NAMES[detail.entitlements.plan]} plan.`}
         />
         {list.canManage ? (
-          <div className={card}>
+          <div className={settingsCard}>
             <InviteForm workspaceId={workspaceId} myRole={myRole} full={!hasFreeSeat(list.seats)} onInvited={reload} />
           </div>
         ) : null}
-        <div className={card}>
+        <div className={settingsCard}>
           <ul className="divide-y divide-border/60" aria-label="Workspace members">
             {list.members.map((member) => (
               <MemberRow
@@ -206,8 +198,8 @@ function MembersPanel({ detail }: { detail: WorkspaceDetail }) {
 
       {list.canManage ? (
         <section className="space-y-6">
-          <SectionHeading title="Pending invitations" description="An invitation holds a seat until it is accepted, revoked or expires." />
-          <div className={card}>
+          <SettingsHeading title="Pending invitations" description="An invitation holds a seat until it is accepted, revoked or expires." />
+          <div className={settingsCard}>
             <PendingInvites workspaceId={workspaceId} invites={invites} onChanged={reload} />
           </div>
         </section>
@@ -235,9 +227,9 @@ export function MembersSettings() {
 
   if (failed) {
     return (
-      <div className={`${card} space-y-3`}>
+      <div className={`${settingsCard} space-y-3`}>
         <p className="text-sm text-muted-foreground">Couldn&apos;t load this workspace.</p>
-        <Button variant="outline" className="rounded-xl" onClick={retry}>
+        <Button variant="outline" onClick={retry}>
           Try again
         </Button>
       </div>
@@ -253,8 +245,8 @@ export function MembersSettings() {
   }
   if (detail.workspace.type !== "team") {
     return (
-      <div className={`${card} space-y-2`}>
-        <h2 className="text-xl font-bold text-foreground/90">Members</h2>
+      <div className={`${settingsCard} space-y-2`}>
+        <h2 className="text-xl font-semibold tracking-[-0.02em] text-foreground">Members</h2>
         <p className="text-sm text-muted-foreground">
           Personal workspaces have only you. Create a team workspace from the workspace menu to work with others.
         </p>
