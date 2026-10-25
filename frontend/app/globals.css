@@ -54,6 +54,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-ink: var(--accent-ink);
   --color-brand: var(--brand);
+  --color-device: var(--device);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
@@ -110,6 +111,8 @@
   --accent-ink: #b93d0b;
   /* Display type and the logo only (3.3:1 on paper, large text) */
   --brand: #ea580c;
+  /* Hardware in illustrations (phone frames): a graphite body in both themes */
+  --device: #1c1b19;
 
   --secondary: #efeee9;
   --secondary-foreground: #171717;
@@ -169,6 +172,7 @@
   --primary-foreground: #1a0d04;
   --accent-ink: #fb923c;
   --brand: #f97316;
+  --device: #2b2a27;
 
   --secondary: #242422;
   --secondary-foreground: #f2f1ec;

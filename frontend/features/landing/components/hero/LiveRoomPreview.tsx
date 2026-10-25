@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Users } from "lucide-react";
+import { BatteryFull, Check, Signal, Users, Wifi } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useReducedMotion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -100,33 +100,79 @@ export function LiveRoomPreview({ className }: { className?: string }) {
             <span className="text-sm text-muted-foreground">Join with code</span>
             <span className="font-mono text-lg font-semibold tracking-[0.12em]">482 913</span>
           </div>
-          <span className="hidden text-sm text-muted-foreground sm:inline">No account needed</span>
+          {/* Hidden from md, where the phone covers this corner */}
+          <span className="hidden text-sm text-muted-foreground sm:inline md:hidden">No account needed</span>
         </div>
       </div>
 
-      {/* Audience phone, overlapping the screen's lower right corner */}
-      <div className="absolute bottom-0 right-0 hidden md:block lg:right-4">
-        <div className="w-[216px] -rotate-2 rounded-[2rem] border border-border bg-card p-2 text-foreground shadow-[0_32px_64px_-20px_rgb(23_23_23/0.4)]">
-          <div className="rounded-[1.5rem] border border-border bg-background px-4 pb-5 pt-4">
-            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" />
-            <p className="text-sm font-semibold leading-snug tracking-tight">What should we cover next?</p>
-            <div className="mt-4 space-y-2">
-              {OPTIONS.map((label, i) => (
-                <div
-                  key={label}
-                  className={cn(
-                    "flex min-h-9 items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-xs",
-                    i === 0
-                      ? "border-primary bg-primary/10 font-medium text-foreground"
-                      : "border-border bg-card text-muted-foreground",
-                  )}
-                >
-                  <span className="truncate">{label}</span>
-                  {i === 0 ? <Check className="size-3.5 shrink-0 text-accent-ink" aria-hidden="true" /> : null}
+      {/* Audience phone at real proportions (9:19.5), resting on the screen's lower right corner */}
+      <div className="absolute bottom-0 right-0 hidden md:block lg:right-2">
+        <div className="relative w-[204px] -rotate-2 lg:w-[228px]">
+          {/* Side buttons: action, volume up and down, power */}
+          <span aria-hidden="true" className="absolute -left-[3px] top-[19%] h-7 w-[3px] rounded-l-sm bg-device" />
+          <span aria-hidden="true" className="absolute -left-[3px] top-[28%] h-12 w-[3px] rounded-l-sm bg-device" />
+          <span aria-hidden="true" className="absolute -left-[3px] top-[39%] h-12 w-[3px] rounded-l-sm bg-device" />
+          <span aria-hidden="true" className="absolute -right-[3px] top-[31%] h-16 w-[3px] rounded-r-sm bg-device" />
+
+          <div className="rounded-[2.75rem] bg-device p-[7px] shadow-[0_40px_80px_-24px_rgb(23_23_23/0.5)]">
+            <div className="relative flex aspect-[9/19.5] flex-col overflow-hidden rounded-[2.3rem] bg-background text-foreground">
+              {/* Status bar around the camera island */}
+              <div className="relative flex h-11 shrink-0 items-center justify-between px-5 pt-1">
+                <span className="w-14 pl-1 text-[13px] font-semibold tabular-nums tracking-[-0.01em]">9:41</span>
+                <span aria-hidden="true" className="absolute left-1/2 top-2.5 h-[20px] w-[58px] -translate-x-1/2 rounded-full bg-black lg:w-[66px]" />
+                <span className="flex w-14 items-center justify-end gap-0.5">
+                  <Signal className="size-3" strokeWidth={2.75} aria-hidden="true" />
+                  <Wifi className="size-3" strokeWidth={2.75} aria-hidden="true" />
+                  <BatteryFull className="size-3.5" strokeWidth={2.25} aria-hidden="true" />
+                </span>
+              </div>
+
+              {/* The participant view: deck and nickname, then the question */}
+              <div className="flex items-center justify-between border-b border-border px-4 pb-2.5 text-xs">
+                <span className="font-semibold">Team offsite</span>
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <span className="size-1.5 rounded-full bg-success" aria-hidden="true" />
+                  Ada
+                </span>
+              </div>
+
+              <div className="flex flex-1 flex-col px-4 pt-4">
+                <p className="text-xs text-muted-foreground">Slide 1 of 3</p>
+                <p className="mt-1 text-sm font-semibold leading-snug tracking-tight">What should we cover next?</p>
+                <div className="mt-3.5 space-y-1.5">
+                  {OPTIONS.map((label, i) => (
+                    <div
+                      key={label}
+                      className={cn(
+                        "flex min-h-9 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs",
+                        i === 0
+                          ? "border-primary bg-primary/10 font-medium text-foreground"
+                          : "border-border bg-card text-muted-foreground",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex size-5 shrink-0 items-center justify-center rounded border font-mono text-xs",
+                          i === 0 ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background",
+                        )}
+                      >
+                        {String.fromCharCode(65 + i)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{label}</span>
+                      {i === 0 ? <Check className="size-3.5 shrink-0 text-accent-ink" aria-hidden="true" /> : null}
+                    </div>
+                  ))}
                 </div>
-              ))}
+                <p className="mt-auto flex items-center justify-center gap-1.5 pb-3 text-xs font-medium text-accent-ink">
+                  <Check className="size-3.5" strokeWidth={2.5} aria-hidden="true" /> Answer sent
+                </p>
+              </div>
+
+              {/* Home indicator */}
+              <div className="flex h-5 shrink-0 items-center justify-center">
+                <span aria-hidden="true" className="h-1 w-24 rounded-full bg-foreground/80" />
+              </div>
             </div>
-            <p className="mt-4 text-center text-xs font-medium text-accent-ink">Answer sent</p>
           </div>
         </div>
       </div>
