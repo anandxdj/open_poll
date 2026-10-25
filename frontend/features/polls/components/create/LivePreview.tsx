@@ -22,85 +22,58 @@ export function LivePreview({
   const progress = totalQuestions > 0 ? ((questionIndex + 1) / totalQuestions) * 100 : 0;
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-        Live Preview
-      </p>
-
-      {/* Phone frame */}
-      <div className="relative w-full max-w-[200px]">
-        {/* Glow */}
-        <div className="absolute -inset-4 rounded-[4rem] bg-primary/[0.06] blur-2xl" />
-
-        {/* Device */}
-        <div className="relative mx-auto w-full aspect-[9/19] rounded-[2.5rem] bg-card border-[6px] border-secondary shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_24px_48px_rgba(0,0,0,0.2)] dark:shadow-[0_24px_48px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col">
-          {/* Notch */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-4 bg-secondary rounded-b-2xl z-10 flex items-center justify-center">
-            <div className="size-1.5 rounded-full bg-border" />
-          </div>
-
-          {/* Progress bar */}
-          <div className="absolute top-4 left-0 right-0 h-0.5 bg-foreground/[0.05] z-20">
+    <figure className="flex w-full flex-col items-center gap-4">
+      {/* A sample of the voting page as respondents see it; one image to assistive tech. */}
+      <div
+        role="img"
+        aria-label={`Preview of question ${questionIndex + 1} on a respondent's phone`}
+        className="w-full max-w-[248px] rounded-[2.25rem] border border-border bg-card p-2 shadow-[0_32px_64px_-24px_rgb(23_23_23/0.35)]"
+      >
+        <div className="flex aspect-[9/17] flex-col overflow-hidden rounded-[1.75rem] border border-border bg-background">
+          {/* Progress through the poll */}
+          <div className="h-1 bg-secondary">
             <motion.div
-              className="h-full bg-primary shadow-[0_0_8px_rgba(216,173,135,0.8)]"
+              className="h-full bg-primary"
               animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.5, ease }}
+              transition={{ duration: 0.4, ease }}
             />
           </div>
 
-          {/* Content */}
-          <div className="flex-1 flex flex-col overflow-hidden pt-8 px-4 pb-4">
-            {/* Poll header */}
-            <div className="mb-3 flex items-center gap-1.5">
-              <div className="size-4 rounded-md bg-primary flex items-center justify-center">
-                <Zap className="size-2.5 text-primary-foreground fill-primary-foreground" />
-              </div>
-              <span className="truncate text-[8px] font-semibold text-muted-foreground">
-                {pollTitle || "Your Poll"}
-              </span>
-            </div>
+          <div className="flex flex-1 flex-col overflow-hidden px-4 pb-4 pt-4">
+            <p className="mb-3 flex items-center gap-1.5 truncate text-xs font-medium text-muted-foreground">
+              <Zap className="size-3.5 shrink-0 text-accent-ink" />
+              <span className="truncate">{pollTitle || "Untitled poll"}</span>
+            </p>
 
             <AnimatePresence mode="wait">
               {question ? (
                 <motion.div
                   key={questionIndex}
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.3, ease }}
-                  className="flex flex-col flex-1 gap-3"
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.25, ease }}
+                  className="flex flex-1 flex-col gap-3"
                 >
-                  {/* Question counter */}
-                  <div className="text-[8px] font-bold uppercase tracking-widest text-primary/70">
-                    Question {questionIndex + 1} of {totalQuestions}
-                  </div>
-
-                  {/* Question text */}
-                  <p className="text-[11px] font-bold text-foreground/90 leading-snug line-clamp-3">
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {questionIndex + 1} of {totalQuestions}
+                  </p>
+                  <p className="line-clamp-3 text-sm font-semibold leading-snug text-foreground">
                     {question.text || "Your question will appear here…"}
                   </p>
 
-                  {/* Options */}
-                  <div className="flex flex-col gap-1.5 flex-1">
-                    {(question.options.length > 0 ? question.options : ["Option A", "Option B"]).map(
-                      (opt, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-2 rounded-xl border border-border bg-secondary/50 px-2.5 py-2 transition-all duration-300 hover:border-primary/50 hover:bg-primary/5 hover:shadow-[0_0_15px_rgba(216,173,135,0.1)] cursor-pointer"
-                        >
-                          <div className="size-3 rounded-full border border-border shrink-0" />
-                          <span className="text-[9px] font-medium text-muted-foreground/60 line-clamp-1">
-                            {opt || `Option ${i + 1}`}
-                          </span>
-                        </div>
-                      )
-                    )}
+                  <div className="flex flex-1 flex-col gap-1.5">
+                    {(question.options.length > 0 ? question.options : ["Option A", "Option B"]).map((opt, i) => (
+                      <div key={i} className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2">
+                        <span className="size-3.5 shrink-0 rounded-full border border-input" />
+                        <span className="line-clamp-1 text-xs text-foreground">{opt || `Option ${i + 1}`}</span>
+                      </div>
+                    ))}
                   </div>
 
-                  {/* Next button */}
-                  <button className="w-full rounded-xl bg-primary py-2 text-[9px] font-bold text-primary-foreground transition-all duration-300 hover:opacity-90 hover:shadow-[0_0_15px_rgba(216,173,135,0.4)]">
-                    {questionIndex === totalQuestions - 1 ? "Submit →" : "Next →"}
-                  </button>
+                  <span className="flex h-9 items-center justify-center rounded-lg bg-primary text-xs font-medium text-primary-foreground">
+                    {questionIndex === totalQuestions - 1 ? "Submit" : "Next"}
+                  </span>
                 </motion.div>
               ) : (
                 <motion.div
@@ -108,19 +81,15 @@ export function LivePreview({
                   animate={{ opacity: 1 }}
                   className="flex flex-1 flex-col items-center justify-center gap-2 text-center"
                 >
-                  <CheckCircle2 className="size-6 text-muted-foreground/20" />
-                  <p className="text-[9px] text-muted-foreground/30">Add questions to preview</p>
+                  <CheckCircle2 className="size-6 text-faint" />
+                  <p className="text-xs text-muted-foreground">Add questions to preview</p>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
         </div>
       </div>
-
-      {/* Device label */}
-      <p className="text-[9px] font-medium uppercase tracking-widest text-muted-foreground/20">
-        Respondent view
-      </p>
-    </div>
+      <figcaption className="text-sm text-muted-foreground">Respondent view</figcaption>
+    </figure>
   );
 }

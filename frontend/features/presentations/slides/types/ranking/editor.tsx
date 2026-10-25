@@ -23,7 +23,7 @@ function RankingEditor({ slide, onChange }: SlideEditorProps) {
       <div className="space-y-2">
         {slide.items.map((item, i) => (
           <div key={i} className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-muted-foreground/40 tabular-nums w-4 text-right">
+            <span className="font-mono text-xs text-muted-foreground tabular-nums w-4 text-right">
               {i + 1}
             </span>
             <Input
@@ -46,7 +46,7 @@ function RankingEditor({ slide, onChange }: SlideEditorProps) {
           variant="ghost"
           size="sm"
           onClick={() => onChange({ items: [...slide.items, ""] })}
-          className="text-xs text-muted-foreground/70 hover:text-foreground"
+          className="text-xs text-muted-foreground hover:text-foreground"
         >
           <Plus className="size-3.5 mr-1" /> Add item
         </Button>

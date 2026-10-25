@@ -30,8 +30,8 @@ function AxisFields({
 }) {
   const id = useId();
   return (
-    <fieldset className="space-y-3 rounded-2xl border border-border/40 bg-secondary/10 p-4">
-      <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{title}</legend>
+    <fieldset className="space-y-3 rounded-lg border border-border bg-secondary/40 p-4">
+      <legend className="px-1 text-sm font-medium text-foreground">{title}</legend>
       <div className="space-y-2">
         <FieldLabel htmlFor={`${id}-label`}>Name</FieldLabel>
         <Input

@@ -3,8 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, PencilLine, X, ArrowRight, Presentation as PresentationIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Sparkles, PencilLine, X, ArrowRight } from "lucide-react";
 
 interface CreatePresentationModalProps {
   open: boolean;
@@ -52,7 +51,7 @@ export function CreatePresentationModal({ open, onClose }: CreatePresentationMod
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22 }}
-            className="fixed inset-0 z-[80] bg-foreground/40 backdrop-blur-[2px]"
+            className="fixed inset-0 z-[80] bg-black/50"
             onClick={onClose}
           />
 
@@ -65,32 +64,35 @@ export function CreatePresentationModal({ open, onClose }: CreatePresentationMod
             transition={{ duration: 0.28, ease }}
             className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="pointer-events-auto w-full max-w-md rounded-[2rem] border border-border bg-card shadow-2xl overflow-hidden">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="create-deck-heading"
+              className="pointer-events-auto w-full max-w-md overflow-hidden rounded-xl border border-border bg-popover shadow-xl shadow-black/15"
+            >
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-border px-6 py-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex size-7 items-center justify-center rounded-xl bg-primary shadow-sm">
-                    <PresentationIcon className="size-3.5 text-primary-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-foreground/90 leading-none">New Presentation Deck</p>
-                    <p className="text-[10px] font-medium text-muted-foreground mt-0.5">Name your deck to get started</p>
-                  </div>
+              <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
+                <div>
+                  <h2 id="create-deck-heading" className="text-lg font-semibold tracking-[-0.02em] text-foreground">
+                    New deck
+                  </h2>
+                  <p className="mt-0.5 text-sm text-muted-foreground">Name it, then choose how to start.</p>
                 </div>
                 <button
+                  type="button"
                   onClick={onClose}
-                  className="flex size-8 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-all"
+                  aria-label="Close"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                   <X className="size-4" />
                 </button>
               </div>
 
               {/* Body */}
-              <div className="px-6 py-6 space-y-6">
-                {/* Name input */}
+              <div className="space-y-6 px-6 py-6">
                 <div className="space-y-2">
-                  <label htmlFor="create-deck-title" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Deck Title
+                  <label htmlFor="create-deck-title" className="text-sm font-medium text-foreground">
+                    Deck title
                   </label>
                   <input
                     id="create-deck-title"
@@ -98,82 +100,41 @@ export function CreatePresentationModal({ open, onClose }: CreatePresentationMod
                     value={deckName}
                     onChange={(e) => setDeckName(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && valid) go("manual"); }}
-                    placeholder="e.g. All-Hands Live Interactive Deck"
+                    placeholder="e.g. Quarterly all-hands"
                     autoComplete="off"
-                    className="w-full rounded-xl border border-border bg-secondary/30 px-4 py-3 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/30 transition-all"
+                    className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25"
                   />
+                  {!valid && deckName.length > 0 ? (
+                    <p className="text-sm text-muted-foreground">Deck title needs at least 2 characters</p>
+                  ) : null}
                 </div>
 
-                {/* Choice buttons */}
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    How do you want to create?
-                  </p>
-
-                  {/* AI option */}
-                  <button
-                    type="button"
-                    disabled={!valid}
-                    onClick={() => go("ai")}
-                    className={cn(
-                      "group w-full flex items-center gap-4 rounded-2xl border p-4 transition-all duration-200 text-left",
-                      valid
-                        ? "border-primary/25 bg-primary/[0.06] hover:border-primary/50 hover:bg-primary/[0.1] cursor-pointer"
-                        : "border-border bg-secondary/20 cursor-not-allowed opacity-40"
-                    )}
-                  >
-                    <div className={cn(
-                      "flex size-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200",
-                      valid ? "bg-primary/20 group-hover:bg-primary/30" : "bg-secondary/30"
-                    )}>
-                      <Sparkles className={cn("size-5", valid ? "text-primary" : "text-muted-foreground/40")} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={cn("text-sm font-bold leading-tight", valid ? "text-foreground/90" : "text-muted-foreground/50")}>
-                        Generate with AI
-                      </p>
-                      <p className={cn("text-[11px] mt-0.5", valid ? "text-muted-foreground" : "text-muted-foreground/40")}>
-                        Describe a topic and let AI draft the slides
-                      </p>
-                    </div>
-                    <ArrowRight className={cn("size-4 shrink-0 transition-transform duration-200", valid ? "text-primary group-hover:translate-x-0.5" : "text-muted-foreground/30")} />
-                  </button>
-
-                  {/* Manual option */}
-                  <button
-                    type="button"
-                    disabled={!valid}
-                    onClick={() => go("manual")}
-                    className={cn(
-                      "group w-full flex items-center gap-4 rounded-2xl border p-4 transition-all duration-200 text-left",
-                      valid
-                        ? "border-border bg-secondary/20 hover:border-border/80 hover:bg-secondary/40 cursor-pointer"
-                        : "border-border bg-secondary/10 cursor-not-allowed opacity-40"
-                    )}
-                  >
-                    <div className={cn(
-                      "flex size-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200",
-                      valid ? "bg-secondary/50 group-hover:bg-secondary/80" : "bg-secondary/20"
-                    )}>
-                      <PencilLine className={cn("size-5", valid ? "text-foreground/60" : "text-muted-foreground/30")} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={cn("text-sm font-bold leading-tight", valid ? "text-foreground/90" : "text-muted-foreground/50")}>
-                        Build manually
-                      </p>
-                      <p className={cn("text-[11px] mt-0.5", valid ? "text-muted-foreground" : "text-muted-foreground/40")}>
-                        Pick slide types and write your own questions
-                      </p>
-                    </div>
-                    <ArrowRight className={cn("size-4 shrink-0 transition-transform duration-200", valid ? "text-muted-foreground/50 group-hover:translate-x-0.5 group-hover:text-foreground/60" : "text-muted-foreground/20")} />
-                  </button>
-                </div>
-
-                {!valid && deckName.length > 0 && (
-                  <p className="text-[10px] text-muted-foreground text-center">
-                    Deck title needs at least 2 characters
-                  </p>
-                )}
+                <fieldset className="space-y-2">
+                  <legend className="mb-2 text-sm font-medium text-foreground">How do you want to start?</legend>
+                  {(
+                    [
+                      { mode: "ai", Icon: Sparkles, title: "Generate with AI", body: "Describe a topic and let AI draft the slides" },
+                      { mode: "manual", Icon: PencilLine, title: "Build manually", body: "Pick slide types and write your own questions" },
+                    ] as const
+                  ).map(({ mode, Icon, title, body }) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      disabled={!valid}
+                      onClick={() => go(mode)}
+                      className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-colors duration-150 hover:border-foreground/25 hover:bg-accent/50 focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-accent-ink">
+                        <Icon className="size-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-foreground">{title}</span>
+                        <span className="mt-0.5 block text-sm text-muted-foreground">{body}</span>
+                      </span>
+                      <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground" />
+                    </button>
+                  ))}
+                </fieldset>
               </div>
             </div>
           </motion.div>

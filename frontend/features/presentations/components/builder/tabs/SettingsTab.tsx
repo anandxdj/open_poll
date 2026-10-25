@@ -6,8 +6,8 @@ import { Switch } from "@/components/ui/switch";
 import { isContentSlide, slideTypeMeta } from "../../../slides/meta";
 import type { InspectorTabDef, InspectorTabProps } from "../inspectorTabs";
 
-const labelClass = "text-xs font-semibold uppercase tracking-wider text-muted-foreground/60";
-const numberInputClass = "h-10 rounded-xl bg-secondary/15 border-border/40 tabular-nums";
+const labelClass = "text-sm font-medium text-foreground";
+const numberInputClass = "h-10 bg-card tabular-nums";
 
 /** Timing and scoring for the selected slide. */
 function SettingsPanel({ slide, index, onChange }: InspectorTabProps) {
@@ -20,7 +20,7 @@ function SettingsPanel({ slide, index, onChange }: InspectorTabProps) {
     <div className={`grid grid-cols-1 gap-4 ${scored ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
       <div className="space-y-2">
         <Label htmlFor={timeId} className={`${labelClass} flex items-center gap-1.5`}>
-          <Timer className="size-3.5 text-primary/70" /> Time limit (s)
+          <Timer className="size-3.5 text-accent-ink" /> Time limit (s)
         </Label>
         <Input
           id={timeId}
@@ -36,7 +36,7 @@ function SettingsPanel({ slide, index, onChange }: InspectorTabProps) {
         <>
           <div className="space-y-2">
             <Label htmlFor={pointsId} className={`${labelClass} flex items-center gap-1.5`}>
-              <Trophy className="size-3.5 text-primary/70" /> Max points
+              <Trophy className="size-3.5 text-accent-ink" /> Max points
             </Label>
             <Input
               id={pointsId}
@@ -59,7 +59,7 @@ function SettingsPanel({ slide, index, onChange }: InspectorTabProps) {
                 checked={slide.scoreDependsOnTime}
                 onCheckedChange={(checked) => onChange({ scoreDependsOnTime: checked })}
               />
-              <span className="text-xs text-muted-foreground/60">
+              <span className="text-xs text-muted-foreground">
                 {slide.scoreDependsOnTime ? "Speed bonus on (down to 50%)" : "Flat points for correct"}
               </span>
             </div>
@@ -68,7 +68,7 @@ function SettingsPanel({ slide, index, onChange }: InspectorTabProps) {
       ) : (
         <div className="space-y-2">
           <p className={labelClass}>Scoring</p>
-          <p className="text-xs text-muted-foreground/50 h-10 flex items-center">
+          <p className="text-xs text-muted-foreground h-10 flex items-center">
             Interactive slide — no points, leaderboard unaffected.
           </p>
         </div>

@@ -69,7 +69,7 @@ export function FieldLabel({
   return (
     <Label
       htmlFor={htmlFor}
-      className={cn("text-xs font-semibold uppercase tracking-wider text-muted-foreground/60", className)}
+      className={cn("text-sm font-medium text-foreground", className)}
     >
       {children}
     </Label>
@@ -82,7 +82,7 @@ export function RemoveEntryButton({ onClick, label }: { onClick: () => void; lab
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="text-muted-foreground/40 hover:text-red-400 transition-colors"
+      className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
     >
       <X className="size-4" />
     </button>
@@ -91,10 +91,10 @@ export function RemoveEntryButton({ onClick, label }: { onClick: () => void; lab
 
 export function EditorNote({ children }: { children: ReactNode }) {
   return (
-    <p className="text-xs text-muted-foreground/50 rounded-2xl border border-white/5 bg-white/2 px-4 py-3">
+    <p className="rounded-lg border border-border bg-secondary/60 px-4 py-3 text-sm text-muted-foreground">
       {children}
     </p>
   );
 }
 
-export const entryInputClass = "h-10 rounded-xl bg-secondary/15 border-border/40";
+export const entryInputClass = "h-10 bg-card";

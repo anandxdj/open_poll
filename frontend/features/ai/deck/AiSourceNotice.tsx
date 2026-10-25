@@ -26,11 +26,11 @@ export function MockDataNotice({
       role="status"
       data-testid="ai-deck-mock-notice"
       className={cn(
-        "flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-foreground",
+        "flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-foreground",
         className
       )}
     >
-      <FlaskConical className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+      <FlaskConical className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
       <div className="flex-1 space-y-0.5">
         <p className="font-semibold">{t("title")}</p>
         {!compact && <p className="text-muted-foreground">{t("body")}</p>}
@@ -40,7 +40,7 @@ export function MockDataNotice({
           type="button"
           onClick={onDismiss}
           aria-label={banner("dismiss")}
-          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-amber-500/20 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-warning/20 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="size-4" aria-hidden />
         </button>

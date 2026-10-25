@@ -4,17 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ListPlus,
-  Save,
-  Send,
-  Sparkles,
-  X,
-  BarChart2,
-  Target,
-} from "lucide-react";
+import { ArrowLeft, BarChart2, ChevronLeft, ChevronRight, Loader2, Plus, Send, Sparkles, Target } from "lucide-react";
 
 import { defaultDatetimeLocal, toDatetimeLocalValue } from "@/features/polls/components/create/datetime";
 import { PollQuestionCard } from "@/features/polls/components/create/PollQuestionCard";
@@ -24,6 +14,7 @@ import { LivePreview } from "@/features/polls/components/create/LivePreview";
 import { useCreatorStore, type Poll } from "@/features/polls/store/useCreatorStore";
 import { type AiTone, defaultAiExpiresAtIso, generateDraft, type GeneratedPollDraft } from "@/features/ai/api/generateDraft";
 import { AiPromptModal } from "@/features/ai/components/AiPromptModal";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 
@@ -551,76 +542,68 @@ export function PollBuilder() {
   ).length;
 
   if (!isDraftLoaded) {
-    return <div className="flex h-screen items-center justify-center bg-background text-foreground">Loading draft...</div>;
+    return (
+      <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" /> Loading draft…
+      </div>
+    );
   }
+
+  const pressed = (on: boolean) =>
+    cn(
+      "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring",
+      on ? "bg-card text-foreground shadow-[0_1px_2px_rgb(23_23_23/0.08)]" : "text-muted-foreground hover:text-foreground",
+    );
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col bg-background text-foreground">
-        {/* Route chrome + title + actions (single bar, matches dashboard pages) */}
-        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b border-border/40 bg-background/80 px-4 backdrop-blur-xl md:gap-4 md:px-6 relative overflow-hidden">
-          {/* Top primary edge glow */}
-          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
-          
-          <div className="hidden min-w-0 shrink-0 sm:block relative z-10">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Open Poll</p>
-            <h1 className="truncate text-sm font-semibold text-foreground/90">Create Poll</h1>
-          </div>
+      {/* Studio layout, the same frame as the deck builder: bar, question rail, editor on graph paper, preview. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background text-foreground">
+        <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-background px-4 py-3 sm:px-6">
+          <button
+            type="button"
+            onClick={() => router.push("/polls")}
+            aria-label="Back to polls"
+            className="flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <ArrowLeft className="size-4" />
+          </button>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder={pollType === 'TRIAL' ? "Trial title" : "Poll title"}
-            className="min-w-0 flex-1 bg-transparent border-none p-0 text-sm font-semibold text-foreground/90 placeholder:text-muted-foreground focus:outline-none focus:ring-0 truncate"
+            placeholder={pollType === 'TRIAL' ? "Untitled assessment" : "Untitled poll"}
             aria-label="Poll title"
+            className="h-9 min-w-0 flex-1 basis-40 rounded-md border border-transparent bg-transparent px-2 text-lg font-semibold tracking-[-0.02em] text-foreground outline-none placeholder:text-muted-foreground hover:border-border focus-visible:border-ring"
           />
 
-          {/* Creation Type Badge & Settings Toggle */}
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary/30 p-1">
-            <button
-              type="button"
-              onClick={() => setPollType("POLL")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all",
-                pollType === "POLL"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <BarChart2 className="size-3.5" />
-              <span>Poll</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPollType("TRIAL")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all",
-                pollType === "TRIAL"
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Target className="size-3.5" />
-              <span>Trial</span>
-            </button>
-          </div>
-
-          {pollType === 'TRIAL' && (
-            <div className="hidden sm:flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400">
-              <span>Pass Score:</span>
-              <input
-                type="number"
-                min={10}
-                max={100}
-                step={5}
-                value={passingScorePercentage}
-                onChange={(e) => setPassingScorePercentage(Number(e.target.value))}
-                className="w-10 rounded bg-background/50 px-1 py-0.5 text-center text-xs font-bold text-emerald-400 focus:outline-none"
-              />
-              <span>%</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <div role="group" aria-label="Poll type" className="inline-flex rounded-lg border border-border bg-secondary p-0.5">
+              <button type="button" aria-pressed={pollType === "POLL"} onClick={() => setPollType("POLL")} className={pressed(pollType === "POLL")}>
+                <BarChart2 className={cn("size-4", pollType === "POLL" && "text-accent-ink")} />
+                Poll
+              </button>
+              <button type="button" aria-pressed={pollType === "TRIAL"} onClick={() => setPollType("TRIAL")} className={pressed(pollType === "TRIAL")}>
+                <Target className={cn("size-4", pollType === "TRIAL" && "text-accent-ink")} />
+                Trial
+              </button>
             </div>
-          )}
 
-          <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
+            {pollType === 'TRIAL' && (
+              <label className="flex h-9 items-center gap-1.5 rounded-md border border-input bg-card px-2.5 text-sm text-muted-foreground">
+                Pass score
+                <input
+                  type="number"
+                  min={10}
+                  max={100}
+                  step={5}
+                  value={passingScorePercentage}
+                  onChange={(e) => setPassingScorePercentage(Number(e.target.value))}
+                  className="w-10 bg-transparent text-center font-mono text-sm text-foreground outline-none"
+                />
+                %
+              </label>
+            )}
+
             <AiPromptModal
               isAnonymous={isAnonymous}
               onGenerate={handleAiGenerate}
@@ -631,197 +614,134 @@ export function PollBuilder() {
               initialPassingScorePercentage={passingScorePercentage}
               isGenerating={isAiGenerating}
             >
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 disabled={isAiGenerating}
-                className={cn(
-                  "group flex items-center gap-1.5 rounded-xl border px-2 py-1.5 text-xs font-semibold transition-all duration-300 active:scale-95 md:px-2.5",
-                  isAiGenerating
-                    ? "animate-ai-glow border-primary text-primary"
-                    : "border-primary/40 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground hover:shadow-[0_0_20px_rgba(216,173,135,0.4)]"
-                )}
+                aria-label={isAiGenerating ? "Generating…" : "Generate with AI"}
+                className={cn("bg-card", isAiGenerating && "animate-ai-glow")}
               >
-                <Sparkles className={cn("size-3 transition-transform duration-200", !isAiGenerating && "group-hover:rotate-12", isAiGenerating && "animate-spin")} />
-                <span className="hidden lg:inline">{isAiGenerating ? "Generating..." : "Generate with AI"}</span>
-              </button>
+                <Sparkles className={cn("text-accent-ink", isAiGenerating && "animate-spin")} />
+                <span className="hidden lg:inline">{isAiGenerating ? "Generating…" : "Generate with AI"}</span>
+              </Button>
             </AiPromptModal>
-            <button
-              type="button"
-              onClick={() => router.push("/polls")}
-              className="flex size-8 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary/50 hover:text-foreground/80 transition-all"
-              aria-label="Back to polls"
-            >
-              <X className="size-4" />
-            </button>
-            <button
-              type="button"
-              disabled={isLoading}
-              onClick={handleSaveDraft}
-              className="group flex items-center gap-1.5 rounded-xl border border-border bg-secondary/30 px-2.5 py-1.5 text-[11px] font-bold text-muted-foreground transition-all hover:bg-secondary hover:text-foreground active:scale-95 md:px-3"
-            >
-              <Save className="size-3.5 transition-transform duration-200 group-hover:-rotate-12" />
-              <span className="hidden sm:inline">Save Draft</span>
-            </button>
-            <button
-              type="button"
-              disabled={!canSave || isLoading}
-              onClick={() => setPublishModalOpen(true)}
-              className={cn(
-                "flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-bold transition-all duration-300 active:scale-95 md:gap-1.5 md:px-3 md:text-sm",
-                canSave && !isLoading
-                  ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(216,173,135,0.3)] hover:opacity-90 hover:shadow-[0_0_25px_rgba(216,173,135,0.5)]"
-                  : "cursor-not-allowed bg-muted text-muted-foreground"
-              )}
-            >
-              <Send className="size-3.5 shrink-0" />
-              <span className="hidden sm:inline">Publish</span>
-            </button>
+            <Button type="button" variant="ghost" disabled={isLoading} onClick={handleSaveDraft}>
+              Save draft
+            </Button>
+            <Button type="button" disabled={!canSave || isLoading} onClick={() => setPublishModalOpen(true)}>
+              <Send /> Publish
+            </Button>
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-row overflow-hidden relative">
-          {/* Subtle background glow */}
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
-
-          <aside className="flex w-40 shrink-0 flex-col overflow-hidden border-r border-border/50 bg-card/80 backdrop-blur-xl sm:w-44 xl:w-52 relative z-10">
-            <div className="flex h-12 shrink-0 items-center justify-between border-b border-border/50 px-2.5 sm:h-14 sm:px-3">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-primary/80">Questions</p>
-              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">
-                {questions.length}
-              </span>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+          {/* Question rail: on top on phones, a column from md */}
+          <aside className="flex max-h-[38vh] shrink-0 flex-col border-b border-sidebar-border bg-sidebar md:max-h-none md:w-60 md:border-b-0 md:border-r">
+            <div className="flex h-11 shrink-0 items-center justify-between px-4">
+              <p id="poll-questions-heading" className="text-sm font-medium text-foreground">Questions</p>
+              <span className="font-mono text-xs tabular-nums text-muted-foreground">{questions.length}</span>
             </div>
 
-            <div className="custom-scrollbar flex-1 space-y-1 overflow-y-auto p-1.5">
-              {questions.map((q, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setActiveIndex(i)}
-                  className={cn(
-                    "group relative w-full rounded-xl px-2 py-2 text-left transition-all duration-200 sm:px-2.5",
-                    activeIndex === i
-                      ? "bg-primary/[0.1] ring-1 ring-primary/30"
-                      : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground/70"
-                  )}
-                >
-                  {activeIndex === i && (
-                    <motion.div
-                      layoutId="qBar"
-                      className="absolute bottom-2 left-0 top-2 w-0.5 rounded-full bg-primary"
-                    />
-                  )}
-                  <div className="flex items-start gap-2 pl-0.5 relative z-10">
-                    <span
+            <ol aria-labelledby="poll-questions-heading" className="custom-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-2">
+              {questions.map((q, i) => {
+                const active = activeIndex === i;
+                return (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveIndex(i)}
+                      aria-current={active ? "true" : undefined}
                       className={cn(
-                        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded text-[9px] font-bold tabular-nums shadow-sm transition-all duration-300",
-                        activeIndex === i ? "bg-primary text-primary-foreground shadow-[0_0_10px_rgba(216,173,135,0.5)]" : "bg-muted text-muted-foreground"
+                        "flex w-full items-start gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
+                        active
+                          ? "border-border bg-card text-foreground shadow-[0_1px_2px_rgb(23_23_23/0.06)]"
+                          : "border-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
                       )}
                     >
-                      {i + 1}
-                    </span>
-                    <p
-                      className={cn(
-                        "line-clamp-2 text-[10px] leading-snug transition-colors duration-300",
-                        activeIndex === i ? "text-primary font-medium" : "text-muted-foreground"
-                      )}
-                    >
-                      {previewLabel(q.text, i + 1)}
-                    </p>
-                  </div>
-                  {q.isMandatory && (
-                    <span className="ml-6 mt-1 inline-block rounded-full bg-primary/15 px-1 py-0.5 text-[7px] font-bold uppercase tracking-wide text-primary/80">
-                      Required
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
+                      <span className={cn("w-4 shrink-0 pt-px font-mono text-xs tabular-nums", active ? "text-accent-ink" : "text-muted-foreground")}>
+                        {i + 1}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="line-clamp-2 text-sm leading-snug">{previewLabel(q.text, i + 1)}</span>
+                        {q.isMandatory ? <span className="mt-0.5 block text-xs text-muted-foreground">Required</span> : null}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
 
-            <div className="shrink-0 border-t border-border p-1.5">
-              <button
-                type="button"
-                onClick={addQuestion}
-                className="group flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border py-2 text-[10px] font-semibold text-muted-foreground transition-all hover:border-primary/35 hover:bg-primary/[0.06] hover:text-primary/90"
-              >
-                <ListPlus className="size-3.5" />
-                Add question
-              </button>
-            </div>
-
-            <div className="shrink-0 border-t border-border/50 bg-card/80 px-2.5 py-2 sm:px-3 sm:py-2.5">
-              <div className="mb-1 flex items-center justify-between">
-                <span className="text-[8px] font-bold uppercase tracking-widest text-primary/70">Progress</span>
-                <span className="text-[8px] font-bold text-primary">
-                  {completedCount}/{questions.length}
-                </span>
-              </div>
-              <div className="h-0.5 overflow-hidden rounded-full bg-primary/10">
-                <motion.div
-                  className="h-full rounded-full bg-primary shadow-[0_0_10px_rgba(216,173,135,0.8)]"
-                  animate={{ width: `${questions.length > 0 ? (completedCount / questions.length) * 100 : 0}%` }}
-                  transition={{ duration: 0.5, ease }}
-                />
+            <div className="shrink-0 space-y-3 border-t border-sidebar-border p-3">
+              <Button type="button" variant="outline" onClick={addQuestion} className="w-full border-dashed bg-card">
+                <Plus /> Add question
+              </Button>
+              <div>
+                <p className="mb-1.5 flex justify-between text-xs text-muted-foreground">
+                  <span>Ready to publish</span>
+                  <span className="font-mono tabular-nums text-foreground">
+                    {completedCount} of {questions.length}
+                  </span>
+                </p>
+                <div className="h-1 overflow-hidden rounded-full bg-secondary">
+                  <motion.div
+                    className="h-full rounded-full bg-primary"
+                    animate={{ width: `${questions.length > 0 ? (completedCount / questions.length) * 100 : 0}%` }}
+                    transition={{ duration: 0.5, ease }}
+                  />
+                </div>
               </div>
             </div>
           </aside>
 
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <div className="custom-scrollbar flex-1 overflow-y-auto">
-              <div className="mx-auto w-full max-w-xl space-y-8 px-4 py-6 sm:px-5 sm:py-8">
-          
+          {/* Editor on graph paper */}
+          <div className="relative min-h-0 min-w-0 flex-1 overflow-y-auto">
+            <div aria-hidden="true" className="mk-grid mk-grid-flat pointer-events-none absolute inset-0" />
+            <div className="relative mx-auto w-full max-w-2xl space-y-4 px-4 py-6 sm:px-6 lg:py-10">
+              <AnimatePresence mode="wait">
+                {activeQuestion && (
+                  <PollQuestionCard
+                    key={activeIndex}
+                    question={activeQuestion}
+                    index={activeIndex}
+                    canRemove={questions.length > 1}
+                    pollType={pollType}
+                    onRemove={() => removeQuestion(activeIndex)}
+                    onChange={(patch) => updateQuestion(activeIndex, patch)}
+                    onOptionChange={(oi, v) => updateOption(activeIndex, oi, v)}
+                    onAddOption={() => addOption(activeIndex)}
+                    onRemoveOption={(oi) => removeOption(activeIndex, oi)}
+                  />
+                )}
+              </AnimatePresence>
 
-                <div className="flex items-center gap-3">
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent to-primary/30" />
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-primary">
-                    Question {activeIndex + 1}
-                  </span>
-                  <div className="h-px flex-1 bg-gradient-to-l from-transparent to-primary/30" />
-                </div>
-
-                <AnimatePresence mode="wait">
-                  {activeQuestion && (
-                    <PollQuestionCard
-                      key={activeIndex}
-                      question={activeQuestion}
-                      index={activeIndex}
-                      canRemove={questions.length > 1}
-                      pollType={pollType}
-                      onRemove={() => removeQuestion(activeIndex)}
-                      onChange={(patch) => updateQuestion(activeIndex, patch)}
-                      onOptionChange={(oi, v) => updateOption(activeIndex, oi, v)}
-                      onAddOption={() => addOption(activeIndex)}
-                      onRemoveOption={(oi) => removeOption(activeIndex, oi)}
-                    />
-                  )}
-                </AnimatePresence>
-
-                <div className="flex items-center justify-between border-t border-border pt-4">
-                  <button
-                    type="button"
-                    disabled={activeIndex === 0}
-                    onClick={() => setActiveIndex((i) => i - 1)}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground/75 disabled:cursor-not-allowed disabled:opacity-25"
-                  >
-                    <ChevronLeft className="size-4" /> Previous
-                  </button>
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
-                    {activeIndex + 1} / {questions.length}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={activeIndex === questions.length - 1}
-                    onClick={() => setActiveIndex((i) => i + 1)}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground/75 disabled:cursor-not-allowed disabled:opacity-25"
-                  >
-                    Next <ChevronRight className="size-4" />
-                  </button>
-                </div>
+              <div className="flex items-center justify-between">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={activeIndex === 0}
+                  onClick={() => setActiveIndex((i) => i - 1)}
+                >
+                  <ChevronLeft /> Previous
+                </Button>
+                <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                  {activeIndex + 1} / {questions.length}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={activeIndex === questions.length - 1}
+                  onClick={() => setActiveIndex((i) => i + 1)}
+                >
+                  Next <ChevronRight />
+                </Button>
               </div>
             </div>
           </div>
 
-          {/* Right Live Preview Sidebar */}
-          <aside className="hidden lg:flex w-72 shrink-0 flex-col justify-center items-center border-l border-border/40 bg-card/30 p-6 z-10 relative overflow-y-auto">
+          {/* Respondent preview */}
+          <aside className="hidden w-80 shrink-0 items-center justify-center overflow-y-auto border-l border-border bg-background p-6 xl:flex">
             <LivePreview
               question={activeQuestion}
               questionIndex={activeIndex}

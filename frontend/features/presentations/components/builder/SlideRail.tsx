@@ -21,7 +21,7 @@ interface SlideRailProps {
 }
 
 const actionButtonClass =
-  "flex size-6 items-center justify-center rounded-lg text-muted-foreground/70 transition-colors hover:bg-secondary hover:text-foreground disabled:pointer-events-none disabled:opacity-30";
+  "flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30";
 
 /**
  * Slide list with thumbnails. Keyboard, on a focused slide: ArrowUp/ArrowDown
@@ -86,19 +86,19 @@ export function SlideRail({ slides, active, onSelect, onAdd, onMove, onDuplicate
   };
 
   return (
-    <div className="w-full lg:w-56 shrink-0 flex flex-col rounded-3xl border border-white/10 bg-card/60 backdrop-blur-xl h-full min-h-0 overflow-hidden">
+    <div className="flex min-h-0 w-full shrink-0 flex-col border-b border-sidebar-border bg-sidebar lg:h-full lg:w-64 lg:border-b-0 lg:border-r">
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 px-3.5">
-        <p id="slide-rail-heading" className="text-[10px] font-bold uppercase tracking-widest text-primary/80">
+      <div className="flex h-11 shrink-0 items-center justify-between px-4">
+        <p id="slide-rail-heading" className="text-sm font-medium text-foreground">
           Slides
         </p>
-        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">{total}</span>
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">{total}</span>
       </div>
 
       {/* Scrollable list of slides */}
       <ol
         aria-labelledby="slide-rail-heading"
-        className="custom-scrollbar flex-1 space-y-1.5 overflow-y-auto p-2 min-h-0 max-h-[40vh] lg:max-h-none"
+        className="custom-scrollbar max-h-[40vh] min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-2 lg:max-h-none"
       >
         {slides.map((s, i) => {
           const meta = slideTypeMeta(s.type);
@@ -108,10 +108,10 @@ export function SlideRail({ slides, active, onSelect, onAdd, onMove, onDuplicate
             <li
               key={i}
               className={cn(
-                "group relative rounded-2xl border p-2 transition-all duration-300",
+                "group relative rounded-lg border p-2 transition-colors duration-150",
                 isActive
-                  ? "border-primary/40 bg-primary/10 ring-1 ring-yellow-400/30 text-foreground"
-                  : "border-white/5 bg-white/3 text-muted-foreground hover:bg-white/6 hover:text-foreground"
+                  ? "border-border bg-card text-foreground shadow-[0_1px_2px_rgb(23_23_23/0.06)]"
+                  : "border-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
               )}
             >
               <button
@@ -124,9 +124,9 @@ export function SlideRail({ slides, active, onSelect, onAdd, onMove, onDuplicate
                 aria-current={isActive ? "true" : undefined}
                 aria-label={`Slide ${i + 1} of ${total}: ${meta.label}, ${name}`}
                 aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-                className="flex w-full items-start gap-2 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                className="flex w-full items-start gap-2 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
-                <span className="w-3 shrink-0 pt-0.5 text-[10px] font-bold text-muted-foreground/50 tabular-nums">
+                <span className={cn("w-4 shrink-0 pt-0.5 font-mono text-xs tabular-nums", isActive ? "text-accent-ink" : "text-muted-foreground")}>
                   {i + 1}
                 </span>
                 <SlideThumbnail slide={s} />
@@ -134,7 +134,7 @@ export function SlideRail({ slides, active, onSelect, onAdd, onMove, onDuplicate
 
               <div
                 className={cn(
-                  "absolute bottom-3 right-3 flex items-center gap-0.5 rounded-lg border border-white/10 bg-card/90 p-0.5 shadow-sm backdrop-blur transition-opacity",
+                  "absolute bottom-3 right-3 flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5 shadow-sm transition-opacity",
                   isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
                 )}
               >
@@ -146,7 +146,7 @@ export function SlideRail({ slides, active, onSelect, onAdd, onMove, onDuplicate
                   title="Move up (Alt+↑)"
                   className={actionButtonClass}
                 >
-                  <ArrowUp className="size-3" />
+                  <ArrowUp className="size-3.5" />
                 </button>
                 <button
                   type="button"
@@ -156,7 +156,7 @@ export function SlideRail({ slides, active, onSelect, onAdd, onMove, onDuplicate
                   title="Move down (Alt+↓)"
                   className={actionButtonClass}
                 >
-                  <ArrowDown className="size-3" />
+                  <ArrowDown className="size-3.5" />
                 </button>
                 <button
                   type="button"
@@ -165,7 +165,7 @@ export function SlideRail({ slides, active, onSelect, onAdd, onMove, onDuplicate
                   title="Duplicate"
                   className={actionButtonClass}
                 >
-                  <Copy className="size-3" />
+                  <Copy className="size-3.5" />
                 </button>
                 {total > 1 && (
                   <button
@@ -173,9 +173,9 @@ export function SlideRail({ slides, active, onSelect, onAdd, onMove, onDuplicate
                     onClick={() => remove(i)}
                     aria-label={`Delete slide ${i + 1}`}
                     title="Delete"
-                    className={cn(actionButtonClass, "hover:text-red-400")}
+                    className={cn(actionButtonClass, "hover:text-destructive")}
                   >
-                    <Trash2 className="size-3" />
+                    <Trash2 className="size-3.5" />
                   </button>
                 )}
               </div>
@@ -189,14 +189,14 @@ export function SlideRail({ slides, active, onSelect, onAdd, onMove, onDuplicate
       </p>
 
       {/* Pinned Footer */}
-      <div className="relative shrink-0 border-t border-white/10 p-2">
+      <div className="relative shrink-0 border-t border-sidebar-border p-3">
         <Button
           variant="outline"
           onClick={() => setPickerOpen((v) => !v)}
           aria-expanded={pickerOpen}
-          className="w-full rounded-2xl border-dashed border-white/15 bg-transparent text-xs text-muted-foreground/70 hover:text-foreground hover:border-primary/40 hover:bg-primary/5"
+          className="w-full border-dashed bg-card"
         >
-          <Plus className="size-3.5 mr-1" /> New slide
+          <Plus /> New slide
         </Button>
         <SlideTypePicker
           open={pickerOpen}

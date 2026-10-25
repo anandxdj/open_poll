@@ -95,7 +95,7 @@ export function AiPromptModal({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-lg rounded-2xl sm:max-w-lg">
+      <DialogContent className="max-w-lg sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Generate with AI</DialogTitle>
           <DialogDescription>Describe what you want to ask. We shape questions to match your tone and target.</DialogDescription>
@@ -103,7 +103,7 @@ export function AiPromptModal({
         <div className="grid gap-4">
           {/* Creation Type Selector */}
           <div className="grid gap-2">
-            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Type</Label>
+            <Label className="text-sm font-medium text-foreground">Type</Label>
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-secondary/30 p-1">
               <button
                 type="button"
@@ -111,7 +111,7 @@ export function AiPromptModal({
                 className={cn(
                   "flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all",
                   pollType === "POLL"
-                    ? "bg-primary text-primary-foreground shadow-sm"
+                    ? "bg-card text-foreground shadow-[0_1px_2px_rgb(23_23_23/0.08)]"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -124,7 +124,7 @@ export function AiPromptModal({
                 className={cn(
                   "flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all",
                   pollType === "TRIAL"
-                    ? "bg-emerald-600 text-white shadow-sm"
+                    ? "bg-card text-foreground shadow-[0_1px_2px_rgb(23_23_23/0.08)]"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -146,12 +146,12 @@ export function AiPromptModal({
           </div>
 
           {pollType === 'TRIAL' && (
-            <div className="grid gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+            <div className="grid gap-2 rounded-xl border border-border bg-secondary/50 p-3">
               <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="ai-pass-threshold" className="text-xs font-semibold text-emerald-400">
+                <Label htmlFor="ai-pass-threshold" className="text-xs font-semibold text-foreground">
                   Passing Score Required
                 </Label>
-                <span className="text-xs font-bold tabular-nums text-emerald-400">{passingScorePercentage}%</span>
+                <span className="text-xs font-semibold tabular-nums text-foreground">{passingScorePercentage}%</span>
               </div>
               <input
                 id="ai-pass-threshold"
@@ -161,7 +161,7 @@ export function AiPromptModal({
                 step={5}
                 value={passingScorePercentage}
                 onChange={(e) => setPassingScorePercentage(Number(e.target.value))}
-                className="accent-emerald-500"
+                className="accent-[var(--primary)]"
               />
             </div>
           )}

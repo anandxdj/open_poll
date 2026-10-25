@@ -12,7 +12,7 @@ import { entryInputClass } from "../../editorKit";
 import { BIG_NUMBER_LIMIT } from "./format";
 import { meta } from "./meta";
 
-const labelClass = "text-xs font-semibold uppercase tracking-wider text-muted-foreground/60";
+const labelClass = "text-sm font-medium text-foreground";
 
 /** "1,500" / "1 500" / "87.5" → number; anything else → null. */
 const parseNumber = (text: string): number | null => {
@@ -44,7 +44,7 @@ function BigNumberEditor({ slide, onChange }: SlideEditorProps) {
         <div className="space-y-2">
           <Label htmlFor={valueId} className={labelClass}>
             Number
-            <span className="text-primary/80" aria-hidden>
+            <span className="text-accent-ink" aria-hidden>
               *
             </span>
           </Label>
@@ -66,7 +66,7 @@ function BigNumberEditor({ slide, onChange }: SlideEditorProps) {
         <TextField label="After" value={content.suffix} onChange={(suffix) => set({ suffix })} maxLength={12} placeholder="%" />
       </div>
       {invalid && (
-        <p id={errorId} className="text-xs text-red-400" role="alert">
+        <p id={errorId} className="text-xs text-destructive" role="alert">
           Enter a number, like 87.5 or 1,500.
         </p>
       )}

@@ -1,13 +1,11 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Loader2, Presentation as PresentationIcon, Sparkles, Upload } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Loader2, Sparkles, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-
-const ease = [0.32, 0.72, 0, 1] as const;
 
 interface BuilderHeaderProps {
   title: string;
@@ -23,6 +21,7 @@ interface BuilderHeaderProps {
   onSaveDraft: () => void;
 }
 
+/** The builder's top bar: back to the library, the deck title (edited in place) and the deck's actions. */
 export function BuilderHeader({
   title,
   onTitleChange,
@@ -36,65 +35,48 @@ export function BuilderHeader({
   onSaveDraft,
 }: BuilderHeaderProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease }}
-      className="flex flex-col md:flex-row md:items-center gap-4 shrink-0"
-    >
-      <div className="flex-1 space-y-1">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-primary/60 flex items-center gap-1.5">
-          <PresentationIcon className="size-3.5" /> Presentation Deck Studio
-        </p>
+    <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-background px-4 py-3 sm:px-6">
+      <Link
+        href="/polls"
+        aria-label="Back to the library"
+        className="flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        <ArrowLeft className="size-4" />
+      </Link>
+      <div className="min-w-0 flex-1 basis-48">
         <Input
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
-          placeholder="Untitled Presentation Deck"
+          placeholder="Untitled deck"
           aria-label="Deck title"
-          className="border-none bg-transparent px-0 text-2xl font-bold tracking-tight focus-visible:ring-0 placeholder:text-muted-foreground/30"
+          className="h-9 border-transparent bg-transparent px-2 text-lg font-semibold tracking-[-0.02em] shadow-none hover:border-border focus-visible:border-ring md:text-lg"
         />
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="outline"
           disabled={isAiGenerating}
           onClick={onOpenAi}
-          className={cn(
-            "h-9 rounded-full px-4 text-xs font-semibold transition-all duration-300",
-            isAiGenerating
-              ? "animate-ai-glow border-primary text-primary"
-              : "border-primary/30 text-primary hover:bg-primary/10 hover:shadow-[0_0_15px_rgba(216,173,135,0.3)]"
-          )}
+          className={cn("bg-card", isAiGenerating && "animate-ai-glow")}
         >
-          <Sparkles className={cn("size-3.5 mr-1.5 transition-transform duration-200", isAiGenerating && "animate-spin")} />
-          {isAiGenerating ? "Generating..." : "AI generate"}
+          <Sparkles className={cn("text-accent-ink", isAiGenerating && "animate-spin")} />
+          {isAiGenerating ? "Generating…" : "AI generate"}
         </Button>
         {onImportQuestions ? (
-          <Button
-            variant="outline"
-            onClick={onImportQuestions}
-            className="h-9 rounded-full border-white/15 px-4 text-xs font-semibold text-foreground/80 hover:bg-white/5"
-          >
-            <Upload className="size-3.5 mr-1.5" aria-hidden />
+          <Button variant="ghost" onClick={onImportQuestions}>
+            <Upload aria-hidden />
             Import questions
           </Button>
         ) : null}
-        <Button
-          variant="outline"
-          onClick={onSaveDraft}
-          disabled={savingDraft || saving}
-          className="h-9 rounded-full px-4 text-xs font-semibold border-white/15 text-foreground/80 hover:bg-white/5"
-        >
-          {savingDraft ? <Loader2 className="size-3.5 animate-spin" /> : "Save Draft"}
+        <Button variant="ghost" onClick={onSaveDraft} disabled={savingDraft || saving}>
+          {savingDraft ? <Loader2 className="animate-spin" /> : null}
+          Save draft
         </Button>
-        <Button
-          onClick={onSave}
-          disabled={saving}
-          className="h-9 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-5 hover:bg-primary/90 shadow-sm"
-        >
-          {saving ? <Loader2 className="size-3.5 animate-spin" /> : isEditing ? "Save changes" : "Create deck"}
+        <Button onClick={onSave} disabled={saving}>
+          {saving ? <Loader2 className="animate-spin" /> : null}
+          {isEditing ? "Save changes" : "Create deck"}
         </Button>
       </div>
-    </motion.div>
+    </header>
   );
 }

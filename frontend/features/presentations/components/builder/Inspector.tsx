@@ -36,25 +36,28 @@ export function Inspector(props: InspectorTabProps) {
   return (
     <motion.div
       key={index}
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease }}
-      className="flex-1 min-h-0 flex flex-col p-1.5 rounded-[2rem] bg-white/5 border border-white/10 overflow-hidden h-full"
+      transition={{ duration: 0.3, ease }}
+      className="rounded-xl border border-border bg-card shadow-[0_24px_48px_-32px_rgb(23_23_23/0.3)]"
     >
-      <div className="rounded-[1.625rem] bg-card p-5 sm:p-6 space-y-6 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/4 border border-white/10 px-4 py-2 text-xs font-semibold text-foreground/85">
-            <meta.Icon className={`size-3.5 ${meta.iconClass}`} /> {meta.label}
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40 ml-1">
-              {meta.scored ? "Scored" : isContentSlide(meta.type) ? "Content" : "Interactive"}
-            </span>
+      {/* Slide type on the left, the inspector tabs as underline tabs on the right. */}
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-border px-5 pt-4 sm:px-6">
+        <span className="inline-flex items-center gap-2 pb-3 text-sm font-medium text-foreground">
+          <span className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-accent-ink">
+            <meta.Icon className="size-4" />
           </span>
+          {meta.label}
+          <span className="text-sm font-normal text-muted-foreground">
+            {meta.scored ? "Scored" : isContentSlide(meta.type) ? "Content" : "Interactive"}
+          </span>
+        </span>
 
           {tabs.length > 1 && (
             <div
               role="tablist"
               aria-label="Slide inspector"
-              className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/3 p-1"
+              className="-mb-px flex items-center gap-5"
             >
               {tabs.map((tab, position) => {
                 const selected = tab.id === current?.id;
@@ -70,30 +73,30 @@ export function Inspector(props: InspectorTabProps) {
                     onClick={() => setChosen(tab.id)}
                     onKeyDown={(e) => onTabKeyDown(e, position)}
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                      "inline-flex items-center gap-1.5 border-b-2 pb-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                       selected
-                        ? "bg-primary/15 text-primary"
-                        : "text-muted-foreground hover:bg-white/6 hover:text-foreground"
+                        ? "border-foreground text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    <tab.Icon className="size-3.5" />
+                    <tab.Icon className="size-4" />
                     {tab.label}
                   </button>
                 );
               })}
             </div>
           )}
-        </div>
-
-        {current && (
-          <div
-            id={`inspector-panel-${current.id}`}
-            {...(tabs.length > 1 && { role: "tabpanel", "aria-labelledby": `inspector-tab-${current.id}` })}
-          >
-            <current.Panel {...props} />
-          </div>
-        )}
       </div>
+
+      {current && (
+        <div
+          id={`inspector-panel-${current.id}`}
+          className="space-y-6 p-5 sm:p-6"
+          {...(tabs.length > 1 && { role: "tabpanel", "aria-labelledby": `inspector-tab-${current.id}` })}
+        >
+          <current.Panel {...props} />
+        </div>
+      )}
     </motion.div>
   );
 }

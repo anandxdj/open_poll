@@ -45,14 +45,14 @@ function TypeAnswerEditor({ slide, onChange }: SlideEditorProps) {
         {slide.acceptedAnswers.map((answer, i) => (
           <span
             key={i}
-            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-400"
+            className="inline-flex items-center gap-1.5 rounded-full bg-success/10 border border-success/25 px-3 py-1 text-xs font-medium text-success"
           >
             {answer}
             <button
               type="button"
               aria-label={`Remove accepted answer ${answer}`}
               onClick={() => onChange({ acceptedAnswers: slide.acceptedAnswers.filter((_, j) => j !== i) })}
-              className="hover:text-red-400 transition-colors"
+              className="hover:text-destructive transition-colors"
             >
               <X className="size-3" />
             </button>

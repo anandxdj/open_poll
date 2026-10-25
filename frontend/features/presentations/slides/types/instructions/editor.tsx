@@ -13,8 +13,8 @@ import { meta } from "./meta";
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
   const id = useId();
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-border/40 bg-secondary/10 px-4 py-3">
-      <Label htmlFor={id} className="text-sm font-medium text-foreground/85">
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-secondary/40 px-4 py-3">
+      <Label htmlFor={id} className="text-sm font-medium text-foreground">
         {label}
       </Label>
       <Switch id={id} checked={checked} onCheckedChange={onChange} />
@@ -27,7 +27,7 @@ function InstructionsEditor({ slide, onChange }: SlideEditorProps) {
   const set = (patch: Partial<InstructionsContent>) => onChange({ content: { ...content, ...patch } });
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground/60">
+      <p className="text-xs text-muted-foreground">
         Shows how to join this session — handy after a break or for latecomers. The code is filled in live.
       </p>
       <Toggle label="Show the join address and code" checked={content.showCode} onChange={(showCode) => set({ showCode })} />

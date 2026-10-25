@@ -45,7 +45,7 @@ function ScalesEditor({ slide, onChange }: SlideEditorProps) {
             variant="ghost"
             size="sm"
             onClick={() => onChange({ statements: [...slide.statements, ""] })}
-            className="text-xs text-muted-foreground/70 hover:text-foreground"
+            className="text-xs text-muted-foreground hover:text-foreground"
           >
             <Plus className="size-3.5 mr-1" /> Add statement
           </Button>
