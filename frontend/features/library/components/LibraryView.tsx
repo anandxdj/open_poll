@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
-import { FileText, Layers, Plus, Presentation, Radio, RefreshCw, Search, X } from "lucide-react";
+import { Plus, Presentation, RefreshCw, Search, X } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { ProductLogo } from "@/components/ui/ProductLogo";
 import { ImportButton } from "@/features/imports";
 import { useCreatePollModal } from "@/features/polls/components/CreatePollModalProvider";
@@ -15,7 +15,6 @@ import { cardKey, emptyStateCopy, filtersToSearch, MAX_SEARCH_LENGTH, parseLibra
 import type { LibraryCounts, LibraryFilters, LibraryStatus, LibraryType } from "../types";
 import { LibraryCard } from "./LibraryCard";
 
-const ease = [0.32, 0.72, 0, 1] as const;
 const SEARCH_DEBOUNCE_MS = 300;
 
 const TYPE_TABS: { key: LibraryType; label: string; count: keyof LibraryCounts }[] = [
@@ -83,263 +82,206 @@ export function LibraryView() {
   }, [hasMore, loadMore, loading]);
 
   const counts = library.counts;
-  const stats = [
-    {
-      label: "Total",
-      value: counts?.all,
-      desc: "Polls and presentations",
-      icon: Layers,
-      color: "text-primary bg-primary/10 border-primary/20",
-      glow: "bg-primary/5",
-    },
-    {
-      label: "Live now",
-      value: counts?.live,
-      desc: "Open polls and running sessions",
-      icon: Radio,
-      color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
-      glow: "bg-emerald-500/5",
-    },
-    {
-      label: "Drafts",
-      value: counts?.draft,
-      desc: "Work in progress",
-      icon: FileText,
-      color: "text-amber-500 bg-amber-500/10 border-amber-500/20",
-      glow: "bg-amber-500/5",
-    },
+  const stats: { label: string; value: number | undefined; live?: boolean }[] = [
+    { label: "All items", value: counts?.all },
+    { label: "Live now", value: counts?.live, live: true },
+    { label: "Drafts", value: counts?.draft },
   ];
 
   const empty = emptyStateCopy(filters);
   const filtered = filters.type !== "all" || filters.status !== "all" || filters.q.trim() !== "";
 
   return (
-    <>
-      <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background/95 px-4 backdrop-blur-xl md:px-6">
-        <h1 className="text-sm font-semibold text-foreground/90">Library</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => openCreatePollModal()}
-            className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground/80 transition-colors duration-200 hover:border-primary/30 hover:text-primary"
-          >
-            <Plus className="size-3.5" />
-            New poll
-          </button>
+    <div className="mx-auto w-full max-w-[1200px] px-4 pb-16 pt-8 sm:px-6 md:pt-12 lg:px-8">
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-4xl font-semibold leading-none tracking-[-0.04em] sm:text-5xl">Library</h1>
+          <p className="mt-3 text-base text-muted-foreground">Every poll and deck in this workspace.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" className="bg-card" onClick={() => openCreatePollModal()}>
+            <Plus /> New poll
+          </Button>
           <ImportButton />
-          <button
-            type="button"
-            onClick={() => openCreatePresentationModal()}
-            className="flex items-center gap-1.5 rounded-xl border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-colors duration-200 hover:bg-primary hover:text-primary-foreground"
-          >
-            <Presentation className="size-3.5" />
-            New deck
-          </button>
+          <Button onClick={() => openCreatePresentationModal()}>
+            <Presentation /> New deck
+          </Button>
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 md:px-6">
-        <div className="grid grid-cols-3 gap-4">
-          {stats.map((stat, i) => {
-            const Icon = stat.icon;
-            return (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, ease, delay: i * 0.08 }}
-                className="group relative overflow-hidden rounded-[2rem] border border-border bg-card p-5 transition-all duration-300 hover:border-primary/30"
-              >
-                <div
-                  className={cn(
-                    "pointer-events-none absolute -bottom-4 -right-4 size-32 rounded-full blur-3xl transition-all duration-500 group-hover:scale-110",
-                    stat.glow,
-                  )}
+      {/* Counts as one hairline strip, not cards: they are facts about the list below. */}
+      <dl className="mt-8 grid grid-cols-3 border-y border-border">
+        {stats.map((stat, i) => (
+          <div key={stat.label} className={cn("py-4 sm:py-5", i > 0 && "border-l border-border pl-4 sm:pl-6")}>
+            <dt className="flex items-center gap-2 text-sm text-muted-foreground">
+              {stat.live ? (
+                <span
+                  aria-hidden="true"
+                  className={cn("size-1.5 rounded-full", stat.value ? "bg-success motion-safe:animate-pulse" : "bg-faint")}
                 />
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">{stat.label}</p>
-                    <h3 className="text-2xl font-extrabold tabular-nums tracking-tight text-foreground/90">
-                      {stat.value === undefined ? (
-                        <span className="inline-block h-6 w-8 animate-pulse rounded bg-secondary/50" />
-                      ) : (
-                        stat.value
-                      )}
-                    </h3>
-                    <p className="hidden text-[10px] font-medium text-muted-foreground/40 sm:block">{stat.desc}</p>
-                  </div>
-                  <div
-                    className={cn(
-                      "hidden size-10 shrink-0 items-center justify-center rounded-2xl border transition-transform duration-300 group-hover:scale-105 sm:flex",
-                      stat.color,
-                    )}
-                  >
-                    <Icon className="size-5" />
-                  </div>
-                </div>
-              </motion.div>
+              ) : null}
+              {stat.label}
+            </dt>
+            <dd className="mt-1.5 text-3xl font-semibold leading-none tabular-nums tracking-[-0.03em] sm:text-4xl">
+              {stat.value === undefined ? <span className="inline-block h-8 w-10 animate-pulse rounded-md bg-muted" /> : stat.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      <div className="mt-8 flex flex-col gap-3 border-b border-border md:flex-row md:items-end md:justify-between">
+        <div role="tablist" aria-label="Item type" className="-mb-px flex gap-6">
+          {TYPE_TABS.map((tab) => {
+            const active = filters.type === tab.key;
+            const count = counts?.[tab.count];
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setFilters({ type: tab.key })}
+                className={cn(
+                  "flex items-center gap-2 border-b-2 pb-3 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  active ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {tab.label}
+                {count ? <span className="font-mono text-xs tabular-nums text-muted-foreground">{count}</span> : null}
+              </button>
             );
           })}
         </div>
 
-        <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-1.5 md:flex-row md:items-center">
-          <div role="tablist" aria-label="Item type" className="flex flex-wrap items-center gap-1">
-            {TYPE_TABS.map((tab) => {
-              const active = filters.type === tab.key;
-              const count = counts?.[tab.count];
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setFilters({ type: tab.key })}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all",
-                    active ? "bg-primary/15 text-primary ring-1 ring-primary/30" : "text-muted-foreground hover:text-foreground/75",
-                  )}
-                >
-                  <span>{tab.label}</span>
-                  {count ? (
-                    <span
-                      className={cn(
-                        "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums",
-                        active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
-                      )}
-                    >
-                      {count}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex flex-1 flex-wrap items-center gap-2 md:justify-end">
-            <label className="sr-only" htmlFor="library-status">
-              Status
-            </label>
-            <select
-              id="library-status"
-              value={filters.status}
-              onChange={(event) => setFilters({ status: event.target.value as LibraryFilters["status"] })}
-              className="h-9 rounded-xl border border-border bg-background px-2.5 text-xs font-semibold text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <div className="relative min-w-0 flex-1 md:max-w-xs">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60" />
-              <input
-                type="search"
-                value={searchDraft}
-                maxLength={MAX_SEARCH_LENGTH}
-                onChange={(event) => setSearchDraft(event.target.value)}
-                placeholder="Search by title"
-                aria-label="Search by title"
-                className="h-9 w-full rounded-xl border border-border bg-background pl-8 pr-8 text-xs text-foreground outline-none placeholder:text-muted-foreground/50 focus-visible:ring-2 focus-visible:ring-primary/40"
-              />
-              {searchDraft ? (
-                <button
-                  type="button"
-                  aria-label="Clear search"
-                  onClick={() => {
-                    setSearchDraft("");
-                    setFilters({ q: "" });
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground/60 hover:text-foreground"
-                >
-                  <X className="size-3" />
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        {library.loading ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {[0, 1, 2].map((key) => (
-              <div key={key} className="h-52 animate-pulse rounded-[2rem] border border-border bg-secondary/30" />
+        <div className="flex items-center gap-2 pb-3">
+          <label className="sr-only" htmlFor="library-status">
+            Status
+          </label>
+          <select
+            id="library-status"
+            value={filters.status}
+            onChange={(event) => setFilters({ status: event.target.value as LibraryFilters["status"] })}
+            className="h-9 rounded-md border border-input bg-card px-2.5 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25"
+          >
+            {STATUS_OPTIONS.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label}
+              </option>
             ))}
-          </div>
-        ) : null}
-
-        {!library.loading && library.error ? (
-          <div className="flex items-center justify-between gap-4 rounded-2xl border border-red-500/30 bg-red-500/[0.07] p-4 text-sm text-red-500">
-            <span>{library.error}</span>
-            <button
-              type="button"
-              onClick={() => (library.items.length ? library.loadMore() : library.reload())}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/30 px-3 py-1.5 text-xs font-semibold hover:bg-red-500/10"
-            >
-              <RefreshCw className="size-3.5" /> Retry
-            </button>
-          </div>
-        ) : null}
-
-        {!library.loading && !library.error && library.items.length === 0 ? (
-          <div className="rounded-[2rem] border border-border bg-card p-12 text-center">
-            <div className="mx-auto flex size-14 items-center justify-center rounded-3xl bg-primary/15 ring-1 ring-primary/25">
-              <ProductLogo size={32} />
-            </div>
-            <h2 className="mt-4 text-lg font-semibold text-foreground/85">{empty.title}</h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{empty.body}</p>
-            {filtered ? (
+          </select>
+          <div className="relative min-w-0 flex-1 md:w-64 md:flex-none">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="search"
+              value={searchDraft}
+              maxLength={MAX_SEARCH_LENGTH}
+              onChange={(event) => setSearchDraft(event.target.value)}
+              placeholder="Search by title"
+              aria-label="Search by title"
+              className="h-9 w-full rounded-md border border-input bg-card pl-9 pr-8 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 [&::-webkit-search-cancel-button]:hidden"
+            />
+            {searchDraft ? (
               <button
                 type="button"
+                aria-label="Clear search"
+                onClick={() => {
+                  setSearchDraft("");
+                  setFilters({ q: "" });
+                }}
+                className="absolute right-1.5 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {library.loading ? (
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2].map((key) => (
+            <LibraryCardSkeleton key={key} />
+          ))}
+        </div>
+      ) : null}
+
+      {!library.loading && library.error ? (
+        <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <span>{library.error}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => (library.items.length ? library.loadMore() : library.reload())}
+            className="border-destructive/30 text-destructive hover:bg-destructive/10"
+          >
+            <RefreshCw /> Retry
+          </Button>
+        </div>
+      ) : null}
+
+      {!library.loading && !library.error && library.items.length === 0 ? (
+        <div className="relative mt-6 overflow-hidden rounded-2xl border border-border bg-card px-6 py-16 text-center">
+          <div aria-hidden="true" className="mk-grid mk-grid-flat pointer-events-none absolute inset-0" />
+          <div className="relative">
+            <ProductLogo size={40} className="mx-auto" decorative />
+            <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em]">{empty.title}</h2>
+            <p className="mx-auto mt-2 max-w-md text-base text-muted-foreground">{empty.body}</p>
+            {filtered ? (
+              <Button
+                variant="outline"
+                className="mt-6 bg-card"
                 onClick={() => {
                   setSearchDraft("");
                   setFilters({ type: "all", status: "all", q: "" });
                 }}
-                className="mt-5 inline-flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm font-semibold text-foreground/80 transition-colors hover:border-primary/30 hover:text-primary"
               >
                 Clear filters
-              </button>
+              </Button>
             ) : (
-              <div className="mt-5 flex flex-wrap justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => openCreatePollModal()}
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
-                >
-                  <Plus className="size-4" /> Create poll
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openCreatePresentationModal()}
-                  className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-5 py-2.5 text-sm font-bold text-primary transition-all duration-200 hover:bg-primary hover:text-primary-foreground active:scale-[0.98]"
-                >
-                  <Presentation className="size-4" /> Create deck
-                </button>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                <Button variant="outline" className="bg-card" onClick={() => openCreatePollModal()}>
+                  <Plus /> Create poll
+                </Button>
+                <Button onClick={() => openCreatePresentationModal()}>
+                  <Presentation /> Create deck
+                </Button>
               </div>
             )}
           </div>
-        ) : null}
+        </div>
+      ) : null}
 
-        {!library.loading && library.items.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {library.items.map((card) => (
-              <LibraryCard key={cardKey(card)} card={card} onRemoved={library.remove} onChanged={library.replace} />
-            ))}
-          </div>
-        ) : null}
+      {!library.loading && library.items.length > 0 ? (
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {library.items.map((card) => (
+            <LibraryCard key={cardKey(card)} card={card} onRemoved={library.remove} onChanged={library.replace} />
+          ))}
+        </div>
+      ) : null}
 
-        {!library.loading && library.hasMore ? (
-          <div ref={sentinelRef} className="flex justify-center py-4">
-            <button
-              type="button"
-              disabled={library.loadingMore}
-              onClick={() => library.loadMore()}
-              className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
-            >
-              {library.loadingMore ? "Loading…" : "Load more"}
-            </button>
-          </div>
-        ) : null}
+      {!library.loading && library.hasMore ? (
+        <div ref={sentinelRef} className="flex justify-center py-6">
+          <Button variant="outline" size="sm" className="bg-card" disabled={library.loadingMore} onClick={() => library.loadMore()}>
+            {library.loadingMore ? "Loading…" : "Load more"}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Same outline as a card while the first page loads. */
+export function LibraryCardSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="h-32 animate-pulse border-b border-border bg-muted/60" />
+      <div className="space-y-3 p-4">
+        <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+        <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+        <div className="flex justify-end pt-3">
+          <div className="h-8 w-28 animate-pulse rounded-md bg-muted" />
+        </div>
       </div>
-    </>
+    </div>
   );
 }

@@ -11,6 +11,8 @@ const buttonVariants = cva(
       variant: {
         /** The one accent action on a screen: yellow fill, dark text. */
         default: "bg-primary text-primary-foreground hover:bg-primary-hover",
+        /** Ink fill: a strong action that is not the screen's one accent action (e.g. Present on a card). */
+        ink: "bg-foreground text-background hover:bg-foreground/85",
         outline:
           "border-foreground/15 bg-transparent text-foreground hover:bg-accent aria-expanded:bg-accent",
         secondary:

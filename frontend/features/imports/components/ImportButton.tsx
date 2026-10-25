@@ -4,10 +4,13 @@ import { useState } from "react";
 import { Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
 import { ImportIntlProvider } from "../ImportIntlProvider";
 import { ImportDialog } from "./ImportDialog";
 
-function ImportButtonInner() {
+function ImportButtonInner({ className }: { className?: string }) {
   const t = useTranslations("imports");
   const [open, setOpen] = useState(false);
   return (
@@ -15,9 +18,9 @@ function ImportButtonInner() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground/80 transition-colors duration-200 hover:border-primary/30 hover:text-primary"
+        className={cn(buttonVariants({ variant: "outline" }), "bg-card", className)}
       >
-        <Upload className="size-3.5" aria-hidden />
+        <Upload aria-hidden />
         {t("button")}
       </button>
       {/* Remounted on open so a finished import never greets the next one. */}
@@ -27,10 +30,10 @@ function ImportButtonInner() {
 }
 
 /** Library entry point: the "Import" button and its dialog, with its own message scope. */
-export function ImportButton() {
+export function ImportButton({ className }: { className?: string }) {
   return (
     <ImportIntlProvider>
-      <ImportButtonInner />
+      <ImportButtonInner className={className} />
     </ImportIntlProvider>
   );
 }
