@@ -82,6 +82,14 @@ Buttons 8px in the app, pills (`rounded-full`) on marketing and sign-in pages.
 Cards and dialogs 12px, large panels 16px. Borders are 1px rules; a list is
 hairline rows, a feature grid is one bordered block with `gap-px` dividers.
 
+## App screens
+
+Paper sidebar with white-sheet active item; page header with a 48px h1 and
+actions on the right; counts as a hairline strip; underline tabs; cards with a
+graph-paper preview on top and the title as a stretched link. Card actions are
+`outline` and `ink` buttons; ember is kept for the page's one main action and
+for things that are live. Phones get a top bar and a drawer.
+
 ## Motion
 
 Motion shows results arriving; it never decorates. 150-250ms UI transitions on

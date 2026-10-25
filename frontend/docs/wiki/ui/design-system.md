@@ -81,7 +81,8 @@ first frame depends on reduced motion renders after mount (`useMounted`), or hyd
 
 ## Primitives (`components/ui`)
 
-- `Button`: variants `default` (ember fill), `outline` (`border-foreground/15`), `secondary`, `ghost`, `destructive`,
+- `Button`: variants `default` (ember fill), `ink` (ink fill: a strong action that is not the screen's one accent
+  action, like Present on a library card), `outline` (`border-foreground/15`), `secondary`, `ghost`, `destructive`,
   `link`; sizes `xs`, `sm`, `default` (36), `lg` (40), `touch` (44), `xl` (48), icon sizes. One `default` per screen.
   Links styled as buttons use `buttonVariants` (`linkButton` in `features/landing/components/shared/styles.ts`);
   marketing adds `pill` (`rounded-full`) from the same file.
@@ -105,6 +106,21 @@ product illustrations are labelled "Sample" and exposed as one image, and sit on
 the projected stage is always dark (`<div className="dark ...">` re-applies the dark tokens inside a light
 page, the recommended pricing card uses the same trick); the accent appears on one primary action, the lead
 data series and small check/step marks.
+
+## App screens
+
+The creator shell and `/polls` follow these; other app screens still need their layout pass (settings, analytics,
+the builders and the live surfaces re-skin through the tokens only).
+
+- **Shell**: the sidebar is paper (`sidebar`), 14px nav items, the active one a white sheet with a ring and an
+  ember icon; on phones a top bar opens it as a drawer (`core/routing-and-layouts.md`).
+- **Page header**: left-aligned h1 at 36/48px (`tracking-[-0.04em]`) with one sentence under it, actions on the
+  right; one `default` (ember) button per page.
+- **Counts**: a hairline strip (`border-y`, `divide`), label above a 30/36px number, not a row of glowing cards.
+- **Filters**: underline tabs (`border-b-2 border-foreground` when selected) with mono counts, then a 36px select
+  and search on `bg-card` with `border-input`.
+- **Cards**: 12px radius, 1px border, a graph-paper preview strip on top, the title as a stretched link, `outline`
+  and `ink` actions. No uppercase micro-labels, nothing under 12px.
 
 ## Poll builder patterns (not yet migrated)
 
