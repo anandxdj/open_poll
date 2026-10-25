@@ -6,28 +6,34 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Open Poll design foundation
+   Open Poll design foundation: "Graph paper"
 
-   Dark-first, zinc neutrals, one yellow accent, Geist. Every surface reads
-   these tokens (shadcn names kept so existing components keep working):
+   Light-first. Warm paper canvas, ink text, one ember-orange accent, Inter
+   Tight for UI and display, Instrument Serif italic for the one headline
+   word that carries the voice, JetBrains Mono for codes, counts and numbers.
+   Every surface reads these tokens (shadcn names kept so existing components
+   keep working):
 
-     background  page            card        panels and cards (surface)
+     background  page (paper)    card        panels and cards (sheet)
      secondary   raised surface  muted       raised surface / quiet fills
      border      1px dividers    input       form-field boundary (>= 3:1)
      primary     accent FILL     accent-ink  accent as TEXT (AA on both themes)
+     brand       accent for display type and the logo (large sizes only)
      ring        focus outline
 
-   Light mode: yellow is `#eab308` as a fill with dark text and `#a16207` as
-   text on white. Dark mode: `#facc15` for both. Never hard-code hex in
-   components; add a token here instead.
-   Docs: frontend/docs/wiki/ui/design-system.md
+   Light: ember `#cf460c` is the fill with white text (4.6:1); `#b93d0b` is
+   the accent as text (4.8:1 or better on paper, sheet and raised fills).
+   Dark: `#f97316` is the fill with near-black text; `#fb923c` is the text.
+   Never hard-code hex in components; add a token here instead.
+   Docs: frontend/DESIGN.md, frontend/docs/wiki/ui/design-system.md
    ───────────────────────────────────────────────────────────────────────── */
 
 @theme inline {
-  /* Type: Geist Sans for UI, Geist Mono for codes, ids and numbers */
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* Type: Inter Tight for UI and display, Instrument Serif for the voice word, JetBrains Mono for numbers */
+  --font-sans: var(--font-inter-tight), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-heading: var(--font-sans);
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
 
   /* Colour */
   --color-background: var(--background);
@@ -47,6 +53,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-ink: var(--accent-ink);
+  --color-brand: var(--brand);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
@@ -84,114 +91,119 @@
   --ease-brand: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* ── LIGHT ──────────────────────────────────────────────────────────────── */
+/* ── LIGHT (default) ────────────────────────────────────────────────────── */
 :root {
   color-scheme: light;
 
-  --background: #ffffff;
-  --foreground: #09090b;
-  --card: #fafafa;
-  --card-foreground: #09090b;
+  /* Paper canvas, white sheets on top of it */
+  --background: #f6f6f3;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
   --popover: #ffffff;
-  --popover-foreground: #09090b;
+  --popover-foreground: #171717;
 
-  /* Accent: fill with dark text; `accent-ink` is the text-safe yellow on white (4.9:1) */
-  --primary: #eab308;
-  --primary-hover: #ca8a04;
-  --primary-foreground: #0a0a0a;
-  --accent-ink: #a16207;
+  /* Accent: ember fill with white text (4.6:1); `accent-ink` is the text-safe ember */
+  --primary: #cf460c;
+  --primary-hover: #b13a09;
+  --primary-foreground: #ffffff;
+  --accent-ink: #b93d0b;
+  /* Display type and the logo only (3.3:1 on paper, large text) */
+  --brand: #ea580c;
 
-  --secondary: #f4f4f5;
-  --secondary-foreground: #18181b;
-  --muted: #f4f4f5;
-  --muted-foreground: #52525b;
-  --faint: #71717a;
-  --accent: #f4f4f5;
-  --accent-foreground: #18181b;
+  --secondary: #efeee9;
+  --secondary-foreground: #171717;
+  --muted: #efeee9;
+  --muted-foreground: #5c5a55;
+  --faint: #85827b;
+  --accent: #ebeae4;
+  --accent-foreground: #171717;
 
-  /* Status, text-safe on white (danger #ef4444 is 3.8:1 there, so text uses #dc2626) */
-  --destructive: #dc2626;
-  --destructive-foreground: #fafafa;
+  /* Status, text-safe on paper and white */
+  --destructive: #c81e1e;
+  --destructive-foreground: #ffffff;
   --success: #15803d;
-  --warning: #b45309;
+  --warning: #a14a06;
   --info: #1d4ed8;
 
-  --border: #e4e4e7;
-  --border-subtle: #f4f4f5;
-  /* Form-field boundary, 3.3:1 on white (WCAG 1.4.11) */
-  --input: #8f8f98;
-  --ring: #a16207;
+  --border: #e2e0d9;
+  --border-subtle: #ebe9e3;
+  /* Form-field boundary, 3.2:1 on paper (WCAG 1.4.11) */
+  --input: #8c8981;
+  --ring: #b93d0b;
   --radius: 0.5rem;
 
-  /* Categorical chart set, yellow first, each >= 3:1 on white */
-  --chart-1: #ca8a04;
+  /* Categorical chart set, ember first, each >= 3:1 on white */
+  --chart-1: #ea580c;
   --chart-2: #2563eb;
   --chart-3: #16a34a;
   --chart-4: #7c3aed;
   --chart-5: #db2777;
-  --chart-6: #ea580c;
+  --chart-6: #0e7490;
 
-  --sidebar: #fafafa;
-  --sidebar-foreground: #18181b;
-  --sidebar-primary: #eab308;
-  --sidebar-primary-foreground: #0a0a0a;
-  --sidebar-accent: #f4f4f5;
-  --sidebar-accent-foreground: #18181b;
-  --sidebar-border: #e4e4e7;
-  --sidebar-ring: #a16207;
+  --sidebar: #f0efea;
+  --sidebar-foreground: #171717;
+  --sidebar-primary: #cf460c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e7e5df;
+  --sidebar-accent-foreground: #171717;
+  --sidebar-border: #e2e0d9;
+  --sidebar-ring: #b93d0b;
 }
 
 /* ── DARK ───────────────────────────────────────────────────────────────── */
 .dark {
   color-scheme: dark;
 
-  --background: #09090b;
-  --foreground: #fafafa;
-  --card: #111113;
-  --card-foreground: #fafafa;
-  --popover: #18181b;
-  --popover-foreground: #fafafa;
+  /* Warm graphite, the same paper family after dark */
+  --background: #141413;
+  --foreground: #f2f1ec;
+  --card: #1b1b1a;
+  --card-foreground: #f2f1ec;
+  --popover: #1f1f1d;
+  --popover-foreground: #f2f1ec;
 
-  --primary: #facc15;
-  --primary-hover: #eab308;
-  --primary-foreground: #0a0a0a;
-  --accent-ink: #facc15;
+  --primary: #f97316;
+  --primary-hover: #fb8a3c;
+  --primary-foreground: #1a0d04;
+  --accent-ink: #fb923c;
+  --brand: #f97316;
 
-  --secondary: #18181b;
-  --secondary-foreground: #fafafa;
-  --muted: #18181b;
-  --muted-foreground: #a1a1aa;
-  --faint: #71717a;
-  --accent: #1f1f23;
-  --accent-foreground: #fafafa;
+  --secondary: #242422;
+  --secondary-foreground: #f2f1ec;
+  --muted: #242422;
+  --muted-foreground: #a7a49c;
+  --faint: #75726b;
+  --accent: #2a2a27;
+  --accent-foreground: #f2f1ec;
 
   --destructive: #ef4444;
   --destructive-foreground: #fafafa;
   --success: #22c55e;
   --warning: #f59e0b;
-  --info: #3b82f6;
+  --info: #60a5fa;
 
-  --border: #27272a;
-  --border-subtle: #1f1f23;
-  /* Form-field boundary, 3.1:1 on the page */
-  --input: #62626b;
-  --ring: #facc15;
+  --border: #31302d;
+  --border-subtle: #262624;
+  /* Form-field boundary, 3.4:1 on the page */
+  --input: #6d6b65;
+  --ring: #fb923c;
 
-  --chart-1: #facc15;
+  --chart-1: #fb923c;
   --chart-2: #60a5fa;
   --chart-3: #4ade80;
   --chart-4: #a78bfa;
   --chart-5: #f472b6;
-  --chart-6: #fb923c;
+  --chart-6: #22d3ee;
 
-  --sidebar: #09090b;
-  --sidebar-foreground: #fafafa;
-  --sidebar-primary: #facc15;
-  --sidebar-primary-foreground: #0a0a0a;
-  --sidebar-accent: #18181b;
-  --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: #27272a;
-  --sidebar-ring: #facc15;
+  --sidebar: #141413;
+  --sidebar-foreground: #f2f1ec;
+  --sidebar-primary: #f97316;
+  --sidebar-primary-foreground: #1a0d04;
+  --sidebar-accent: #242422;
+  --sidebar-accent-foreground: #f2f1ec;
+  --sidebar-border: #31302d;
+  --sidebar-ring: #fb923c;
 }
 
 /* ── Base ───────────────────────────────────────────────────────────────── */
@@ -350,14 +362,32 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Hairline grid behind the hero, faded toward the edges. */
+/* Graph paper: the hairline grid the results are plotted on. Behind the hero
+   and the closing call to action, fading out toward the bottom edge. */
 .mk-grid {
   background-image:
-    linear-gradient(to right, color-mix(in srgb, var(--foreground) 5%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--foreground) 5%, transparent) 1px, transparent 1px);
-  background-size: 64px 64px;
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 20%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 20%, transparent 75%);
+    linear-gradient(to right, color-mix(in srgb, var(--foreground) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--foreground) 7%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: -1px -1px;
+  mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
+}
+/* Countdown line under the question-types stage; its end moves the stage on. */
+@keyframes mk-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.mk-progress {
+  animation-name: mk-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+/* The same grid without the fade, for the panels illustrations sit on. */
+.mk-grid.mk-grid-flat {
+  mask-image: none;
+  -webkit-mask-image: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -374,9 +404,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ── Compatibility: accent as text on light surfaces ─────────────────────────
-   `text-primary` is yellow, which is 1.9:1 on white. Screens that were not
-   redesigned still use it for links, icons and labels, so in light mode it
-   resolves to `accent-ink` (4.9:1). New code should say `text-accent-ink`.
+   `text-primary` is the ember fill, 4.3:1 on paper, a hair under AA for body
+   text. Screens that were not redesigned still use it for links, icons and
+   labels, so in light mode it resolves to `accent-ink` (5.2:1). New code
+   should say `text-accent-ink`.
    Fills (`bg-primary`), borders and rings are untouched. */
 @layer utilities {
   :root:not(.dark) .text-primary,

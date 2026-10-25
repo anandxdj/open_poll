@@ -9,7 +9,7 @@ interface ProductLogoProps {
 
 /**
  * The Open Poll mark (rising bars inside a "j") as inline SVG, so it takes the
- * brand yellow of the active theme instead of a fixed raster colour.
+ * brand orange of the active theme instead of a fixed raster colour.
  */
 export function ProductLogo({ className, size = 44, decorative = false }: ProductLogoProps) {
   return (
@@ -20,7 +20,7 @@ export function ProductLogo({ className, size = 44, decorative = false }: Produc
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={cn("shrink-0", className)}
-      style={{ color: "var(--primary)" }}
+      style={{ color: "var(--brand)" }}
       {...(decorative ? { "aria-hidden": true } : { role: "img", "aria-label": "Open Poll" })}
     >
       <circle cx="292" cy="145" r="21" fill="currentColor" />

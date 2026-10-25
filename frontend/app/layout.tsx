@@ -1,18 +1,28 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Instrument_Serif, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import GlobalClientLayout from "@/components/layouts/GlobalClientLayout";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// UI and display type.
+const interTight = Inter_Tight({
+  variable: "--font-inter-tight",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// The one italic word a headline leans on; nothing else is set in it.
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: "400",
+  style: "italic",
+});
+
+// Join codes, counts, timers and other numbers.
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
 });
 
@@ -47,12 +57,12 @@ export default function RootLayout({
       // globals.css smooths in-page scrolling; this keeps route changes (a footer link to /login) instant.
       data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={cn("h-full antialiased", geistSans.variable, geistMono.variable)}
+      className={cn("h-full antialiased", interTight.variable, instrumentSerif.variable, jetbrainsMono.variable)}
     >
       <body className="min-h-dvh flex flex-col bg-background text-foreground" suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
+          defaultTheme="light"
           enableSystem
           disableTransitionOnChange
         >
