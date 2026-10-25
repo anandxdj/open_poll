@@ -24,7 +24,7 @@ export function MockFrame({
       role="img"
       aria-label={label}
       className={cn(
-        "mx-auto w-full max-w-lg overflow-hidden rounded-xl border border-border bg-card shadow-xl shadow-black/5 dark:shadow-black/40",
+        "mx-auto w-full max-w-lg overflow-hidden rounded-xl border border-border bg-card shadow-[0_24px_48px_-24px_rgb(23_23_23/0.25)] dark:shadow-[0_24px_48px_-24px_rgb(0_0_0/0.7)]",
         className,
       )}
     >

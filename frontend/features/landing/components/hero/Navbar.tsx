@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, LayoutDashboard, LogOut, Menu, Settings, User, X } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, Settings, User, X } from "lucide-react";
 import { ThemeSwitch } from "@/components/unlumen-ui/theme-switch";
 import {
   DropdownMenu,
@@ -17,7 +17,7 @@ import { useMounted } from "@/hooks/use-mounted";
 import { cn } from "@/lib/utils";
 import { BrandMark } from "../shared/BrandMark";
 import { NAV_LINKS } from "../shared/nav-links";
-import { container, linkButton } from "../shared/styles";
+import { container, linkButton, pill } from "../shared/styles";
 
 const ease = [0.32, 0.72, 0, 1] as const;
 
@@ -82,7 +82,7 @@ export function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className="inline-flex h-9 items-center rounded-md px-3 text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="inline-flex h-9 items-center rounded-full px-3.5 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-foreground/[0.06] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               {link.label}
             </Link>
@@ -90,11 +90,11 @@ export function Navbar() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <ThemeSwitch className="size-10 lg:size-9" />
+          <ThemeSwitch className="size-10 rounded-full lg:size-9" />
 
           {/* Desktop actions */}
           <div className="hidden items-center gap-2 lg:flex">
-            <Link href="/live" className={linkButton({ variant: "ghost", size: "sm" })}>
+            <Link href="/live" className={cn(linkButton({ variant: "ghost", size: "sm" }), pill, "px-3.5")}>
               Join a session
             </Link>
             {authed ? (
@@ -152,17 +152,16 @@ export function Navbar() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Link href="/polls" className={linkButton({ size: "sm" })}>
+                <Link href="/polls" className={cn(linkButton({ size: "sm" }), pill, "px-4")}>
                   Dashboard
-                  <ArrowRight className="size-4" aria-hidden="true" />
                 </Link>
               </>
             ) : (
               <>
-                <Link href="/login" className={linkButton({ variant: "ghost", size: "sm" })}>
+                <Link href="/login" className={cn(linkButton({ variant: "ghost", size: "sm" }), pill, "px-3.5")}>
                   Log in
                 </Link>
-                <Link href="/signup" className={linkButton({ size: "sm" })}>
+                <Link href="/signup" className={cn(linkButton({ size: "sm" }), pill, "px-4")}>
                   Sign up free
                 </Link>
               </>
@@ -177,7 +176,7 @@ export function Navbar() {
             aria-controls="mobile-nav"
             aria-label={open ? "Close menu" : "Open menu"}
             onClick={() => setOpen((v) => !v)}
-            className="flex size-10 items-center justify-center rounded-lg border border-border text-foreground transition-colors duration-150 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden"
+            className="flex size-10 items-center justify-center rounded-full border border-border text-foreground transition-colors duration-150 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden"
           >
             {open ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
           </button>
@@ -228,10 +227,9 @@ export function Navbar() {
                     <Link
                       href="/polls"
                       onClick={() => closeMenu()}
-                      className={cn(linkButton({ size: "xl" }), "w-full")}
+                      className={cn(linkButton({ size: "xl" }), pill, "w-full")}
                     >
                       Go to dashboard
-                      <ArrowRight className="size-4" aria-hidden="true" />
                     </Link>
                     <button
                       type="button"
@@ -239,20 +237,20 @@ export function Navbar() {
                         closeMenu();
                         void logout();
                       }}
-                      className={cn(linkButton({ variant: "outline", size: "xl" }), "w-full")}
+                      className={cn(linkButton({ variant: "outline", size: "xl" }), pill, "w-full")}
                     >
                       Log out
                     </button>
                   </>
                 ) : (
                   <>
-                    <Link href="/signup" onClick={() => closeMenu()} className={cn(linkButton({ size: "xl" }), "w-full")}>
+                    <Link href="/signup" onClick={() => closeMenu()} className={cn(linkButton({ size: "xl" }), pill, "w-full")}>
                       Sign up free
                     </Link>
                     <Link
                       href="/login"
                       onClick={() => closeMenu()}
-                      className={cn(linkButton({ variant: "outline", size: "xl" }), "w-full")}
+                      className={cn(linkButton({ variant: "outline", size: "xl" }), pill, "w-full")}
                     >
                       Log in
                     </Link>

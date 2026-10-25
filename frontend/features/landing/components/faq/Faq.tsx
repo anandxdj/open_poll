@@ -45,15 +45,15 @@ export function Faq() {
           id="faq-title"
           title="Questions, answered"
           description="The short version of how Open Poll works."
-          align="left"
+          layout="stack"
           className="lg:sticky lg:top-28 lg:self-start"
         />
 
-        <Accordion.Root type="single" collapsible className="divide-y divide-border border-y border-border">
+        <Accordion.Root type="single" collapsible className="divide-y divide-border border-y border-foreground/15">
           {FAQS.map((item) => (
             <Accordion.Item key={item.q} value={item.q} className="group">
               <Accordion.Header>
-                <Accordion.Trigger className="flex min-h-14 w-full items-center justify-between gap-4 rounded-md py-4 text-left text-base font-medium text-foreground transition-colors duration-150 hover:text-accent-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-lg">
+                <Accordion.Trigger className="flex min-h-16 w-full items-center justify-between gap-4 rounded-md py-5 text-left text-lg font-semibold tracking-[-0.015em] text-foreground transition-colors duration-150 hover:text-accent-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-xl">
                   {item.q}
                   <ChevronDown
                     className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-[state=open]:rotate-180"

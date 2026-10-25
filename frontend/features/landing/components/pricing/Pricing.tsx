@@ -37,20 +37,20 @@ const SALES_EMAIL = process.env.NEXT_PUBLIC_SALES_EMAIL;
 function TierPrice({ tier }: { tier: PricingTier }) {
   const { price } = tier;
   if (price.kind === "free") {
-    return <span className="text-4xl font-semibold tracking-[-0.03em]">Free</span>;
+    return <span className="text-5xl font-semibold tracking-[-0.045em]">Free</span>;
   }
   if (price.kind === "custom") {
     // Enterprise is quoted; a paid plan with no price configured says so instead of implying a quote.
     return tier.plan.id === "enterprise" ? (
-      <span className="text-4xl font-semibold tracking-[-0.03em]">Custom</span>
+      <span className="text-5xl font-semibold tracking-[-0.045em]">Custom</span>
     ) : (
-      // Same 40px line as the big prices so the cards' bullet lists start level.
-      <span className="text-2xl font-semibold leading-10 tracking-[-0.02em] text-muted-foreground">Pricing soon</span>
+      // Same 48px line as the big prices so the cards' bullet lists start level.
+      <span className="text-2xl font-semibold leading-[3rem] tracking-[-0.02em] text-muted-foreground">Pricing soon</span>
     );
   }
   return (
     <>
-      <span className="text-4xl font-semibold tracking-[-0.03em] tabular-nums">
+      <span className="text-5xl font-semibold tracking-[-0.045em] tabular-nums">
         {formatMoney(price.amount.amount, price.amount.currency)}
       </span>
       <span className="text-sm leading-6 text-muted-foreground">
@@ -60,8 +60,8 @@ function TierPrice({ tier }: { tier: PricingTier }) {
   );
 }
 
-/** 44px tall, full width inside the card. */
-const BTN = "h-11 w-full";
+/** 44px tall, full width inside the card, a pill like every marketing button. */
+const BTN = "h-11 w-full rounded-full";
 
 function TierCta({ tier }: { tier: PricingTier }) {
   const variant = tier.mostPopular ? "default" : "outline";
@@ -108,7 +108,7 @@ export function Pricing() {
         />
 
         {hasIntervalChoice(catalog) && (
-          <div className="mt-10 flex items-center justify-center gap-x-4">
+          <div className="mt-10 flex items-center gap-x-4">
             <Label
               htmlFor="billing-toggle"
               className={cn(
@@ -142,8 +142,9 @@ export function Pricing() {
               key={tier.plan.id}
               data-testid={`pricing-${tier.plan.id}`}
               className={cn(
-                "gap-6 py-6",
-                tier.mostPopular && "border-primary bg-card shadow-lg shadow-primary/5"
+                "gap-6 rounded-2xl py-6",
+                // The recommended plan is the one dark sheet on the paper (the `dark` class re-applies the dark tokens).
+                tier.mostPopular && "dark border-primary/60 bg-card text-card-foreground shadow-[0_24px_48px_-24px_rgb(23_23_23/0.45)]"
               )}
             >
               <CardHeader>

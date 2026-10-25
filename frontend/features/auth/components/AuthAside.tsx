@@ -18,10 +18,12 @@ export function AuthAside() {
   return (
     <aside
       aria-label="About Open Poll"
-      className="relative hidden flex-col justify-center border-l border-border bg-card px-12 py-16 lg:flex xl:px-20"
+      className="relative hidden flex-col justify-center overflow-hidden border-l border-border bg-card px-12 py-16 lg:flex xl:px-20"
     >
-      <div className="mx-auto w-full max-w-md">
-        <h2 className="text-balance text-3xl font-semibold tracking-[-0.03em]">Ask the room. See answers live.</h2>
+      {/* The landing's graph paper, so signing in feels like the same place. */}
+      <div aria-hidden="true" className="mk-grid mk-grid-flat pointer-events-none absolute inset-0" />
+      <div className="relative mx-auto w-full max-w-md">
+        <h2 className="text-balance text-4xl font-semibold leading-[1.05] tracking-[-0.04em]">Ask the room. See answers live.</h2>
 
         <ul className="mt-6 space-y-3">
           {POINTS.map((point) => (
@@ -36,7 +38,7 @@ export function AuthAside() {
         <div
           role="img"
           aria-label="Sample live session with three answer bars and a join code."
-          className="dark mt-10 overflow-hidden rounded-xl border border-border bg-background text-foreground shadow-xl shadow-black/10"
+          className="dark mt-10 overflow-hidden rounded-2xl border border-border bg-background text-foreground shadow-[0_32px_64px_-24px_rgb(23_23_23/0.35)]"
         >
           <div className="flex items-center gap-2 border-b border-border px-4 py-3 text-sm">
             <span className="size-2 rounded-full bg-success" />

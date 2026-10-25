@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { LiveAiMockup } from "../mockups/LiveAiMockup";
 import { LivePollAnimation } from "../mockups/LivePollAnimation";
 import { SharePollMockup } from "../mockups/SharePollMockup";
+import { PlotPanel } from "../shared/PlotPanel";
 import { container, sectionY } from "../shared/styles";
 import { SectionHeading } from "../shared/SectionHeading";
 
@@ -40,26 +41,26 @@ export function ShowcaseSections() {
           description="Everything happens in one place, with your audience on their own phones."
         />
 
-        <div className="mt-16 space-y-20 md:mt-20 lg:space-y-32">
+        <div className="mt-16 space-y-20 md:mt-20 lg:space-y-28">
           {rows.map((row, i) => (
-            <div key={row.title} className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-20">
-              <div className={cn("max-w-xl", i % 2 === 1 && "lg:order-2")}>
-                <h3 className="text-balance text-3xl font-semibold leading-[1.1] tracking-[-0.03em] sm:text-4xl">
+            <div key={row.title} className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-16">
+              <div className={cn("max-w-xl lg:col-span-5", i % 2 === 1 && "lg:order-2")}>
+                <h3 className="text-balance text-3xl font-semibold leading-[1.05] tracking-[-0.035em] sm:text-4xl">
                   {row.title}
                 </h3>
                 <p className="mt-5 text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
                   {row.description}
                 </p>
-                <ul className="mt-6 space-y-3">
+                <ul className="mt-7 border-t border-border">
                   {row.points.map((point) => (
-                    <li key={point} className="flex items-start gap-3 text-base text-foreground">
+                    <li key={point} className="flex items-start gap-3 border-b border-border py-3 text-base text-foreground">
                       <Check className="mt-1 size-4 shrink-0 text-accent-ink" strokeWidth={2.25} aria-hidden="true" />
                       {point}
                     </li>
                   ))}
                 </ul>
               </div>
-              <div className={cn("min-w-0", i % 2 === 1 && "lg:order-1")}>{row.visual}</div>
+              <PlotPanel className={cn("min-w-0 lg:col-span-7", i % 2 === 1 && "lg:order-1")}>{row.visual}</PlotPanel>
             </div>
           ))}
         </div>

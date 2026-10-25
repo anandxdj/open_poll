@@ -14,6 +14,9 @@ export const sectionY = "py-20 md:py-28";
 /** Links that look like buttons (`<Link className={linkButton()}>`). */
 export const linkButton = buttonVariants;
 
+/** Marketing buttons and nav links are pills; the app keeps its 8px buttons. */
+export const pill = "rounded-full";
+
 /** Inline text link that stays readable on both themes. */
 export const textLink =
   "rounded-sm font-medium text-accent-ink underline-offset-4 transition-colors duration-150 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";

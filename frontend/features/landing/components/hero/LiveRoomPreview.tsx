@@ -11,10 +11,11 @@ const OPTIONS = ["Running Q&A", "Writing good polls", "Quiz rounds", "Reading th
 const START = [34, 22, 14, 8];
 
 /**
- * The hero visual: a sample live session, the projected screen next to a phone.
- * It always renders dark (the real stage does, whatever the app theme). Bars
- * fill once on load, then an answer lands every couple of seconds; reduced
- * motion keeps it still. Labelled "Sample session" and exposed as one image.
+ * The hero visual: a sample live session, the projected screen with a phone
+ * resting on its corner. It always renders dark (the real stage does, whatever
+ * the app theme). Bars fill once on load, then an answer lands every couple of
+ * seconds; reduced motion keeps it still. Labelled "Sample session" and exposed
+ * as one image.
  */
 export function LiveRoomPreview({ className }: { className?: string }) {
   const reduce = useReducedMotion();
@@ -53,10 +54,10 @@ export function LiveRoomPreview({ className }: { className?: string }) {
     <div
       role="img"
       aria-label="Illustration of a sample live session: answers from the audience fill bars on the presenter's screen while a phone shows the same question."
-      className={cn("grid items-end gap-5 md:grid-cols-[1fr_232px]", className)}
+      className={cn("relative md:pb-10", className)}
     >
-      {/* Presenter screen */}
-      <div className="dark overflow-hidden rounded-2xl border border-border bg-background text-foreground shadow-2xl shadow-black/20 dark:shadow-black/60">
+      {/* Presenter screen; leaves room on the right for the phone */}
+      <div className="dark overflow-hidden rounded-2xl border border-border bg-background text-foreground shadow-[0_32px_64px_-24px_rgb(23_23_23/0.35)] md:mr-36 lg:mr-44">
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
           <div className="flex items-center gap-2.5">
             <span className="relative flex size-2">
@@ -72,8 +73,9 @@ export function LiveRoomPreview({ className }: { className?: string }) {
           </span>
         </div>
 
-        <div className="px-5 pb-6 pt-7 sm:px-8 sm:pb-8 sm:pt-9">
-          <p className="text-balance text-2xl font-semibold tracking-[-0.03em] sm:text-[1.75rem]">
+        {/* On md+ the phone covers the right edge, so the results stop short of it */}
+        <div className="px-5 pb-6 pt-7 sm:px-8 sm:pb-8 sm:pt-9 md:pr-24 lg:pr-28">
+          <p className="text-balance text-2xl font-semibold tracking-[-0.035em] sm:text-[2rem]">
             What should we cover next?
           </p>
           <ul className="mt-7 space-y-4">
@@ -95,11 +97,11 @@ export function LiveRoomPreview({ className }: { className?: string }) {
                       {pct}%
                     </span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-secondary">
+                  <div className="h-2.5 overflow-hidden rounded-full bg-secondary">
                     <div
                       className={cn(
                         "h-full rounded-full transition-[width,background-color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                        isLead ? "bg-primary" : "bg-muted-foreground/50",
+                        isLead ? "bg-primary" : "bg-muted-foreground/40",
                       )}
                       style={{ width: filled ? `${pct}%` : "0%" }}
                     />
@@ -119,9 +121,9 @@ export function LiveRoomPreview({ className }: { className?: string }) {
         </div>
       </div>
 
-      {/* Audience phone */}
-      <div className="dark hidden md:block">
-        <div className="mx-auto w-[216px] rounded-[2rem] border border-border bg-background p-2 text-foreground shadow-2xl shadow-black/20 dark:shadow-black/60">
+      {/* Audience phone, overlapping the screen's lower right corner */}
+      <div className="dark absolute bottom-0 right-0 hidden md:block lg:right-4">
+        <div className="w-[216px] -rotate-2 rounded-[2rem] border border-border bg-background p-2 text-foreground shadow-[0_32px_64px_-20px_rgb(23_23_23/0.45)]">
           <div className="rounded-[1.5rem] border border-border bg-card px-4 pb-5 pt-4">
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" />
             <p className="text-sm font-semibold leading-snug tracking-tight">What should we cover next?</p>

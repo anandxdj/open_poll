@@ -32,8 +32,8 @@ export function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-border">
-      <div className={`${container} py-14 md:py-16`}>
+    <footer className="overflow-hidden border-t border-border">
+      <div className={`${container} pt-14 md:pt-16`}>
         <div className="grid grid-cols-1 gap-12 md:grid-cols-[1.4fr_2fr] lg:gap-20">
           <div className="max-w-sm">
             <BrandMark />
@@ -45,7 +45,7 @@ export function Footer() {
           <nav aria-label="Footer" className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3">
             {COLUMNS.map((col) => (
               <div key={col.title}>
-                <h2 className="text-sm font-medium text-foreground">{col.title}</h2>
+                <h2 className="text-sm font-semibold text-foreground">{col.title}</h2>
                 <ul className="mt-3 flex flex-col">
                   {col.links.map((link) => (
                     <li key={link.href}>
@@ -60,9 +60,19 @@ export function Footer() {
           </nav>
         </div>
 
-        <div className="mt-12 flex items-center justify-between gap-4 border-t border-border pt-6">
+        {/* The wordmark fills the column at every width (cqw = 1% of it); the link above already names the product. */}
+        <div className="@container mt-16 md:mt-24">
+          <p
+            aria-hidden="true"
+            className="select-none whitespace-nowrap pb-[0.2em] text-[length:24.6cqw] font-semibold leading-[0.8] tracking-[-0.06em] text-foreground"
+          >
+            Open Poll<span className="text-brand">.</span>
+          </p>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-4 border-t border-border py-6">
           <p className="text-sm text-muted-foreground">&copy; {year} Open Poll</p>
-          <ThemeSwitch className="size-10 md:size-9" />
+          <ThemeSwitch className="size-10 rounded-full md:size-9" />
         </div>
       </div>
     </footer>
