@@ -1,87 +1,110 @@
 ---
-summary: The Open Poll design foundation (tokens, type, radius, spacing, motion, primitives) and the rules for marketing and sign-in surfaces.
+summary: The Open Poll design foundation ("Graph paper": tokens, type, radius, spacing, motion, primitives) and the rules for marketing and sign-in surfaces.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-10-25
 ---
 
 # Design system
 
-Dark-first with a complete light mode, one yellow accent, Geist. Restrained and precise: borders first,
-shadows soft and rare, no decorative glow. The tokens live in `app/globals.css` (`@theme inline` plus
-`:root` and `.dark`); components read tokens, never raw hex. Live surfaces layer their `--deck-*`
-tokens (`features/presentations/theme/tokens.css`) on top of these.
+"Graph paper": light-first warm paper and ink with a complete warm-graphite dark mode, one ember-orange
+accent, Inter Tight. Restrained and precise: borders first, hairline graph-paper grids behind product
+illustrations, shadows soft and rare. The tokens live in `app/globals.css` (`@theme inline` plus `:root`
+and `.dark`); components read tokens, never raw hex. Live surfaces layer their `--deck-*` tokens
+(`features/presentations/theme/tokens.css`) on top of these. The short brief for new screens is
+[`../../../DESIGN.md`](../../../DESIGN.md).
 
 ## Colour
 
-| Token | Dark | Light | Use |
+| Token | Light | Dark | Use |
 | --- | --- | --- | --- |
-| `background` | `#09090b` | `#ffffff` | Page |
-| `card` (surface) | `#111113` | `#fafafa` | Panels, cards, alternating sections |
-| `secondary` / `muted` (raised) | `#18181b` | `#f4f4f5` | Raised fills, bar tracks, hover |
-| `accent` | `#1f1f23` | `#f4f4f5` | Hover and selected backgrounds |
-| `border` | `#27272a` | `#e4e4e7` | 1px dividers (`border-subtle` is one step quieter) |
-| `input` | `#62626b` | `#8f8f98` | Form-field boundary, at least 3:1 (WCAG 1.4.11) |
-| `foreground` | `#fafafa` | `#09090b` | Text |
-| `muted-foreground` | `#a1a1aa` | `#52525b` | Secondary text (AA on every surface) |
-| `faint` | `#71717a` | `#71717a` | Decoration and disabled only, not for reading |
-| `primary` | `#facc15` (hover `#eab308`) | `#eab308` (hover `#ca8a04`) | The accent FILL: primary button, bars, selected state; text on it is `primary-foreground` `#0a0a0a` |
-| `accent-ink` | `#facc15` | `#a16207` | The accent as TEXT or icon (4.9:1 on white). Never `text-primary` on light |
-| `destructive` | `#ef4444` | `#dc2626` | Danger (light is the AA-safe red for text) |
-| `success` / `warning` / `info` | `#22c55e` / `#f59e0b` / `#3b82f6` | `#15803d` / `#b45309` / `#1d4ed8` | Status |
-| `ring` | `#facc15` | `#a16207` | Focus outline and border |
-| `chart-1..6` | yellow, blue, green, violet, pink, orange | the same hues, 3:1+ on white | Categorical series, yellow first |
+| `background` (paper) | `#f6f6f3` | `#141413` | Page |
+| `card` (sheet) | `#ffffff` | `#1b1b1a` | Panels, cards, alternating sections, popovers |
+| `secondary` / `muted` (raised) | `#efeee9` | `#242422` | Raised fills, bar tracks |
+| `accent` | `#ebeae4` | `#2a2a27` | Hover and selected backgrounds |
+| `border` (rule) | `#e2e0d9` | `#31302d` | 1px dividers (`border-subtle` is one step quieter) |
+| `input` | `#8c8981` | `#6d6b65` | Form-field boundary, at least 3:1 (WCAG 1.4.11) |
+| `foreground` (ink) | `#171717` | `#f2f1ec` | Text |
+| `muted-foreground` (graphite) | `#5c5a55` | `#a7a49c` | Secondary text (AA on every surface) |
+| `faint` | `#85827b` | `#75726b` | Decoration and disabled only, not for reading |
+| `primary` | `#cf460c` (hover `#b13a09`), white text | `#f97316` (hover `#fb8a3c`), `#1a0d04` text | The accent FILL: primary button, bars, selected state |
+| `accent-ink` | `#b93d0b` | `#fb923c` | The accent as TEXT or icon (4.8:1 or better on paper, sheet and raised). Never `text-primary` on light |
+| `brand` | `#ea580c` | `#f97316` | Display type (the hero's serif word) and the logo; large sizes only (3.3:1) |
+| `destructive` | `#c81e1e` | `#ef4444` | Danger |
+| `success` / `warning` / `info` | `#15803d` / `#a14a06` / `#1d4ed8` | `#22c55e` / `#f59e0b` / `#60a5fa` | Status |
+| `ring` | `#b93d0b` | `#fb923c` | Focus outline and border |
+| `chart-1..6` | ember, blue, green, violet, pink, cyan | the same hues, lighter | Categorical series, ember first, 3:1+ on white |
 
 Compatibility: screens that were not redesigned still use `text-primary`; in light mode that class
 (and its hover/focus/group/opacity variants) resolves to `accent-ink` through a shim at the end of
 `globals.css`. New code writes `text-accent-ink`.
 
+The theme default is light (`defaultTheme="light"` in `app/layout.tsx`, system preference still
+available through the switch).
+
 ## Type
 
-Geist Sans (`font-sans`) for UI, Geist Mono (`font-mono`) for join codes, ids, timers and numbers (always with
-`tabular-nums`). Scale 12/14/16/18/20/24/30/36/48/60/72 (Tailwind `text-xs` to `text-7xl`). Body is 14-16.
-Headings are semibold; tracking tightens only from the display sizes (`-0.02em` at 24, `-0.03em` at 36-48,
-`-0.045em` at 60-72). Nothing below 12px. No all-caps eyebrow labels.
+Inter Tight (`font-sans`, also `font-heading`) for UI and display. Instrument Serif italic (`font-serif`,
+loaded in italic only) for one word per page, today the hero's "answer" in `text-brand`; nowhere else.
+JetBrains Mono (`font-mono`) for join codes, ids, timers, counts and step numbers (always with
+`tabular-nums`). Scale 12/14/16/18/20/24/30/36/48/56/72 and the hero's `clamp(3rem, 9vw, 6.75rem)`.
+Body is 14-16. Headings are semibold; tracking tightens with size (`-0.02em` at 18-24, `-0.035em` at
+30-36, `-0.04em` at 48-56, `-0.05em` for the hero). Nothing below 12px. No all-caps eyebrow labels, no
+middle-dot meta strings, no arrows appended to button text.
 
 ## Radius, borders, elevation
 
-`rounded-md` 6 (inputs, small buttons), `rounded-lg` 8 (buttons, chips, menus), `rounded-xl` 12 (cards,
-dialogs, popovers), `rounded-2xl` 16 (large panels, the hero stage), `rounded-full` (pills, avatars).
-Borders are 1px `border-border`. Shadows are soft and rare: dialogs and floating product illustrations only.
+`rounded-md` 6 (inputs, small buttons), `rounded-lg` 8 (app buttons, chips, menus), `rounded-xl` 12
+(cards, dialogs, popovers), `rounded-2xl` 16 (large panels, the projected screen, plot panels),
+`rounded-full` (marketing buttons and nav links, avatars). Borders are 1px `border-border`; a strong
+rule (top of a list, the FAQ) is `border-foreground/15`. Shadows are soft, long and rare
+(`0 32px 64px -24px` ink at 25-45%): the projected screen, the phone, the recommended pricing card,
+illustration frames, dialogs.
 
 ## Spacing and layout
 
 4px grid. Page gutters 16 / 24 / 32 (`px-4 sm:px-6 lg:px-8`), content width 1200 (`max-w-[1200px]`).
-Landing sections use `py-20 md:py-28`, separated by a 1px top border and alternating `background` / `card`.
+Landing sections use `py-20 md:py-28`, separated by a 1px top border; the steps section is the one
+`card` (white sheet) band. Everything aligns to one left edge: section headers split on `lg` (h2 in 7
+columns, the sentence in 5, bottom-aligned).
 
 ## Motion
 
 150-250ms for UI transitions, `cubic-bezier(0.32, 0.72, 0, 1)` (`--ease-brand`) for larger moves. Nothing
-delays a task. Landing: one load-in for the hero, no scroll-triggered reveals; the sample session is the only
-looping motion. `prefers-reduced-motion` stops it (`.mk-surface` collapses animations and transitions,
-`MotionConfig reducedMotion="user"` skips transforms, `html` drops smooth scrolling).
+delays a task. Motion shows results arriving, never decoration. Landing: one load-in for the hero and no
+section reveals; product illustrations play once when half on screen and hold their last frame
+(`features/landing/components/shared/motion.tsx`: `useSeen`, `useStepper`, `CountUp`, `ease`). Two things
+loop: the hero's sample session and the question-types stage (autoplay every 6.5s while on screen, paused on
+hover/focus, a pause button, stopped for good once a type is picked; the `.mk-progress` line is its timer).
+`prefers-reduced-motion` stops all of it and shows settled frames (`.mk-surface` collapses animations and
+transitions, `MotionConfig reducedMotion="user"` skips transforms, `html` drops smooth scrolling). Output whose
+first frame depends on reduced motion renders after mount (`useMounted`), or hydration fails.
 
 ## Primitives (`components/ui`)
 
-- `Button`: variants `default` (yellow fill), `outline` (`border-foreground/15`), `secondary`, `ghost`, `destructive`,
+- `Button`: variants `default` (ember fill), `outline` (`border-foreground/15`), `secondary`, `ghost`, `destructive`,
   `link`; sizes `xs`, `sm`, `default` (36), `lg` (40), `touch` (44), `xl` (48), icon sizes. One `default` per screen.
-  Links styled as buttons use `buttonVariants` (`linkButton` in `features/landing/components/shared/styles.ts`).
+  Links styled as buttons use `buttonVariants` (`linkButton` in `features/landing/components/shared/styles.ts`);
+  marketing adds `pill` (`rounded-full`) from the same file.
 - `Input`, `Textarea`: 6px radius, `border-input`, `bg-background`, focus = `border-ring` + 3px ring at 25%.
 - `Card`: 12px, 1px border, no shadow. `Dialog`, `AlertDialog`, `Popover`, `DropdownMenu`: 12 / 12 / 12 / 8 radius,
   border, soft shadow, scrim `black/60`.
 - `Badge`: 12px label, variants `default`, `outline`, `accent`, `success`, `warning`, `danger`, `info`.
-- `ProductLogo`: the Open Poll mark as inline SVG in `--primary` (also `public/logo-openpoll.svg` for the favicon).
-- `ThemeSwitch` (`components/unlumen-ui`): a 36px ghost icon button.
+- `ProductLogo`: the Open Poll mark as inline SVG in `--brand` (also `public/logo-openpoll.svg` for the favicon).
+- `ThemeSwitch` (`components/unlumen-ui`): a 36px ghost icon button (round on marketing pages).
 
 Utilities kept for older screens, restyled flat: `bezel-outer`/`bezel-inner` (one bordered surface),
 `bg-radial-glow` (a faint accent light), `skeleton`, `noise`, `animate-ai-glow`, `custom-scrollbar`, `scrollbar-none`.
-New: `mk-focus`, `mk-skip-link`, `mk-grid`, `.mk-surface` (marketing and sign-in pages).
+Marketing and sign-in: `mk-focus`, `mk-skip-link`, `.mk-surface`, `.mk-grid` (40px graph paper fading toward
+the bottom), `.mk-grid-flat` (the same grid without the fade, for `PlotPanel`, `ArtFrame` illustrations and the
+sign-in aside) and `.mk-progress` (the stage's countdown line).
 
 ## Marketing and sign-in surfaces
 
 See [`../features/landing-auth.md`](../features/landing-auth.md). Rules: copy states only what the product does;
-product illustrations are labelled "Sample" and exposed as one image; the projected stage is always dark
-(`<div className="dark ...">` re-applies the dark tokens inside a light page); the accent appears on one primary
-action, the lead data series and small check/step marks.
+product illustrations are labelled "Sample" and exposed as one image, and sit on graph paper (`PlotPanel`);
+the projected stage is always dark (`<div className="dark ...">` re-applies the dark tokens inside a light
+page, the recommended pricing card uses the same trick); the accent appears on one primary action, the lead
+data series and small check/step marks.
 
 ## Poll builder patterns (not yet migrated)
 
@@ -122,34 +145,3 @@ Shown on PollCard for active polls. Updates every minute using `setInterval`.
 "Closes in 2h 14m"   → amber text
 "Closed"             → muted text
 ```
-
-## Marketing and auth surfaces (landing, sign-in, Privacy/Terms)
-
-The rendered app is warm near-black / off-white with **Sandy Tan `#d8ad87`** as the accent and
-**Amethysta** as the typeface (`app/globals.css`, `app/layout.tsx`); the yellow `#facc15` and Geist
-described above are the original direction and are no longer what the shared theme renders. These
-surfaces follow the theme as it is. Feature wiki: [`../features/landing-auth.md`](../features/landing-auth.md).
-
-**Tokens added to `globals.css`** (additive):
-
-| Token / class | Use |
-| --- | --- |
-| `--brand-ink` / `text-brand-ink` | Brand-coloured text and icons. Dark: `#d8ad87`. Light: `hsl(28 62% 33%)` (5.9:1 on the off-white; `#d8ad87` itself is about 1.9:1 there, so never use `text-primary` for text on light). |
-| `--field-border` / `border-field-border` | Input boundary with at least 3:1 against page and card in both themes (WCAG 1.4.11). |
-| `mk-focus` | Keyboard focus outline in `brand-ink`; use on links and custom controls. |
-| `mk-skip-link` | Off-screen "Skip to content" link, visible on focus. |
-| `mk-dot-grid` | Hero dot grid, masked toward the edges. |
-| `.mk-surface` | Marks a page that honours `prefers-reduced-motion` (animations and transitions collapse to ~0). `html` also drops smooth scrolling for reduced motion. |
-
-**Scales** (landing; `features/landing/components/shared/styles.ts`):
-
-- Gutters `px-5 sm:px-6 lg:px-8`, max width `max-w-7xl`. Section rhythm `py-20 sm:py-24 lg:py-28`.
-- Type: h1 48/60 (hero), h2 30/36/48 (`SectionHeading`), h3 20-24, body 16/18, labels and hints 14.
-  Nothing below 12px, no all-caps eyebrow labels, no text-opacity tricks (`/50`) for readable copy.
-- Buttons: `button.primary|secondary` 44px, `*Lg` 48px, `rounded-2xl`, ease `cubic-bezier(0.32,0.72,0,1)`.
-  Touch targets are at least 44px (menu toggle, links in lists, FAQ rows, form fields).
-- Cards: double bezel (`p-1.5` outer, inner radius `calc(2rem - 0.375rem)`); a feature grid is one
-  bezel with hairline dividers (`gap-px bg-border`) instead of a row of separate cards.
-- Motion: one page-load reveal in the hero, one reveal per showcase row; the live preview is the only
-  looping motion and stops for reduced motion. `MotionConfig reducedMotion="user"` on the landing and auth shell.
-- Copy: sentence case, plain verbs, only claims the product backs (see the feature wiki).

@@ -1,7 +1,7 @@
 ---
 summary: The landing page sections, header with mobile menu, sign-in pages and their shared shell, Privacy/Terms, and what each claim on the page is backed by.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-10-25
 ---
 
 # Landing and sign-in surfaces
@@ -17,17 +17,22 @@ skip link and renders, in order:
 | Section | File | Notes |
 | --- | --- | --- |
 | Header | `components/hero/Navbar.tsx` | Anchors are absolute (`/#features`) so the same header works on Privacy/Terms. Below `lg` a menu button (`aria-expanded`, `aria-controls="mobile-nav"`, Escape closes and returns focus, scrim closes on click) replaces the links. Signed-out: Join a session, Log in (`/login`), Sign up free (`/signup`). Signed-in (after mount, so SSR matches): account menu + Dashboard. |
-| Hero | `components/hero/Hero.tsx`, `LiveRoomPreview.tsx` | Centered h1 "Slides your audience can answer". Primary CTA `/signup` (or `/polls` when signed in), secondary `/live`. The preview is the projected screen plus an audience phone, always dark, labelled "Sample session", one `role="img"`: bars fill once, then an answer lands every ~2 s (still for reduced motion). |
-| Question types | `components/features/QuestionTypes.tsx` | The real slide types (`features/presentations/slides/types`) as one bordered grid with their one-line descriptions. Replaced the fake "trusted by" logo marquee. |
-| How it works | `components/features/Steps.tsx` | `ol` of three steps (a real sequence, so numbered 01-03 in mono). |
-| Showcase | `components/features/ShowcaseSections.tsx`, `components/mockups/*` | Three alternating rows with a check list; `MockFrame` is the shared bordered illustration frame (sample content, one image to assistive tech). |
-| Features | `components/features/Capabilities.tsx` | Eight capabilities in one bordered grid (a row layout on phones). |
-| Pricing | `components/pricing/Pricing.tsx` | Unchanged data flow: `usePlanCatalog()` (`/api/plans` with `FALLBACK_CATALOG`). A paid plan with no configured price reads "Pricing soon", Enterprise "Custom". "Contact sales" stays disabled without `NEXT_PUBLIC_SALES_EMAIL`, with a visible note. |
+| Hero | `components/hero/Hero.tsx`, `LiveRoomPreview.tsx` | Left-aligned h1 "Slides your audience can answer." on graph paper (`.mk-grid`), "answer" in Instrument Serif italic `text-brand` (the only serif on the site). Copy left, pill CTAs right on `lg`: primary `/signup` (or `/polls` when signed in), secondary `/live`. The preview is a `figure`: the projected screen with the audience phone resting on its lower right corner (md+), always dark, labelled "Sample session", one `role="img"`, plus a caption. Bars fill once, then an answer lands every ~2 s (still for reduced motion). |
+| Question types | `components/features/QuestionTypes.tsx`, `components/stage/scenes.tsx` | The real slide types (`features/presentations/slides/types`) as a tablist beside one dark stage (`role="tabpanel"`). Tabs are a scrolling chip row on phones and an index of rows on `lg` (the selected row shows its description and an ember rule). Arrow keys, Home and End move between tabs. The stage plays the selected type's sample result (one scene per type: bars race, words grow, rows reorder, pins drop...). Autoplay moves on every 6.5s while the stage is on screen, pauses on hover/focus, has a pause button, and stops once a type is picked; none with reduced motion. Scenes mount after the stage is first seen. |
+| How it works | `components/features/Steps.tsx`, `StepArt.tsx` | `ol` of three steps (a real sequence): ink circles numbered 1-3 in mono on one rule that runs across the row on `lg`, each with a small illustration (pick a start and slides stack up; the join code appears and people join; the report's results link is copied). The one white (`card`) band on the page. |
+| Showcase | `components/features/ShowcaseSections.tsx`, `components/mockups/*` | Three alternating rows (copy 5 columns, visual 7) with a hairline check list; each visual sits on a `PlotPanel` (graph paper) and `MockFrame` is the shared bordered illustration frame (sample content, one image to assistive tech). |
+| Features | `components/features/Capabilities.tsx`, `CapabilityArt.tsx` | A bento in one bordered block: four featured cells (Q&A, AI drafts, import, reports; spans 7/5/5/7 on `lg`), then four compact cells (live decks, teams, privacy, quick polls; 3 each). Every cell has an illustration that plays once when half on screen. |
+| Pricing | `components/pricing/Pricing.tsx` | Unchanged data flow: `usePlanCatalog()` (`/api/plans` with `FALLBACK_CATALOG`). The most popular plan is the one dark sheet (`dark` class on the card). A paid plan with no configured price reads "Pricing soon", Enterprise "Custom". "Contact sales" stays disabled without `NEXT_PUBLIC_SALES_EMAIL`, with a visible note. |
 | FAQ | `components/faq/Faq.tsx` | Radix accordion (`type="single" collapsible`), questions are h3 buttons, heading sticky beside it on `lg`. |
-| Final CTA, footer | `components/cta/FinalCta.tsx`, `components/social/Footer.tsx` | Footer lists only real destinations and holds the theme switch. |
+| Final CTA, footer | `components/cta/FinalCta.tsx`, `components/social/Footer.tsx` | The CTA ends on the hero's graph paper, heading left, pills right. The footer lists only real destinations, then the "Open Poll." wordmark sized to the column with container units (`24.6cqw`, `aria-hidden`), then the copyright and theme switch. |
 
-Shared pieces: `components/shared/` (`BrandMark`, `SectionHeading`, `styles.ts` for gutters, section rhythm and
-`linkButton`, `nav-links.ts`).
+Illustrations in the bento and the steps share `components/shared/ArtFrame.tsx`: graph paper, a "Sample"
+badge, one `role="img"`, `size="lg" | "sm"` (256 / 176px), and the drawing rendered after mount (reduced
+motion changes the first frame, so the server cannot render it). `artSheet` is the white sheet inside.
+
+Shared pieces: `components/shared/` (`BrandMark`, `SectionHeading` with `layout="split" | "stack"`, `PlotPanel`, `ArtFrame`, `motion.tsx`,
+`styles.ts` for gutters, section rhythm, `linkButton` and `pill`, `nav-links.ts`). The header's links and
+buttons are pills; it turns solid paper with a blur once the page scrolls.
 
 ### What the copy is backed by
 
@@ -42,7 +47,7 @@ when they are real.
 `features/auth/components/AuthShell.tsx` is the frame for login, signup, forgot/reset password, verify
 email and the invitation page: brand + theme switch on top, a narrow column with an h1 (and an optional
 status icon), Privacy/Terms underneath, and on `lg` the product panel `AuthAside.tsx` (a static sample session and three
-real selling points; off for verify email and invitations via `aside={false}`).
+real selling points on flat graph paper; off for verify email and invitations via `aside={false}`).
 `fields.tsx` has `AuthField`, `PasswordField` (show/hide toggle: `aria-label="Show password"` +
 `aria-pressed`), `AuthSubmit`, `AuthDivider` and the field height (44px on phones, 40px from `md`).
 Result states (sent, verified, expired, invalid) are the same shell with `icon` + `tone` and a new h1.
