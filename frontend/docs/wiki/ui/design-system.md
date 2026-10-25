@@ -109,8 +109,8 @@ data series and small check/step marks.
 
 ## App screens
 
-The creator shell, `/polls`, every `/settings` page and `/analytics` follow these; the builders and the live
-surfaces still need their layout pass (they re-skin through the tokens only).
+The creator shell, `/polls`, every `/settings` page, `/analytics` and both builders follow these; the live
+surfaces (host console, stage, participant views) still need their layout pass (they re-skin through the tokens only).
 
 - **Shell**: the sidebar is paper (`sidebar`), 14px nav items, the active one a white sheet with a ring and an
   ember icon; on phones a top bar opens it as a drawer (`core/routing-and-layouts.md`).
@@ -121,6 +121,9 @@ surfaces still need their layout pass (they re-skin through the tokens only).
   and search on `bg-card` with `border-input`.
 - **Cards**: 12px radius, 1px border, a graph-paper preview strip on top, the title as a stretched link, `outline`
   and `ink` actions. No uppercase micro-labels, nothing under 12px.
+- **Builders (studio frame)**: a header bar (back, title edited in place, outline/ghost actions, one ember
+  save/publish), a paper rail on the left, the editor as one white sheet centred on graph paper, the preview
+  beside it on wide screens. Inspector tabs are underline tabs; choices of two values are segmented controls.
 - **Settings**: sections are an h2 (20px) with one sentence, then a white sheet (`settingsCard`) or a sheet of
   hairline rows (`settingsList` + `SettingsRow`); notices are neutral (`bg-secondary`), not ember; choices of
   two or three values are a segmented control of `aria-pressed` buttons. Blocks in

@@ -82,3 +82,15 @@ PollCards display a human-readable countdown for active polls, e.g., "Closes in 
 - Each poll supports multiple questions (no hard limit shown in UI, but each question is single-option / radio-select).
 - Options: minimum 2, maximum 10 per question.
 - Question text: minimum 3 characters.
+
+## Poll builder (`/create`)
+
+`features/polls/components/PollBuilder.tsx` uses the same studio frame as the deck builder: a header bar
+(back, the title edited in place, Poll / Trial as a segmented control, the pass score for trials, Generate
+with AI, Save draft, Publish as the one ember button), the question rail (paper column, on top on phones,
+"Ready to publish" progress), the question on graph paper (`create/PollQuestionCard.tsx`: one white sheet,
+labelled question, choices and delete buttons) and, from `xl`, the respondent preview
+(`create/LivePreview.tsx`, a phone at readable sizes). `CreatePollModal` ("New poll"),
+`PublishSettingsModal` and `AiPromptModal` share the dialog style of the rest of the app.
+`create/{CreatePollHeader,CreatePollFooter,PollQuestionsPanel,PollBasicsCard}.tsx` are not used by any page.
+
