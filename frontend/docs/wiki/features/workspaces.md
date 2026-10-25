@@ -1,7 +1,7 @@
 ---
 summary: Workspace selection (store, X-Workspace-Id, switcher), the /settings shell with its gated section nav, members, invitations, the ShareDialog, the audit log, and how a package adds a settings page.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-10-25
 ---
 
 # Workspaces and Settings
@@ -22,6 +22,7 @@ Everything lives in `features/workspaces/`. Backend contract: `backend/docs/wiki
 | `components/SettingsNav.tsx` | The `/settings` nav. |
 | `components/WorkspaceSettings.tsx` | `/settings/workspace` content: name (owners/admins), type, role, slug, plan limits and features, create team workspace. |
 | `settings/sections.ts` | `SETTINGS_SECTIONS` registry and `resolveSection()`. |
+| `settings/blocks.tsx` | What every settings page is built from (also billing and MCP): `settingsCard` (white sheet), `settingsList` (sheet of hairline rows), `SettingsHeading`, `SettingsRow` (label and help left, control right, stacked on phones), `SettingsLoading`, `SettingsFailed`. |
 
 ## Selected workspace
 
@@ -42,9 +43,12 @@ Everything lives in `features/workspaces/`. Backend contract: `backend/docs/wiki
 
 ## Settings shell
 
-`app/(dashboard)/settings/layout.tsx` renders the title and `SettingsNav` beside the page. `/settings`
-redirects to `SETTINGS_HOME` (`/settings/profile`). Pages render only their own sections:
-`settings/profile` (profile, appearance, notifications, security), `settings/mcp`
+`app/(dashboard)/settings/layout.tsx` renders the title and `SettingsNav` beside the page (`lg`; above it
+on smaller screens, as one scrolling row of chips whose disabled reasons are read to assistive tech only).
+`/settings` redirects to `SETTINGS_HOME` (`/settings/profile`). Pages render only their own sections:
+`settings/profile` (profile: name and email read-only, there is no update API; appearance: Light / Dark /
+System; security: "Reset password" links to `/forgot-password`, the only password flow the API has. The
+old notification switches and "Change password" button did nothing and were removed), `settings/mcp`
 (`McpSettingsSection`), `settings/workspace` (`WorkspaceSettings`), `settings/billing` (`BillingSettings`).
 
 The nav lists **every** section in `SETTINGS_SECTIONS`, grouped Account / Workspace. Each entry is a
