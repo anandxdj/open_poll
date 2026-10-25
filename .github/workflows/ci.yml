@@ -1,0 +1,247 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Keep in sync with the Bun version used to write backend/bun.lock and frontend/bun.lock.
+  BUN_VERSION: 1.4.3
+
+jobs:
+  backend:
+    name: Backend (typecheck + test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Unit tests stub Mongo/Redis; point at unreachable hosts so nothing reaches a real service.
+      NODE_ENV: test
+      MONGO_URI: mongodb://127.0.0.1:1/open-poll-ci
+      REDIS_URL: redis://127.0.0.1:1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun x tsc --noEmit
+
+      # Only backend/tests/**; the OIDC integration suite in testing/oidc needs a live IdP and is not run here.
+      # Suites that need TEST_MONGO_URI/TEST_REDIS_URL skip here and run in the integration job.
+      - name: Test
+        run: bun test
+
+  integration:
+    name: Backend (integration)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      NODE_ENV: test
+      # tests/preload.ts (bunfig.toml) also points the app's MONGO_URI/REDIS_URL at these.
+      TEST_MONGO_URI: mongodb://127.0.0.1:27017/openpoll_ci?directConnection=true
+      TEST_REDIS_URL: redis://127.0.0.1:6379/0
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Path filters: tests/integration/**, every *.integration.test.ts, and the spikes
+      # (the Redis-backed one only runs here).
+      - name: Integration tests
+        run: bun test integration tests/spikes
+
+  loadtest-smoke:
+    name: Load test (answer storm smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      NODE_ENV: test
+      # The storm starts its own backend (`--spawn`) and creates its host account in Mongo.
+      MONGO_URI: mongodb://127.0.0.1:27017/openpoll_loadtest?directConnection=true
+      REDIS_URL: redis://127.0.0.1:6379/0
+      # Pass criteria; override per repository with Actions variables if the runner class changes.
+      STORM_MIN_RPS: ${{ vars.STORM_MIN_RPS || '500' }}
+      STORM_MAX_P95_MS: ${{ vars.STORM_MAX_P95_MS || '150' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # 500 phones answer 10 slides in turn at 600 answers/s; every accepted answer must also reach Mongo.
+      - name: Answer storm over REST
+        run: bun loadtest/answer-storm.ts --spawn --mode rest --participants 500 --slides 10 --rate 600 --json storm-rest.json
+
+      - name: Answer storm over Socket.io
+        run: bun loadtest/answer-storm.ts --spawn --mode socket --participants 500 --slides 10 --rate 600 --json storm-socket.json
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loadtest-smoke
+          path: backend/storm-*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  frontend:
+    name: Frontend (typecheck + lint + unit tests + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      # Inlined into the client bundle at build time; dummy values are enough for CI.
+      NEXT_PUBLIC_API_URL: http://localhost:5000
+      NEXT_PUBLIC_SOCKET_URL: http://localhost:5000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Unit tests
+        run: bun run test
+
+      - name: Build
+        run: bun run build
+
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      # frontend/e2e/env.ts defaults to local test containers; point it at the CI services.
+      E2E_MONGO_URI: mongodb://127.0.0.1:27017/openpoll_e2e?directConnection=true
+      E2E_REDIS_URL: redis://127.0.0.1:6379/0
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: bun install --frozen-lockfile
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: bun install --frozen-lockfile
+
+      - name: Install Chromium
+        working-directory: frontend
+        run: bun x playwright install --with-deps chromium
+
+      - name: E2E tests
+        working-directory: frontend
+        run: bun run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7

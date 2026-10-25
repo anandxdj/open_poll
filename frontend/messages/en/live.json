@@ -1,0 +1,116 @@
+{
+  "join": {
+    "title": "Join a live deck",
+    "subtitle": "Enter the code shown on the host's screen.",
+    "codePlaceholder": "000000",
+    "submit": "Join",
+    "invalidCode": "Enter the 6-digit code from your host.",
+    "notFound": "No live deck with that code.",
+    "poweredBy": "Powered by Open Poll"
+  },
+  "participant": {
+    "notFoundTitle": "Presentation Deck Not Found",
+    "notFoundHint": "Check your code and try again.",
+    "nicknamePrompt": "Choose a nickname to join the deck.",
+    "nicknamePlaceholder": "Your nickname",
+    "joinSubmit": "Join Session",
+    "nicknameRequired": "Please enter a nickname.",
+    "welcome": "Welcome, {name}!",
+    "joinFailed": "Could not join presentation.",
+    "submitFailed": "Could not submit answer.",
+    "lobbyTitle": "You're in!",
+    "lobbyHint": "Waiting for the host to start the presentation.",
+    "slideCounter": "Slide {current} of {total}",
+    "responseReceived": "Response received!",
+    "correct": "Correct!",
+    "points": "+{points}",
+    "notQuite": "Not quite…",
+    "noPoints": "No points this round.",
+    "rank": "Rank <b>#{rank}</b>",
+    "totalPoints": "{score} pts",
+    "waitingAdvance": "Waiting for host to advance…",
+    "timesUp": "Time's up!",
+    "lockedIn": "Answer locked in!",
+    "waitingReveal": "Waiting for the reveal — faster answers earn more points.",
+    "waitingClose": "Waiting for question to close.",
+    "slideTab": "Slide",
+    "endTitle": "That's a wrap!",
+    "endSummary": "You finished <b>#{rank}</b> with <num>{score}</num> points ({correct} correct).",
+    "votingClosed": "Voting is closed",
+    "votingClosedHint": "Waiting for the host to continue.",
+    "reconnecting": "Reconnecting…",
+    "sessionFull": "This session is full.",
+    "joinEnded": "This session has already ended.",
+    "kickedTitle": "You were removed from this session",
+    "kickedHint": "The host removed you, so you can't rejoin this session.",
+    "endedTitle": "This session has ended",
+    "endedHint": "Ask the host for the next session, or check back later.",
+    "newSessionTitle": "A new session is live",
+    "newSessionHint": "The host started another run of this deck.",
+    "newSessionJoin": "Join the new session",
+    "rejoinHint": "That session is over. Enter a nickname to join the current one.",
+    "syncing": "Catching up…",
+    "waitingForSlide": "Loading the current slide…",
+    "tooManyAttempts": "Too many attempts. Wait a moment and try again."
+  },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "finalStandings": "Final standings",
+    "empty": "No scores yet — waiting for the first answers.",
+    "you": "You"
+  },
+  "timer": {
+    "timeLeft": "Time left",
+    "seconds": "{seconds}s"
+  },
+  "slides": {
+    "selectAnswer": {
+      "selectAll": "Select all that apply",
+      "submit": "Submit Answer"
+    },
+    "typeAnswer": {
+      "placeholder": "Type your exact answer here…",
+      "submit": "Submit Answer"
+    },
+    "openEnded": {
+      "placeholder": "Share your thoughts or answer freely…",
+      "submit": "Submit Feedback"
+    },
+    "wordcloud": {
+      "empty": "Add up to {max, plural, one {# word} other {# words}}",
+      "placeholder": "Word {n} of {max}…",
+      "add": "Add",
+      "remove": "Remove {word}",
+      "submit": "Send Words"
+    },
+    "scales": {
+      "minLabel": "Strongly Disagree",
+      "maxLabel": "Strongly Agree",
+      "submit": "Submit Ratings"
+    },
+    "ranking": {
+      "hint": "Use arrows to order items from top (#1) to bottom",
+      "submit": "Submit Ranking"
+    },
+    "content": {
+      "lookAtScreen": "Look at the screen",
+      "lookAtScreenHint": "The presenter is showing this slide on the main screen."
+    },
+    "image": {
+      "missing": "No image yet",
+      "unavailable": "This image could not be loaded."
+    },
+    "video": {
+      "title": "{provider} video",
+      "uploaded": "Uploaded",
+      "missing": "No video yet"
+    },
+    "instructions": {
+      "goTo": "Go to",
+      "useCode": "and enter the code",
+      "scan": "Scan to join",
+      "code": "Join code",
+      "connected": "You're connected to this session."
+    }
+  }
+}

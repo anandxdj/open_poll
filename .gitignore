@@ -1,4 +1,4 @@
-.env 
+.env
 # dependencies (bun install)
 node_modules
 
@@ -38,3 +38,12 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 package-lock.json
 .vercel
 .env*
+
+# local agent/tool output and throwaway scripts
+.kimchi/
+backend/scratch/
+frontend/scratch/
+.claude/worktrees/
+
+# Load test fixture (backend/loadtest/answer-storm.ts --prepare-only)
+backend/loadtest/.fixture.json

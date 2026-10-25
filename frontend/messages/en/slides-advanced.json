@@ -1,0 +1,48 @@
+{
+  "guessNumber": {
+    "slider": "Your guess",
+    "typeIt": "Or type your guess",
+    "outOfRange": "Enter a number from {min} to {max}.",
+    "submit": "Submit Guess",
+    "histogram": "Guesses",
+    "bucket": "{range}: {count, plural, one {# guess} other {# guesses}}",
+    "guesses": "Guesses",
+    "mean": "Mean",
+    "median": "Median",
+    "correctAnswer": "Correct answer",
+    "correctCount": "{correct} of {total} {total, plural, one {guess was} other {guesses were}} correct"
+  },
+  "hundredPoints": {
+    "allShared": "All 100 points shared",
+    "left": "{count, plural, one {# point} other {# points}} left to give",
+    "over": "{count, plural, one {# point} other {# points}} too many",
+    "less": "Give {item} 5 points less",
+    "more": "Give {item} 5 points more",
+    "slider": "Adjust points for {item}",
+    "points": "Points for {item}",
+    "submit": "Submit Points",
+    "avg": "avg",
+    "voters": "{count, plural, one {# participant} other {# participants}} answered"
+  },
+  "grid2x2": {
+    "board": "Grid with {x} across and {y} up. Use the arrow keys to move the selected item, Enter to confirm.",
+    "items": "Items to place",
+    "hintPlace": "Tap the grid to place “{item}”, or focus it and use the arrow keys.",
+    "hintMove": "Tap or drag to move “{item}”, or use the arrow keys. Pick another item below to place it.",
+    "placedAt": "{item}: {xLabel} {xValue}, {yLabel} {yValue}",
+    "placed": "Placed",
+    "notPlaced": "Not placed",
+    "progress": "{placed} of {total} placed",
+    "submit": "Submit Grid",
+    "voters": "{count, plural, one {# participant} other {# participants}} answered"
+  },
+  "pinOnImage": {
+    "image": "{alt}. Tap to drop your pin, or use the arrow keys and Enter.",
+    "hintDrop": "Tap the image to drop your pin.",
+    "hintMove": "Tap or drag to move your pin, then submit.",
+    "dropped": "Pin dropped {x} from the left, {y} from the top",
+    "submit": "Submit Pin",
+    "pins": "{count, plural, one {# pin} other {# pins}}",
+    "inArea": "{inside} of {total} in the correct area ({percent}%)"
+  }
+}

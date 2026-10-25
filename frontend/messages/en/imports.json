@@ -1,0 +1,117 @@
+{
+  "button": "Import",
+  "dialog": {
+    "title": "Import",
+    "description": "Bring a presentation or a list of questions into OpenPoll. You get a new deck you can edit.",
+    "tabsLabel": "What to import",
+    "done": "Done"
+  },
+  "tabs": {
+    "file": "PowerPoint or PDF",
+    "google": "Google Slides",
+    "questions": "Questions (CSV or Excel)"
+  },
+  "capabilities": {
+    "storageOffTitle": "File uploads are not set up",
+    "storageOff": "File storage is not configured on this server, so PowerPoint and PDF files cannot be uploaded. Ask whoever runs OpenPoll to set up storage, or import a public Google Slides link or a questions spreadsheet instead.",
+    "storageOffGoogle": "File storage is not configured on this server, so pictures in the presentation are not imported. Text, notes and layout are.",
+    "renderOff": "Charts, SmartArt diagrams and videos cannot be imported on this server. Those slides keep their text and show a warning.",
+    "renderOn": "Slides with charts, SmartArt or videos are imported as a picture of the slide.",
+    "driveOff": "Only presentations shared as \"Anyone with the link\" can be imported. For a private file, change its sharing or download it as a .pptx and upload that.",
+    "driveOn": "Private Google Drive files can be imported through the API. In the app, share the file as \"Anyone with the link\" or upload it as a .pptx."
+  },
+  "file": {
+    "drop": "Drop a .pptx or .pdf here, or choose a file",
+    "choose": "Choose a file",
+    "change": "Choose a different file",
+    "hint": "PowerPoint (.pptx) keeps text, bullets, pictures and notes as editable slides. A PDF becomes one picture slide per page. Up to 100 MB.",
+    "titleLabel": "Deck title (optional)",
+    "titlePlaceholder": "Taken from the file",
+    "submit": "Import file",
+    "wrongType": "That file type is not supported. Choose a .pptx or a .pdf.",
+    "empty": "That file is empty.",
+    "tooLarge": "That file is larger than 100 MB.",
+    "uploading": "Uploading {name}",
+    "selected": "{name} ({size})"
+  },
+  "google": {
+    "linkLabel": "Google Slides link",
+    "linkPlaceholder": "https://docs.google.com/presentation/d/…/edit",
+    "hint": "Share the presentation as \"Anyone with the link\" (viewer), then paste its address.",
+    "titleLabel": "Deck title (optional)",
+    "titlePlaceholder": "Taken from the presentation",
+    "submit": "Import from Google Slides",
+    "invalid": "That is not a Google Slides link. Paste an address like https://docs.google.com/presentation/d/…/edit."
+  },
+  "questions": {
+    "intro": "One question per row. Multiple choice, type answer, word cloud, open ended, scales and ranking are supported.",
+    "templates": "Start from a template:",
+    "templateCsv": "CSV template",
+    "templateXlsx": "Excel template",
+    "templateFailed": "The template could not be downloaded.",
+    "drop": "Choose a .csv or .xlsx file with your questions",
+    "change": "Choose a different file",
+    "wrongType": "That file type is not supported. Choose a .csv or .xlsx file.",
+    "empty": "That file is empty.",
+    "tooLarge": "That file is larger than 2 MB.",
+    "titleLabel": "Deck title (optional)",
+    "titlePlaceholder": "Taken from the file name",
+    "checking": "Checking {name}…",
+    "ready": "{count, plural, one {# question is ready to import} other {# questions are ready to import}}",
+    "skipped": "{count, plural, one {# row has a problem and will be skipped} other {# rows have problems and will be skipped}}",
+    "noneValid": "No valid questions were found. Fix the problems below and choose the file again.",
+    "previewLabel": "Questions found in the file",
+    "colRow": "Row",
+    "colType": "Type",
+    "colQuestion": "Question",
+    "colDetails": "Details",
+    "problemsTitle": "Rows that will be skipped",
+    "problem": "Row {row}: {message}",
+    "ignored": "Ignored: {message}",
+    "submit": "{count, plural, one {Import # question} other {Import # questions}}",
+    "importing": "Importing…",
+    "imported": "{count, plural, one {# question imported.} other {# questions imported.}}",
+    "importedSkipped": "{skipped, plural, one {# row was skipped.} other {# rows were skipped.}}"
+  },
+  "types": {
+    "select_answer": "Multiple choice",
+    "type_answer": "Type answer",
+    "wordcloud": "Word cloud",
+    "open_ended": "Open ended",
+    "scales": "Scales",
+    "ranking": "Ranking"
+  },
+  "job": {
+    "uploading": "Uploading…",
+    "queued": "Waiting for a free import worker…",
+    "running": "Importing…",
+    "stage": "Importing: {stage}",
+    "completed": "Imported as “{title}”.",
+    "completedNoTitle": "Import finished.",
+    "failed": "The import failed.",
+    "openDeck": "Open the deck",
+    "tryAgain": "Try again",
+    "startOver": "Import something else",
+    "warningsTitle": "{count, plural, one {# thing to check} other {# things to check}}",
+    "warningsHint": "These parts could not be carried over exactly. The deck is ready; you may want to review them.",
+    "slide": "Slide {slide}: {message}",
+    "lostTrack": "We lost contact with the import. Check your library in a moment; it may have finished.",
+    "timedOut": "The import is taking longer than expected. Check your library in a few minutes."
+  },
+  "errors": {
+    "STORAGE_DISABLED": "File storage is not configured on this server, so PowerPoint and PDF files cannot be imported.",
+    "PLAN_LIMIT_REACHED": "Your plan's monthly import limit has been reached.",
+    "FORBIDDEN": "You do not have permission to create presentations in this workspace.",
+    "GOOGLE_DRIVE_DISABLED": "Importing from Google Drive is not set up on this server.",
+    "QUEUE_UNAVAILABLE": "Imports are unavailable right now. Try again in a moment.",
+    "generic": "Something went wrong. Try again."
+  },
+  "builder": {
+    "button": "Import questions",
+    "title": "Import questions",
+    "description": "Add questions from a CSV or Excel file to the deck you are editing.",
+    "submit": "{count, plural, one {Add # question} other {Add # questions}}",
+    "added": "{count, plural, one {Added # question to the deck.} other {Added # questions to the deck.}}",
+    "capacity": "This deck has room for {count, plural, one {# more slide} other {# more slides}}."
+  }
+}

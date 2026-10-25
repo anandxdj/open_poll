@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ListPlus,
@@ -22,11 +21,10 @@ import { PollQuestionCard } from "@/features/polls/components/create/PollQuestio
 import { PublishSettingsModal } from "@/features/polls/components/create/PublishSettingsModal";
 import type { QuestionForm } from "@/features/polls/components/create/types";
 import { LivePreview } from "@/features/polls/components/create/LivePreview";
-import { useCreatorStore } from "@/features/polls/store/useCreatorStore";
+import { useCreatorStore, type Poll } from "@/features/polls/store/useCreatorStore";
 import { type AiTone, defaultAiExpiresAtIso, generateDraft, type GeneratedPollDraft } from "@/features/ai/api/generateDraft";
 import { AiPromptModal } from "@/features/ai/components/AiPromptModal";
 import { cn } from "@/lib/utils";
-import apiClient from "@/lib/api-client";
 import axios from "axios";
 
 const emptyQuestion = (): QuestionForm => ({
@@ -45,6 +43,20 @@ const ease = [0.32, 0.72, 0, 1] as const;
 
 // Module-level lock to prevent double-creation across component remounts during navigation
 let isGlobalCreating = false;
+
+/** Drops blank options and remaps the correct-answer indices onto what is left. */
+function withoutBlankOptions(q: QuestionForm): { options: string[]; correctOptionIndices: number[] } {
+  const kept: number[] = [];
+  q.options.forEach((o, i) => {
+    if (o.trim()) kept.push(i);
+  });
+  return {
+    options: kept.map((i) => q.options[i]!.trim()),
+    correctOptionIndices: (q.correctOptionIndices || [])
+      .map((c) => kept.indexOf(c))
+      .filter((c) => c >= 0),
+  };
+}
 
 export function PollBuilder() {
   const router = useRouter();
@@ -69,7 +81,14 @@ export function PollBuilder() {
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [isDraftLoaded, setIsDraftLoaded] = useState(!draftIdFromUrl);
 
-  useEffect(() => {
+  // Populate the form from the stored draft whenever the store's poll list or
+  // the draft id changes (adjusting state during render instead of in an effect).
+  const [draftSyncSource, setDraftSyncSource] = useState<{
+    polls: Poll[];
+    draftId: string | null;
+  } | null>(null);
+  if (draftSyncSource?.polls !== polls || draftSyncSource.draftId !== draftIdFromUrl) {
+    setDraftSyncSource({ polls, draftId: draftIdFromUrl });
     if (draftIdFromUrl) {
       const poll = polls.find(p => p._id === draftIdFromUrl);
       if (poll) {
@@ -96,10 +115,14 @@ export function PollBuilder() {
           })
         );
         setIsDraftLoaded(true);
-      } else {
-        // If not found, maybe it hasn't been fetched yet
-        fetchPolls().catch(() => {});
       }
+    }
+  }
+
+  useEffect(() => {
+    // If the draft is not in the store, maybe it hasn't been fetched yet
+    if (draftIdFromUrl && !polls.some(p => p._id === draftIdFromUrl)) {
+      fetchPolls().catch(() => {});
     }
   }, [draftIdFromUrl, polls, fetchPolls]);
 
@@ -163,11 +186,13 @@ export function PollBuilder() {
   const isSavingRef = useRef(false);
 
   // Sync title with URL if it's a new poll and title hasn't been edited
-  useEffect(() => {
+  const [titleSyncSource, setTitleSyncSource] = useState({ nameFromUrl, draftIdFromUrl });
+  if (titleSyncSource.nameFromUrl !== nameFromUrl || titleSyncSource.draftIdFromUrl !== draftIdFromUrl) {
+    setTitleSyncSource({ nameFromUrl, draftIdFromUrl });
     if (!draftIdFromUrl && nameFromUrl) {
       setTitle(nameFromUrl);
     }
-  }, [nameFromUrl, draftIdFromUrl]);
+  }
 
   useEffect(() => {
     return () => {
@@ -201,7 +226,7 @@ export function PollBuilder() {
         const finalTitle = normalizedTitle.length >= 3 ? normalizedTitle : normalizedTitle + " Draft";
 
         const finalQuestions = s.questions.map((q) => {
-          let text = q.text.trim() || "Untitled Question";
+          const text = q.text.trim() || "Untitled Question";
           let opts = q.options.map((o) => o.trim()).filter(Boolean);
           if (opts.length === 0) opts = ["Option 1", "Option 2"];
           else if (opts.length === 1) opts.push("Option 2");
@@ -362,7 +387,15 @@ export function PollBuilder() {
       prev.map((q, i) => {
         if (i !== qIndex) return q;
         if (q.options.length <= 2) return q;
-        return { ...q, options: q.options.filter((_, j) => j !== optIndex) };
+        // Correct answers are stored by index, so the ones after the removed
+        // option shift down with it; a removed correct option stops being one.
+        return {
+          ...q,
+          options: q.options.filter((_, j) => j !== optIndex),
+          correctOptionIndices: (q.correctOptionIndices || [])
+            .filter((c) => c !== optIndex)
+            .map((c) => (c > optIndex ? c - 1 : c)),
+        };
       })
     );
   }
@@ -388,7 +421,7 @@ export function PollBuilder() {
     try {
       const finalTitle = title.trim() || nameFromUrl || "Untitled Draft";
       const finalQuestions = questions.map((q) => {
-        let text = q.text.trim() || "Untitled Question";
+        const text = q.text.trim() || "Untitled Question";
         let opts = q.options.map((o) => o.trim()).filter(Boolean);
         if (opts.length === 0) opts = ["Option 1", "Option 2"];
         else if (opts.length === 1) opts.push("Option 2");
@@ -488,9 +521,8 @@ export function PollBuilder() {
           _id: q._id,
           text: q.text.trim(),
           isMandatory: q.isMandatory,
-          options: q.options.map((o) => o.trim()).filter(Boolean),
+          ...withoutBlankOptions(q),
           type: q.type || 'single',
-          correctOptionIndices: q.correctOptionIndices || [],
           explanation: q.explanation || '',
           points: q.points || 1,
         })),

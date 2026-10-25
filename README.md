@@ -13,13 +13,13 @@ Open Poll is a modern, full-stack polling application that offers:
 - **Instant Real-time Polling**: Cast your vote and watch the charts update live for everyone connected, powered by WebSockets.
 - **AI-Powered Analytics**: We don't just count votes. Our built-in AI analyzes responses to generate intelligent summaries and spot emerging trends.
 - **Engaging User Experience**: A beautiful, highly responsive, and accessible UI that makes participating in polls feel delightful instead of like a chore.
-- **Seamless Authentication**: Jump right in using Google OAuth or traditional email/password login.
+- **Seamless Authentication**: Sign in with OpenID Connect, Google OAuth, or email/password.
 
 ## 🛠️ How we built it
 
 We utilized a cutting-edge modern web stack designed for speed, scale, and developer experience:
 
-- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS, Shadcn UI, and Framer Motion for buttery-smooth animations.
+- **Frontend**: Next.js 16 (App Router), TypeScript, Tailwind CSS, Shadcn UI, and Framer Motion for buttery-smooth animations.
 - **Backend**: Bun for an ultra-fast runtime, Express.js for our API, and Socket.io for low-latency, real-time bidirectional communication.
 - **Database & Caching**: MongoDB (with Mongoose) for flexible document storage, and Redis to handle fast socket session management and caching.
 - **AI Integration**: Custom AI modules integrated into the backend architecture to process and summarize poll data on the fly.
@@ -27,7 +27,7 @@ We utilized a cutting-edge modern web stack designed for speed, scale, and devel
 
 ## 👤 Creator & System Architecture
 
-**Open Poll** is a real-time, AI-driven polling platform created by me using a high-performance, containerized tech stack comprising Next.js 15, Bun, Express, TypeScript, MongoDB, Redis, and Docker. 
+**Open Poll** is a real-time, AI-driven polling platform created by me using a high-performance, containerized tech stack comprising Next.js 16, Bun, Express, TypeScript, MongoDB, Redis, and Docker. 
 
 This platform was developed to revolutionize traditional, static data collection by enabling instantaneous WebSocket-driven sentiment sharing combined with automated, context-aware AI insights. Designed with a robust microservice-like structure, the application separates its high-throughput real-time backend from a highly responsive, animated frontend, ensuring horizontal scalability, caching efficiency, and a frictionless experience for users casting votes and exploring AI-generated analysis.
 
@@ -36,7 +36,7 @@ This platform was developed to revolutionize traditional, static data collection
 ```mermaid
 graph TD
     subgraph Client Layer
-        A[Next.js 15 Client / Web Browser]
+        A[Next.js 16 Client / Web Browser]
     end
 
     subgraph Service Layer
@@ -61,7 +61,7 @@ graph TD
 ```
 
 ### ⚙️ Component Flow
-1. **Frontend (Next.js 15)**: Leverages React Server Components (RSC) and client-side hooks for a modular layout, animated with Framer Motion, and connects to the WebSocket gateway for live graph updates.
+1. **Frontend (Next.js 16)**: Leverages React Server Components (RSC) and client-side hooks for a modular layout, animated with Framer Motion, and connects to the WebSocket gateway for live graph updates.
 2. **Backend (Bun & Express)**: Orchestrates the API routes, WebSocket connections via Socket.io, and routes incoming analytics payloads to the AI module.
 3. **Data Tier (MongoDB & Redis)**: MongoDB stores persistent poll structures and user records, while Redis acts as a high-speed broker for socket adapter pooling and session state synchronization.
 
@@ -96,7 +96,7 @@ graph TD
 ### Prerequisites
 
 - [Bun](https://bun.sh/) installed.
-- Docker (for Redis and MongoDB).
+- A MongoDB instance (local `mongod` or Atlas) and a Redis instance (`docker run -p 6379:6379 redis:7-alpine` works).
 
 ### 1. Clone the repository
 
@@ -110,23 +110,7 @@ cd open_poll
 - Create `backend/.env` (copy from `backend/.env.example`).
 - Create `frontend/.env.local` (copy from `frontend/.env.example`).
 
-### 3. Run with Docker Compose (Recommended)
-
-You can run the entire stack (Frontend, Backend, Redis, Mongo) with a single command:
-
-```bash
-docker-compose up --build
-```
-
-_Or on Windows:_
-
-```powershell
-./docker.ps1
-```
-
-### 4. Manual Run (Without Docker Compose)
-
-If you prefer to run services manually:
+### 3. Run the backend and frontend
 
 **Backend:**
 
@@ -144,20 +128,31 @@ bun install
 bun dev
 ```
 
----
+### 4. Checks
 
-## 🌐 VPS Deployment Architecture
-
-Deploying to a VPS is easy with Docker. We designed `docker-compose.yml` to orchestrate:
-
-1. Clone the repo onto your VPS.
-2. Update the `docker-compose.yml` with your VPS IP address in the `frontend` build arguments.
-3. Update your `backend/.env` with production secrets and your VPS IP.
-4. Run:
+CI (`.github/workflows/ci.yml`) runs the same commands on every push and pull request:
 
 ```bash
+cd backend && bun x tsc --noEmit && bun test
+cd frontend && bun run typecheck && bun run lint && bun run build
+```
+
+---
+
+## 🌐 Deployment
+
+Two supported targets:
+
+- **Vercel** (`vercel.json`): the frontend and the backend (`backend/Dockerfile.vercel`) deploy as two services in one project. `/api`, `/mcp`, `/socket.io` and `/auth/callback` are rewritten to the backend.
+- **VPS with Docker Compose** (`docker-compose.yml`): runs **Redis and the backend only**, behind an existing Traefik reverse proxy (external `traefik` network, Let's Encrypt resolver). MongoDB is external (e.g. Atlas) and the frontend is deployed separately. The backend reads secrets from a root-level `.env` file.
+
+```bash
+# on the VPS, with Traefik already running
+cp backend/.env.example .env   # then fill in production values
 sudo docker compose up --build -d
 ```
+
+On Windows, `./docker.ps1` wraps the same `docker-compose up --build -d`.
 
 ---
 

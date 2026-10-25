@@ -4,8 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { Sparkles, MousePointer2, PieChart, CheckCircle2, Zap, Brain } from "lucide-react";
 
-const phases = ["prompt", "expansion", "vote", "analytics"] as const;
-type Phase = (typeof phases)[number];
+type Phase = "prompt" | "expansion" | "vote" | "analytics";
 
 const pollData = {
   question: "What should our next feature be?",

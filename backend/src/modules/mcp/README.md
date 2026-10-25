@@ -11,7 +11,8 @@ Express app. No cookies/JWT for the MCP surface; PAT only.
 3. User pastes config into their MCP client.
 4. Client calls `POST /mcp` with `Authorization: Bearer opoll_mcp_...`.
 5. Server resolves token → user, exposes scoped tools, every query scoped to
-   that user's `creatorId`.
+   that user's default workspace (the one last switched to in the app) and
+   authorized with the workspace policy on top of the token scopes.
 
 ```
 MCP client ──Bearer opoll_mcp_xxx──► POST /mcp
@@ -31,17 +32,36 @@ MCP client ──Bearer opoll_mcp_xxx──► POST /mcp
 
 | Tool | Scope | Maps to |
 |---|---|---|
-| `list_polls` | `poll:read` | `PollService.listPollsByCreator` |
-| `get_poll` | `poll:read` | `PollService.getPollById` (+owner check) |
+| `list_polls` | `poll:read` | `PollService.listPolls` (default workspace) |
+| `get_poll` | `poll:read` | `PollService.getPollById` (+`deck:read`) |
 | `create_poll` | `poll:create` | `PollService.createPoll` (ungraded polls only) |
 | `create_assessment` | `poll:create` | `PollService.createPoll` with `pollType: TRIAL` |
-| `edit_poll` | `poll:edit` | `PollService.updatePoll` (+owner, blocks closed) |
+| `edit_poll` | `poll:edit` | `PollService.updatePoll` (+`deck:edit`, blocks closed) |
 | `convert_poll_to_assessment` | `poll:edit` | `PollService.updatePoll` → `pollType: TRIAL` |
 | `get_poll_analytics` | `analytics:read` | `ResponseService.getPollAnalytics` (aggregate only) |
 | `get_share_link` | `poll:read` | `${FRONTEND_URL}/p/:pollId` |
 
 **Excluded by design:** delete, close, publish-results, account/billing/auth.
 Deletion and closing stay web-only.
+
+### Create defaults differ from REST
+
+`create_poll` and `create_assessment` fill omitted envelope fields differently from
+`POST /api/polls` (`createPollSchema`):
+
+| Field | MCP default | REST default |
+|---|---|---|
+| `isPublished` | **`true` — live immediately** | `false` (draft) |
+| `expiresAt` | 30 days from now | required, no default |
+| `isAnonymous` | `true` | `true` |
+
+So an MCP-created poll or assessment is open to anyone with the link the moment the
+call returns, unless the agent passes `isPublished: false`. This is deliberate — an
+agent asked to "make a poll" should hand back a share link that already works — but it
+is easy to miss, so it is stated in three places an agent actually reads: the
+`isPublished` field description, both create tools' descriptions, and the server
+instructions. `edit_poll` has no defaults; its `isPublished` publishes (`true`) or
+unpublishes (`false`).
 
 ### Polls vs assessments
 
@@ -73,15 +93,20 @@ MCP/Anthropic `input_schema` must be `type: "object"`, so that route is closed.
 JSON Schema `if/then/required` is not expressible in zod and clients enforce it
 inconsistently.)
 
-Rules MCP enforces that the REST schema does not:
+Gradeability rules live in `polls/polls.grading.ts` and are shared with REST.
+REST enforces them only for a **published** `TRIAL` (the web builder autosaves
+answerless assessment drafts); MCP is stricter and enforces them on every assessment
+write, draft or not:
 
 - Every `create_assessment` / `convert_poll_to_assessment` question needs a
   non-empty `correctOptionIndices` (schema-level, so a client catches it pre-flight).
 - Indices must be in range for that question's `options`, and a `single`-type question
-  accepts at most one.
-- `edit_poll` on a poll **already stored** as a `TRIAL` rejects answerless questions.
-  This one cannot live in the input schema — the stored `pollType` is only known after
-  the poll is fetched — so it runs in `dispatchMcpTool` after the owner check.
+  accepts at most one (`checkAnswerIndices`, a `.superRefine` on the question shape).
+- `edit_poll` on a poll **already stored** as a `TRIAL` rejects answerless questions
+  (`assertQuestionsGradeable`). This one cannot live in the input schema — the stored
+  `pollType` is only known after the poll is fetched — so it runs in `dispatchMcpTool`
+  after the owner check. `PollService.updatePoll` repeats the check for published
+  assessments, which covers REST `PATCH` too.
 
 `convert_poll_to_assessment` requires the full replacement `questions` set: the stored
 ones were written as an ungraded `POLL` and carry no correct answers. Converting an
@@ -194,5 +219,10 @@ mounted in `app/(dashboard)/settings/page.tsx`.
       index resolved to its option text, so a wrong-but-valid index is visible.
 - [x] **AI path matches** — `AiService` generates a TRIAL against
       `generatedTrialSchema`, which also requires `correctOptionIndices`.
+- [x] **REST path matches** — `POST /api/polls` validates with
+      `createPollRequestSchema` and `PollService` re-checks on create/update, so a
+      published assessment cannot be ungradeable from any surface.
+- [x] **Publish-by-default documented** — field/tool descriptions, server
+      instructions, and "Create defaults differ from REST" above.
 - [ ] **v2 tools** (deferred): `close_poll` behind a `poll:close` scope.
 - [ ] Rename `prefix`/`last4` display if you want a nicer masked format in the UI.

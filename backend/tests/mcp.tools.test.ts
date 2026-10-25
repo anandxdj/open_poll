@@ -1,11 +1,42 @@
-import { describe, expect, it } from 'bun:test';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test';
 import mongoose from 'mongoose';
 import { handleMcpTool } from '../src/modules/mcp/mcp.tools';
+import { UserModel } from '../src/modules/auth/auth.model';
 import { PollModel } from '../src/modules/polls/polls.model';
 import { AnalyticsModel } from '../src/modules/responses/analytics.model';
+import { WorkspaceModel } from '../src/modules/workspaces/workspace.model';
+import { WorkspaceMemberModel } from '../src/modules/workspaces/workspaceMember.model';
 
 const OWNER_ID = 'owner-user-id';
 const OTHER_ID = 'other-user-id';
+
+// MCP tools act in the token owner's default workspace. Every test resolves it
+// to this one, where the owner holds `role` (reset to owner before each test).
+const DEFAULT_WORKSPACE = { _id: new mongoose.Types.ObjectId(), type: 'personal', ownerId: OWNER_ID, deletedAt: null };
+const membership = { workspaceId: DEFAULT_WORKSPACE._id, userId: OWNER_ID, role: 'owner', status: 'active' };
+const savedWorkspaceLookups = {
+  userFindById: UserModel.findById,
+  workspaceFindOne: WorkspaceModel.findOne,
+  memberFindOne: WorkspaceMemberModel.findOne,
+};
+
+beforeAll(() => {
+  (UserModel as any).findById = () => ({
+    select: async () => ({ _id: OWNER_ID, name: 'Owner', defaultWorkspaceId: DEFAULT_WORKSPACE._id }),
+  });
+  (WorkspaceModel as any).findOne = async () => DEFAULT_WORKSPACE;
+  (WorkspaceMemberModel as any).findOne = async () => membership;
+});
+
+beforeEach(() => {
+  membership.role = 'owner';
+});
+
+afterAll(() => {
+  (UserModel as any).findById = savedWorkspaceLookups.userFindById;
+  (WorkspaceModel as any).findOne = savedWorkspaceLookups.workspaceFindOne;
+  (WorkspaceMemberModel as any).findOne = savedWorkspaceLookups.memberFindOne;
+});
 
 function fakePoll(overrides: Record<string, unknown> = {}) {
   return {
@@ -141,6 +172,74 @@ describe('handleMcpTool owner enforcement', () => {
   });
 });
 
+describe('handleMcpTool workspace scoping', () => {
+  it('creates polls in the token owner\'s default workspace', async () => {
+    const { createdPayload, restore } = await captureCreate('create_poll', {
+      title: 'Lands in the default workspace',
+      questions: [{ text: 'Pick one', options: ['A', 'B'] }],
+    });
+
+    expect(String(createdPayload.workspaceId)).toBe(String(DEFAULT_WORKSPACE._id));
+    expect(createdPayload.creatorId).toBe(OWNER_ID);
+    restore();
+  });
+
+  it('lists the default workspace, plus the owner\'s polls that predate workspaces', async () => {
+    const originalFind = PollModel.find;
+    let filter: any;
+    (PollModel as any).find = (query: unknown) => {
+      filter = query;
+      return { sort: async () => [] };
+    };
+    try {
+      await handleMcpTool('list_polls', {}, { userId: OWNER_ID, tokenId: 't1', scopes: ['poll:read'] });
+    } finally {
+      (PollModel as any).find = originalFind;
+    }
+
+    expect(filter).toEqual({
+      $or: [{ workspaceId: DEFAULT_WORKSPACE._id }, { workspaceId: null, creatorId: OWNER_ID }],
+    });
+  });
+
+  it('refuses a poll from another workspace, even to its creator', async () => {
+    const { stored, restore } = stubStoredPoll({ workspaceId: new mongoose.Types.ObjectId() });
+
+    await expect(
+      handleMcpTool('get_poll', { pollId: String(stored._id) }, { userId: OWNER_ID, tokenId: 't1', scopes: ['poll:read'] }),
+    ).rejects.toThrow('You do not have permission to access this poll');
+    restore();
+  });
+
+  it('lets a viewer read but not create, whatever the token scopes', async () => {
+    membership.role = 'viewer';
+    const { stored, restore } = stubStoredPoll({ workspaceId: DEFAULT_WORKSPACE._id, creatorId: OTHER_ID });
+
+    const read: any = await handleMcpTool(
+      'get_poll',
+      { pollId: String(stored._id) },
+      { userId: OWNER_ID, tokenId: 't1', scopes: ['poll:read'] },
+    );
+    expect(read.poll.title).toBe('A poll');
+    await expect(
+      handleMcpTool(
+        'edit_poll',
+        { pollId: String(stored._id), title: 'Renamed' },
+        { userId: OWNER_ID, tokenId: 't1', scopes: ['poll:edit'] },
+      ),
+    ).rejects.toThrow('You do not have permission to access this poll');
+    restore();
+
+    await expect(
+      handleMcpTool(
+        'create_poll',
+        { title: 'Not allowed', questions: [{ text: 'Pick one', options: ['A', 'B'] }] },
+        { userId: OWNER_ID, tokenId: 't1', scopes: ['poll:create'] },
+      ),
+    ).rejects.toMatchObject({ statusCode: 403, code: 'FORBIDDEN' });
+  });
+});
+
 describe('handleMcpTool input validation', () => {
   it('rejects a malformed pollId before hitting the database', async () => {
     await expect(
@@ -268,6 +367,24 @@ describe('create_assessment', () => {
     expect(result.grading.questions[1].correctAnswers).toEqual(['Jupiter', 'Saturn']);
 
     restore();
+  });
+
+  // MCP publishes by default where REST creates drafts; the tool descriptions say
+  // so. Both directions are pinned here so the divergence stays deliberate.
+  it('publishes by default but honours isPublished: false', async () => {
+    const question = { text: 'Pick one', options: ['A', 'B'], correctOptionIndices: [0] };
+
+    const live = await captureCreate('create_assessment', { title: 'Live by default', questions: [question] });
+    expect(live.createdPayload.isPublished).toBe(true);
+    live.restore();
+
+    const draft = await captureCreate('create_assessment', {
+      title: 'Kept as a draft',
+      isPublished: false,
+      questions: [question],
+    });
+    expect(draft.createdPayload.isPublished).toBe(false);
+    draft.restore();
   });
 
   it('rejects an assessment whose questions have no correct answers', async () => {

@@ -237,7 +237,7 @@ export function PollCard({ poll, liveVotes }: { poll: Poll; liveVotes?: number }
                     <X className="size-5" />
                   </div>
                   <AlertDialogTitle className="text-lg font-bold text-foreground">
-                    Close "{poll.title}" now?
+                    Close &quot;{poll.title}&quot; now?
                   </AlertDialogTitle>
                   <AlertDialogDescription className="text-sm text-muted-foreground/80 leading-relaxed">
                     Closing this poll will immediately stop accepting new responses from participants.

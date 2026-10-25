@@ -26,6 +26,22 @@ This document tracks the features we have already implemented and the features w
   (title → manual or AI); `AiQuizModal` calls `POST /api/ai/generate-quiz` and fills the
   builder. `/polls` dashboard unified with a Polls/Quizzes switcher (quiz stats + shared
   `QuizCard`).
+- **Quiz UI folded into presentation decks**: `features/quizzes/` and the `/quiz/*` +
+  `/quizzes` routes are gone; everything above now lives in `features/presentations/`
+  (`PresentationBuilder`, `HostView` → now `components/host/HostConsole`, `PlayView` → now
+  `components/participant/ParticipantShell`, library cards in `features/library`,
+  `CreatePresentationModal`) at `/presentation/create`, `/presentation/host/[id]`, `/live`
+  and `/live/[code]`. The host QR code points at `/live/{joinCode}`. Old `/quiz/...` URLs
+  308-redirect to their equivalents (`next.config.ts`), query string included.
+- **Live surfaces extension points (W0-C1)**: host console = Stage + host controls,
+  participant shell, per-surface zustand live store with a pure reducer and module
+  sub-reducers, slots, the slide runtime registry (`participant.tsx`/`stage.tsx` per type,
+  builder thumbnails via `StageView mode="thumbnail"`), `--deck-*` theme tokens, next-intl
+  for live routes, Playwright e2e + unit tests. Detail: `live-surfaces.md`.
+- **Unified library (`/polls`)**: `features/library/` — polls and decks as one card list from
+  `GET /api/library` (type tabs, status filter, search, URL filters, infinite scroll), per-card
+  actions, "Convert to presentation" for polls; `/presentations` redirects to
+  `?type=presentation`; sidebar item renamed "Library".
 
 ## 🚧 Features In Progress / To Implement
 

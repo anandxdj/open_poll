@@ -26,6 +26,31 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Managing local storage, device IDs, or global state.
 - **Action**: Read `frontend/docs/wiki/core/state.md`
 
+- **Task**: Changing the deck builder, slide editors, slide types, or inspector tabs.
+- **Action**: Read `frontend/docs/wiki/features/presentation-builder.md`
+- **Task**: Changing AI whole-deck generation in the builder (the AI dialog's "Whole deck" mode, outline review, mock-mode labelling, `features/ai/deck/`).
+- **Action**: Read `frontend/docs/wiki/features/ai-deck.md`
+- **Task**: Changing the live host console, participant view, stage, slide runtime views, the live store/slots, deck theme tokens, or live i18n.
+- **Action**: Read `frontend/docs/wiki/features/live-surfaces.md`
+
+- **Task**: Audience Q&A (ask, upvote, moderation, highlight, the Q&A slide), emoji reactions, or the builder's Audience tab.
+- **Action**: Read `frontend/docs/wiki/features/qna.md` (add `features/live-surfaces.md` only for the store/slot internals)
+
+- **Task**: Workspaces (switcher, selected workspace, `X-Workspace-Id`), any `/settings` page or section, members and roles, invitations (`/invites/[token]`), the ShareDialog, or the audit log.
+- **Action**: Read `frontend/docs/wiki/features/workspaces.md`
+
+- **Task**: Billing: `/settings/billing` (plan, usage, checkout, portal) or the landing pricing section.
+- **Action**: Read `frontend/docs/wiki/features/billing.md`
+
+- **Task**: Changing the library at `/polls` (poll + deck cards, filters, convert to presentation).
+- **Action**: Read `frontend/docs/wiki/features/library.md`
+
+- **Task**: Session history, the session report, exports, public results links (`/r/[token]`), the participant results page (`/live/[code]/summary`) or the end-screen links to them.
+- **Action**: Read `frontend/docs/wiki/features/sessions.md`
+
+- **Task**: Importing decks or questions (the Import dialog, PowerPoint/PDF/Google Slides jobs, CSV/Excel questions, the builder's "Import questions").
+- **Action**: Read `frontend/docs/wiki/features/imports.md`
+
 ## 4. API & Data
 
 - **Task**: Writing fetch calls, React Query hooks, or API integrations.
@@ -37,5 +62,7 @@ Before generating any code, identify your task type and read the corresponding s
 
 - **Task**: Checking the `/test` dashboard layout, or isolated component tests.
 - **Action**: Read `frontend/docs/wiki/testing/app-test-page.md`
+- **Task**: Running or writing Playwright end-to-end tests (`e2e/**`).
+- **Action**: Read `frontend/docs/wiki/testing/e2e.md`
 
 Remember: **Spec-Driven Development** means no assumptions. Check the spec first.

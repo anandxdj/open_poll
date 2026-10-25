@@ -1,14 +1,14 @@
 import * as oidc from 'openid-client';
 import { UserModel } from './auth.model';
 import { ApiError } from '../../common/utils/ApiError';
+import { env } from '../../common/config/env';
+import { resetUnverifiedAccount } from './auth.service';
+import { identityFilter, linkedIdentity, linkIdentity } from './identities';
 import {
   generateAccessToken,
   generateRefreshToken,
   hashToken,
 } from '../../common/utils/jwt.utils';
-
-const DEFAULT_ISSUER = 'https://id-backend.anands.dev';
-const DEFAULT_REDIRECT_URI = 'http://localhost:5000/auth/callback';
 
 export interface OidcTransaction {
   codeVerifier: string;
@@ -16,31 +16,42 @@ export interface OidcTransaction {
   redirectUri: string;
 }
 
-let configurationPromise: Promise<oidc.Configuration> | undefined;
-
-function requiredEnv(name: 'OIDC_CLIENT_ID' | 'OIDC_CLIENT_SECRET'): string {
-  const value = process.env[name]?.trim();
-  if (!value) throw new Error(`${name} is required for OIDC sign-in`);
-  return value;
+/** The ID-token claims account linking relies on (validated by openid-client). */
+export interface OidcIdentityClaims {
+  sub?: string;
+  email?: unknown;
+  email_verified?: unknown;
+  name?: unknown;
 }
 
-function getRedirectUri(): string {
-  return process.env.OIDC_REDIRECT_URI?.trim() || DEFAULT_REDIRECT_URI;
+let configurationPromise: Promise<oidc.Configuration> | undefined;
+
+function getOidcSettings() {
+  if (!env.oidc) throw new Error('OIDC sign-in is not configured (set OIDC_CLIENT_ID and OIDC_CLIENT_SECRET)');
+  return env.oidc;
 }
 
 async function getConfiguration(): Promise<oidc.Configuration> {
   if (!configurationPromise) {
-    const issuer = new URL(process.env.OIDC_ISSUER?.trim() || DEFAULT_ISSUER);
-    const clientId = requiredEnv('OIDC_CLIENT_ID');
-    const clientSecret = requiredEnv('OIDC_CLIENT_SECRET');
+    const { issuer, clientId, clientSecret, redirectUri } = getOidcSettings();
     configurationPromise = oidc.discovery(
-      issuer,
+      new URL(issuer),
       clientId,
-      { redirect_uris: [getRedirectUri()], response_types: ['code'] },
+      { redirect_uris: [redirectUri], response_types: ['code'] },
       oidc.ClientSecretBasic(clientSecret),
-    );
+    ).catch((error) => {
+      // Never cache a failed discovery: a transient IdP outage would otherwise
+      // break SSO until the process restarts.
+      configurationPromise = undefined;
+      throw error;
+    });
   }
   return configurationPromise;
+}
+
+/** Drops the cached discovery document so the next sign-in re-discovers (tests, config reloads). */
+export function resetOidcConfiguration() {
+  configurationPromise = undefined;
 }
 
 export class OidcService {
@@ -50,7 +61,7 @@ export class OidcService {
     const codeChallenge = await oidc.calculatePKCECodeChallenge(codeVerifier);
     const state = oidc.randomState();
     const nonce = oidc.randomNonce();
-    const redirectUri = getRedirectUri();
+    const redirectUri = getOidcSettings().redirectUri;
     const url = oidc.buildAuthorizationUrl(config, {
       redirect_uri: redirectUri,
       scope: 'openid profile email',
@@ -86,38 +97,10 @@ export class OidcService {
       expectedNonce: transaction.nonce,
       idTokenExpected: true,
     });
-    const claims = tokens.claims();
 
     // authorizationCodeGrant validates the RS256 signature using provider JWKS,
-    // plus iss, aud, exp, iat, and nonce. Require the application identity claims too.
-    if (!claims?.sub || typeof claims.email !== 'string' || claims.email_verified !== true) {
-      throw ApiError.unauthorized('OIDC account is missing a verified email');
-    }
-
-    const name = typeof claims.name === 'string' && claims.name.trim()
-      ? claims.name.trim()
-      : claims.email.split('@')[0]!;
-    let user = await UserModel.findOne({ sub: claims.sub });
-    if (!user) user = await UserModel.findOne({ email: claims.email.toLowerCase() });
-
-    if (!user) {
-      user = await UserModel.create({
-        sub: claims.sub,
-        email: claims.email,
-        name,
-        isVerified: true,
-        role: 'user',
-      });
-    } else {
-      if (user.sub && user.sub !== claims.sub) {
-        throw ApiError.conflict('This email is already linked to another identity');
-      }
-      user.sub = claims.sub;
-      user.email = claims.email;
-      user.name = name;
-      user.isVerified = true;
-      user.lastLogin = new Date();
-    }
+    // plus iss, aud, exp, iat, and nonce.
+    const user = await OidcService.findOrLinkUser(tokens.claims() ?? {});
 
     const accessToken = generateAccessToken({
       id: user._id,
@@ -130,5 +113,54 @@ export class OidcService {
     await user.save();
 
     return { user, accessToken, refreshToken };
+  }
+
+  /**
+   * Resolves the local account for validated ID-token claims: by the `oidc`
+   * identity, else by the legacy `sub` field (accounts linked before
+   * identities[] existed), else by email (linking), else a new user. Changes
+   * are saved by the caller.
+   */
+  static async findOrLinkUser(claims: OidcIdentityClaims) {
+    // Require the application identity claims too.
+    if (!claims.sub || typeof claims.email !== 'string' || claims.email_verified !== true) {
+      throw ApiError.unauthorized('OIDC account is missing a verified email');
+    }
+
+    const email = claims.email.toLowerCase();
+    const name = typeof claims.name === 'string' && claims.name.trim()
+      ? claims.name.trim()
+      : email.split('@')[0]!;
+    const identity = { provider: 'oidc', subject: claims.sub } as const;
+    let user = await UserModel.findOne(identityFilter(identity));
+    if (!user) user = await UserModel.findOne({ sub: claims.sub });
+    if (!user) user = await UserModel.findOne({ email });
+
+    if (!user) {
+      return UserModel.create({
+        email,
+        name,
+        isVerified: true,
+        role: 'user',
+        identities: [identity],
+      });
+    }
+
+    // Only an existing OIDC link can conflict. The legacy `sub` field is not
+    // consulted here: Google sign-in used to write it too, so a mismatch there
+    // says nothing about which OIDC subject owns the account.
+    const linked = linkedIdentity(user, 'oidc');
+    if (linked && linked.subject !== claims.sub) {
+      throw ApiError.conflict('This email is already linked to another identity');
+    }
+    // Linking a verified local account is safe; an unverified one may have been
+    // pre-registered by someone else, so it must not keep their password.
+    if (!user.isVerified) resetUnverifiedAccount(user);
+    linkIdentity(user, identity);
+    user.email = email;
+    user.name = name;
+    user.isVerified = true;
+    user.lastLogin = new Date();
+    return user;
   }
 }

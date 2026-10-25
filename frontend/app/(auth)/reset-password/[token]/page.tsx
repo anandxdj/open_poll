@@ -6,10 +6,11 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Zap, Loader2, ShieldCheck, AlertCircle } from "lucide-react";
+import { Zap, Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import axios from "@/lib/api-client";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -38,8 +39,8 @@ export default function ResetPasswordPage({ params }: PageProps) {
       await axios.put(`/auth/reset-password/${token}`, { password });
       toast.success("Password reset successful! You can now log in.");
       router.push("/login");
-    } catch (err: any) {
-      const msg = err.response?.data?.message || "Reset failed. The link may have expired.";
+    } catch (err) {
+      const msg = getApiErrorMessage(err) || "Reset failed. The link may have expired.";
       setError(msg);
       toast.error(msg);
     } finally {

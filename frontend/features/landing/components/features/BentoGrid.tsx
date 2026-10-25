@@ -1,23 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { 
   BarChart3, 
   Fingerprint, 
   Globe, 
   Layers,
   Brain,
-  Check,
-  Code2,
   Link2,
   Shield,
-  Palette,
   Cpu
 } from "lucide-react";
 import { ProductLogo } from "@/components/ui/ProductLogo";
 
-const ProductLogoIcon = (props: any) => <ProductLogo size={24} {...props} />;
+// Matches the lucide icon props FeatureCard passes; ProductLogo only uses className.
+const ProductLogoIcon = ({ className }: { className?: string; strokeWidth?: number }) => (
+  <ProductLogo size={24} className={className} />
+);
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 
@@ -242,50 +242,6 @@ function EnterpriseVisual() {
   );
 }
 
-function BrandingVisual() {
-  return (
-    <div className="absolute inset-0 opacity-20 group-hover:opacity-40 transition-opacity duration-1000 pointer-events-none overflow-hidden">
-       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%]">
-          <motion.div
-            animate={{ 
-              rotate: 360,
-              scale: [1, 1.1, 1]
-            }}
-            transition={{ 
-              duration: 20, 
-              repeat: Infinity, 
-              ease: "linear" 
-            }}
-            className="w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-rose-500/20 via-primary/10 to-transparent blur-3xl"
-          />
-       </div>
-       <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex gap-4">
-             {[1, 2, 3, 4].map((i) => (
-               <motion.div
-                 key={i}
-                 initial={{ y: 20, opacity: 0 }}
-                 whileInView={{ y: 0, opacity: 1 }}
-                 transition={{ delay: i * 0.1 }}
-                 className="size-16 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md flex items-center justify-center shadow-2xl"
-               >
-                  <div 
-                    className={cn(
-                      "size-8 rounded-full shadow-inner",
-                      i === 1 && "bg-primary",
-                      i === 2 && "bg-rose-500",
-                      i === 3 && "bg-blue-500",
-                      i === 4 && "bg-amber-500"
-                    )} 
-                  />
-               </motion.div>
-             ))}
-          </div>
-       </div>
-    </div>
-  );
-}
-
 export function BentoGrid() {
   return (
     <section id="features" className="px-6 pt-28 pb-32 scroll-mt-20">
@@ -313,7 +269,9 @@ export function BentoGrid() {
   );
 }
 
-function FeatureCard({ feature, index }: { feature: any; index: number }) {
+type Feature = (typeof features)[number];
+
+function FeatureCard({ feature, index }: { feature: Feature; index: number }) {
   const Icon = feature.icon;
   return (
     <motion.div

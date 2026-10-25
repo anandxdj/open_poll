@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Check, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Check, Plus, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { QuestionForm } from "./types";
 import { motion, AnimatePresence } from "framer-motion";

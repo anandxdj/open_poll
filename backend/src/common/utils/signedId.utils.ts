@@ -25,6 +25,15 @@ const safeEqual = (a: string, b: string) => {
 export const newRandomId = () => crypto.randomBytes(16).toString('hex');
 
 /**
+ * HMAC (hex) of `value` under a purpose prefix, so a signature minted for one
+ * purpose never verifies for another (e.g. `slide-ticket.v1`).
+ */
+export const scopedHmac = (scope: string, value: string) => hmac(`${scope}\u0000${value}`);
+
+/** Constant-time comparison of two hex strings of equal length. */
+export const hexEquals = (a: string, b: string) => /^[a-f0-9]*$/.test(a) && /^[a-f0-9]*$/.test(b) && safeEqual(a, b);
+
+/**
  * Signs an opaque identifier so the server can later prove it issued it.
  * Format: `<id>.<hmac>` — the id itself carries no user data.
  */

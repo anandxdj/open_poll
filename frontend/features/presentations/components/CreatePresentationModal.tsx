@@ -182,5 +182,3 @@ export function CreatePresentationModal({ open, onClose }: CreatePresentationMod
     </AnimatePresence>
   );
 }
-
-export const CreateQuizModal = CreatePresentationModal;

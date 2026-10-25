@@ -1,85 +1,103 @@
 import { z } from 'zod';
+import { BUILT_IN_SLIDE_TYPES, getSlideType, listSlideTypes, type ParsedSlide } from './slides';
+import {
+  MAX_REACTION_EMOJIS,
+  NICKNAME_MODES,
+  RESULTS_VISIBILITY,
+  SESSION_PACES,
+} from './models/presentation.model';
 
-const optionSchema = z.object({
-  text: z.string().min(1, 'Option text is required').max(200),
-  isCorrect: z.boolean().default(false),
-});
+/** The built-in slide types, in their historical order (AI drafting offers these). */
+export const PRESENTATION_SLIDE_TYPES = BUILT_IN_SLIDE_TYPES;
 
-export const PRESENTATION_SLIDE_TYPES = [
-  'select_answer',
-  'type_answer',
-  'wordcloud',
-  'open_ended',
-  'scales',
-  'ranking',
-  'leaderboard',
-] as const;
-
+/**
+ * One slide in a create/update request. Dispatches on `type` to the registered
+ * type's own schema at parse time, so types registered later (content types,
+ * test fixtures) validate without rebuilding this schema. Issues keep the
+ * type schema's paths, prefixed by the slide's position.
+ */
 export const presentationSlideSchema = z
-  .object({
-    type: z.enum(PRESENTATION_SLIDE_TYPES),
-    question: z.string().min(1, 'Question text is required').max(500),
-    options: z.array(optionSchema).max(8).default([]),
-    acceptedAnswers: z.array(z.string().min(1).max(200)).max(20).default([]),
-    statements: z.array(z.string().min(1).max(200)).max(10).default([]),
-    minLabel: z.string().max(40).default(''),
-    maxLabel: z.string().max(40).default(''),
-    scaleMax: z.number().int().min(2).max(10).default(5),
-    items: z.array(z.string().min(1).max(200)).max(10).default([]),
-    maxEntries: z.number().int().min(1).max(3).default(3),
-    timeLimit: z.number().int().min(5).max(300).default(30),
-    points: z.number().int().min(0).max(10000).default(1000),
-    scoreDependsOnTime: z.boolean().default(true),
-  })
-  .superRefine((slide, ctx) => {
-    if (slide.type === 'leaderboard') return; // no field validation needed for leaderboard slides
-    if (slide.type === 'select_answer') {
-      if (slide.options.length < 2) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['options'],
-          message: 'Select-answer slides need at least 2 options',
-        });
-      }
-      if (!slide.options.some((o) => o.isCorrect)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['options'],
-          message: 'Mark at least one option as correct',
-        });
-      }
-    }
-    if (slide.type === 'type_answer' && slide.acceptedAnswers.length < 1) {
+  .object({ type: z.unknown() })
+  .loose()
+  .transform((slide, ctx): ParsedSlide => {
+    const def = getSlideType(slide.type);
+    if (!def) {
       ctx.addIssue({
         code: 'custom',
-        path: ['acceptedAnswers'],
-        message: 'Type-answer slides need at least one accepted answer',
+        path: ['type'],
+        message: `Invalid option: expected one of ${listSlideTypes()
+          .map((d) => `"${d.type}"`)
+          .join('|')}`,
       });
+      return z.NEVER;
     }
-    if (slide.type === 'scales' && slide.statements.length < 1) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['statements'],
-        message: 'Scales slides need at least one statement',
-      });
+    const result = def.schema.safeParse(slide);
+    if (!result.success) {
+      for (const issue of result.error.issues) ctx.addIssue({ ...issue });
+      return z.NEVER;
     }
-    if (slide.type === 'ranking' && slide.items.length < 2) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['items'],
-        message: 'Ranking slides need at least 2 items',
-      });
-    }
+    return result.data;
   });
+
+const objectIdString = z.string().regex(/^[a-f0-9]{24}$/i, 'Invalid id');
+
+/**
+ * Deck settings in requests: every field optional. Create fills the rest with
+ * the model defaults; update changes only the fields sent.
+ */
+export const deckSettingsPatchSchema = z
+  .object({
+    audienceLocale: z.string().min(2).max(10),
+    nickname: z.enum(NICKNAME_MODES),
+    showResultsOnDevices: z.boolean(),
+    qna: z
+      .object({ enabled: z.boolean(), moderation: z.boolean(), anonymousAllowed: z.boolean(), upvotes: z.boolean() })
+      .partial()
+      .strict(),
+    reactions: z
+      .object({
+        enabled: z.boolean(),
+        emojis: z.array(z.string().min(1).max(16)).max(MAX_REACTION_EMOJIS),
+      })
+      .partial()
+      .strict(),
+    quiz: z.object({ leaderboard: z.boolean(), showCorrectOnDevices: z.boolean() }).partial().strict(),
+    audiencePaced: z
+      .object({
+        resultsVisibility: z.enum(RESULTS_VISIBILITY),
+        assessment: z
+          .object({
+            enabled: z.boolean(),
+            passingScorePercentage: z.number().int().min(0).max(100),
+            maxAttempts: z.number().int().min(1).max(10).nullable(),
+          })
+          .partial()
+          .strict(),
+      })
+      .partial()
+      .strict(),
+    embed: z.object({ allowed: z.boolean() }).partial().strict(),
+  })
+  .partial()
+  .strict();
+
+/** Theme selection; brand kits and overrides come with the themes module. */
+export const deckThemePatchSchema = z.object({ presetId: z.string().min(1).max(40) }).partial().strict();
 
 export const createPresentationSchema = z.object({
   title: z.string().min(1, 'Title is required').max(120),
   slides: z.array(presentationSlideSchema).min(1, 'A presentation deck needs at least one slide').max(50),
+  pace: z.enum(SESSION_PACES).optional(),
+  settings: deckSettingsPatchSchema.optional(),
+  theme: deckThemePatchSchema.optional(),
 });
 
 export const updatePresentationSchema = z.object({
   title: z.string().min(1).max(120).optional(),
   slides: z.array(presentationSlideSchema).min(1).max(50).optional(),
+  pace: z.enum(SESSION_PACES).optional(),
+  settings: deckSettingsPatchSchema.optional(),
+  theme: deckThemePatchSchema.optional(),
 });
 
 export const joinPresentationSchema = z.object({
@@ -87,7 +105,21 @@ export const joinPresentationSchema = z.object({
   // Server-signed device token from a previous join — enables refresh-safe
   // rejoin. Absent or invalid → the server mints a fresh identity.
   deviceToken: z.string().max(256).optional(),
+  locale: z.string().min(2).max(10).optional(),
 });
+
+/** `POST /:id/host/goto`: one of the two. */
+export const gotoSlideSchema = z
+  .object({
+    slideIndex: z.number().int().min(0).optional(),
+    slideId: objectIdString.optional(),
+  })
+  .refine((v) => v.slideIndex !== undefined || v.slideId !== undefined, {
+    message: 'Provide slideIndex or slideId',
+  });
+
+/** `POST /:id/host/advance` (legacy): an optional target index, default the next slide. */
+export const advanceSlideSchema = z.object({ slideIndex: z.number().int().min(0).optional() }).default({});
 
 export const submitPresentationAnswerSchema = z
   .object({
@@ -104,6 +136,19 @@ export const submitPresentationAnswerSchema = z
     ratings: z.array(z.number().int().min(1).max(10)).min(1).max(10).optional(),
     // ranking — item indices in the participant's chosen order (a permutation)
     ranking: z.array(z.number().int().min(0).max(9)).min(2).max(10).optional(),
+    // Generic answer for any registered type, validated by the type's `answerSchema`.
+    // When present it is used instead of the legacy fields above.
+    payload: z.record(z.string(), z.unknown()).optional(),
+    // Session-aware clients name the session and slide; legacy clients send slideIndex only.
+    sessionId: objectIdString.optional(),
+    slideId: objectIdString.optional(),
+    // Client-generated idempotency id, stored with the answer.
+    clientAnswerId: z.string().min(1).max(64).optional(),
+    // HMAC proof the client saw the slide open (question:started / live-state): lets a late
+    // answer through the grace window. Anything malformed is simply not a valid ticket.
+    slideTicket: z.string().max(80).optional(),
+    // The client held this answer offline before sending it (stored as `via: 'offline'`).
+    offline: z.boolean().optional(),
   })
   .refine(
     (v) =>
@@ -111,7 +156,8 @@ export const submitPresentationAnswerSchema = z
       v.text !== undefined ||
       v.entries !== undefined ||
       v.ratings !== undefined ||
-      v.ranking !== undefined,
+      v.ranking !== undefined ||
+      v.payload !== undefined,
     { message: 'Provide an answer payload' }
   );
 
@@ -119,3 +165,4 @@ export type CreatePresentationInput = z.infer<typeof createPresentationSchema>;
 export type UpdatePresentationInput = z.infer<typeof updatePresentationSchema>;
 export type JoinPresentationInput = z.infer<typeof joinPresentationSchema>;
 export type SubmitPresentationAnswerInput = z.infer<typeof submitPresentationAnswerSchema>;
+export type GotoSlideInput = z.infer<typeof gotoSlideSchema>;

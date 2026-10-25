@@ -1,12 +1,12 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { PlayView } from "@/features/presentations/components/PlayView";
+import { ParticipantShell } from "@/features/presentations/components/participant/ParticipantShell";
 
 export default function LivePlayPage() {
   const params = useParams();
   const code = typeof params?.code === "string" ? params.code : undefined;
 
   if (!code) return null;
-  return <PlayView code={code} />;
+  return <ParticipantShell key={code} code={code} />;
 }

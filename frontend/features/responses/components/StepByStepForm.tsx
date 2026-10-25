@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import axios from "axios";
 import { toast } from "sonner";
@@ -36,6 +36,8 @@ type TrialResult = {
   breakdown: TrialBreakdownItem[];
 };
 
+type ApiOk<T> = { success: boolean; message: string; data: T };
+
 const ease = [0.32, 0.72, 0, 1] as const;
 
 export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
@@ -69,12 +71,14 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
   const isMulti = current.type === 'multiple';
   const progress = ((step + 1) / total) * 100;
 
-  useEffect(() => {
-    // Reset multiSelections when step changes
-    const saved = answers[qid] || [];
-    setMultiSelections(saved);
+  // Reset multiSelections when the question or saved answers change — adjusted
+  // during render rather than in an effect.
+  const [syncedFor, setSyncedFor] = useState({ qid, answers });
+  if (syncedFor.qid !== qid || syncedFor.answers !== answers) {
+    setSyncedFor({ qid, answers });
+    setMultiSelections(answers[qid] || []);
     setSelectedNow(null);
-  }, [step, qid, answers]);
+  }
 
   function handleRetry() {
     try {
@@ -91,15 +95,29 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
 
   async function submitAll(finalAnswers: Record<string, number[]>) {
     setSubmitting(true);
-    let respondentId = user?._id;
-    if (!respondentId && guestInfo) {
-      respondentId = `guest:${guestInfo.email}:${guestInfo.name}`;
-    }
 
     try {
-      const res = await apiClient.post("/responses", {
+      // Server-issued single-use ballot — the dedup anchor for this submission.
+      // Fetched per submit, so every trial retry gets a fresh one.
+      const ballotRes = await apiClient.post<ApiOk<{ ballotToken: string }>>(
+        `/responses/poll/${poll._id}/ballot`
+      );
+      const { ballotToken } = ballotRes.data.data;
+
+      // Guests carry a server-signed identity, never a self-asserted string.
+      let guestToken: string | undefined;
+      if (!user?._id && guestInfo) {
+        const guestRes = await apiClient.post<ApiOk<{ guestToken: string }>>(
+          "/responses/guest-token",
+          { name: guestInfo.name, email: guestInfo.email }
+        );
+        guestToken = guestRes.data.data.guestToken;
+      }
+
+      const res = await apiClient.post<ApiOk<{ trialResult?: TrialResult }>>("/responses", {
         pollId: poll._id,
-        respondentId,
+        ballotToken,
+        guestToken,
         deviceId,
         answers: poll.questions
           .filter((q) => {
@@ -117,8 +135,7 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
           }),
       });
 
-      const payloadData = (res.data as any)?.data || res.data;
-      const trialResultData = payloadData?.trialResult;
+      const trialResultData = res.data.data?.trialResult;
 
       if (isTrial && trialResultData) {
         setTrialResult(trialResultData);
@@ -195,40 +212,42 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
 
   // Keyboard shortcuts
   const currentOptionsLength = current?.options?.length ?? 0;
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (submitting || done || selectedNow !== null) return;
-      const tag = document.activeElement?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
+  // Effect Event: always reads the latest state without re-subscribing.
+  const handleKeyDown = useEffectEvent((e: KeyboardEvent) => {
+    if (submitting || done || selectedNow !== null) return;
+    const tag = document.activeElement?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
 
-      const numOptions = currentOptionsLength;
-      const key = e.key;
+    const numOptions = currentOptionsLength;
+    const key = e.key;
 
-      if (key === "Backspace" || key === "ArrowLeft") {
-        e.preventDefault();
-        goBack();
-        return;
-      }
+    if (key === "Backspace" || key === "ArrowLeft") {
+      e.preventDefault();
+      goBack();
+      return;
+    }
 
-      const parsedNum = parseInt(key, 10);
-      if (!isNaN(parsedNum) && parsedNum >= 1 && parsedNum <= numOptions) {
-        e.preventDefault();
-        if (isMulti) {
-          toggleMulti(parsedNum - 1);
-        } else {
-          chooseSingle(parsedNum - 1);
-        }
-      }
-
-      if (isMulti && key === "Enter") {
-        e.preventDefault();
-        confirmMulti();
+    const parsedNum = parseInt(key, 10);
+    if (!isNaN(parsedNum) && parsedNum >= 1 && parsedNum <= numOptions) {
+      e.preventDefault();
+      if (isMulti) {
+        toggleMulti(parsedNum - 1);
+      } else {
+        chooseSingle(parsedNum - 1);
       }
     }
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [step, submitting, done, selectedNow, currentOptionsLength, isMulti, multiSelections]);
+    if (isMulti && key === "Enter") {
+      e.preventDefault();
+      confirmMulti();
+    }
+  });
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => handleKeyDown(e);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   // ── Done / Trial Result State ─────────────────────────────────────
   if (done) {

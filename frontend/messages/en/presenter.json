@@ -1,0 +1,92 @@
+{
+  "header": {
+    "liveHost": "LIVE HOST",
+    "hostConsole": "HOST CONSOLE",
+    "joined": "{count} joined",
+    "copyJoinLink": "Click to copy join link",
+    "leaderboard": "Leaderboard",
+    "toggleLeaderboard": "Toggle Leaderboard",
+    "toggleFullscreen": "Toggle Fullscreen (F)"
+  },
+  "load": {
+    "notFound": "Presentation deck not found.",
+    "forbidden": "You are not authorized to host this deck.",
+    "failed": "Could not load deck.",
+    "backToDashboard": "Back to dashboard"
+  },
+  "connection": {
+    "reconnecting": "Reconnecting…"
+  },
+  "ready": {
+    "title": "Ready to present",
+    "hint": "Start presenting right away, or open the lobby first so people can join with the code before you begin.",
+    "start": "Start presenting",
+    "openLobby": "Open lobby",
+    "ended": "Present again"
+  },
+  "lobby": {
+    "scanOrJoin": "SCAN THE QR — OR JOIN AT",
+    "withCode": "WITH CODE",
+    "joinCode": "JOIN CODE",
+    "copyLink": "Click to copy join link",
+    "copyCode": "Click to copy join code",
+    "copiedCode": "Copied code!",
+    "clickToCopy": "Click to copy code",
+    "qrLabel": "Join at {url}",
+    "joined": "{count} JOINED",
+    "waiting": "Waiting for players to enter code...",
+    "start": "Start",
+    "end": "Close lobby"
+  },
+  "slide": {
+    "counter": "SLIDE {current} OF {total}",
+    "answered": "answered",
+    "answeredOf": "{answered} / {total} answered",
+    "phase": {
+      "open": "Voting open",
+      "closed": "Voting closed",
+      "revealed": "Results revealed"
+    },
+    "untimed": "No time limit — close voting when you're ready."
+  },
+  "controls": {
+    "previous": "Prev Slide",
+    "next": "Next Slide",
+    "end": "End Session",
+    "closeVoting": "Close voting",
+    "reopen": "Reopen",
+    "reveal": "Reveal",
+    "position": "{current} / {total}"
+  },
+  "end": {
+    "title": "Session ended",
+    "presentAgain": "Present again",
+    "openLobby": "Open lobby",
+    "backToDashboard": "Back to Dashboard"
+  },
+  "leaderboardModal": {
+    "title": "Live Leaderboard",
+    "close": "Close"
+  },
+  "toasts": {
+    "lobbyOpened": "Lobby opened — code {code}",
+    "sessionEnded": "Session ended.",
+    "confirmEnd": "End the session for all participants?",
+    "linkCopied": "Join link copied to clipboard!",
+    "codeCopied": "Join code copied to clipboard!",
+    "linkCopyFailed": "Failed to copy link.",
+    "codeCopyFailed": "Failed to copy code."
+  },
+  "errors": {
+    "start": "Failed to start the presentation.",
+    "openLobby": "Failed to open lobby.",
+    "goto": "Failed to change slide.",
+    "close": "Failed to close voting.",
+    "reopen": "Failed to reopen voting.",
+    "reveal": "Failed to reveal results.",
+    "end": "Failed to end session.",
+    "alreadyLive": "A session is already live for this deck. Showing it now.",
+    "noLiveSession": "There is no live session any more. Start presenting to begin a new one.",
+    "busy": "Another change was in progress. Try again."
+  }
+}

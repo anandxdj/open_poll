@@ -6,6 +6,7 @@ import { PollModel } from '../src/modules/polls/polls.model';
 import { ResponseModel } from '../src/modules/responses/responses.model';
 import { redisClient } from '../src/common/config/redis';
 import { AnalyticsModel } from '../src/modules/responses/analytics.model';
+import { issueBallotToken } from '../src/common/utils/signedId.utils';
 
 describe('backend mvp smoke tests', () => {
   it('creates a poll through PollService', async () => {
@@ -13,6 +14,7 @@ describe('backend mvp smoke tests', () => {
     const originalAnalyticsCreate = AnalyticsModel.create;
     (PollModel as any).create = async (data: unknown) => data;
     (AnalyticsModel as any).create = async (data: unknown) => data;
+    const workspaceId = new mongoose.Types.ObjectId();
 
     const created = await PollService.createPoll(
       {
@@ -35,9 +37,11 @@ describe('backend mvp smoke tests', () => {
         ],
       },
       'mock-creator-id-123',
+      workspaceId,
     );
 
     expect((created as any).creatorId).toBe('mock-creator-id-123');
+    expect((created as any).workspaceId).toBe(workspaceId);
     (PollModel as any).create = originalCreate;
     (AnalyticsModel as any).create = originalAnalyticsCreate;
   });
@@ -77,8 +81,8 @@ describe('backend mvp smoke tests', () => {
 
     Object.defineProperty(redisClient, 'isOpen', { value: true, configurable: true, writable: true });
     (redisClient as any).get = async () => null;
+    // SET ... NX returns 'OK' on first use — the single-use ballot check passes
     (redisClient as any).set = async () => 'OK';
-    (redisClient as any).setEx = async () => 'OK';
     (redisClient as any).multi = () => ({
       sAdd: () => undefined,
       incr: () => undefined,
@@ -87,9 +91,10 @@ describe('backend mvp smoke tests', () => {
     });
     (redisClient as any).publish = async () => 1;
 
+    const { token: ballotToken } = issueBallotToken(String(pollId));
     const result = await ResponseService.submitResponse({
       pollId: String(pollId),
-      deviceId: 'test-device-123',
+      ballotToken,
       answers: [{ questionId: String(questionId), selectedOptionIndex: 0 }],
     });
 

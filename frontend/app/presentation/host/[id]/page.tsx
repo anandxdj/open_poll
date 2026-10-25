@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import { useParams } from "next/navigation";
-import { HostView } from "@/features/presentations/components/HostView";
+import { HostConsole } from "@/features/presentations/components/host/HostConsole";
 
 export default function PresentationHostPage() {
   const params = useParams();
@@ -11,7 +11,7 @@ export default function PresentationHostPage() {
   if (!presentationId) return null;
   return (
     <Suspense fallback={null}>
-      <HostView presentationId={presentationId} />
+      <HostConsole key={presentationId} presentationId={presentationId} />
     </Suspense>
   );
 }

@@ -3,18 +3,13 @@
 import React from "react";
 import { 
   Plus, 
-  BarChart3, 
   Share2, 
-  Clock, 
-  ListChecks, 
   Activity, 
-  Users,
   Sparkles,
   ArrowUpRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
 
 // --- Mock Data ---
 const mockPolls = [

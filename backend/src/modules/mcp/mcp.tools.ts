@@ -1,9 +1,13 @@
 import { z } from 'zod';
 import mongoose from 'mongoose';
 import { ApiError } from '../../common/utils/ApiError';
+import { assertCan, can } from '../../common/tenancy/policy';
+import type { Action } from '../../common/tenancy/roles';
+import { resolveWorkspaceContext } from '../../common/tenancy/workspaceContext.middleware';
 import { PollService } from '../polls/polls.service';
 import { ResponseService } from '../responses/responses.service';
 import { createPollSchema, updatePollSchema } from '../polls/polls.schema';
+import { assertQuestionsGradeable, checkAnswerIndices } from '../polls/polls.grading';
 import { MCP_TOOL_SCOPES, type McpScope } from './mcp.constants';
 
 // ---------------------------------------------------------------------------
@@ -66,45 +70,28 @@ export const editQuestionShape = {
   ...answerMetaFields,
 };
 
-type QuestionWithAnswers = {
-  options: string[];
-  type?: 'single' | 'multiple';
-  correctOptionIndices?: number[];
-};
-
-// polls.schema.ts only bounds indices below (int().min(0)), so an index past the
-// end of options would persist and silently mark the question ungradeable.
-function checkAnswerIndices(question: QuestionWithAnswers, ctx: z.RefinementCtx) {
-  for (const index of question.correctOptionIndices ?? []) {
-    if (index >= question.options.length) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['correctOptionIndices'],
-        message: `correctOptionIndices contains ${index}, but this question only has ${question.options.length} options (valid range 0-${question.options.length - 1})`,
-      });
-    }
-  }
-
-  if (question.type === 'single' && (question.correctOptionIndices?.length ?? 0) > 1) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['correctOptionIndices'],
-      message: 'A "single" question can have at most one correct option; use type "multiple" instead',
-    });
-  }
-}
-
+// checkAnswerIndices (shared with the REST surface via polls.grading.ts) rejects
+// out-of-range indices and multi-answer "single" questions at the schema level.
 const pollQuestion = z.object(pollQuestionShape);
 const assessmentQuestion = z.object(assessmentQuestionShape).superRefine(checkAnswerIndices);
 const editQuestion = z.object(editQuestionShape).superRefine(checkAnswerIndices);
 
+// Create-time defaults deliberately differ from the REST API, which requires
+// expiresAt and creates drafts (isPublished false): an agent asked to "make a
+// poll" is expected to hand back a link that already works. The descriptions say
+// so because the agent cannot otherwise tell it is about to publish something.
 const envelopeShape = {
   isAnonymous: z.boolean().optional().describe('Whether responses are anonymous (default true)'),
   expiresAt: z
     .string()
     .optional()
     .describe('ISO expiry datetime; must be in the future. Defaults to 30 days from now.'),
-  isPublished: z.boolean().optional().describe('Whether it is live immediately (default true)'),
+  isPublished: z
+    .boolean()
+    .optional()
+    .describe(
+      'Defaults to TRUE: it goes live immediately and anyone with the link can respond. Pass false to create an unpublished draft instead (the web app creates drafts by default; this tool does not).',
+    ),
 };
 
 export const createPollInputShape = {
@@ -138,6 +125,9 @@ export const editPollInputShape = {
     .optional()
     .describe('Assessments only: score percentage needed to pass'),
   ...envelopeShape,
+  // Edits have no defaults; override the create-time wording spread in above.
+  expiresAt: z.string().optional().describe('New ISO expiry datetime; must be in the future'),
+  isPublished: z.boolean().optional().describe('true publishes (goes live), false unpublishes back to a draft'),
   questions: z
     .array(editQuestion)
     .min(1)
@@ -199,9 +189,18 @@ function parsePollId(raw: unknown): string {
   return pollId;
 }
 
-async function assertPollOwner(pollId: string, userId: string) {
+/**
+ * MCP requests carry no X-Workspace-Id: a token acts in its owner's default
+ * workspace (the one last switched to in the app), provisioned on first use.
+ */
+async function workspaceScope(ctx: McpUserContext) {
+  const { workspace, membership } = await resolveWorkspaceContext(ctx.userId);
+  return { user: { id: ctx.userId }, workspace, membership };
+}
+
+async function assertPollAccess(pollId: string, ctx: McpUserContext, action: Action) {
   const poll = await PollService.getPollById(pollId);
-  if (String(poll.creatorId) !== userId) {
+  if (!can(await workspaceScope(ctx), action, poll)) {
     throw ApiError.forbidden('You do not have permission to access this poll');
   }
   return poll;
@@ -244,22 +243,6 @@ function describeGrading(poll: { questions?: unknown[] }) {
   };
 }
 
-// The stored poll's type is only known after it is fetched, so this cannot live in
-// an input schema. Without it, replacing a live assessment's questions with
-// answerless ones would silently make it ungradeable.
-function assertQuestionsGradeable(questions: QuestionWithAnswers[]) {
-  const answerless = questions
-    .map((question, index) => ({ question, index }))
-    .filter(({ question }) => !question.correctOptionIndices?.length)
-    .map(({ index }) => index + 1);
-
-  if (answerless.length) {
-    throw ApiError.badRequest(
-      `This poll is a graded assessment, so every question needs correctOptionIndices. Missing on question(s): ${answerless.join(', ')}.`,
-    );
-  }
-}
-
 export async function handleMcpTool(
   name: string,
   args: Record<string, unknown> | undefined,
@@ -285,13 +268,15 @@ async function dispatchMcpTool(
 
   switch (name) {
     case 'list_polls': {
-      const polls = await PollService.listPollsByCreator(ctx.userId);
+      const scope = await workspaceScope(ctx);
+      assertCan(scope, 'deck:read');
+      const polls = await PollService.listPolls({ userId: ctx.userId, workspace: scope.workspace });
       return { polls: serialize(polls) };
     }
 
     case 'get_poll': {
       const pollId = parsePollId(args?.pollId);
-      const poll = await assertPollOwner(pollId, ctx.userId);
+      const poll = await assertPollAccess(pollId, ctx, 'deck:read');
       return { poll: serialize(poll) };
     }
 
@@ -309,6 +294,7 @@ async function dispatchMcpTool(
         isPublished: parsed.isPublished ?? true,
       });
 
+      // No workspace argument: the poll lands in the token owner's default workspace.
       const poll = await PollService.createPoll(validated, ctx.userId);
       return { poll: serialize(poll) };
     }
@@ -332,8 +318,11 @@ async function dispatchMcpTool(
       const parsed = editPollMcpInputSchema.parse(args);
       const { pollId: rawPollId, ...updates } = parsed;
       const pollId = parsePollId(rawPollId);
-      const existing = await assertPollOwner(pollId, ctx.userId);
+      const existing = await assertPollAccess(pollId, ctx, 'deck:edit');
 
+      // The stored poll's type is only known after the fetch, so this cannot live in
+      // the input schema. Stricter than PollService's own check, which only guards
+      // PUBLISHED assessments: over MCP, an assessment always carries answers.
       if (existing.pollType === 'TRIAL' && updates.questions) {
         assertQuestionsGradeable(updates.questions);
       }
@@ -351,7 +340,7 @@ async function dispatchMcpTool(
       const parsed = convertPollToAssessmentMcpInputSchema.parse(args);
       const { pollId: rawPollId, ...updates } = parsed;
       const pollId = parsePollId(rawPollId);
-      await assertPollOwner(pollId, ctx.userId);
+      await assertPollAccess(pollId, ctx, 'deck:edit');
 
       const validated = updatePollSchema.parse({ ...updates, pollType: 'TRIAL' });
 
@@ -361,7 +350,7 @@ async function dispatchMcpTool(
 
     case 'get_poll_analytics': {
       const pollId = parsePollId(args?.pollId);
-      await assertPollOwner(pollId, ctx.userId);
+      await assertPollAccess(pollId, ctx, 'session:read');
       const analytics = await ResponseService.getPollAnalytics(pollId);
       return {
         analytics,
@@ -371,7 +360,7 @@ async function dispatchMcpTool(
 
     case 'get_share_link': {
       const pollId = parsePollId(args?.pollId);
-      const poll = await assertPollOwner(pollId, ctx.userId);
+      const poll = await assertPollAccess(pollId, ctx, 'deck:read');
       const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
       const shareUrl = `${frontendUrl}/p/${pollId}`;
 
@@ -397,6 +386,7 @@ export function getMcpServerInstructions(): string {
     'Two different tools create things: create_poll makes an ungraded opinion poll; create_assessment makes a graded assessment (called a quiz or trial in the UI) where every question declares its correct answers.',
     'Pick create_assessment whenever the user wants a quiz, test, exam, or anything scored. An assessment cannot be built with create_poll, which has no answer fields at all.',
     'Use convert_poll_to_assessment to turn an existing ungraded poll into a graded one; it needs the full replacement question set with correct answers.',
+    'create_poll and create_assessment publish immediately by default, so respondents can use the link straight away; pass isPublished: false when the user wants a draft to review first.',
     'Graded writes echo back a "grading" summary resolving each correctOptionIndices to the option text stored. Read it and confirm the answers are the intended ones before reporting success.',
     `Public respondent links: ${frontendUrl}/p/:pollId (use get_share_link).`,
     'Deleting polls, closing polls, and converting an assessment back to an ungraded poll are not available via MCP; use the web app.',

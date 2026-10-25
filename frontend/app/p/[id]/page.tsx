@@ -39,6 +39,16 @@ function useDeviceId() {
   return id;
 }
 
+function readStoredGuest(pollId: string): { name: string; email: string } | null {
+  const stored = sessionStorage.getItem(`openpoll_guest_${pollId}`);
+  if (!stored) return null;
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return null;
+  }
+}
+
 const ease = [0.32, 0.72, 0, 1] as const;
 
 export default function PublicPollPage() {
@@ -59,30 +69,18 @@ export default function PublicPollPage() {
 
   useEffect(() => {
     if (!pollId) return;
-    const stored = sessionStorage.getItem(`openpoll_guest_${pollId}`);
-    if (stored) {
-      try {
-        setGuestInfo(JSON.parse(stored));
-      } catch {
-        // ignore
-      }
-    }
-  }, [pollId]);
-
-  useEffect(() => {
-    if (!pollId) return;
-    const voted = localStorage.getItem(`openpoll_voted_${pollId}`) === "true";
-    setHasVotedLocally(voted);
-  }, [pollId]);
-
-  useEffect(() => {
-    if (!pollId) return;
     let cancelled = false;
     void (async () => {
       setLoading(true);
       try {
         const res = await apiClient.get<ApiOk<Poll>>(`/polls/${pollId}`);
-        if (!cancelled) setPoll(res.data.data);
+        if (!cancelled) {
+          // Browser-stored voter state is restored alongside the poll; the page
+          // shows only the loader until then, so nothing renders stale.
+          setGuestInfo(readStoredGuest(pollId));
+          setHasVotedLocally(localStorage.getItem(`openpoll_voted_${pollId}`) === "true");
+          setPoll(res.data.data);
+        }
       } catch {
         if (!cancelled) {
           setNotFound(true);

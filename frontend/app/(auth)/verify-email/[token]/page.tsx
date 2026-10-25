@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, XCircle, Loader2, Zap } from "lucide-react";
 import Link from "next/link";
 import axios from "@/lib/api-client";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -23,9 +23,9 @@ export default function VerifyEmailPage({ params }: PageProps) {
         await axios.get(`/auth/verify-email/${token}`);
         setStatus("success");
         setMessage("Your email has been successfully verified! You can now log in to your account.");
-      } catch (err: any) {
+      } catch (err) {
         setStatus("error");
-        setMessage(err.response?.data?.message || "Invalid or expired verification link.");
+        setMessage(getApiErrorMessage(err) || "Invalid or expired verification link.");
       }
     };
 

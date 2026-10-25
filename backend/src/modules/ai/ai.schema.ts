@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createPollSchema } from '../polls/polls.schema';
-import { QUIZ_SLIDE_TYPES, quizSlideSchema } from '../quizzes/quizzes.schema';
+import { PRESENTATION_SLIDE_TYPES, presentationSlideSchema } from '../presentations/presentations.schema';
 
 export const generatePollRequestSchema = z.object({
   topic: z.string().min(3, 'Topic must be at least 3 characters'),
@@ -51,13 +51,13 @@ export const generatedTrialSchema = generatedPollSchema.extend({
   questions: z.array(generatedTrialQuestionSchema).min(1),
 });
 
-export const generateAndSavePollRequestSchema = generatePollRequestSchema.extend({
-  creatorId: z.string().default('mock-creator-id-123'),
-});
+export const generateAndSavePollRequestSchema = generatePollRequestSchema;
 
 export type GeneratePollRequestInput = z.infer<typeof generatePollRequestSchema>;
 export type GeneratedPollOutput = z.infer<typeof generatedPollSchema>;
-export type GenerateAndSavePollRequestInput = z.infer<typeof generateAndSavePollRequestSchema>;
+export type GenerateAndSavePollRequestInput = z.infer<typeof generateAndSavePollRequestSchema> & {
+  creatorId: string;
+};
 
 // ---------- Quiz AI Schemas ----------
 
@@ -65,7 +65,7 @@ export const generateQuizRequestSchema = z.object({
   topic: z.string().min(3, 'Topic must be at least 3 characters'),
   slideCount: z.number().int().min(1).max(15).default(5),
   slideTypes: z
-    .array(z.enum(QUIZ_SLIDE_TYPES))
+    .array(z.enum(PRESENTATION_SLIDE_TYPES))
     .min(1, 'Select at least one slide type')
     .default(['select_answer', 'type_answer']),
   tone: z.string().default('educational'),
@@ -78,7 +78,7 @@ export const generatedQuizSlideOptionSchemaForLLM = z.object({
 });
 
 export const generatedQuizSlideSchemaForLLM = z.object({
-  type: z.enum(QUIZ_SLIDE_TYPES),
+  type: z.enum(PRESENTATION_SLIDE_TYPES),
   question: z.string(),
   options: z.array(generatedQuizSlideOptionSchemaForLLM).optional(),
   correctOptionIndex: z.number().optional(),
@@ -97,7 +97,7 @@ export const generatedQuizSchemaForLLM = z.object({
 });
 
 export const generatedQuizSlideSchema = z.object({
-  type: z.enum(QUIZ_SLIDE_TYPES),
+  type: z.enum(PRESENTATION_SLIDE_TYPES),
   question: z.string().min(1).max(500),
   options: z
     .array(
@@ -124,5 +124,5 @@ export const generatedQuizSlideSchema = z.object({
 export type GenerateQuizRequestInput = z.infer<typeof generateQuizRequestSchema>;
 export type GeneratedQuizDraftOutput = {
   title: string;
-  slides: z.infer<typeof quizSlideSchema>[];
+  slides: z.infer<typeof presentationSlideSchema>[];
 };

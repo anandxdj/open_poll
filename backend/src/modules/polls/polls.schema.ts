@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { answerIndexProblems } from './polls.grading';
 
 const pollQuestionSchema = z.object({
   text: z.string().min(3, "Question text must be at least 3 characters"),
@@ -21,6 +22,33 @@ export const createPollSchema = z.object({
   }),
   isPublished: z.boolean().default(false),
   questions: z.array(pollQuestionSchema).min(1, "A poll must contain at least one question"),
+});
+
+// What POST /api/polls validates. Kept separate from createPollSchema because
+// ai.schema.ts calls createPollSchema.pick(), and zod refuses .pick() on an object
+// schema that carries refinements — refining the base schema would break the AI
+// module at import time.
+//
+// Only a PUBLISHED assessment must be gradeable: the web builder autosaves TRIAL
+// drafts before the author has marked any answers, and respondents can only reach
+// published polls. PollService re-checks on publish, so a draft cannot go live
+// without answers.
+export const createPollRequestSchema = createPollSchema.superRefine((poll, ctx) => {
+  if (poll.pollType !== 'TRIAL' || !poll.isPublished) return;
+
+  poll.questions.forEach((question, index) => {
+    const path = ['questions', index, 'correctOptionIndices'];
+    if (!question.correctOptionIndices.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path,
+        message: 'A published assessment needs at least one correct option on every question',
+      });
+    }
+    for (const message of answerIndexProblems(question)) {
+      ctx.addIssue({ code: 'custom', path, message });
+    }
+  });
 });
 
 export const updatePollSchema = z.object({
