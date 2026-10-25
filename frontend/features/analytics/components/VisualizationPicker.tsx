@@ -10,33 +10,33 @@ interface VisualizationPickerProps {
   onChange: (value: VisualizationType) => void;
 }
 
-export function VisualizationPicker({ value, onChange }: VisualizationPickerProps) {
-  const options = [
-    { id: "bar-v", icon: BarChart2, label: "Vertical Bar" },
-    { id: "bar-h", icon: BarChart2, label: "Horizontal Bar", rotate: true },
-    { id: "pie", icon: PieChart, label: "Donut Chart" },
-    { id: "list", icon: List, label: "List View" },
-  ];
+const OPTIONS: { id: VisualizationType; icon: typeof BarChart2; label: string; rotate?: boolean }[] = [
+  { id: "bar-h", icon: BarChart2, label: "Bars", rotate: true },
+  { id: "bar-v", icon: BarChart2, label: "Columns" },
+  { id: "pie", icon: PieChart, label: "Donut" },
+  { id: "list", icon: List, label: "List" },
+];
 
+/** How every question chart on the page is drawn: a segmented control of pressed buttons. */
+export function VisualizationPicker({ value, onChange }: VisualizationPickerProps) {
   return (
-    <div className="inline-flex items-center gap-1 rounded-xl border border-border/80 bg-secondary/60 p-1 backdrop-blur-md shadow-sm">
-      {options.map((opt) => {
-        const isActive = value === opt.id;
+    <div role="group" aria-label="Chart type" className="inline-flex rounded-lg border border-border bg-secondary p-0.5">
+      {OPTIONS.map((opt) => {
+        const active = value === opt.id;
         return (
           <button
             key={opt.id}
             type="button"
-            onClick={() => onChange(opt.id as VisualizationType)}
+            aria-pressed={active}
+            onClick={() => onChange(opt.id)}
             className={cn(
-              "flex size-8 items-center justify-center rounded-lg transition-all cursor-pointer select-none",
-              isActive
-                ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 scale-[1.05]"
-                : "text-muted-foreground hover:bg-white/5 hover:text-foreground active:scale-[0.95]"
+              "flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring",
+              active ? "bg-card text-foreground shadow-[0_1px_2px_rgb(23_23_23/0.08)]" : "text-muted-foreground hover:text-foreground",
             )}
-            title={opt.label}
-            aria-label={opt.label}
           >
-            <opt.icon className={cn("size-4 shrink-0", opt.rotate && "rotate-90")} />
+            <opt.icon className={cn("size-4 shrink-0", opt.rotate && "rotate-90", active && "text-accent-ink")} aria-hidden="true" />
+            <span className="hidden sm:inline">{opt.label}</span>
+            <span className="sr-only sm:hidden">{opt.label}</span>
           </button>
         );
       })}

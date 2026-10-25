@@ -3,20 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { 
-  ArrowLeft, 
-  Users, 
-  Search, 
-  Mail, 
-  Clock, 
-  ChevronDown, 
-  ChevronUp, 
-  BarChart3, 
-  AlertCircle,
-  CheckCircle2, 
-  Share2, 
-  Send 
-} from "lucide-react";
+import { AlertCircle, ArrowLeft, ChevronDown, ChevronUp, Copy, Globe, Search, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AnalyticsHeaderStats } from "@/features/analytics/components/AnalyticsHeaderStats";
 import { TopChoiceHighlight } from "@/features/analytics/components/TopChoiceHighlight";
@@ -33,6 +20,18 @@ import { apiClient } from "@/lib/api-client";
 import { useCreatorStore } from "@/features/polls/store/useCreatorStore";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { SettingsLoading } from "@/features/workspaces/settings/blocks";
+
+const VOTER_FILTERS = [
+  { id: "all", label: "Everyone" },
+  { id: "registered", label: "Registered" },
+  { id: "guest", label: "Guests" },
+  { id: "anonymous", label: "Anonymous" },
+] as const;
+
+const VOTER_TYPE_LABEL = { registered: "Registered", guest: "Guest", anonymous: "Anonymous" } as const;
+
+const page = "mx-auto w-full max-w-[1200px] px-4 pb-16 pt-8 sm:px-6 md:pt-12 lg:px-8";
 
 type ApiOk<T> = { success: boolean; message: string; data: T };
 
@@ -44,7 +43,7 @@ export default function AnalyticsPollPage() {
   const [analytics, setAnalytics] = useState<PollAnalyticsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [visType, setVisType] = useState<VisualizationType>("bar-v");
+  const [visType, setVisType] = useState<VisualizationType>("bar-h");
   const [publishing, setPublishing] = useState(false);
 
   const [voters, setVoters] = useState<PollVoterRecord[]>([]);
@@ -94,14 +93,12 @@ export default function AnalyticsPollPage() {
       setError(null);
       try {
         const pollRes = await apiClient.get<ApiOk<Poll>>(`/polls/${id}`);
-        console.log("[Analytics] Poll Response:", pollRes.data);
         if (cancelled) return;
         setPoll(pollRes.data.data);
 
         let summary: PollAnalyticsPayload;
         try {
           const summaryRes = await apiClient.get<ApiOk<PollAnalyticsPayload>>(`/responses/poll/${id}/summary`);
-          console.log("[Analytics] Summary Response:", summaryRes.data);
           summary = summaryRes.data.data;
         } catch {
           summary = emptyPollAnalytics(id);
@@ -124,30 +121,28 @@ export default function AnalyticsPollPage() {
   }, [id]);
 
   if (!id) {
-    return <p className="text-sm text-white/40">Missing poll id.</p>;
+    return <p className={cn(page, "text-sm text-muted-foreground")}>Missing poll id.</p>;
   }
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-8 md:px-6">
-        <div className="rounded-2xl border border-white/[0.06] bg-[#0d0d0d]/80 p-6 text-sm text-white/40">
-          Loading analytics…
-        </div>
+      <div className={page}>
+        <SettingsLoading>Loading analytics…</SettingsLoading>
       </div>
     );
   }
 
   if (error || !poll) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-8 md:px-6">
-        <div className="rounded-2xl border border-red-500/25 bg-red-500/10 p-6 text-sm text-red-300">
-          {error ?? "Poll not found."}{" "}
-          <Link
-            href="/analytics"
-            className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
-          >
-            Back to analytics
-          </Link>
+      <div className={page}>
+        <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p>
+            {error ?? "Poll not found."}{" "}
+            <Link href="/analytics" className="font-medium underline underline-offset-4">
+              Back to analytics
+            </Link>
+          </p>
         </div>
       </div>
     );
@@ -183,220 +178,158 @@ export default function AnalyticsPollPage() {
     window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, "_blank");
   };
 
+  const tabClass = (active: boolean) =>
+    cn(
+      "flex items-center gap-2 border-b-2 pb-3 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+      active ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+    );
+
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-8 px-4 py-8 md:px-6">
-      {/* Header section */}
-      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            className="-ml-2 h-8 gap-2 rounded-xl text-white/40 hover:bg-primary/10 hover:text-primary group/back"
-          >
-            <Link href="/analytics">
-              <ArrowLeft className="size-3.5 transition-transform group-hover/back:-translate-x-0.5" />
-              Analytics
-            </Link>
-          </Button>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-white/90 md:text-3xl">
-              {poll.title}
-            </h1>
-            {poll.isResultsPublished && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-                <CheckCircle2 className="size-3" />
-                Results Public
+    <div className={page}>
+      <Link
+        href="/analytics"
+        className="inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
+        <ArrowLeft className="size-4" aria-hidden="true" />
+        Analytics
+      </Link>
+
+      <header className="mt-4 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-balance text-3xl font-semibold leading-tight tracking-[-0.035em] sm:text-4xl">{poll.title}</h1>
+          <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            Counts update live as responses arrive.
+            {poll.isResultsPublished ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2 py-0.5 text-xs font-medium text-foreground">
+                <Globe className="size-3.5 text-success" aria-hidden="true" />
+                Results are public
               </span>
-            )}
-          </div>
-          <p className="text-sm text-white/35">Live counts update as responses arrive.</p>
+            ) : null}
+          </p>
         </div>
 
-        <div className="flex flex-col items-end gap-4 md:flex-shrink-0">
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            {!poll.isResultsPublished ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 rounded-xl border-primary/20 bg-primary/10 text-[11px] font-bold uppercase tracking-widest text-primary hover:bg-primary/20"
-                onClick={handlePublish}
-                disabled={publishing}
-              >
-                <Share2 className="mr-2 size-3.5" />
-                {publishing ? "Publishing..." : "Publish Results"}
+        <div className="flex flex-wrap gap-2 md:shrink-0">
+          {!poll.isResultsPublished ? (
+            <>
+              <Button variant="outline" className="bg-card" onClick={handleShare}>
+                <Copy /> Copy poll link
               </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 rounded-xl border-emerald-500/20 bg-emerald-500/10 text-[11px] font-bold uppercase tracking-widest text-emerald-400 hover:bg-emerald-500/20"
-                onClick={handleShare}
-              >
-                <Share2 className="mr-2 size-3.5" />
-                Copy Link
+              <Button onClick={handlePublish} disabled={publishing}>
+                <Globe /> {publishing ? "Publishing…" : "Publish results"}
               </Button>
-            )}
-            {poll.isResultsPublished && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 rounded-xl border-sky-500/20 bg-sky-500/10 text-[11px] font-bold uppercase tracking-widest text-sky-400 hover:bg-sky-500/20"
-                onClick={handleShareX}
-              >
-                <Send className="mr-2 size-3.5 fill-sky-400" />
-                Share on X
+            </>
+          ) : (
+            <>
+              <Button variant="outline" className="bg-card" onClick={handleShareX}>
+                <Send /> Share on X
               </Button>
-            )}
-            {!poll.isResultsPublished && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 rounded-xl text-[11px] font-bold uppercase tracking-widest text-white/40 hover:text-white/60"
-                onClick={handleShare}
-              >
-                <Share2 className="mr-2 size-3.5" />
-                Share Poll
+              <Button variant="ink" onClick={handleShare}>
+                <Copy /> Copy poll link
               </Button>
-            )}
-          </div>
-          <div className="flex flex-col items-end gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">
-              Visualization
-            </span>
-            <VisualizationPicker value={visType} onChange={setVisType} />
-          </div>
+            </>
+          )}
         </div>
+      </header>
+
+      <div className="mt-8">
+        <AnalyticsHeaderStats poll={poll} totalResponses={total} />
       </div>
 
-      {/* Aggregate Stats */}
-      <AnalyticsHeaderStats poll={poll} totalResponses={total} />
-
-      {/* Tab Switcher */}
-      <div className="flex border-b border-white/[0.06] gap-6 pb-px mt-4">
-        <button
-          onClick={() => setActiveTab("summary")}
-          className={cn(
-            "pb-4 text-xs font-bold uppercase tracking-widest transition-all relative flex items-center gap-1.5 outline-none select-none",
-            activeTab === "summary"
-              ? "text-primary border-b-2 border-primary"
-              : "text-white/45 hover:text-white/70"
-          )}
-        >
-          <BarChart3 className="size-3.5" />
-          <span>Overview Charts</span>
-        </button>
-        <button
-          onClick={openVotersTab}
-          className={cn(
-            "pb-4 text-xs font-bold uppercase tracking-widest transition-all relative flex items-center gap-1.5 outline-none select-none",
-            activeTab === "voters"
-              ? "text-primary border-b-2 border-primary"
-              : "text-white/45 hover:text-white/70"
-          )}
-        >
-          <Users className="size-3.5" />
-          <span>Voter Activity Log</span>
-          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-extrabold text-primary border border-primary/20">
-            {total}
-          </span>
-        </button>
+      <div className="mt-8 flex flex-col gap-3 border-b border-border sm:flex-row sm:items-end sm:justify-between">
+        <div role="tablist" aria-label="Poll analytics" className="-mb-px flex gap-6">
+          <button type="button" role="tab" aria-selected={activeTab === "summary"} onClick={() => setActiveTab("summary")} className={tabClass(activeTab === "summary")}>
+            Results
+          </button>
+          <button type="button" role="tab" aria-selected={activeTab === "voters"} onClick={openVotersTab} className={tabClass(activeTab === "voters")}>
+            Voters
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">{total}</span>
+          </button>
+        </div>
+        {activeTab === "summary" ? (
+          <div className="pb-3">
+            <VisualizationPicker value={visType} onChange={setVisType} />
+          </div>
+        ) : null}
       </div>
 
       {activeTab === "summary" ? (
-        <>
-          {/* Insight Highlight */}
-          {analytics && <TopChoiceHighlight poll={poll} analytics={analytics} />}
+        <div className="mt-6 space-y-4">
+          {analytics ? <TopChoiceHighlight poll={poll} analytics={analytics} /> : null}
 
-          {/* Questions List */}
-          <div className="grid gap-6">
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-white/[0.06]" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">
-                Question Breakdown
-              </span>
-              <div className="h-px flex-1 bg-white/[0.06]" />
-            </div>
+          {poll.questions.map((q, index) => {
+            const qid = String(q._id ?? "");
+            // Try finding by ID first, fallback to index for corrupted old polls
+            let summary = analytics?.questionSummaries.find((s) => s.questionId === qid);
+            if (!summary && analytics?.questionSummaries[index]) {
+              summary = analytics.questionSummaries[index];
+            }
 
-            {poll.questions.map((q, index) => {
-              const qid = String(q._id ?? "");
-              // Try finding by ID first, fallback to index for corrupted old polls
-              let summary = analytics?.questionSummaries.find((s) => s.questionId === qid);
-              if (!summary && analytics?.questionSummaries[index]) {
-                summary = analytics.questionSummaries[index];
-              }
-              
-              const counts = summary?.counts ?? q.options.map(() => 0);
-              const data = q.options.map((label, i) => ({
-                label,
-                votes: counts[i] ?? 0,
-              }));
+            const counts = summary?.counts ?? q.options.map(() => 0);
+            const data = q.options.map((label, i) => ({
+              label,
+              votes: counts[i] ?? 0,
+            }));
+            // Assessments show which answers are right.
+            const trial = poll.pollType === "TRIAL";
 
-              return (
-                <QuestionAnalytics key={qid || q.text} title={q.text} data={data} type={visType} />
-              );
-            })}
-          </div>
-        </>
+            return (
+              <QuestionAnalytics
+                key={qid || q.text}
+                title={q.text}
+                data={data}
+                type={visType}
+                correctOptionIndices={trial ? q.correctOptionIndices : undefined}
+                explanation={trial ? q.explanation : undefined}
+              />
+            );
+          })}
+        </div>
       ) : (
-        /* Voter Activity Log Tab */
-        <div className="space-y-6">
-          {/* Controls Bar: Search & Filter */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            {/* Search Input */}
-            <div className="relative flex-1 max-w-md group">
-              <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-white/30 group-focus-within:text-primary transition-colors">
-                <Search className="size-4" />
-              </div>
+        <div className="mt-6 space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <input
-                type="text"
-                placeholder="Search voters by name or email..."
+                type="search"
+                placeholder="Search by name or email"
+                aria-label="Search voters by name or email"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#14120f]/50 border border-white/[0.08] focus:border-primary/50 focus:ring-primary/20 h-10 pl-10 pr-4 rounded-xl text-white text-xs placeholder:text-white/20 transition-all outline-none"
+                className="h-9 w-full rounded-md border border-input bg-card pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25"
               />
             </div>
-
-            {/* Type Filters */}
-            <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider">
-              {(["all", "registered", "guest", "anonymous"] as const).map((type) => {
-                const isActive = filterType === type;
+            <div role="group" aria-label="Voter type" className="inline-flex rounded-lg border border-border bg-secondary p-0.5">
+              {VOTER_FILTERS.map((f) => {
+                const active = filterType === f.id;
                 return (
                   <button
-                    key={type}
+                    key={f.id}
+                    type="button"
+                    aria-pressed={active}
                     onClick={() => {
-                      setFilterType(type);
+                      setFilterType(f.id);
                       setExpandedRow(null);
                     }}
                     className={cn(
-                      "px-3 py-1.5 rounded-lg border transition-all select-none outline-none",
-                      isActive
-                        ? "border-primary/30 bg-primary/10 text-primary"
-                        : "border-white/[0.06] bg-transparent text-white/40 hover:text-white/60"
+                      "h-8 rounded-md px-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring",
+                      active ? "bg-card text-foreground shadow-[0_1px_2px_rgb(23_23_23/0.08)]" : "text-muted-foreground hover:text-foreground",
                     )}
                   >
-                    {type}
+                    {f.label}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Loader / Error / Empty States */}
           {votersLoading ? (
-            <div className="rounded-2xl border border-white/[0.06] bg-[#0d0d0d]/80 p-12 flex flex-col items-center justify-center gap-3">
-              <div className="size-8 rounded-xl bg-primary/20 flex items-center justify-center animate-pulse border border-primary/30">
-                <Users className="size-4 text-primary animate-spin" />
-              </div>
-              <p className="text-xs text-white/40 font-medium">Loading voter logs...</p>
+            <div className="rounded-xl border border-border bg-card p-8">
+              <SettingsLoading>Loading voters…</SettingsLoading>
             </div>
           ) : votersError ? (
-            <div className="rounded-2xl border border-red-500/25 bg-red-500/10 p-6 flex items-center gap-3 text-red-300">
-              <AlertCircle className="size-5 shrink-0" />
-              <div className="text-xs">
-                <p className="font-semibold">Error loading voter list</p>
-                <p className="text-red-300/60 mt-0.5">{votersError}</p>
-              </div>
+            <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">
+              <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <p>{votersError}</p>
             </div>
           ) : (
             (() => {
@@ -412,148 +345,87 @@ export default function AnalyticsPollPage() {
 
               if (filtered.length === 0) {
                 return (
-                  <div className="rounded-2xl border border-white/[0.06] bg-[#0d0d0d]/80 p-12 text-center space-y-2">
-                    <p className="text-sm font-semibold text-white/80">No voter records found</p>
-                    <p className="text-xs text-white/40">
+                  <div className="rounded-xl border border-border bg-card p-10 text-center">
+                    <p className="text-base font-semibold text-foreground">No voters found</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {searchQuery || filterType !== "all"
-                        ? "Try adjusting your search query or filter options."
-                        : "No responses have been submitted to this poll yet."}
+                        ? "Try another search or voter type."
+                        : "No one has answered this poll yet."}
                     </p>
                   </div>
                 );
               }
 
               return (
-                <div className="relative group w-full">
-                  <div className="absolute -inset-px rounded-3xl bg-gradient-to-b from-white/[0.08] to-transparent opacity-40 group-hover:opacity-100 transition-opacity duration-500" />
-                  <div className="absolute inset-[1px] rounded-[23px] bg-[#0d0d0d]/80 backdrop-blur-2xl" />
+                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-xs font-medium text-muted-foreground">
+                          <th className="px-5 py-3 font-medium">Voter</th>
+                          <th className="px-5 py-3 font-medium">Type</th>
+                          <th className="px-5 py-3 font-medium">Submitted</th>
+                          <th className="px-5 py-3 text-right font-medium">
+                            <span className="sr-only">Answers</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {filtered.map((item) => {
+                          const isExpanded = expandedRow === item._id;
+                          const hasAnswers = item.answers && item.answers.length > 0;
+                          const dateFormatted = (() => {
+                            try {
+                              return new Date(item.createdAt).toLocaleString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              });
+                            } catch {
+                              return "Just now";
+                            }
+                          })();
 
-                  <div className="relative overflow-hidden rounded-[23px] border border-white/[0.06]">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-white/[0.06] text-[10px] font-bold uppercase tracking-widest text-white/30 bg-white/[0.02]">
-                            <th className="py-4 px-5">Voter</th>
-                            <th className="py-4 px-5">Type</th>
-                            <th className="py-4 px-5">Submitted</th>
-                            <th className="py-4 px-5 text-right">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/[0.04]">
-                          {filtered.map((item) => {
-                            const isExpanded = expandedRow === item._id;
-                            const hasAnswers = item.answers && item.answers.length > 0;
-                            const dateFormatted = (() => {
-                              try {
-                                return new Date(item.createdAt).toLocaleString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                });
-                              } catch {
-                                return "Just now";
-                              }
-                            })();
-
-                            return (
-                              <tr
-                                key={item._id}
-                                className={cn(
-                                  "text-xs transition-colors duration-200 align-top",
-                                  isExpanded ? "bg-white/[0.02]" : "hover:bg-white/[0.01]"
-                                )}
-                              >
-                                <td className="py-4 px-5">
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="font-bold text-white/80">
-                                      {item.voter.name}
-                                    </span>
-                                    {item.voter.email && (
-                                      <span className="text-[10px] font-medium text-white/30 flex items-center gap-1">
-                                        <Mail className="size-3 text-white/20" />
-                                        {item.voter.email}
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-
-                                <td className="py-4 px-5">
-                                  <span
-                                    className={cn(
-                                      "inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider",
-                                      item.voter.type === "registered"
-                                        ? "bg-sky-500/10 text-sky-400 border border-sky-500/20"
-                                        : item.voter.type === "guest"
-                                        ? "bg-amber-500/10 text-primary border border-amber-500/20"
-                                        : "bg-white/5 text-white/40 border border-white/10"
-                                    )}
-                                  >
-                                    {item.voter.type}
-                                  </span>
-                                </td>
-
-                                <td className="py-4 px-5 text-white/40 font-medium">
-                                  <div className="flex items-center gap-1.5 text-[11px] mt-0.5">
-                                    <Clock className="size-3 text-white/20" />
-                                    {dateFormatted}
-                                  </div>
-                                </td>
-
-                                <td className="py-4 px-5 text-right">
-                                  <div className="flex flex-col items-end">
-                                    <button
-                                      disabled={!hasAnswers}
-                                      onClick={() =>
-                                        setExpandedRow(isExpanded ? null : item._id)
-                                      }
-                                      className={cn(
-                                        "h-8 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1.5 border transition-all outline-none",
-                                        !hasAnswers
-                                          ? "opacity-30 cursor-not-allowed"
-                                          : isExpanded
-                                          ? "border-primary bg-primary/10 text-primary"
-                                          : "border-white/10 text-white/60 hover:border-white/25 hover:text-white"
-                                      )}
-                                    >
-                                      <span>{isExpanded ? "Hide Details" : "View Answers"}</span>
-                                      {isExpanded ? (
-                                        <ChevronUp className="size-3" />
-                                      ) : (
-                                        <ChevronDown className="size-3" />
-                                      )}
-                                    </button>
-
-                                    {isExpanded && (
-                                      <div className="w-full text-left bg-black/40 border border-white/[0.04] rounded-xl p-3.5 mt-3 space-y-3 shadow-inner">
-                                        <h4 className="text-[9px] font-bold uppercase tracking-widest text-primary/70 flex items-center gap-1.5 select-none">
-                                          <Users className="size-3" /> Answers Breakdown
-                                        </h4>
-                                        <div className="grid gap-2.5 max-w-lg">
-                                          {item.answers.map((ans, aIdx) => (
-                                            <div
-                                              key={ans.questionId || aIdx}
-                                              className="flex flex-col gap-0.5 border-l border-white/10 pl-3 py-0.5"
-                                            >
-                                              <span className="text-[10px] font-semibold text-white/40 leading-snug">
-                                                {ans.questionText}
-                                              </span>
-                                              <span className="text-xs font-bold text-primary leading-snug">
-                                                {ans.selectedOptionText}
-                                              </span>
-                                            </div>
-                                          ))}
-                                        </div>
+                          return (
+                            <tr key={item._id} className={cn("align-top transition-colors", isExpanded ? "bg-accent/40" : "hover:bg-accent/30")}>
+                              <td className="px-5 py-3.5">
+                                <p className="font-medium text-foreground">{item.voter.name}</p>
+                                {item.voter.email ? <p className="text-xs text-muted-foreground">{item.voter.email}</p> : null}
+                              </td>
+                              <td className="px-5 py-3.5">
+                                <span className="inline-flex rounded-full border border-border bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                                  {VOTER_TYPE_LABEL[item.voter.type]}
+                                </span>
+                              </td>
+                              <td className="whitespace-nowrap px-5 py-3.5 text-muted-foreground">{dateFormatted}</td>
+                              <td className="px-5 py-3.5 text-right">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={!hasAnswers}
+                                  aria-expanded={isExpanded}
+                                  onClick={() => setExpandedRow(isExpanded ? null : item._id)}
+                                >
+                                  {isExpanded ? "Hide answers" : "View answers"}
+                                  {isExpanded ? <ChevronUp /> : <ChevronDown />}
+                                </Button>
+                                {isExpanded ? (
+                                  <dl className="mt-3 space-y-2.5 rounded-lg border border-border bg-background p-3.5 text-left">
+                                    {item.answers.map((ans, aIdx) => (
+                                      <div key={ans.questionId || aIdx}>
+                                        <dt className="text-xs text-muted-foreground">{ans.questionText}</dt>
+                                        <dd className="text-sm font-medium text-foreground">{ans.selectedOptionText}</dd>
                                       </div>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                                    ))}
+                                  </dl>
+                                ) : null}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               );

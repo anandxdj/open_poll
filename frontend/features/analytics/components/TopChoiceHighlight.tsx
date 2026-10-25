@@ -1,6 +1,6 @@
 "use client";
 
-import { Trophy, Zap } from "lucide-react";
+import { Trophy } from "lucide-react";
 import type { Poll } from "@/features/polls/store/useCreatorStore";
 import type { PollAnalyticsPayload } from "../types";
 
@@ -9,6 +9,7 @@ interface TopChoiceHighlightProps {
   analytics: PollAnalyticsPayload;
 }
 
+/** One sentence on the most chosen answer across the poll; nothing until someone has answered. */
 export function TopChoiceHighlight({ poll, analytics }: TopChoiceHighlightProps) {
   if (analytics.totalResponses === 0) return null;
 
@@ -21,7 +22,7 @@ export function TopChoiceHighlight({ poll, analytics }: TopChoiceHighlightProps)
     if (!summary && analytics.questionSummaries[index]) {
       summary = analytics.questionSummaries[index];
     }
-    
+
     if (summary) {
       summary.counts.forEach((count, i) => {
         if (count > topAnswer.votes) {
@@ -37,34 +38,21 @@ export function TopChoiceHighlight({ poll, analytics }: TopChoiceHighlightProps)
 
   if (topAnswer.votes <= 0) return null;
 
-  const percentage = ((topAnswer.votes / analytics.totalResponses) * 100).toFixed(0);
+  const percentage = Math.round((topAnswer.votes / analytics.totalResponses) * 100);
 
   return (
-    <div className="bezel-outer">
-      <div className="bezel-inner relative overflow-hidden bg-gradient-to-br from-primary/10 via-transparent to-transparent p-6">
-        <div className="flex items-center gap-4">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/20 ring-1 ring-primary/30">
-            <Trophy className="size-6 text-primary" />
-          </div>
-          <div className="flex-1 space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-primary/60">
-                Poll Insight
-              </span>
-              <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-                <Zap className="size-2.5" />
-                Trending
-              </span>
-            </div>
-            <h3 className="text-sm font-medium text-foreground/90">
-              &quot;<span className="text-primary">{topAnswer.text}</span>&quot; is currently the leading answer
-              for <span className="italic text-muted-foreground/80">{topAnswer.questionTitle}</span>.
-            </h3>
-            <p className="text-xs text-muted-foreground/60">
-              Captured {topAnswer.votes} out of {analytics.totalResponses} total responses ({percentage}%).
-            </p>
-          </div>
-        </div>
+    <div className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 sm:p-6">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-accent-ink">
+        <Trophy className="size-5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm text-muted-foreground">Leading answer</p>
+        <p className="mt-0.5 text-lg font-semibold tracking-[-0.02em] text-foreground">{topAnswer.text}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          <span className="font-mono tabular-nums text-foreground">{topAnswer.votes}</span> of{" "}
+          <span className="font-mono tabular-nums text-foreground">{analytics.totalResponses}</span> responses (
+          {percentage}%) on &ldquo;{topAnswer.questionTitle}&rdquo;
+        </p>
       </div>
     </div>
   );
