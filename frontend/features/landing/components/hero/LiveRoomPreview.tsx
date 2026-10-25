@@ -6,30 +6,28 @@ import { QRCodeSVG } from "qrcode.react";
 import { useReducedMotion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { ResultRow } from "../shared/ResultRow";
 
 const OPTIONS = ["Running Q&A", "Writing good polls", "Quiz rounds", "Reading the report"];
 const START = [34, 22, 14, 8];
 
 /**
  * The hero visual: a sample live session, the projected screen with a phone
- * resting on its corner. It always renders dark (the real stage does, whatever
- * the app theme). Bars fill once on load, then an answer lands every couple of
- * seconds; reduced motion keeps it still. Labelled "Sample session" and exposed
- * as one image.
+ * resting on its corner. It follows the app theme. Answers are cards that fill
+ * with their share; once on screen an answer lands every couple of seconds
+ * (the card it lands on pops a "+1"); reduced motion keeps it still.
+ * Labelled "Sample session" and exposed as one image.
  */
 export function LiveRoomPreview({ className }: { className?: string }) {
   const reduce = useReducedMotion();
-  const [filled, setFilled] = useState(false);
   const [counts, setCounts] = useState(START);
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setFilled(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
+  // The answer the last vote landed on, and a tick so the same answer can pop twice.
+  const [landed, setLanded] = useState<{ index: number; tick: number } | null>(null);
 
   useEffect(() => {
     if (reduce) return;
     const weights = [0.45, 0.28, 0.17, 0.1];
+    let tick = 0;
     const timer = window.setInterval(() => {
       if (document.hidden) return;
       const roll = Math.random();
@@ -42,7 +40,9 @@ export function LiveRoomPreview({ className }: { className?: string }) {
           break;
         }
       }
-      setCounts((prev) => prev.map((n, i) => (i === pick ? n + 1 + Math.floor(Math.random() * 2) : n)));
+      tick += 1;
+      setCounts((prev) => prev.map((n, i) => (i === pick ? n + 1 : n)));
+      setLanded({ index: pick, tick });
     }, 1900);
     return () => window.clearInterval(timer);
   }, [reduce]);
@@ -53,66 +53,49 @@ export function LiveRoomPreview({ className }: { className?: string }) {
   return (
     <div
       role="img"
-      aria-label="Illustration of a sample live session: answers from the audience fill bars on the presenter's screen while a phone shows the same question."
+      aria-label="Illustration of a sample live session: answers from the audience fill the answer cards on the presenter's screen while a phone shows the same question."
       className={cn("relative md:pb-10", className)}
     >
       {/* Presenter screen; leaves room on the right for the phone */}
-      <div className="dark overflow-hidden rounded-2xl border border-border bg-background text-foreground shadow-[0_32px_64px_-24px_rgb(23_23_23/0.35)] md:mr-36 lg:mr-44">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card text-foreground shadow-[0_32px_64px_-28px_rgb(23_23_23/0.3)] md:mr-36 lg:mr-44">
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
           <div className="flex items-center gap-2.5">
             <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-success/60" />
+              <span className="absolute inline-flex size-full rounded-full bg-success/60 motion-safe:animate-ping" />
               <span className="relative inline-flex size-2 rounded-full bg-success" />
             </span>
             <span className="text-sm font-medium">Live</span>
             <Badge variant="outline">Sample session</Badge>
           </div>
-          <span className="flex items-center gap-1.5 text-sm tabular-nums text-muted-foreground">
+          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Users className="size-4" aria-hidden="true" />
-            {total} answers
+            <span className="font-mono tabular-nums text-foreground">{total}</span> answers
           </span>
         </div>
 
-        {/* On md+ the phone covers the right edge, so the results stop short of it */}
-        <div className="px-5 pb-6 pt-7 sm:px-8 sm:pb-8 sm:pt-9 md:pr-24 lg:pr-28">
-          <p className="text-balance text-2xl font-semibold tracking-[-0.035em] sm:text-[2rem]">
-            What should we cover next?
-          </p>
-          <ul className="mt-7 space-y-4">
-            {OPTIONS.map((label, i) => {
-              const pct = Math.round((counts[i] / total) * 100);
-              const isLead = i === lead;
-              return (
+        {/* The question on graph paper; on md+ the phone covers the right edge, so the answers stop short of it */}
+        <div className="relative bg-background">
+          <div aria-hidden="true" className="mk-grid mk-grid-flat pointer-events-none absolute inset-0" />
+          <div className="relative px-5 pb-6 pt-7 sm:px-8 sm:pb-8 sm:pt-8 md:pr-24 lg:pr-28">
+            <p className="text-balance text-2xl font-semibold tracking-[-0.035em] sm:text-[2rem]">What should we cover next?</p>
+            <ul className="mt-6 space-y-2.5">
+              {OPTIONS.map((label, i) => (
                 <li key={label}>
-                  <div className="mb-2 flex items-baseline justify-between gap-3">
-                    <span className={cn("text-base", isLead ? "font-medium text-foreground" : "text-muted-foreground")}>
-                      {label}
-                    </span>
-                    <span
-                      className={cn(
-                        "font-mono text-sm tabular-nums",
-                        isLead ? "font-medium text-accent-ink" : "text-muted-foreground",
-                      )}
-                    >
-                      {pct}%
-                    </span>
-                  </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-secondary">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-[width,background-color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                        isLead ? "bg-primary" : "bg-muted-foreground/40",
-                      )}
-                      style={{ width: filled ? `${pct}%` : "0%" }}
-                    />
-                  </div>
+                  <ResultRow
+                    letter={String.fromCharCode(65 + i)}
+                    label={label}
+                    pct={Math.round((counts[i] / total) * 100)}
+                    lead={i === lead}
+                    delay={0.15 + i * 0.08}
+                    bump={landed?.index === i ? landed.tick : undefined}
+                  />
                 </li>
-              );
-            })}
-          </ul>
+              ))}
+            </ul>
+          </div>
         </div>
 
-        <div className="flex items-center justify-between gap-4 border-t border-border bg-card px-5 py-3.5">
+        <div className="flex items-center justify-between gap-4 border-t border-border px-5 py-3.5">
           <div className="flex items-baseline gap-3">
             <span className="text-sm text-muted-foreground">Join with code</span>
             <span className="font-mono text-lg font-semibold tracking-[0.12em]">482 913</span>
@@ -122,9 +105,9 @@ export function LiveRoomPreview({ className }: { className?: string }) {
       </div>
 
       {/* Audience phone, overlapping the screen's lower right corner */}
-      <div className="dark absolute bottom-0 right-0 hidden md:block lg:right-4">
-        <div className="w-[216px] -rotate-2 rounded-[2rem] border border-border bg-background p-2 text-foreground shadow-[0_32px_64px_-20px_rgb(23_23_23/0.45)]">
-          <div className="rounded-[1.5rem] border border-border bg-card px-4 pb-5 pt-4">
+      <div className="absolute bottom-0 right-0 hidden md:block lg:right-4">
+        <div className="w-[216px] -rotate-2 rounded-[2rem] border border-border bg-card p-2 text-foreground shadow-[0_32px_64px_-20px_rgb(23_23_23/0.4)]">
+          <div className="rounded-[1.5rem] border border-border bg-background px-4 pb-5 pt-4">
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" />
             <p className="text-sm font-semibold leading-snug tracking-tight">What should we cover next?</p>
             <div className="mt-4 space-y-2">
@@ -135,7 +118,7 @@ export function LiveRoomPreview({ className }: { className?: string }) {
                     "flex min-h-9 items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-xs",
                     i === 0
                       ? "border-primary bg-primary/10 font-medium text-foreground"
-                      : "border-border text-muted-foreground",
+                      : "border-border bg-card text-muted-foreground",
                   )}
                 >
                   <span className="truncate">{label}</span>

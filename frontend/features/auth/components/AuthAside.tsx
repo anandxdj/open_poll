@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { JoinCodeTile } from "@/features/landing/components/hero/LiveRoomPreview";
+import { ResultRow } from "@/features/landing/components/shared/ResultRow";
 
 const POINTS = [
   "Polls, quizzes, word clouds and Q&A in one deck",
@@ -34,37 +35,28 @@ export function AuthAside() {
           ))}
         </ul>
 
-        {/* Sample session, always dark like the projected screen */}
+        {/* Sample session, a sheet that follows the app theme with its answers as cards */}
         <div
           role="img"
-          aria-label="Sample live session with three answer bars and a join code."
-          className="dark mt-10 overflow-hidden rounded-2xl border border-border bg-background text-foreground shadow-[0_32px_64px_-24px_rgb(23_23_23/0.35)]"
+          aria-label="Sample live session with three answers and a join code."
+          className="mt-10 overflow-hidden rounded-2xl border border-border bg-card text-foreground shadow-[0_32px_64px_-28px_rgb(23_23_23/0.3)]"
         >
           <div className="flex items-center gap-2 border-b border-border px-4 py-3 text-sm">
             <span className="size-2 rounded-full bg-success" />
             <span className="font-medium">Live</span>
             <span className="text-muted-foreground">Sample session</span>
           </div>
-          <div className="p-5">
+          <div className="bg-background p-5">
             <p className="text-lg font-semibold tracking-[-0.02em]">What should we cover next?</p>
-            <ul className="mt-5 space-y-3.5">
-              {BARS.map((bar) => (
+            <ul className="mt-4 space-y-2">
+              {BARS.map((bar, i) => (
                 <li key={bar.label}>
-                  <div className="mb-1.5 flex items-baseline justify-between text-sm">
-                    <span className={bar.lead ? "text-foreground" : "text-muted-foreground"}>{bar.label}</span>
-                    <span className="font-mono tabular-nums text-muted-foreground">{bar.pct}%</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-                    <div
-                      className={bar.lead ? "h-full rounded-full bg-primary" : "h-full rounded-full bg-muted-foreground/50"}
-                      style={{ width: `${bar.pct}%` }}
-                    />
-                  </div>
+                  <ResultRow size="sm" letter={String.fromCharCode(65 + i)} label={bar.label} pct={bar.pct} lead={bar.lead} delay={0.2 + i * 0.08} />
                 </li>
               ))}
             </ul>
           </div>
-          <div className="flex items-center justify-between gap-4 border-t border-border bg-card px-4 py-3">
+          <div className="flex items-center justify-between gap-4 border-t border-border px-4 py-3">
             <div>
               <p className="text-xs text-muted-foreground">Join with code</p>
               <p className="font-mono text-lg font-semibold tracking-[0.12em]">482 913</p>

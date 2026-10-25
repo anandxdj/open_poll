@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useInView, useReducedMotion } from "framer-motion";
+import { useMounted } from "@/hooks/use-mounted";
 
 /** The brand curve, `--ease-brand` in globals.css. */
 export const ease = [0.32, 0.72, 0, 1] as const;
@@ -39,6 +40,16 @@ export function useSeen<T extends Element>(amount = 0.5) {
 }
 
 /**
+ * Reduced motion as a value that is safe to render with: false on the server
+ * and during hydration (the server cannot know the setting), the real
+ * preference once mounted. Use it wherever it changes the first frame.
+ */
+export function useInstant() {
+  const reduce = useReducedMotion();
+  return useMounted() && Boolean(reduce);
+}
+
+/**
  * A number that counts from `from` to `value` (on mount, and again whenever
  * `value` changes). Mono, tabular. Reduced motion shows the value at once.
  */
@@ -57,7 +68,7 @@ export function CountUp({
   suffix?: string;
   className?: string;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useInstant();
   const [shown, setShown] = useState(from);
   const start = useRef(from);
 

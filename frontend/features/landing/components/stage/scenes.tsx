@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Check, ChevronUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CountUp, ease, useStepper } from "../shared/motion";
+import { ResultRow } from "../shared/ResultRow";
 
 /**
  * One small, sample result per slide type, played on the dark stage of the
@@ -12,14 +13,13 @@ import { CountUp, ease, useStepper } from "../shared/motion";
  * settled result. All content is invented sample data.
  *
  * Scenes fill a fixed 300px-tall area and must fit a 300px-wide phone stage.
+ * They follow the app theme: cards are `bg-card` sheets on the stage's graph paper.
  */
 
 /** Framer's `initial` for an entrance; `false` (start settled) for reduced motion. */
 function useFrom<T>(from: T): T | false {
   return useReducedMotion() ? false : from;
 }
-
-const track = "h-2.5 overflow-hidden rounded-full bg-secondary";
 
 /* ── Multiple choice ───────────────────────────────────────────────────── */
 
@@ -31,31 +31,18 @@ const PLANETS = [
 ];
 
 function MultipleChoiceScene() {
-  const from = useFrom({ width: "0%" });
   return (
-    <ul className="space-y-5">
+    <ul className="space-y-2.5">
       {PLANETS.map((o, i) => (
         <li key={o.label}>
-          <div className="mb-2 flex items-baseline justify-between gap-3 text-base">
-            <span className={cn("flex items-center gap-2", o.correct ? "font-medium text-foreground" : "text-muted-foreground")}>
-              {o.label}
-              {o.correct ? <Check className="size-4 text-accent-ink" strokeWidth={2.5} aria-hidden="true" /> : null}
-            </span>
-            <CountUp
-              value={o.pct}
-              suffix="%"
-              duration={1100}
-              className={cn("font-mono text-sm tabular-nums", o.correct ? "text-accent-ink" : "text-muted-foreground")}
-            />
-          </div>
-          <div className={track}>
-            <motion.div
-              className={cn("h-full rounded-full", o.correct ? "bg-primary" : "bg-muted-foreground/40")}
-              initial={from}
-              animate={{ width: `${o.pct}%` }}
-              transition={{ duration: 1.1, ease, delay: 0.1 + i * 0.08 }}
-            />
-          </div>
+          <ResultRow
+            letter={String.fromCharCode(65 + i)}
+            label={o.label}
+            pct={o.pct}
+            lead={Boolean(o.correct)}
+            correct={o.correct}
+            delay={0.1 + i * 0.08}
+          />
         </li>
       ))}
     </ul>
@@ -178,7 +165,7 @@ function OpenEndedScene() {
           initial={from}
           animate={{ opacity: 1, y: 0, rotate: 0 }}
           transition={{ duration: 0.45, ease, delay: 0.1 + i * 0.32 }}
-          className="mb-3 break-inside-avoid rounded-xl border border-border bg-card p-3.5"
+          className="mb-3 break-inside-avoid rounded-xl border border-border bg-card p-3.5 shadow-[0_1px_2px_rgb(23_23_23/0.06)]"
         >
           <p className="text-sm leading-snug text-foreground">{n.text}</p>
           <p className="mt-2 text-xs text-muted-foreground">{n.who}</p>
@@ -267,7 +254,7 @@ function RankingScene() {
           transition={{ layout: { duration: 0.5, ease } }}
           className={cn(
             "flex items-center gap-4 rounded-xl border px-4 py-3.5",
-            i === 0 && final ? "border-primary/60 bg-primary/10" : "border-border bg-card",
+            i === 0 && final ? "border-primary/60 bg-primary/10" : "border-border bg-card shadow-[0_1px_2px_rgb(23_23_23/0.06)]",
           )}
         >
           <span className={cn("w-5 font-mono text-sm tabular-nums", i === 0 ? "text-accent-ink" : "text-muted-foreground")}>
@@ -519,7 +506,7 @@ function QnaScene() {
           transition={{ layout: { duration: 0.5, ease } }}
           className={cn(
             "flex items-center gap-4 rounded-xl border px-4 py-3.5",
-            i === 0 && final ? "border-primary/60 bg-primary/10" : "border-border bg-card",
+            i === 0 && final ? "border-primary/60 bg-primary/10" : "border-border bg-card shadow-[0_1px_2px_rgb(23_23_23/0.06)]",
           )}
         >
           <span className="flex w-8 shrink-0 flex-col items-center text-accent-ink">
@@ -560,7 +547,7 @@ function LeaderboardScene() {
           transition={{ layout: { duration: 0.6, ease } }}
           className={cn(
             "flex items-center gap-4 rounded-xl border px-4 py-2.5",
-            i === 0 ? "border-primary/60 bg-primary/10" : "border-border bg-card",
+            i === 0 ? "border-primary/60 bg-primary/10" : "border-border bg-card shadow-[0_1px_2px_rgb(23_23_23/0.06)]",
           )}
         >
           <span className={cn("w-5 font-mono text-sm tabular-nums", i === 0 ? "text-accent-ink" : "text-muted-foreground")}>

@@ -197,10 +197,10 @@ export function QuestionTypes() {
             aria-labelledby={`qt-tab-${current.id}`}
             className="min-w-0 lg:sticky lg:top-24 lg:col-span-8 lg:self-start"
           >
-            {/* The stage is always dark, like the projected screen. */}
+            {/* The stage follows the app theme: a sheet with the scene on graph paper. */}
             <div
               ref={stageRef}
-              className="dark overflow-hidden rounded-2xl border border-border bg-background text-foreground shadow-[0_32px_64px_-24px_rgb(23_23_23/0.35)]"
+              className="overflow-hidden rounded-2xl border border-border bg-card text-foreground shadow-[0_32px_64px_-28px_rgb(23_23_23/0.3)]"
             >
               <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
                 <div className="flex min-w-0 items-center gap-2.5 text-sm font-medium">
@@ -221,7 +221,7 @@ export function QuestionTypes() {
               </div>
 
               {/* Time left on this type; when it runs out the next one comes up. */}
-              <div className="h-0.5 bg-border/60">
+              <div className="h-0.5 bg-border">
                 {autoplay ? (
                   <span
                     key={index}
@@ -232,14 +232,16 @@ export function QuestionTypes() {
                 ) : null}
               </div>
 
-              <div role="img" aria-label={`Sample ${current.label} results: ${current.description}`} className="px-5 pb-6 pt-6 sm:px-8 sm:pb-8 sm:pt-7">
+              <div role="img" aria-label={`Sample ${current.label} results: ${current.description}`} className="relative bg-background px-5 pb-6 pt-6 sm:px-8 sm:pb-8 sm:pt-7">
+                <div aria-hidden="true" className="mk-grid mk-grid-flat pointer-events-none absolute inset-0" />
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.div
                     key={current.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2, ease }}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22, ease }}
+                    className="relative"
                   >
                     <p className="min-h-[2lh] text-balance text-2xl font-semibold leading-tight tracking-[-0.035em] sm:text-[1.75rem]">
                       {question}

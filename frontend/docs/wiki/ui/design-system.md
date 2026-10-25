@@ -103,8 +103,10 @@ sign-in aside) and `.mk-progress` (the stage's countdown line).
 
 See [`../features/landing-auth.md`](../features/landing-auth.md). Rules: copy states only what the product does;
 product illustrations are labelled "Sample" and exposed as one image, and sit on graph paper (`PlotPanel`);
-the projected stage is always dark (`<div className="dark ...">` re-applies the dark tokens inside a light
-page, the recommended pricing card uses the same trick); the accent appears on one primary action, the lead
+sample sessions (the hero, the question-types stage, the sign-in aside) follow the app theme and show answers
+as `ResultRow` cards; the real projected stage stays dark (`features/live-surfaces.md`), and the library's mini
+deck screens and the builder's slide thumbnails keep its dark look (`<div className="dark ...">` re-applies the
+dark tokens inside a light page; the recommended pricing card uses the same trick); the accent appears on one primary action, the lead
 data series and small check/step marks.
 
 ## App screens

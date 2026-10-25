@@ -73,8 +73,11 @@ any coding agent) starting a new screen.
 | Ember text (`accent-ink`) | `#b93d0b` | `#fb923c` |
 | Brand (display, logo) | `#ea580c` | `#f97316` |
 
-The projected stage and the audience phone are always dark: wrap them in
-`<div className="dark ...">` to re-apply the dark tokens inside a light page.
+Sample sessions in marketing and sign-in follow the app theme, answers shown
+as `ResultRow` cards on graph paper. The real projected stage is always dark
+(warm graphite, `--deck-*` tokens); where a small picture of it appears inside
+a light page (library cards, slide thumbnails), wrap it in
+`<div className="dark ...">` to re-apply the dark tokens.
 
 ## Shape
 
