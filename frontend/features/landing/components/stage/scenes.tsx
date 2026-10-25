@@ -437,53 +437,176 @@ function GridScene() {
 
 /* ── Pin on image ──────────────────────────────────────────────────────── */
 
-// Pins in percent of the floor plan; most land near the exit (target at 82%, 24%).
+// The "image" is a venue floor plan drawn in a 480 × 240 box; pins, heat and the correct
+// area are placed in the same units. Most of the room finds the side exit by the seats.
+const PLAN_W = 480;
+const PLAN_H = 240;
 const PINS = [
-  [80, 22], [84, 27], [78, 26], [83, 19], [76, 30], [86, 24], [30, 70], [81, 29], [55, 40], [79, 18],
+  [212, 216], [230, 210], [452, 184], [202, 224], [238, 226], [218, 204], [322, 152], [222, 226], [200, 208], [232, 220],
 ];
+const EXIT_AREA = { left: 190, top: 194, right: 246, bottom: 236 };
+const IN_AREA = PINS.filter(
+  ([x, y]) => x >= EXIT_AREA.left && x <= EXIT_AREA.right && y >= EXIT_AREA.top && y <= EXIT_AREA.bottom,
+).length;
+// The stage's heatmap: pins counted per cell of a 20 × 20 grid, as on the real stage.
+const HEAT_CELLS = (() => {
+  const cells = new Map<string, { col: number; row: number; count: number }>();
+  for (const [x, y] of PINS) {
+    const col = Math.floor((x / PLAN_W) * 20);
+    const row = Math.floor((y / PLAN_H) * 20);
+    const cell = cells.get(`${col}:${row}`) ?? { col, row, count: 0 };
+    cell.count += 1;
+    cells.set(`${col}:${row}`, cell);
+  }
+  return [...cells.values()];
+})();
+const HEAT_MAX = Math.max(...HEAT_CELLS.map((c) => c.count));
+// Two blocks of seats facing the stage, clear of the aisle and the exit door's swing.
+const SEATS = Array.from({ length: 11 }, (_, i) => 80 + i * 20).flatMap((x) =>
+  [24, 40, 56, 72, 88, 144, 160, 176, 192, 208]
+    .filter((y) => !(x >= 190 && x <= 240 && y >= 170))
+    .map((y) => [x, y] as const),
+);
+
+const pct = (v: number, of: number) => `${(v / of) * 100}%`;
+
+function VenuePlan() {
+  return (
+    <svg viewBox={`0 0 ${PLAN_W} ${PLAN_H}`} className="absolute inset-0 size-full" aria-hidden="true">
+      {/* Seats, café tables, reception desk */}
+      <g className="fill-muted-foreground/25">
+        {SEATS.map(([x, y]) => (
+          <rect key={`${x}-${y}`} x={x} y={y} width="10" height="10" rx="2" />
+        ))}
+        <rect x="340" y="194" width="58" height="14" rx="7" />
+      </g>
+      <g className="fill-none stroke-muted-foreground/45" strokeWidth="1.5">
+        {[[348, 48], [396, 48], [444, 48], [372, 86], [420, 86]].map(([cx, cy]) => (
+          <circle key={cx * 1000 + cy} cx={cx} cy={cy} r="10" />
+        ))}
+      </g>
+      <rect x="20" y="56" width="36" height="128" rx="3" className="fill-muted stroke-border" strokeWidth="1.5" />
+      {/* Door swings */}
+      <path
+        d="M196 232V194A38 38 0 0 1 234 232M472 160H434A38 38 0 0 0 472 198M312 140H344A32 32 0 0 1 312 172M372 112V144A32 32 0 0 0 404 112"
+        className="fill-none stroke-muted-foreground/50"
+        strokeWidth="1"
+      />
+      {/* Walls, with gaps for the doors */}
+      <path
+        d="M8 8H472V160M472 198V232H236M196 232H8V8M312 8V140M312 172V232M312 112H372M404 112H472"
+        className="fill-none stroke-foreground"
+        strokeWidth="4"
+        strokeLinecap="square"
+      />
+      {/* Exit sign over the side door */}
+      <rect x="201" y="176" width="30" height="13" rx="2" className="fill-success" />
+      <text x="216" y="185.5" textAnchor="middle" className="fill-background text-[8px] font-bold">
+        EXIT
+      </text>
+      {/* Labels */}
+      <g className="fill-muted-foreground text-[10px] font-medium">
+        <text x="38" y="120" textAnchor="middle" transform="rotate(-90 38 120)" dominantBaseline="middle">
+          Stage
+        </text>
+        <text x="324" y="28">Café</text>
+        <text x="324" y="130">Lobby</text>
+        <text x="464" y="224" textAnchor="end">Entrance</text>
+      </g>
+      {/* You are here */}
+      <circle cx="150" cy="120" r="9" className="fill-foreground/10" />
+      <circle cx="150" cy="120" r="4.5" className="fill-foreground" />
+      <text x="164" y="123.5" className="fill-foreground text-[10px] font-semibold">
+        You are here
+      </text>
+    </svg>
+  );
+}
 
 function PinScene() {
-  const fromPin = useFrom({ opacity: 0, y: -24 });
-  const fromTarget = useFrom({ opacity: 0, scale: 0.6 });
+  // Pins drop one per tick, then the result is revealed.
+  const step = useStepper(PINS.length + 4, 170);
+  const revealed = step >= PINS.length + 3;
+  const dropped = Math.min(step + 1, PINS.length);
+  const spring = { type: "spring", stiffness: 520, damping: 22 } as const;
+
   return (
-    <div className="flex h-full flex-col">
-      <div className="relative flex-1 overflow-hidden rounded-lg border border-border bg-card">
-        {/* A sample floor plan drawn as the "image" */}
-        <svg viewBox="0 0 400 220" preserveAspectRatio="none" className="absolute inset-0 size-full" aria-hidden="true">
-          <g fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/45">
-            <rect x="12" y="12" width="376" height="196" rx="4" />
-            <path d="M150 12v80M150 130v78M12 120h100M150 92h90M240 12v60M240 110v98M300 110h88M300 110v40" />
-          </g>
-          <g fill="currentColor" className="text-muted-foreground/25">
-            <rect x="40" y="150" width="70" height="36" rx="4" />
-            <rect x="180" y="140" width="40" height="40" rx="20" />
-          </g>
-        </svg>
-        <motion.span
-          initial={fromTarget}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, ease, delay: 1.5 }}
-          className="absolute size-20 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-primary bg-primary/10"
-          style={{ left: "82%", top: "24%" }}
-        />
-        {PINS.map(([x, y], i) => (
-          <motion.span
-            key={i}
-            initial={fromPin}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease, delay: 0.1 + i * 0.1 }}
-            className="absolute -ml-1.5 -mt-3 flex flex-col items-center"
-            style={{ left: `${x}%`, top: `${y}%` }}
-          >
-            <span className="size-3 rounded-full border-2 border-background bg-foreground" />
-            <span className="h-1.5 w-px bg-foreground" />
-          </motion.span>
-        ))}
+    <div className="@container h-full">
+      <div className="flex h-full flex-col gap-3 @xl:flex-row @xl:gap-6">
+        <div className="relative aspect-[2/1] w-full [container-type:size] @xl:aspect-auto @xl:h-full @xl:min-w-0 @xl:flex-1">
+          <div className="absolute left-0 top-0 h-[min(100cqh,50cqw)] w-[min(100cqw,200cqh)] overflow-hidden rounded-lg border border-border bg-card shadow-[0_1px_2px_rgb(23_23_23/0.06)]">
+            <VenuePlan />
+            {HEAT_CELLS.map((cell) => (
+              <motion.span
+                key={`${cell.col}:${cell.row}`}
+                initial={false}
+                animate={{ opacity: revealed ? 0.12 + 0.55 * (cell.count / HEAT_MAX) : 0 }}
+                transition={{ duration: 0.5, ease }}
+                className="absolute bg-destructive"
+                style={{ left: `${cell.col * 5}%`, top: `${cell.row * 5}%`, width: "5%", height: "5%" }}
+              />
+            ))}
+            <motion.span
+              initial={false}
+              animate={revealed ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.85 }}
+              transition={{ duration: 0.45, ease, delay: revealed ? 0.25 : 0 }}
+              className="absolute rounded-sm border-2 border-dashed border-success bg-success/15"
+              style={{
+                left: pct(EXIT_AREA.left, PLAN_W),
+                top: pct(EXIT_AREA.top, PLAN_H),
+                width: pct(EXIT_AREA.right - EXIT_AREA.left, PLAN_W),
+                height: pct(EXIT_AREA.bottom - EXIT_AREA.top, PLAN_H),
+              }}
+            />
+            {PINS.map(([x, y], i) => {
+              const shown = i < dropped;
+              return (
+                <span key={i} className="absolute" style={{ left: pct(x, PLAN_W), top: pct(y, PLAN_H) }}>
+                  {/* While answers come in: a pin, tip on the spot */}
+                  <motion.svg
+                    viewBox="0 0 16 22"
+                    initial={false}
+                    animate={
+                      shown && !revealed ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: revealed ? 0 : -18, scale: revealed ? 0.4 : 1 }
+                    }
+                    transition={shown && !revealed ? spring : { duration: 0.25, ease }}
+                    className="absolute bottom-0 left-0 h-[22px] w-4 -translate-x-1/2 origin-bottom drop-shadow-[0_1px_1px_rgb(23_23_23/0.3)]"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M8 0C3.6 0 0 3.5 0 7.9 0 13.6 8 22 8 22s8-8.4 8-14.1C16 3.5 12.4 0 8 0z"
+                      className="fill-primary"
+                    />
+                    <circle cx="8" cy="8" r="3" className="fill-primary-foreground" />
+                  </motion.svg>
+                  {/* Once revealed: a dot on the heatmap */}
+                  <motion.span
+                    initial={false}
+                    animate={{ opacity: revealed ? 1 : 0, scale: revealed ? 1 : 0 }}
+                    transition={{ duration: 0.3, ease, delay: revealed ? 0.15 : 0 }}
+                    className="absolute -left-1 -top-1 size-2 rounded-full bg-foreground ring-2 ring-card"
+                  />
+                </span>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-baseline gap-2 @xl:w-36 @xl:flex-col @xl:gap-1">
+          <p className="font-mono text-base tabular-nums text-foreground @xl:text-4xl @xl:tracking-tight">
+            {revealed ? <CountUp value={Math.round((IN_AREA / PINS.length) * 100)} suffix="%" duration={700} /> : dropped}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {revealed ? (
+              <>
+                <span className="font-mono tabular-nums text-foreground">{IN_AREA}</span> of{" "}
+                <span className="font-mono tabular-nums text-foreground">{PINS.length}</span> pins in the correct area
+              </>
+            ) : (
+              "pins dropped"
+            )}
+          </p>
+        </div>
       </div>
-      <p className="mt-4 text-sm text-muted-foreground">
-        <span className="font-mono tabular-nums text-foreground">8</span> of{" "}
-        <span className="font-mono tabular-nums text-foreground">10</span> pins in the right area
-      </p>
     </div>
   );
 }
