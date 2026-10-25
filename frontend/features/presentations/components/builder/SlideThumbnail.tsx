@@ -35,7 +35,8 @@ export function SlideThumbnail({ slide, className }: { slide: PresentationSlide;
       ref={frameRef}
       aria-hidden
       className={cn(
-        "relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-deck-stage-bg",
+        // The stage is always dark: `dark` re-applies the dark tokens inside a light page.
+        "dark relative aspect-video w-full overflow-hidden rounded-md border border-border bg-deck-stage-bg",
         className
       )}
     >
@@ -64,7 +65,7 @@ export function SlideThumbnail({ slide, className }: { slide: PresentationSlide;
           </div>
         </div>
       )}
-      <meta.Icon className={cn("absolute left-1.5 top-1.5 size-3", meta.iconClass)} />
+      <meta.Icon className="absolute left-1.5 top-1.5 size-3 text-white/70" />
     </div>
   );
 }

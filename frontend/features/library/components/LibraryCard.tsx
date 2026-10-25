@@ -7,18 +7,16 @@ import { formatDistanceToNowStrict } from "date-fns";
 import {
   ArrowRightLeft,
   BarChart3,
+  Check,
   Copy,
   ExternalLink,
   FileBarChart,
-  Layers,
   Lock,
-  MessageSquare,
   MoreHorizontal,
   Pencil,
   Play,
   Presentation,
   Share2,
-  Target,
   Trash2,
   Users,
   XCircle,
@@ -35,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,20 +52,15 @@ import { closePoll, convertPollToPresentation, deleteLibraryItem } from "../api/
 import { cardLinks, deckBuilderPath, kindLabel, statusLabel } from "../query";
 import type { LibraryCard as LibraryCardData, PollLibraryCard, PresentationLibraryCard } from "../types";
 
-const statusTone: Record<LibraryCardData["status"], string> = {
-  draft: "border-border bg-secondary/40 text-muted-foreground",
-  live: "border-emerald-500/30 bg-emerald-500/10 text-emerald-500",
-  ended: "border-border bg-secondary/30 text-muted-foreground/80",
+/** Status pill dot: live pulses green, drafts are faint, ended is quiet. */
+const statusDot: Record<LibraryCardData["status"], string> = {
+  draft: "bg-faint",
+  live: "bg-success motion-safe:animate-pulse",
+  ended: "bg-muted-foreground/50",
 };
 
-const actionClass =
-  "flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-colors active:scale-[0.98]";
-const primaryAction = cn(actionClass, "bg-primary text-primary-foreground hover:opacity-90");
-const secondaryAction = cn(
-  actionClass,
-  "border border-border bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground",
-);
-const menuItemClass = "flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium";
+/** Card actions sit above the stretched title link. */
+const action = "relative z-10";
 
 interface LibraryCardProps {
   card: LibraryCardData;
@@ -137,152 +131,146 @@ export function LibraryCard({ card, onRemoved, onChanged }: LibraryCardProps) {
     }
   }
 
+  const openHref = cardLinks(card, "").open;
+  const shareLabel = `${card.entityType === "poll" && card.details.pollType === "TRIAL" ? "Assessment" : "Poll"} link copied!`;
+
   return (
     <article
       className={cn(
-        "group relative flex flex-col rounded-[2rem] border border-border bg-card p-5 transition-all duration-300",
-        "hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5",
+        "group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-[border-color,box-shadow] duration-200",
+        "hover:border-foreground/20 hover:shadow-[0_16px_32px_-24px_rgb(23_23_23/0.4)]",
         busy && "pointer-events-none opacity-70",
       )}
     >
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest",
-              statusTone[card.status],
-            )}
-          >
-            <span
-              className={cn(
-                "size-1.5 shrink-0 rounded-full",
-                card.status === "live" ? "bg-emerald-500 motion-safe:animate-pulse" : "bg-muted-foreground/60",
-              )}
-            />
-            {statusLabel(card)}
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary">
-            {isPoll ? (
-              card.details.pollType === "TRIAL" ? (
-                <Target className="size-3" />
-              ) : (
-                <BarChart3 className="size-3" />
-              )
-            ) : (
-              <Presentation className="size-3" />
-            )}
-            {kindLabel(card)}
-          </span>
-          {!isPoll && card.details.legacySource ? (
-            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-              From {card.details.legacySource}
-            </span>
-          ) : null}
-        </div>
+      <CardPreview card={card} />
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={`More actions for ${card.title}`}
-              className="shrink-0 rounded-lg p-1.5 text-muted-foreground/50 transition-colors hover:bg-secondary hover:text-foreground"
+      <div className="flex flex-1 flex-col p-4">
+        <div className="flex items-start gap-2">
+          <h3 className="min-w-0 flex-1 text-base font-semibold leading-snug tracking-[-0.015em] text-foreground">
+            {/* The title opens the item; its ::after stretches the link over the whole card. */}
+            <Link
+              href={openHref}
+              className="line-clamp-2 rounded-sm after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
-              <MoreHorizontal className="size-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 rounded-2xl p-1">
-            {card.entityType === "poll" ? (
-              <PollMenuItems
-                poll={card}
-                onCopyLink={() => void copyText(links().share, `${card.details.pollType === "TRIAL" ? "Assessment" : "Poll"} link copied!`)}
-                onConvert={(force) => void handleConvert(card, force)}
-                onClose={() => setConfirm("close")}
-              />
-            ) : (
-              <>
-                <DropdownMenuItem asChild className={menuItemClass}>
-                  <Link href={sessionsPath(card.id)}>
-                    <FileBarChart className="size-4" /> Session history
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className={menuItemClass}
-                  onSelect={() => void copyText(links().share, "Join link copied!")}
-                >
-                  <Copy className="size-4" /> Copy join link
-                </DropdownMenuItem>
-                {canShareDecks ? (
-                  <DropdownMenuItem className={menuItemClass} onSelect={() => setShareOpen(true)}>
-                    <Users className="size-4" /> Share with team…
-                  </DropdownMenuItem>
-                ) : null}
-              </>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className={cn(menuItemClass, "text-red-500 focus:bg-red-500/10 focus:text-red-500")}
-              onSelect={() => setConfirm("delete")}
-            >
-              <Trash2 className="size-4" /> Delete {noun}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <div className="mb-5 min-h-[3.25rem]">
-        <h3 className="mb-1.5 line-clamp-2 text-base font-bold tracking-tight text-foreground/90">
-          {card.title || (isPoll ? "Untitled poll" : "Untitled deck")}
-        </h3>
-        {card.entityType === "poll" ? <PollMeta poll={card} /> : <DeckMeta deck={card} />}
-      </div>
-
-      <div className="mt-auto grid grid-cols-2 gap-2.5">
-        {card.entityType === "poll" ? (
-          card.status === "draft" ? (
-            <Link href={cardLinks(card, "").open} className={cn(primaryAction, "col-span-2")}>
-              <Pencil className="size-3.5" /> Edit draft
+              {card.title || (isPoll ? "Untitled poll" : "Untitled deck")}
             </Link>
-          ) : (
-            <>
-              <Link href={cardLinks(card, "").open} className={secondaryAction}>
-                <BarChart3 className="size-3.5" /> Analytics
-              </Link>
+          </h3>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                onClick={() => void copyText(links().share, `${card.details.pollType === "TRIAL" ? "Assessment" : "Poll"} link copied!`)}
-                className={primaryAction}
+                aria-label={`More actions for ${card.title}`}
+                className={cn(
+                  action,
+                  "-mr-1.5 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
+                )}
               >
-                <Share2 className="size-3.5" /> Share
+                <MoreHorizontal className="size-4" />
               </button>
-            </>
-          )
-        ) : (
-          <>
-            <Link href={cardLinks(card, "").open} className={secondaryAction}>
-              <Pencil className="size-3.5" /> Edit
-            </Link>
-            <Link href={cardLinks(card, "").run} className={primaryAction}>
-              <Play className="size-3.5" /> {card.details.phase === "lobby" || card.details.phase === "active" ? "Resume" : "Present"}
-            </Link>
-          </>
-        )}
-      </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 p-1.5">
+              {card.entityType === "poll" ? (
+                <PollMenuItems
+                  poll={card}
+                  onCopyLink={() => void copyText(links().share, shareLabel)}
+                  onConvert={(force) => void handleConvert(card, force)}
+                  onClose={() => setConfirm("close")}
+                />
+              ) : (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href={sessionsPath(card.id)}>
+                      <FileBarChart /> Session history
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void copyText(links().share, "Join link copied!")}>
+                    <Copy /> Copy join link
+                  </DropdownMenuItem>
+                  {canShareDecks ? (
+                    <DropdownMenuItem onSelect={() => setShareOpen(true)}>
+                      <Users /> Share with team…
+                    </DropdownMenuItem>
+                  ) : null}
+                </>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onSelect={() => setConfirm("delete")}>
+                <Trash2 /> Delete {noun}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-      <p className="mt-4 border-t border-border/50 pt-3 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">
-        Updated {formatDistanceToNowStrict(new Date(card.updatedAt), { addSuffix: true })}
-      </p>
+        {card.entityType === "poll" ? <PollMeta poll={card} /> : <DeckMeta deck={card} />}
+        <p className="sr-only">
+          {statusLabel(card)}. Updated {formatDistanceToNowStrict(new Date(card.updatedAt), { addSuffix: true })}.
+        </p>
+
+        <div className="mt-auto flex items-center justify-end gap-3 pt-5">
+          <div className="flex shrink-0 gap-2">
+            {card.entityType === "poll" ? (
+              card.status === "draft" ? (
+                <Button asChild size="sm" variant="ink" className={action}>
+                  <Link href={openHref}>
+                    <Pencil /> Edit draft
+                  </Link>
+                </Button>
+              ) : (
+                <>
+                  <Button asChild size="sm" variant="outline" className={action}>
+                    <Link href={openHref}>
+                      <BarChart3 /> Analytics
+                    </Link>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ink"
+                    className={action}
+                    onClick={() => void copyText(links().share, shareLabel)}
+                  >
+                    <Share2 /> Share
+                  </Button>
+                </>
+              )
+            ) : (
+              <>
+                <Button asChild size="sm" variant="outline" className={action}>
+                  <Link href={openHref}>
+                    <Pencil /> Edit
+                  </Link>
+                </Button>
+                {/* A running session is the one thing on the page that needs you: it gets the accent. */}
+                {card.details.phase === "lobby" || card.details.phase === "active" ? (
+                  <Button asChild size="sm" className={action}>
+                    <Link href={cardLinks(card, "").run}>
+                      <Play /> Resume
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button asChild size="sm" variant="ink" className={action}>
+                    <Link href={cardLinks(card, "").run}>
+                      <Play /> Present
+                    </Link>
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
 
       {!isPoll && shareOpen ? (
         <ShareDialog open onOpenChange={setShareOpen} resourceType="presentation" resourceId={card.id} title={card.title} />
       ) : null}
 
       <AlertDialog open={confirm !== null} onOpenChange={(open) => !open && !busy && setConfirm(null)}>
-        <AlertDialogContent className="rounded-3xl border-border bg-card">
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl font-bold">
+            <AlertDialogTitle>
               {confirm === "close" ? "Close poll?" : `Delete ${noun}?`}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground">
+            <AlertDialogDescription>
               {confirm === "close" ? (
                 <>
                   <strong>&quot;{card.title}&quot;</strong> stops accepting responses.
@@ -300,15 +288,15 @@ export function LibraryCard({ card, onRemoved, onChanged }: LibraryCardProps) {
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="mt-4 gap-3">
-            <AlertDialogCancel className="rounded-xl border-border bg-secondary/50 hover:bg-secondary">Cancel</AlertDialogCancel>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
                 if (confirm === "close" && card.entityType === "poll") void handleClose(card);
                 else void handleDelete();
               }}
-              className="rounded-xl bg-red-500 font-bold text-white transition-colors hover:bg-red-600"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {confirm === "close" ? "Close poll" : `Delete ${noun}`}
             </AlertDialogAction>
@@ -335,59 +323,62 @@ function PollMenuItems({
     <>
       {poll.status !== "draft" ? (
         <>
-          <DropdownMenuItem asChild className={menuItemClass}>
+          <DropdownMenuItem asChild>
             <Link href={cardLinks(poll, "").run} target="_blank" rel="noopener">
-              <ExternalLink className="size-4" /> Open voting page
+              <ExternalLink /> Open voting page
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem className={menuItemClass} onSelect={onCopyLink}>
-            <Copy className="size-4" /> Copy link
+          <DropdownMenuItem onSelect={onCopyLink}>
+            <Copy /> Copy link
           </DropdownMenuItem>
         </>
       ) : null}
       {converted ? (
         <>
-          <DropdownMenuItem asChild className={menuItemClass}>
+          <DropdownMenuItem asChild>
             <Link href={deckBuilderPath(converted)}>
-              <Presentation className="size-4" /> Open converted deck
+              <Presentation /> Open converted deck
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem className={menuItemClass} onSelect={() => onConvert(true)}>
-            <ArrowRightLeft className="size-4" /> Convert again
+          <DropdownMenuItem onSelect={() => onConvert(true)}>
+            <ArrowRightLeft /> Convert again
           </DropdownMenuItem>
         </>
       ) : (
-        <DropdownMenuItem className={menuItemClass} onSelect={() => onConvert(false)}>
-          <ArrowRightLeft className="size-4" /> Convert to presentation
+        <DropdownMenuItem onSelect={() => onConvert(false)}>
+          <ArrowRightLeft /> Convert to presentation
         </DropdownMenuItem>
       )}
       {poll.status === "live" ? (
-        <DropdownMenuItem className={menuItemClass} onSelect={onClose}>
-          <XCircle className="size-4" /> Close poll
+        <DropdownMenuItem onSelect={onClose}>
+          <XCircle /> Close poll
         </DropdownMenuItem>
       ) : null}
     </>
   );
 }
 
+const meta = "mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground";
+const count = "font-mono text-xs tabular-nums text-foreground";
+
 function PollMeta({ poll }: { poll: PollLibraryCard }) {
+  const { questionCount, responseCount } = poll.stats;
   return (
-    <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-muted-foreground/60">
-      <span className="flex items-center gap-1" title="Questions">
-        <MessageSquare className="size-3" />
-        {poll.stats.questionCount}
+    <div className={meta}>
+      <span>{kindLabel(poll)}</span>
+      <span>
+        <span className={count}>{questionCount}</span> question{questionCount === 1 ? "" : "s"}
       </span>
-      <span className="flex items-center gap-1" title="Responses">
-        <Users className="size-3" />
-        {poll.stats.responseCount}
+      <span>
+        <span className={count}>{responseCount}</span> response{responseCount === 1 ? "" : "s"}
       </span>
       {!poll.details.isAnonymous ? (
         <span className="flex items-center gap-1" title="Respondents identify themselves">
-          <Lock className="size-3" /> Verified
+          <Lock className="size-3.5" aria-hidden="true" /> Verified
         </span>
       ) : null}
       {poll.status === "live" && poll.details.expiresAt ? (
-        <span className="text-primary/80">
+        <span className="text-accent-ink">
           Closes {formatDistanceToNowStrict(new Date(poll.details.expiresAt), { addSuffix: true })}
         </span>
       ) : null}
@@ -396,24 +387,88 @@ function PollMeta({ poll }: { poll: PollLibraryCard }) {
 }
 
 function DeckMeta({ deck }: { deck: PresentationLibraryCard }) {
+  const { slideCount } = deck.stats;
   return (
-    <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-muted-foreground/60">
-      <span className="flex items-center gap-1.5">
-        <Layers className="size-3" /> {deck.stats.slideCount} slide{deck.stats.slideCount === 1 ? "" : "s"}
+    <div className={meta}>
+      <span>{kindLabel(deck)}</span>
+      {deck.details.legacySource ? <span>From {deck.details.legacySource}</span> : null}
+      <span>
+        <span className={count}>{slideCount}</span> slide{slideCount === 1 ? "" : "s"}
       </span>
-      {deck.details.slideTypes.length > 0 ? (
-        <span className="flex items-center gap-1">
-          {deck.details.slideTypes.map((type) => {
-            const meta = slideTypeMeta(type as PresentationSlideType);
-            return <meta.Icon key={type} className={cn("size-3.5", meta.iconClass)} aria-label={meta.label} />;
-          })}
-        </span>
-      ) : null}
       {deck.details.joinCode ? (
-        <span className="ml-auto font-mono font-bold tracking-widest" title="Join code">
+        <span className="ml-auto font-mono text-xs tracking-[0.14em] text-foreground" title="Join code">
           {deck.details.joinCode}
         </span>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The top of a card, on graph paper: a deck is a dark mini screen with one tile
+ * per slide type it holds; a poll is a small ballot sheet (a check on one row
+ * for assessments). Pictures of the item's kind and shape, never of results.
+ */
+function CardPreview({ card }: { card: LibraryCardData }) {
+  return (
+    <div aria-hidden="true" className="relative h-32 overflow-hidden border-b border-border bg-background">
+      <div className="mk-grid mk-grid-flat absolute inset-0" />
+      <span className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2 py-0.5 text-xs font-medium text-foreground">
+        <span className={cn("size-1.5 rounded-full", statusDot[card.status])} />
+        {statusLabel(card)}
+      </span>
+      <span className="absolute right-3 top-3.5 z-10 rounded bg-background/80 px-1 text-xs text-muted-foreground">
+        Updated {formatDistanceToNowStrict(new Date(card.updatedAt), { addSuffix: true })}
+      </span>
+      <div className="relative flex h-full items-center justify-center px-6 pt-6">
+        {card.entityType === "presentation" ? <DeckThumb deck={card} /> : <PollThumb poll={card} />}
+      </div>
+    </div>
+  );
+}
+
+function DeckThumb({ deck }: { deck: PresentationLibraryCard }) {
+  const types = deck.details.slideTypes.slice(0, 5);
+  const more = deck.details.slideTypes.length - types.length;
+  return (
+    <div className="dark w-full max-w-[13rem] rounded-lg border border-border bg-background p-2.5 shadow-[0_12px_24px_-16px_rgb(23_23_23/0.6)]">
+      <span className="block h-1.5 w-1/2 rounded-full bg-foreground/70" />
+      <div className="mt-2.5 flex items-center gap-1.5">
+        {types.length === 0 ? (
+          <Presentation className="size-5 text-muted-foreground" />
+        ) : (
+          types.map((type) => {
+            const { Icon } = slideTypeMeta(type as PresentationSlideType);
+            return (
+              <span key={type} className="flex size-8 items-center justify-center rounded-md border border-border bg-card text-accent-ink">
+                <Icon className="size-4" />
+              </span>
+            );
+          })
+        )}
+        {more > 0 ? <span className="font-mono text-xs text-muted-foreground">+{more}</span> : null}
+      </div>
+    </div>
+  );
+}
+
+function PollThumb({ poll }: { poll: PollLibraryCard }) {
+  const assessment = poll.details.pollType === "TRIAL";
+  return (
+    <div className="w-full max-w-[13rem] space-y-1.5 rounded-lg border border-border bg-card p-2.5 shadow-[0_12px_24px_-16px_rgb(23_23_23/0.35)]">
+      <span className="block h-1.5 w-3/5 rounded-full bg-foreground/70" />
+      {[0, 1, 2].map((row) => (
+        <span key={row} className="flex items-center gap-1.5">
+          {assessment && row === 1 ? (
+            <span className="flex size-3 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <Check className="size-2" strokeWidth={4} />
+            </span>
+          ) : (
+            <span className="size-3 rounded-full border border-input" />
+          )}
+          <span className={cn("h-1 rounded-full bg-muted-foreground/30", row === 0 ? "w-3/4" : row === 1 ? "w-1/2" : "w-2/3")} />
+        </span>
+      ))}
     </div>
   );
 }

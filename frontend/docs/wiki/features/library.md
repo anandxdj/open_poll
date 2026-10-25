@@ -1,7 +1,7 @@
 ---
 summary: Unified library at /polls — polls and decks as one card list, URL filters, infinite scroll, card actions and "Convert to presentation".
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-10-25
 ---
 
 # Library (`features/library/`)
@@ -16,8 +16,8 @@ sidebar item is "Library"; `/presentations` redirects to `/polls?type=presentati
 | `query.ts` | Pure logic, unit tested in `tests/unit/library.query.test.ts`: URL ⇄ filters (`parseLibraryFilters`, `filtersToSearch`, `filtersKey`), request params, page merging (`mergeLibraryItems` dedupes by `entityType:id`), count adjustments after delete/close, card links and labels, empty-state copy. |
 | `api/library.ts` | `fetchLibraryPage`, `convertPollToPresentation(pollId, {force})`, `deleteLibraryItem`, `closePoll`. |
 | `hooks/useLibrary.ts` | First page per filter set, cursor pages via `loadMore`, `remove`/`replace` for optimistic updates. Responses for stale filters are dropped. |
-| `components/LibraryView.tsx` | Header (New poll / Import / New deck; Import is `features/imports`, see `imports.md`), stats from `counts` (Total, Live now, Drafts), type tabs with counts, status select, debounced search, grid, infinite scroll (IntersectionObserver on a "Load more" sentinel). |
-| `components/LibraryCard.tsx` | One card per entity with its actions and confirm dialogs. |
+| `components/LibraryView.tsx` | Page header (h1 "Library", then New poll / Import / New deck; New deck is the page's one ember button; Import is `features/imports`, see `imports.md`), a hairline stat strip from `counts` (All items, Live now with a green dot, Drafts), underline type tabs with mono counts, status select, debounced search, grid, infinite scroll (IntersectionObserver on a "Load more" sentinel). `LibraryCardSkeleton` is the loading card, also used by the page's Suspense fallback. |
+| `components/LibraryCard.tsx` | One card per entity with its actions and confirm dialogs. The top is a graph-paper preview (`aria-hidden`): status pill, "Updated …", and a picture of the item's kind (a dark mini screen with one tile per slide type for decks, a ballot sheet for polls, a checked row for assessments), never of results. The title link is stretched over the card (`after:absolute`) and opens the item; the menu and action buttons sit above it (`relative z-10`). Card actions use `outline` and `ink` buttons; only Resume (a running deck) uses the ember accent. |
 
 ## Filters live in the URL
 

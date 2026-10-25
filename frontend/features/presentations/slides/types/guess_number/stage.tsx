@@ -106,7 +106,7 @@ export function GuessNumberStage({ slide, live, reveal, mode }: StageViewProps) 
             className="mx-auto flex max-w-xl flex-wrap items-center justify-center gap-x-4 gap-y-1 rounded-2xl border border-deck-correct/50 bg-deck-correct-deep/20 px-5 py-2.5"
           >
             <Target className="size-5 shrink-0 text-deck-correct-soft" aria-hidden />
-            <p className="text-[10px] font-extrabold uppercase tracking-widest text-deck-stage-fg/50 font-mono">
+            <p className="text-sm font-medium text-deck-stage-fg/70">
               {t("correctAnswer")}
             </p>
             <p className="text-xl font-extrabold tabular-nums text-deck-correct-soft">
@@ -128,7 +128,7 @@ export function GuessNumberStage({ slide, live, reveal, mode }: StageViewProps) 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-24 rounded-2xl border border-deck-stage-fg/10 bg-deck-stage-fg/5 px-4 py-1.5">
-      <dt className="text-[10px] font-extrabold uppercase tracking-widest text-deck-stage-fg/40 font-mono">{label}</dt>
+      <dt className="text-sm font-medium text-deck-stage-fg/60">{label}</dt>
       <dd className="text-lg font-extrabold tabular-nums text-deck-stage-fg">{value}</dd>
     </div>
   );

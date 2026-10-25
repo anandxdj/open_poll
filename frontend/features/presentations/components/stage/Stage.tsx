@@ -37,7 +37,10 @@ export function Stage({ surface, join, countdown, readyActions, lobbyActions, en
 
   return (
     <main className="relative flex-1 overflow-hidden flex flex-col items-center justify-center p-4 sm:p-6">
+      {/* Graph paper behind everything but a running slide, which needs the room's full attention. */}
+      {status !== "active" && <div aria-hidden="true" className="stage-grid pointer-events-none absolute inset-0" />}
       {status === "draft" && <StageReady actions={readyActions} />}
+
 
       {status === "lobby" && <StageLobby join={join} actions={lobbyActions} />}
 

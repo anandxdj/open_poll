@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, PencilLine, X, ArrowRight, Zap, BarChart2, Target } from "lucide-react";
+import { Sparkles, PencilLine, X, ArrowRight, BarChart2, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CreatePollModalProps {
@@ -61,7 +61,7 @@ export function CreatePollModal({ open, onClose }: CreatePollModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22 }}
-            className="fixed inset-0 z-[80] bg-foreground/40 backdrop-blur-[2px]"
+            className="fixed inset-0 z-[80] bg-black/50"
             onClick={onClose}
           />
 
@@ -74,67 +74,64 @@ export function CreatePollModal({ open, onClose }: CreatePollModalProps) {
             transition={{ duration: 0.28, ease }}
             className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="pointer-events-auto w-full max-w-md rounded-[2rem] border border-border bg-card shadow-2xl overflow-hidden">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="create-poll-heading"
+              className="pointer-events-auto w-full max-w-md overflow-hidden rounded-xl border border-border bg-popover shadow-xl shadow-black/15"
+            >
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-border px-6 py-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex size-7 items-center justify-center rounded-xl bg-primary shadow-sm">
-                    <Zap className="size-3.5 fill-primary-foreground text-primary-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-foreground/90 leading-none">New Creation</p>
-                    <p className="text-[10px] font-medium text-muted-foreground mt-0.5">Create a Poll or an Assessment Trial</p>
-                  </div>
+              <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
+                <div>
+                  <h2 id="create-poll-heading" className="text-lg font-semibold tracking-[-0.02em] text-foreground">
+                    {pollType === "TRIAL" ? "New assessment" : "New poll"}
+                  </h2>
+                  <p className="mt-0.5 text-sm text-muted-foreground">Pick a type, name it, then choose how to start.</p>
                 </div>
                 <button
+                  type="button"
                   onClick={onClose}
-                  className="flex size-8 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-all"
+                  aria-label="Close"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                   <X className="size-4" />
                 </button>
               </div>
 
               {/* Body */}
-              <div className="px-6 py-6 space-y-6">
-                {/* Type selector */}
+              <div className="space-y-6 px-6 py-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Creation Type
-                  </label>
-                  <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-secondary/30 p-1">
-                    <button
-                      type="button"
-                      onClick={() => setPollType("POLL")}
-                      className={cn(
-                        "flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all",
-                        pollType === "POLL"
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <BarChart2 className="size-3.5" />
-                      <span>Standard Poll</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPollType("TRIAL")}
-                      className={cn(
-                        "flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all",
-                        pollType === "TRIAL"
-                          ? "bg-emerald-600 text-white shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <Target className="size-3.5" />
-                      <span>Assessment Trial</span>
-                    </button>
+                  <p className="text-sm font-medium text-foreground">Type</p>
+                  <div role="group" aria-label="Type" className="grid grid-cols-2 gap-0.5 rounded-lg border border-border bg-secondary p-0.5">
+                    {(
+                      [
+                        { type: "POLL", Icon: BarChart2, label: "Standard poll" },
+                        { type: "TRIAL", Icon: Target, label: "Assessment trial" },
+                      ] as const
+                    ).map(({ type, Icon, label }) => {
+                      const on = pollType === type;
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => setPollType(type)}
+                          className={cn(
+                            "flex h-8 items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring",
+                            on ? "bg-card text-foreground shadow-[0_1px_2px_rgb(23_23_23/0.08)]" : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          <Icon className={cn("size-4", on && "text-accent-ink")} />
+                          {label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Name input */}
                 <div className="space-y-2">
-                  <label htmlFor="create-poll-title" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    {pollType === "TRIAL" ? "Trial Title" : "Poll Title"}
+                  <label htmlFor="create-poll-title" className="text-sm font-medium text-foreground">
+                    {pollType === "TRIAL" ? "Assessment title" : "Poll title"}
                   </label>
                   <input
                     id="create-poll-title"
@@ -142,82 +139,38 @@ export function CreatePollModal({ open, onClose }: CreatePollModalProps) {
                     value={pollName}
                     onChange={(e) => setPollName(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && valid) handleManual(); }}
-                    placeholder={pollType === "TRIAL" ? "e.g. TypeScript Fundamentals Trial" : "e.g. Team lunch preferences"}
+                    placeholder={pollType === "TRIAL" ? "e.g. TypeScript fundamentals" : "e.g. Team lunch preferences"}
                     autoComplete="off"
-                    className="w-full rounded-xl border border-border bg-secondary/30 px-4 py-3 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/30 transition-all"
+                    className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25"
                   />
                 </div>
 
-                {/* Choice buttons */}
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    How do you want to create?
-                  </p>
-
-                  {/* AI option */}
-                  <button
-                    type="button"
-                    disabled={!valid}
-                    onClick={handleAI}
-                    className={cn(
-                      "group w-full flex items-center gap-4 rounded-2xl border p-4 transition-all duration-200 text-left",
-                      valid
-                        ? "border-primary/25 bg-primary/[0.06] hover:border-primary/50 hover:bg-primary/[0.1] cursor-pointer"
-                        : "border-border bg-secondary/20 cursor-not-allowed opacity-40"
-                    )}
-                  >
-                    <div className={cn(
-                      "flex size-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200",
-                      valid ? "bg-primary/20 group-hover:bg-primary/30" : "bg-secondary/30"
-                    )}>
-                      <Sparkles className={cn("size-5", valid ? "text-primary" : "text-muted-foreground/40")} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={cn("text-sm font-bold leading-tight", valid ? "text-foreground/90" : "text-muted-foreground/50")}>
-                        Generate with AI
-                      </p>
-                      <p className={cn("text-[11px] mt-0.5", valid ? "text-muted-foreground" : "text-muted-foreground/40")}>
-                        Describe your topic and let AI build questions
-                      </p>
-                    </div>
-                    <ArrowRight className={cn("size-4 shrink-0 transition-transform duration-200", valid ? "text-primary group-hover:translate-x-0.5" : "text-muted-foreground/30")} />
-                  </button>
-
-                  {/* Manual option */}
-                  <button
-                    type="button"
-                    disabled={!valid}
-                    onClick={handleManual}
-                    className={cn(
-                      "group w-full flex items-center gap-4 rounded-2xl border p-4 transition-all duration-200 text-left",
-                      valid
-                        ? "border-border bg-secondary/20 hover:border-border/80 hover:bg-secondary/40 cursor-pointer"
-                        : "border-border bg-secondary/10 cursor-not-allowed opacity-40"
-                    )}
-                  >
-                    <div className={cn(
-                      "flex size-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200",
-                      valid ? "bg-secondary/50 group-hover:bg-secondary/80" : "bg-secondary/20"
-                    )}>
-                      <PencilLine className={cn("size-5", valid ? "text-foreground/60" : "text-muted-foreground/30")} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={cn("text-sm font-bold leading-tight", valid ? "text-foreground/90" : "text-muted-foreground/50")}>
-                        Create manually
-                      </p>
-                      <p className={cn("text-[11px] mt-0.5", valid ? "text-muted-foreground" : "text-muted-foreground/40")}>
-                        Write your own questions and options
-                      </p>
-                    </div>
-                    <ArrowRight className={cn("size-4 shrink-0 transition-transform duration-200", valid ? "text-muted-foreground/50 group-hover:translate-x-0.5 group-hover:text-foreground/60" : "text-muted-foreground/20")} />
-                  </button>
-                </div>
-
-                {!valid && pollName.length > 0 && (
-                  <p className="text-[10px] text-muted-foreground text-center">
-                    Name needs at least 2 characters
-                  </p>
-                )}
+                <fieldset className="space-y-2">
+                  <legend className="mb-2 text-sm font-medium text-foreground">How do you want to start?</legend>
+                  {(
+                    [
+                      { key: "ai", Icon: Sparkles, title: "Generate with AI", body: "Describe your topic and let AI build questions", run: handleAI },
+                      { key: "manual", Icon: PencilLine, title: "Build manually", body: "Write your own questions and options", run: handleManual },
+                    ] as const
+                  ).map(({ key, Icon, title, body, run }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      disabled={!valid}
+                      onClick={run}
+                      className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-colors duration-150 hover:border-foreground/25 hover:bg-accent/50 focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-accent-ink">
+                        <Icon className="size-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-foreground">{title}</span>
+                        <span className="mt-0.5 block text-sm text-muted-foreground">{body}</span>
+                      </span>
+                      <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground" />
+                    </button>
+                  ))}
+                </fieldset>
               </div>
             </div>
           </motion.div>

@@ -16,7 +16,7 @@ function QnaEditor({ slide, onChange }: SlideEditorProps) {
           maxLength={HEADING_MAX}
           onChange={(e) => onChange({ question: e.target.value })}
           placeholder="Ask us anything"
-          className="h-10 rounded-xl bg-secondary/15 border-border/40"
+          className="h-10 bg-card"
         />
       </div>
       <EditorNote>

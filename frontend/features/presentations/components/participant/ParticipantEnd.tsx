@@ -18,15 +18,15 @@ export function ParticipantEnd() {
     <div className="w-full max-w-sm space-y-6 text-center">
       <div className="space-y-2">
         <PartyPopper className="size-10 text-deck-primary mx-auto" />
-        <h2 className="text-2xl font-bold tracking-tight">{t("participant.endTitle")}</h2>
+        <h2 className="text-3xl font-semibold tracking-[-0.035em]">{t("participant.endTitle")}</h2>
         {me && (
           <p className="text-sm text-deck-muted-fg">
             {t.rich("participant.endSummary", {
               rank: me.rank,
               score: me.totalScore.toLocaleString(),
               correct: me.correctCount,
-              b: (chunks) => <span className="font-bold text-deck-primary">{chunks}</span>,
-              num: (chunks) => <span className="font-bold text-deck-primary tabular-nums">{chunks}</span>,
+              b: (chunks) => <span className="font-semibold text-deck-fg">{chunks}</span>,
+              num: (chunks) => <span className="font-mono font-semibold tabular-nums text-deck-fg">{chunks}</span>,
             })}
           </p>
         )}

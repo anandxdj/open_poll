@@ -54,7 +54,7 @@ test("host runs a deck with two participants from lobby to the end screen", asyn
   // --- Opening the host page opens nothing: no lobby, nobody can join yet ---
   const hostPage = await host.open(`/presentation/host/${deck._id}`);
   const stage = hostPage.locator("main");
-  await expect(hostPage.getByText("HOST CONSOLE")).toBeVisible();
+  await expect(hostPage.getByText("Host console")).toBeVisible();
   await expect(hostPage.getByRole("heading", { name: deck.title })).toBeVisible();
   await expect(stage.getByRole("heading", { name: "Ready to present" })).toBeVisible();
   await expect(hostPage.getByRole("button", { name: "Start presenting" })).toBeEnabled();
@@ -63,7 +63,7 @@ test("host runs a deck with two participants from lobby to the end screen", asyn
 
   // --- Lobby: opened explicitly ---
   await openLobby(hostPage, deck.joinCode);
-  await expect(hostPage.getByText("LIVE HOST")).toBeVisible();
+  await expect(hostPage.getByText("Live session")).toBeVisible();
   await expect(stage.getByText("0 JOINED")).toBeVisible();
   await expect(stage.getByText("Waiting for players to enter code...")).toBeVisible();
   // Starting needs no audience.

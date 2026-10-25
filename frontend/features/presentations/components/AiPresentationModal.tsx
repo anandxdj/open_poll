@@ -133,7 +133,7 @@ export function AiPresentationModal({
   if (mode === "deck") {
     return (
       <Dialog open={open} onOpenChange={(next) => (next || !deckBusy) && onOpenChange(next)}>
-        <DialogContent showCloseButton={!deckBusy} className="max-h-[92vh] overflow-y-auto rounded-2xl sm:max-w-2xl">
+        <DialogContent showCloseButton={!deckBusy} className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="size-4 text-primary" /> Generate a whole deck
@@ -157,7 +157,7 @@ export function AiPresentationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg rounded-2xl sm:max-w-lg">
+      <DialogContent className="max-w-lg sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="size-4 text-primary" /> Generate deck with AI

@@ -66,7 +66,7 @@ export function JoinGate({ code, rejoin = false }: { code: string; rejoin?: bool
         className="w-full max-w-sm space-y-6 text-center"
       >
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+          <h1 className="text-3xl font-semibold tracking-[-0.035em]">{title}</h1>
           <p className="text-sm text-deck-muted-fg">{rejoin ? t("rejoinHint") : t("nicknamePrompt")}</p>
         </div>
 
@@ -76,12 +76,12 @@ export function JoinGate({ code, rejoin = false }: { code: string; rejoin?: bool
             onChange={(e) => setNameInput(e.target.value)}
             placeholder={t("nicknamePlaceholder")}
             autoFocus
-            className="h-12 rounded-xl text-center font-bold"
+            className="h-12 text-center text-base font-medium"
           />
           <Button
             type="submit"
             disabled={joining || !nameInput.trim()}
-            className="w-full h-12 rounded-xl bg-deck-primary text-deck-primary-fg font-semibold"
+            className="h-12 w-full rounded-lg bg-deck-primary text-base font-semibold text-deck-primary-fg"
           >
             {joining ? <Loader2 className="size-4 animate-spin" /> : t("joinSubmit")}
           </Button>

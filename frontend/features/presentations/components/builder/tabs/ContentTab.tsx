@@ -20,16 +20,16 @@ function ContentPanel({ slide, index, onChange }: InspectorTabProps) {
         <div className="space-y-2">
           <Label
             htmlFor={questionId}
-            className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50"
+            className="text-sm font-medium text-foreground"
           >
-            Slide Question / Title
+            Question or title
           </Label>
           <Textarea
             id={questionId}
             value={slide.question}
             onChange={(e) => onChange({ question: e.target.value })}
             placeholder="What statement or question would you like to present?"
-            className="min-h-24 rounded-2xl border-white/10 bg-secondary/15 px-4 py-3 text-base font-semibold focus-visible:ring-primary/40 resize-none overflow-hidden [field-sizing:content]"
+            className="min-h-24 rounded-lg bg-card px-4 py-3 text-base font-semibold focus-visible:ring-primary/40 resize-none overflow-hidden [field-sizing:content]"
           />
         </div>
       )}

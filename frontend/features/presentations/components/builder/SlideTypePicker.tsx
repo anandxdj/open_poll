@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { HelpCircle, X } from "lucide-react";
+import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { PICKER_SECTIONS, slideMetaInSection } from "../../slides/meta";
@@ -54,38 +54,36 @@ export function SlideTypePicker({ open, onClose, onPick, position = "top" }: Sli
           exit={{ opacity: 0, y: initialY, scale: 0.98 }}
           transition={{ duration: 0.22, ease }}
           className={cn(
-            "absolute z-50 w-80 rounded-3xl border border-border bg-card/95 backdrop-blur-xl p-4 shadow-2xl",
+            "absolute z-50 w-80 rounded-xl border border-border bg-popover p-3 shadow-lg shadow-black/10",
             posClass
           )}
         >
           {sections.map((section, i) => (
             <Fragment key={section.id}>
-              {i > 0 && <div className="h-px bg-border my-3" />}
-              <div className="flex items-center justify-between mb-3">
-                <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                  {section.label} <HelpCircle className="size-3 opacity-50" />
-                </p>
+              {i > 0 && <div className="my-2 h-px bg-border" />}
+              <div className="mb-1 flex items-center justify-between">
+                <p className="px-1 text-xs font-medium text-muted-foreground">{section.label}</p>
                 {i === 0 && (
                   <button
                     type="button"
                     onClick={onClose}
                     aria-label="Close slide picker"
-                    className="flex size-6 items-center justify-center rounded-lg text-muted-foreground/50 hover:bg-secondary hover:text-foreground transition-all"
+                    className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   >
                     <X className="size-3.5" />
                   </button>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-1">
-                {section.types.map(({ type, label, Icon, iconClass }) => (
+                {section.types.map(({ type, label, Icon }) => (
                   <button
                     key={type}
                     type="button"
                     onClick={() => onPick(type)}
-                    className="flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-secondary/60"
+                    className="group flex items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
                   >
-                    <Icon className={`size-4 shrink-0 ${iconClass}`} />
-                    <span className="text-xs font-semibold text-foreground/85">{label}</span>
+                    <Icon className="size-4 shrink-0 text-muted-foreground group-hover:text-accent-ink" />
+                    <span className="text-sm text-foreground">{label}</span>
                   </button>
                 ))}
               </div>

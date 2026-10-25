@@ -2,19 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, BarChart2, TrendingUp, Users, Vote } from "lucide-react";
-import { motion } from "framer-motion";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
+import { BarChart2, Plus } from "lucide-react";
 
 import { useCreatorStore, type Poll } from "@/features/polls/store/useCreatorStore";
+import { useCreatePollModal } from "@/features/polls/components/CreatePollModalProvider";
 import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,70 +18,11 @@ function isPollActive(poll: Poll) {
   return new Date(poll.expiresAt).getTime() > Date.now();
 }
 
-const ease = [0.32, 0.72, 0, 1] as const;
-
-const PRIMARY = "#d8ad87";
-const SECONDARY = "#b68d65";
-
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  accent,
-  sub,
-  loading,
-}: {
-  label: string;
-  value: string | number;
-  icon: React.ElementType;
-  accent?: string;
-  sub?: string;
-  loading?: boolean;
-}) {
-  return (
-    <div className="group relative rounded-[1.5rem] border border-border bg-card p-5 transition-all duration-700 hover:border-primary/20">
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
-          <p
-            className={cn(
-              "text-3xl font-bold tabular-nums tracking-tight",
-              loading ? "text-muted-foreground/10" : "text-foreground/90"
-            )}
-          >
-            {loading ? "—" : value}
-          </p>
-          {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
-        </div>
-        <div
-          className={cn(
-            "flex size-10 items-center justify-center rounded-2xl bg-secondary/30 ring-1 ring-border",
-            accent ?? "text-primary"
-          )}
-        >
-          <Icon className="size-5" strokeWidth={1.5} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface CustomTooltipProps {
-  active?: boolean;
-  payload?: { value: number }[];
-  label?: string;
-}
-
-function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-xl border border-border bg-card px-3 py-2 text-xs shadow-xl">
-      <p className="text-muted-foreground mb-1 truncate max-w-[140px]">{label}</p>
-      <p className="font-bold text-primary">{payload[0].value} responses</p>
-    </div>
-  );
-}
-
+/**
+ * /analytics: responses across the workspace's polls. Counts are a hairline
+ * strip; "Responses per poll" is a ranked bar list (one hue, most answered
+ * first, the value at each bar's tip) where every row opens that poll.
+ */
 export default function AnalyticsPage() {
   const { polls, isLoading: pollsLoading, fetchPolls } = useCreatorStore();
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>({});
@@ -129,7 +61,6 @@ export default function AnalyticsPage() {
       polls.map((p) => ({
         id: p._id,
         title: p.title,
-        shortTitle: p.title.length > 20 ? p.title.slice(0, 18) + "…" : p.title,
         totalResponses: responseCounts[p._id] ?? 0,
         isActive: isPollActive(p),
         questions: p.questions.length,
@@ -144,178 +75,120 @@ export default function AnalyticsPage() {
 
   const activeCount = useMemo(() => polls.filter(isPollActive).length, [polls]);
   const isLoading = pollsLoading || countsLoading;
+  const { open: openCreatePollModal } = useCreatePollModal();
+
+  // Most answered first; ties keep the store's order.
+  const ranked = useMemo(() => [...summaries].sort((a, b) => b.totalResponses - a.totalResponses), [summaries]);
+  const max = Math.max(1, ...ranked.map((s) => s.totalResponses));
+
+  const stats = [
+    { label: "Polls", value: polls.length },
+    { label: "Responses", value: totalResponses },
+    { label: "Live now", value: activeCount, live: true },
+  ];
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-8 px-4 py-8 md:px-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease }}
-        className="space-y-3"
-      >
-        <Button
-          variant="ghost"
-          size="sm"
-          asChild
-          className="-ml-2 h-8 gap-2 rounded-xl text-muted-foreground hover:bg-primary/10 hover:text-primary group/back"
-        >
-          <Link href="/polls">
-            <ArrowLeft className="size-3.5 transition-transform group-hover/back:-translate-x-0.5" />
-            Dashboard
-          </Link>
-        </Button>
-        <div className="flex items-end justify-between gap-4">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/30 px-3 py-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              <BarChart2 className="size-3 text-primary" />
-              Analytics
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground/90">Overview</h1>
-            <p className="text-sm text-muted-foreground">
-              Aggregate performance across all your polls.
-            </p>
+    <div className="mx-auto w-full max-w-[1200px] px-4 pb-16 pt-8 sm:px-6 md:pt-12 lg:px-8">
+      <header>
+        <h1 className="text-4xl font-semibold leading-none tracking-[-0.04em] sm:text-5xl">Analytics</h1>
+        <p className="mt-3 text-base text-muted-foreground">Responses across the polls in this workspace.</p>
+      </header>
+
+      <dl className="mt-8 grid grid-cols-3 border-y border-border">
+        {stats.map((stat, i) => (
+          <div key={stat.label} className={cn("py-4 sm:py-5", i > 0 && "border-l border-border pl-4 sm:pl-6")}>
+            <dt className="flex items-center gap-2 text-sm text-muted-foreground">
+              {stat.live ? (
+                <span
+                  aria-hidden="true"
+                  className={cn("size-1.5 rounded-full", stat.value ? "bg-success motion-safe:animate-pulse" : "bg-faint")}
+                />
+              ) : null}
+              {stat.label}
+            </dt>
+            <dd className="mt-1.5 text-3xl font-semibold leading-none tracking-[-0.03em] sm:text-4xl">
+              {isLoading ? <span className="inline-block h-8 w-10 animate-pulse rounded-md bg-muted" /> : stat.value}
+            </dd>
           </div>
-        </div>
-      </motion.div>
+        ))}
+      </dl>
 
-      {/* KPI cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease, delay: 0.1 }}
-        className="grid gap-3 sm:grid-cols-3"
-      >
-        <StatCard
-          label="Total Polls"
-          value={isLoading ? "—" : polls.length}
-          icon={Vote}
-          loading={isLoading}
-        />
-        <StatCard
-          label="Total Responses"
-          value={isLoading ? "—" : totalResponses}
-          icon={TrendingUp}
-          accent="text-primary"
-          loading={isLoading}
-        />
-        <StatCard
-          label="Active Polls"
-          value={isLoading ? "—" : activeCount}
-          icon={Users}
-          accent="text-emerald-500"
-          sub={activeCount > 0 ? "Live now" : "None running"}
-          loading={isLoading}
-        />
-      </motion.div>
-
-      {/* Bar chart */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, ease, delay: 0.2 }}
-        className="rounded-[1.75rem] border border-border bg-card p-6"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <div className="space-y-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Responses per Poll
-            </p>
-            <p className="text-lg font-semibold text-foreground/80">
-              Response Distribution
-            </p>
+      <section aria-labelledby="per-poll-title" className="mt-12">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 id="per-poll-title" className="text-xl font-semibold tracking-[-0.02em]">
+              Responses per poll
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">Most answered first. Open a poll for its results and voters.</p>
           </div>
         </div>
 
         {isLoading ? (
-          <div className="h-48 min-h-[200px] flex items-center justify-center">
-            <div className="text-sm text-muted-foreground animate-pulse">Loading chart…</div>
-          </div>
-        ) : summaries.length === 0 ? (
-          <div className="h-48 min-h-[200px] flex items-center justify-center">
-            <p className="text-sm text-muted-foreground">No data yet</p>
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height={200} minWidth={0}>
-            <BarChart data={summaries} barSize={24}>
-              <XAxis
-                dataKey="shortTitle"
-                tick={{ fill: "currentColor", fontSize: 10, opacity: 0.3 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fill: "currentColor", fontSize: 10, opacity: 0.2 }}
-                axisLine={false}
-                tickLine={false}
-                width={30}
-              />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: "currentColor", opacity: 0.03 }} />
-              <Bar dataKey="totalResponses" radius={[6, 6, 0, 0]}>
-                {summaries.map((_, i) => (
-                  <Cell key={i} fill={i % 2 === 0 ? PRIMARY : SECONDARY} fillOpacity={0.8} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </motion.div>
-
-      {/* Poll performance table */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, ease, delay: 0.3 }}
-        className="rounded-[1.75rem] border border-border bg-card overflow-hidden"
-      >
-        <div className="px-6 py-4 border-b border-border">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-            Poll Performance
-          </p>
-        </div>
-        {isLoading ? (
-          <div className="p-6 space-y-3">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-12 rounded-xl bg-muted animate-pulse" />
-            ))}
-          </div>
-        ) : summaries.length === 0 ? (
-          <div className="p-12 text-center text-sm text-muted-foreground">
-            Create polls to see performance data here.
-          </div>
-        ) : (
-          <div className="divide-y divide-border">
-            {summaries.map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center justify-between px-6 py-4 hover:bg-secondary/30 transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span
-                    className={cn(
-                      "size-2 rounded-full shrink-0",
-                      s.isActive ? "bg-emerald-500 animate-pulse" : "bg-muted"
-                    )}
-                  />
-                  <p className="text-sm font-medium text-foreground/70 truncate">{s.title}</p>
-                </div>
-                <div className="flex items-center gap-6 shrink-0 ml-4">
-                  <span className="text-xs text-muted-foreground">{s.questions}Q</span>
-                  <span className="text-sm font-bold text-primary tabular-nums">
-                    {s.totalResponses}
-                  </span>
-                  <Link
-                    href={`/analytics/${s.id}`}
-                    className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors uppercase tracking-widest"
-                  >
-                    Details →
-                  </Link>
-                </div>
+          <div className="mt-5 divide-y divide-border rounded-xl border border-border bg-card">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-4 px-5 py-4">
+                <div className="h-4 w-1/4 animate-pulse rounded bg-muted" />
+                <div className="h-2.5 flex-1 animate-pulse rounded-full bg-muted" />
               </div>
             ))}
           </div>
+        ) : ranked.length === 0 ? (
+          <div className="relative mt-5 overflow-hidden rounded-2xl border border-border bg-card px-6 py-14 text-center">
+            <div aria-hidden="true" className="mk-grid mk-grid-flat pointer-events-none absolute inset-0" />
+            <div className="relative">
+              <BarChart2 className="mx-auto size-8 text-accent-ink" aria-hidden="true" />
+              <p className="mt-4 text-lg font-semibold tracking-[-0.02em]">No polls yet</p>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+                Publish a poll and its responses show up here as they arrive.
+              </p>
+              <Button className="mt-5" onClick={() => openCreatePollModal()}>
+                <Plus /> New poll
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <ol className="mt-5 divide-y divide-border rounded-xl border border-border bg-card">
+            {ranked.map((s) => {
+              const pct = (s.totalResponses / max) * 100;
+              return (
+                <li key={s.id}>
+                  <Link
+                    href={`/analytics/${s.id}`}
+                    className="group grid grid-cols-1 gap-x-6 gap-y-2.5 px-5 py-4 transition-colors duration-150 hover:bg-accent/60 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] sm:items-center"
+                  >
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <span
+                        aria-hidden="true"
+                        className={cn("size-1.5 shrink-0 rounded-full", s.isActive ? "bg-success" : "bg-faint")}
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium text-foreground group-hover:underline group-hover:underline-offset-4">
+                          {s.title}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {s.isActive ? "Live" : "Not live"}, {s.questions} question{s.questions === 1 ? "" : "s"}
+                        </span>
+                      </span>
+                    </span>
+                    {/* Bar with its value at the tip; one hue for the one series. */}
+                    <span className="flex items-center gap-3">
+                      <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                        <span
+                          className="block h-full rounded-full bg-chart-1 transition-[width] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </span>
+                      <span className="w-10 shrink-0 text-right font-mono text-sm tabular-nums text-foreground">
+                        {s.totalResponses}
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ol>
         )}
-      </motion.div>
+      </section>
     </div>
   );
 }

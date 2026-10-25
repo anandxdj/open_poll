@@ -49,7 +49,7 @@ Backend contract: `backend/docs/wiki/modules/billing.md`. Two surfaces share one
   says nothing was charged. Stripe's `success_url` / `cancel_url` are built by the backend.
 - **Landing pricing**: one card per plan from `/api/plans`. Bullets are computed from each plan's own
   limits and features (`planHighlights`), so changing `plans.ts` changes the page. A paid plan
-  without a price shows "Custom"; the monthly/yearly toggle and the "N% off" badge appear only when a
+  without a price shows "Custom" (Enterprise) or "Pricing soon" (Pro, Team); the monthly/yearly toggle and the "N% off" badge appear only when a
   plan has both prices, and the percentage is computed from them. Free → `/signup`; Pro/Team →
   `/settings/billing`; "Contact sales" is a `mailto:` of `NEXT_PUBLIC_SALES_EMAIL`, disabled while
   that is unset. Until the API answers, and when it fails, `FALLBACK_CATALOG` is shown: limits and

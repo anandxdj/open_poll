@@ -1,75 +1,65 @@
-"use client";
-
-import { motion } from "framer-motion";
-import { Users } from "lucide-react";
-
-const ease = [0.32, 0.72, 0, 1] as const;
+import { cn } from "@/lib/utils";
+import { container, sectionY } from "../shared/styles";
+import { SectionHeading } from "../shared/SectionHeading";
+import { BuildArt, JoinArt, ShareArt } from "./StepArt";
 
 const steps = [
   {
-    n: "01",
-    title: "Create your poll",
-    body: "Use the builder or let AI generate a complete survey from a single prompt. Add questions, set an expiry, and customise options.",
+    title: "Build or bring a deck",
+    body: "Start blank, import a PowerPoint, PDF, Google Slides link or question sheet, or describe a topic and review the outline AI drafts for you.",
+    art: BuildArt,
   },
   {
-    n: "02",
-    title: "Share the link",
-    body: "Every poll gets a unique URL. Share it in Slack, email, your event chat — anywhere your audience is.",
+    title: "Go live with a join code",
+    body: "Open the lobby and show the code or QR code. People join from their phones, no account needed, and answer as you present.",
+    art: JoinArt,
   },
   {
-    n: "03",
-    title: "Watch it happen",
-    body: "Results update in real time. Monitor live vote counts and dive into the analytics dashboard when the poll closes.",
+    title: "Review and share",
+    body: "Every run is saved as a session report. Export it, share a read-only results link, or run the deck again.",
+    art: ShareArt,
   },
 ];
 
 export function Steps() {
   return (
-    <section id="how-it-works" className="py-32 px-6 border-t border-border bg-secondary/[0.02] scroll-mt-20">
-      <div className="max-w-5xl mx-auto">
-        <div className="text-center space-y-4 mb-20">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-3.5 py-1.5 text-xs font-bold tracking-widest text-primary uppercase">
-            <Users className="size-3" />
-            THE PROCESS
-          </div>
-          <h2 className="text-4xl sm:text-5xl font-bold tracking-tight text-balance">
-            Three steps to live
-          </h2>
-          <p className="max-w-2xl mx-auto text-muted-foreground text-base sm:text-lg leading-relaxed">
-            Building an audience connection doesn&apos;t need to be complicated. Here is exactly how your first poll comes to life in minutes.
-          </p>
-        </div>
+    <section
+      id="how-it-works"
+      aria-labelledby="how-title"
+      className={`${sectionY} scroll-mt-20 border-t border-border bg-card`}
+    >
+      <div className={container}>
+        <SectionHeading
+          id="how-title"
+          title="Live in three steps"
+          description="From a blank page to a room full of answers, usually in one sitting."
+        />
 
-        <div className="relative">
-          {/* Connecting line */}
-          <div className="hidden lg:block absolute top-16 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
-          <div className="grid lg:grid-cols-3 gap-12">
-            {steps.map((s, i) => (
-              <motion.div
-                key={s.n}
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-40px" }}
-                transition={{ duration: 0.5, ease, delay: i * 0.1 }}
-                className="relative flex flex-col items-center text-center gap-6"
-              >
-                <div className="relative">
-                  <div className="absolute -inset-4 rounded-full bg-primary/10 blur-xl opacity-0 group-hover:opacity-100" />
-                  <div className="relative size-16 rounded-full border border-border bg-card flex items-center justify-center shadow-xl shadow-black/20">
-                    <span className="text-2xl font-bold text-primary">{s.n}</span>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <h3 className="text-xl font-bold text-foreground/90">{s.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed max-w-xs mx-auto">
-                    {s.body}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
+        {/* A real sequence: numbered stations on one rule that runs across the row on lg. */}
+        <ol className="mt-12 grid grid-cols-1 gap-12 md:mt-16 lg:grid-cols-3 lg:gap-0">
+          {steps.map((step, i) => (
+            <li key={step.title} className="lg:pr-10">
+              <div className="flex items-center">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-foreground font-mono text-sm font-medium tabular-nums text-background">
+                  {i + 1}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "ml-4 h-px flex-1 bg-foreground/15 lg:ml-0",
+                    // Reaches the next station across the column gap; the last one stops at the edge.
+                    i < steps.length - 1 && "lg:-mr-10",
+                  )}
+                />
+              </div>
+              <div className="mt-6">
+                <step.art />
+              </div>
+              <h3 className="mt-6 text-2xl font-semibold tracking-[-0.03em]">{step.title}</h3>
+              <p className="mt-3 max-w-md text-base leading-relaxed text-muted-foreground">{step.body}</p>
+            </li>
+          ))}
+        </ol>
       </div>
     </section>
   );

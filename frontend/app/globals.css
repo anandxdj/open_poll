@@ -5,216 +5,272 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-
-  
-  /* --font-sans: var(--font-sans); */
-  --font-sans: var(--font-amethysta);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.5);
-  --radius-4xl: calc(var(--radius) * 3.2);
-
-  /* ── Sandy Tan #d8ad87 — direct color tokens for Tailwind v4 ─────────── */
-  --color-sandy:           #d8ad87;
-  --color-sandy-light:     #e8c9a8;
-  --color-sandy-dark:      #b8885f;
-  --color-sandy-muted:     color-mix(in srgb, #d8ad87 15%, transparent);
-  --font-amethysta: var(--font-amethysta);
-}
-
 /* ─────────────────────────────────────────────────────────────────────────
-   Open Poll Design System
-   Inspired by Supastarter.dev — dark-first, warm tones, #d8ad87 primary
-   Primary: hsl(28 50% 69%) = #d8ad87  Sandy Tan
+   Open Poll design foundation: "Graph paper"
+
+   Light-first. Warm paper canvas, ink text, one ember-orange accent, Inter
+   Tight for UI and display, Instrument Serif italic for the one headline
+   word that carries the voice, JetBrains Mono for codes, counts and numbers.
+   Every surface reads these tokens (shadcn names kept so existing components
+   keep working):
+
+     background  page (paper)    card        panels and cards (sheet)
+     secondary   raised surface  muted       raised surface / quiet fills
+     border      1px dividers    input       form-field boundary (>= 3:1)
+     primary     accent FILL     accent-ink  accent as TEXT (AA on both themes)
+     brand       accent for display type and the logo (large sizes only)
+     ring        focus outline
+
+   Light: ember `#cf460c` is the fill with white text (4.6:1); `#b93d0b` is
+   the accent as text (4.8:1 or better on paper, sheet and raised fills).
+   Dark: `#f97316` is the fill with near-black text; `#fb923c` is the text.
+   Never hard-code hex in components; add a token here instead.
+   Docs: frontend/DESIGN.md, frontend/docs/wiki/ui/design-system.md
    ───────────────────────────────────────────────────────────────────────── */
 
-/* ── LIGHT MODE ─────────────────────────────────────────────────────────── */
+@theme inline {
+  /* Type: Inter Tight for UI and display, Instrument Serif for the voice word, JetBrains Mono for numbers */
+  --font-sans: var(--font-inter-tight), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: var(--font-sans);
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Colour */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-ink: var(--accent-ink);
+  --color-brand: var(--brand);
+  --color-device: var(--device);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Radius: 6 inputs and small buttons, 8 buttons and chips, 12 cards and dialogs, 16 large panels */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+  --radius-4xl: 24px;
+
+  /* Motion */
+  --ease-brand: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ── LIGHT (default) ────────────────────────────────────────────────────── */
 :root {
-  /* Surfaces */
-  --background:                    hsl(28, 18%, 97%);   /* warm off-white  #f8f5f1 */
-  --foreground:                    hsl(20, 12%,  8%);   /* very dark warm  #161210 */
-  --card:                          hsl(0, 0%, 100%);
-  --card-foreground:               hsl(20, 12%,  8%);
-  --popover:                       hsl(0, 0%, 100%);
-  --popover-foreground:            hsl(20, 12%,  8%);
+  color-scheme: light;
 
-  /* Primary — #d8ad87 Sandy Tan */
-  --primary:                       #d8ad87;
-  --primary-foreground:            hsl(28, 40%, 12%);
+  /* Paper canvas, white sheets on top of it */
+  --background: #f6f6f3;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
 
-  /* Secondary — light warm surfaces */
-  --secondary:                     hsl(28, 18%, 93%);
-  --secondary-foreground:          hsl(20, 15%, 18%);
+  /* Accent: ember fill with white text (4.6:1); `accent-ink` is the text-safe ember */
+  --primary: #cf460c;
+  --primary-hover: #b13a09;
+  --primary-foreground: #ffffff;
+  --accent-ink: #b93d0b;
+  /* Display type and the logo only (3.3:1 on paper, large text) */
+  --brand: #ea580c;
+  /* Hardware in illustrations (phone frames): a graphite body in both themes */
+  --device: #1c1b19;
 
-  /* Muted */
-  --muted:                         hsl(28, 12%, 92%);
-  --muted-foreground:              hsl(20,  8%, 42%);
+  --secondary: #efeee9;
+  --secondary-foreground: #171717;
+  --muted: #efeee9;
+  --muted-foreground: #5c5a55;
+  --faint: #85827b;
+  --accent: #ebeae4;
+  --accent-foreground: #171717;
 
-  /* Accent */
-  --accent:                        hsl(28, 40%, 91%);
-  --accent-foreground:             hsl(28, 45%, 22%);
+  /* Status, text-safe on paper and white */
+  --destructive: #c81e1e;
+  --destructive-foreground: #ffffff;
+  --success: #15803d;
+  --warning: #a14a06;
+  --info: #1d4ed8;
 
-  /* Semantic */
-  --destructive:                   hsl(0, 72%, 51%);
-  --destructive-foreground:        hsl(0,  0%, 98%);
+  --border: #e2e0d9;
+  --border-subtle: #ebe9e3;
+  /* Form-field boundary, 3.2:1 on paper (WCAG 1.4.11) */
+  --input: #8c8981;
+  --ring: #b93d0b;
+  --radius: 0.5rem;
 
-  /* Structure */
-  --border:                        hsl(28, 16%, 86%);
-  --input:                         hsl(28, 16%, 86%);
-  --ring:                          #d8ad87;
-  --radius:                        0.75rem;
+  /* Categorical chart set, ember first, in this fixed order. Validated with the dataviz
+     palette checks on white (lightness band, chroma, CVD and normal-vision separation, 3:1). */
+  --chart-1: #ea580c;
+  --chart-2: #2563eb;
+  --chart-3: #16a34a;
+  --chart-4: #7c3aed;
+  --chart-5: #db2777;
+  --chart-6: #0891b2;
 
-  /* Charts — warm tan scale */
-  --chart-1:                       #d8ad87;
-  --chart-2:                       hsl(28, 44%, 56%);
-  --chart-3:                       hsl(28, 38%, 44%);
-  --chart-4:                       hsl(28, 56%, 78%);
-  --chart-5:                       hsl(28, 62%, 60%);
-
-  /* Sidebar */
-  --sidebar:                       hsl(28, 18%, 95%);
-  --sidebar-foreground:            hsl(20, 12%, 18%);
-  --sidebar-primary:               #d8ad87;
-  --sidebar-primary-foreground:    hsl(28, 40%, 12%);
-  --sidebar-accent:                hsl(28, 20%, 90%);
-  --sidebar-accent-foreground:     hsl(28, 35%, 20%);
-  --sidebar-border:                hsl(28, 16%, 87%);
-  --sidebar-ring:                  #d8ad87;
+  --sidebar: #f0efea;
+  --sidebar-foreground: #171717;
+  --sidebar-primary: #cf460c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e7e5df;
+  --sidebar-accent-foreground: #171717;
+  --sidebar-border: #e2e0d9;
+  --sidebar-ring: #b93d0b;
 }
 
-/* ── DARK MODE — Supastarter-inspired ───────────────────────────────────── */
+/* ── DARK ───────────────────────────────────────────────────────────────── */
 .dark {
-  /* Surfaces — near-black with warm undertone */
-  --background:                    hsl(20, 10%,  4%);   /* #0b0907 — premium near-black */
-  --foreground:                    hsl(30,  9%, 97%);   /* #f9f7f5 — warm white         */
-  --card:                          hsl(0, 0%, 0%);   /* #141210 — slightly lifted    */
-  --card-foreground:               hsl(30,  9%, 97%);
-  --popover:                       hsl(20,  8%,  9%);
-  --popover-foreground:            hsl(30,  9%, 97%);
+  color-scheme: dark;
 
-  /* Primary — #d8ad87 Sandy Tan unchanged */
-  --primary:                       #d8ad87;
-  --primary-foreground:            hsl(20, 12%,  5%);
+  /* Warm graphite, the same paper family after dark */
+  --background: #141413;
+  --foreground: #f2f1ec;
+  --card: #1b1b1a;
+  --card-foreground: #f2f1ec;
+  --popover: #1f1f1d;
+  --popover-foreground: #f2f1ec;
 
-  /* Secondary — dark warm panels */
-  --secondary:                     hsl(20,  7%, 13%);
-  --secondary-foreground:          hsl(30,  8%, 88%);
+  --primary: #f97316;
+  --primary-hover: #fb8a3c;
+  --primary-foreground: #1a0d04;
+  --accent-ink: #fb923c;
+  --brand: #f97316;
+  --device: #2b2a27;
 
-  /* Muted */
-  --muted:                         hsl(20,  6%, 13%);
-  --muted-foreground:              hsl(28,  8%, 55%);
+  --secondary: #242422;
+  --secondary-foreground: #f2f1ec;
+  --muted: #242422;
+  --muted-foreground: #a7a49c;
+  --faint: #75726b;
+  --accent: #2a2a27;
+  --accent-foreground: #f2f1ec;
 
-  /* Accent */
-  --accent:                        hsl(28, 18%, 16%);
-  --accent-foreground:             hsl(28, 40%, 80%);
+  --destructive: #ef4444;
+  --destructive-foreground: #fafafa;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --info: #60a5fa;
 
-  /* Semantic */
-  --destructive:                   hsl(0, 55%, 36%);
-  --destructive-foreground:        hsl(0,  0%, 97%);
+  --border: #31302d;
+  --border-subtle: #262624;
+  /* Form-field boundary, 3.4:1 on the page */
+  --input: #6d6b65;
+  --ring: #fb923c;
 
-  /* Structure */
-  --border:                        hsl(20,  6%, 14%);
-  --input:                         hsl(20,  6%, 14%);
-  --ring:                          #d8ad87;
+  /* Same hues, steps chosen for the dark card (validated the same way against #1b1b1a) */
+  --chart-1: #ea580c;
+  --chart-2: #3b82f6;
+  --chart-3: #16a34a;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+  --chart-6: #0891b2;
 
-  /* Charts */
-  --chart-1:                       #d8ad87;
-  --chart-2:                       hsl(28, 44%, 57%);
-  --chart-3:                       hsl(28, 58%, 48%);
-  --chart-4:                       hsl(28, 62%, 75%);
-  --chart-5:                       hsl(28, 42%, 60%);
-
-  /* Sidebar — fractionally darker than background */
-  --sidebar:                       hsl(20, 10%,  5%);
-  --sidebar-foreground:            hsl(30,  9%, 92%);
-  --sidebar-primary:               #d8ad87;
-  --sidebar-primary-foreground:    hsl(20, 12%,  5%);
-  --sidebar-accent:                hsl(20,  7%, 11%);
-  --sidebar-accent-foreground:     hsl(30,  8%, 85%);
-  --sidebar-border:                hsl(20,  6%, 11%);
-  --sidebar-ring:                  #d8ad87;
+  --sidebar: #141413;
+  --sidebar-foreground: #f2f1ec;
+  --sidebar-primary: #f97316;
+  --sidebar-primary-foreground: #1a0d04;
+  --sidebar-accent: #242422;
+  --sidebar-accent-foreground: #f2f1ec;
+  --sidebar-border: #31302d;
+  --sidebar-ring: #fb923c;
 }
 
-/* ── Base layer ─────────────────────────────────────────────────────────── */
+/* ── Base ───────────────────────────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border outline-ring/50;
     box-sizing: border-box;
   }
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings: "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
-  html {
-    @apply font-sans;
-    scroll-behavior: smooth;
-  }
-  button:not(:disabled), [role="button"]:not(:disabled) {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
     cursor: pointer;
   }
+  /* Keyboard focus is always visible; components with their own ring set `outline-none`. */
+  :where(a, button, summary, [role="button"], [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 35%, transparent);
+  }
 }
 
-/* ── Typography ─────────────────────────────────────────────────────────── */
-h1, h2, h3, h4, h5, h6 {
-  @apply font-bold tracking-tight text-foreground;
-  letter-spacing: -0.025em;
+/* Heading defaults: semibold, -0.02em, ink. This CSS ends up unlayered, and
+   unlayered rules beat every utility, so each default only applies where the
+   heading has no utility of its own for it (the dark stage colours its
+   headings with `text-deck-stage-fg`; display headings set their tracking). */
+:is(h1, h2, h3, h4, h5, h6):not([class*="font-"]) {
+  font-weight: var(--font-weight-semibold);
 }
-h1 { letter-spacing: -0.04em; }
-h2 { letter-spacing: -0.03em; }
+:is(h1, h2, h3, h4, h5, h6):not([class*="tracking-"]) {
+  letter-spacing: -0.02em;
+}
+:is(h1, h2, h3, h4, h5, h6):not([class*="text-"]) {
+  color: var(--foreground);
+}
 
-/* ── Scrollbar ──────────────────────────────────────────────────────────── */
-.custom-scrollbar::-webkit-scrollbar { width: 2.5px; height: 2.5px; }
+/* ── Scrollbars ─────────────────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted-foreground) 35%, transparent) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.25);
+  background: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
   border-radius: 9999px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary) / 0.6);
-}
-* {
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--muted-foreground) / 0.2) transparent;
+  background: color-mix(in srgb, var(--muted-foreground) 60%, transparent);
 }
 
 @utility scrollbar-none {
@@ -225,193 +281,24 @@ h2 { letter-spacing: -0.03em; }
   }
 }
 
-/* ── Utility classes — Supastarter patterns ─────────────────────────────── */
+/* ── Shared patterns (kept names; restyled flat) ────────────────────────── */
 
-/* Surface elevations (dark-mode optimised) */
-.surface-0  { background: hsl(var(--background)); }
-.surface-1  { background: hsl(var(--card)); }
-.surface-2  { background: hsl(var(--secondary)); }
-
-/* Card variants */
-@utility card-base {
-  @apply rounded-2xl border border-border bg-card;
-}
-@utility card-hover {
-  @apply transition-all duration-300 hover:border-primary/30 hover:bg-card;
-}
-@utility card-glow {
-  @apply relative overflow-hidden;
-}
-.card-glow::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse at 50% 0%,
-    hsl(var(--primary) / 0.08) 0%,
-    transparent 65%
-  );
-  pointer-events: none;
-}
-
-/* Glass effect */
-@utility glass {
-  backdrop-filter: blur(20px) saturate(160%);
-  background: hsl(var(--card) / 0.7);
-  border: 1px solid hsl(var(--border) / 0.8);
-}
-
-/* Subtle gradient text */
-@utility text-gradient {
-  background: linear-gradient(
-    135deg,
-    hsl(var(--foreground)) 0%,
-    hsl(var(--foreground) / 0.6) 100%
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-@utility text-gradient-primary {
-  background: linear-gradient(
-    135deg,
-    hsl(var(--primary)) 0%,
-    hsl(var(--primary) / 0.7) 100%
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Dot grid background — like Supastarter hero */
-@utility bg-dot-grid {
-  background-image: radial-gradient(
-    circle,
-    hsl(var(--foreground) / 0.06) 1px,
-    transparent 1px
-  );
-  background-size: 24px 24px;
-}
-
-/* Line grid background */
-@utility bg-line-grid {
-  background-image:
-    linear-gradient(hsl(var(--border) / 0.5) 1px, transparent 1px),
-    linear-gradient(90deg, hsl(var(--border) / 0.5) 1px, transparent 1px);
-  background-size: 40px 40px;
-}
-
-/* Glow effects */
-@utility glow-primary {
-  box-shadow: 0 0 40px hsl(var(--primary) / 0.15),
-              0 0 80px hsl(var(--primary) / 0.06);
-}
-@utility glow-primary-sm {
-  box-shadow: 0 0 20px hsl(var(--primary) / 0.2);
-}
-
-/* Badge variants */
-@utility badge-primary {
-  @apply inline-flex items-center gap-1.5 rounded-full border border-primary/25
-         bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary;
-}
-@utility badge-muted {
-  @apply inline-flex items-center gap-1.5 rounded-full border border-border
-         bg-secondary/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground;
-}
-@utility badge-success {
-  @apply inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25
-         bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-500;
-}
-
-/* Animated pulse dot */
-@utility dot-live {
-  @apply relative inline-flex size-2 rounded-full bg-emerald-500;
-}
-.dot-live::before {
-  content: "";
-  @apply absolute inset-0 rounded-full bg-emerald-500;
-  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-
-/* Focus ring — primary tinted */
-@utility focus-ring {
-  @apply outline-none ring-2 ring-primary/40 ring-offset-2 ring-offset-background;
-}
-
-/* Input base */
-@utility input-base {
-  @apply w-full rounded-xl border border-border bg-secondary/30 px-4 py-3
-         text-sm text-foreground placeholder:text-muted-foreground
-         transition-all duration-200
-         focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20;
-}
-
-/* Primary CTA button — Supastarter pill style */
-@utility btn-primary {
-  @apply inline-flex items-center justify-center gap-2
-         rounded-xl bg-primary px-5 py-2.5
-         text-sm font-semibold text-primary-foreground
-         transition-all duration-300
-         hover:opacity-90 active:scale-[0.98] active:translate-y-px
-         disabled:cursor-not-allowed disabled:opacity-40;
-}
-@utility btn-primary-pill {
-  @apply btn-primary rounded-full px-6;
-}
-
-/* Secondary/ghost button */
-@utility btn-secondary {
-  @apply inline-flex items-center justify-center gap-2
-         rounded-xl border border-border bg-secondary/50 px-5 py-2.5
-         text-sm font-medium text-foreground/80
-         transition-all duration-300
-         hover:border-border/80 hover:bg-secondary/80 hover:text-foreground
-         active:scale-[0.98];
-}
-
-/* Divider with label */
-@utility divider-label {
-  @apply flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground;
-}
-.divider-label::before,
-.divider-label::after {
-  content: "";
-  @apply flex-1 h-px bg-border;
-}
-
-/* Stat card */
-@utility stat-card {
-  @apply card-base p-5 space-y-1;
-}
-
-/* Section label (FEATURES, HOW IT WORKS, etc.) */
-@utility section-label {
-  @apply inline-flex items-center gap-2 rounded-full border border-border
-         bg-secondary/50 px-3.5 py-1.5 text-[11px] font-semibold
-         uppercase tracking-widest text-muted-foreground;
-}
-
-/* Container Utilities */
-@utility container-page {
-  @apply mx-auto w-full max-w-6xl px-4 md:px-6;
-}
-@utility container-narrow {
-  @apply mx-auto w-full max-w-4xl px-4 md:px-6;
-}
-@utility container-grid {
-  @apply grid gap-6 md:gap-8;
-}
-
-/* Double-Bezel System */
+/* Panel pair used by the analytics cards: one bordered surface, no nested shells. */
 @utility bezel-outer {
-  @apply p-1.5 rounded-[2rem] bg-foreground/5 border border-foreground/10;
+  @apply rounded-xl border border-border bg-card;
 }
 @utility bezel-inner {
-  @apply rounded-[calc(2rem-0.375rem)] bg-card shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)];
+  border-radius: inherit;
 }
 
-/* Noise texture overlay — subtle premium feel */
+/* Quiet page wash: a single faint accent light at the top edge. */
+.bg-radial-glow {
+  background:
+    radial-gradient(ellipse 70% 40% at 50% -10%, color-mix(in srgb, var(--primary) 7%, transparent), transparent),
+    var(--background);
+}
+
+/* Subtle grain for large dark panels. */
 .noise::after {
   content: "";
   position: absolute;
@@ -421,34 +308,26 @@ h2 { letter-spacing: -0.03em; }
   border-radius: inherit;
 }
 
-/* Radial glow background — hero sections */
-.bg-radial-glow {
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, hsl(var(--primary) / 0.12), transparent),
-    hsl(var(--background));
-}
-
-/* Skeleton loading */
 @utility skeleton {
-  @apply animate-pulse rounded-xl bg-secondary/60;
+  @apply animate-pulse rounded-lg bg-muted;
 }
 
-/* AI Glow Pulse */
+/* AI working state: the accent border breathes. */
 @keyframes ai-glow {
   0%, 100% {
-    box-shadow: 0 0 15px rgba(216, 173, 135, 0.2);
-    border-color: rgba(216, 173, 135, 0.3);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 35%, transparent);
   }
   50% {
-    box-shadow: 0 0 35px rgba(216, 173, 135, 0.6);
-    border-color: rgba(216, 173, 135, 0.8);
-    background-color: rgba(216, 173, 135, 0.15);
+    box-shadow: 0 0 24px 0 color-mix(in srgb, var(--primary) 30%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 80%, transparent);
   }
 }
 .animate-ai-glow {
   animation: ai-glow 2s ease-in-out infinite;
 }
-/* ── View Transitions ───────────────────────────────────────────────────── */
+
+/* ── View transitions (theme switch reveal) ─────────────────────────────── */
 @keyframes theme-reveal {
   from {
     clip-path: circle(0% at var(--vt-x) var(--vt-y));
@@ -464,4 +343,103 @@ h2 { letter-spacing: -0.03em; }
 
 ::view-transition-old(root) {
   animation: none;
+}
+
+/* ── Marketing + auth surfaces (landing, sign-in, legal) ────────────────────
+   `.mk-surface` marks a page that honours `prefers-reduced-motion` below. */
+
+/* Keyboard focus ring for custom links and controls. */
+@utility mk-focus {
+  &:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Skip link: off-screen until it receives focus. */
+@utility mk-skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 100;
+  border-radius: 0.5rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: top 0.2s var(--ease-brand);
+  &:focus-visible {
+    top: 1rem;
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Graph paper: the hairline grid the results are plotted on. Behind the hero
+   and the closing call to action, fading out toward the bottom edge. */
+.mk-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--foreground) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--foreground) 7%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: -1px -1px;
+  mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
+}
+/* Countdown line under the question-types stage; its end moves the stage on. */
+@keyframes mk-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.mk-progress {
+  animation-name: mk-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+/* The same grid without the fade, for the panels illustrations sit on. */
+.mk-grid.mk-grid-flat {
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .mk-surface *,
+  .mk-surface *::before,
+  .mk-surface *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Compatibility: accent as text on light surfaces ─────────────────────────
+   `text-primary` is the ember fill, 4.3:1 on paper, a hair under AA for body
+   text. Screens that were not redesigned still use it for links, icons and
+   labels, so in light mode it resolves to `accent-ink` (5.2:1). New code
+   should say `text-accent-ink`.
+   Fills (`bg-primary`), borders and rings are untouched. */
+@layer utilities {
+  :root:not(.dark) .text-primary,
+  :root:not(.dark) .hover\:text-primary:hover,
+  :root:not(.dark) .focus\:text-primary:focus,
+  :root:not(.dark) .group:hover .group-hover\:text-primary,
+  :root:not(.dark) .group:focus-within .group-focus-within\:text-primary {
+    color: var(--accent-ink);
+  }
+  :root:not(.dark) .text-primary\/90,
+  :root:not(.dark) .hover\:text-primary\/90:hover { color: color-mix(in srgb, var(--accent-ink) 90%, transparent); }
+  :root:not(.dark) .text-primary\/85 { color: color-mix(in srgb, var(--accent-ink) 85%, transparent); }
+  :root:not(.dark) .text-primary\/80,
+  :root:not(.dark) .hover\:text-primary\/80:hover { color: color-mix(in srgb, var(--accent-ink) 80%, transparent); }
+  :root:not(.dark) .text-primary\/70,
+  :root:not(.dark) .hover\:text-primary\/70:hover,
+  :root:not(.dark) .group:hover .group-hover\:text-primary\/70 { color: color-mix(in srgb, var(--accent-ink) 70%, transparent); }
+  :root:not(.dark) .text-primary\/60 { color: color-mix(in srgb, var(--accent-ink) 60%, transparent); }
+  :root:not(.dark) .text-primary\/50 { color: color-mix(in srgb, var(--accent-ink) 50%, transparent); }
+  :root:not(.dark) .text-primary\/40 { color: color-mix(in srgb, var(--accent-ink) 40%, transparent); }
 }

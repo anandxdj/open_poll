@@ -104,7 +104,7 @@ export function HostQnaPanel({ className }: { className?: string }) {
 
   return (
     <section className={cn("flex min-h-0 flex-col gap-3", className)} aria-label={t("host.title")}>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-deck-stage-fg/60">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-deck-stage-fg/60">
         <span>{qna.settings?.moderation ? t("host.moderationOn") : t("host.moderationOff")}</span>
         {qna.loaded && !qna.settings?.open && <span className="text-deck-accent-soft">{t("host.closed")}</span>}
       </div>
@@ -132,7 +132,7 @@ export function HostQnaPanel({ className }: { className?: string }) {
         ))}
       </div>
 
-      <div className="flex items-center justify-end gap-2 text-[11px] text-deck-stage-fg/60">
+      <div className="flex items-center justify-end gap-2 text-xs text-deck-stage-fg/60">
         <label htmlFor="qna-host-sort" className="font-semibold">
           {t("host.sortLabel")}
         </label>
@@ -179,7 +179,7 @@ export function HostQnaPanel({ className }: { className?: string }) {
                   )}
                 >
                   <p className="text-sm font-medium leading-snug break-words text-deck-stage-fg">{item.text}</p>
-                  <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-deck-stage-fg/55">
+                  <div className="flex flex-wrap items-center gap-x-2 text-xs text-deck-stage-fg/60">
                     <span className="font-semibold">{item.authorName ?? t("host.anonymousAuthor")}</span>
                     <span className="tabular-nums">{t("list.votes", { count: item.upvoteCount })}</span>
                     {item.pinned && (

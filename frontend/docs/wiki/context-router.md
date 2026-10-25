@@ -39,6 +39,12 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Workspaces (switcher, selected workspace, `X-Workspace-Id`), any `/settings` page or section, members and roles, invitations (`/invites/[token]`), the ShareDialog, or the audit log.
 - **Action**: Read `frontend/docs/wiki/features/workspaces.md`
 
+- **Task**: The landing page (hero, sections, navbar and mobile menu, FAQ, footer), the sign-in pages (login, signup, forgot/reset password, verify email, OAuth complete, invitation accept), Privacy and Terms.
+- **Action**: Read `frontend/docs/wiki/features/landing-auth.md`
+
+- **Task**: Search and AI visibility: page titles and descriptions, canonical URLs, noindex, robots.txt, the sitemap, the web manifest, social cards (Open Graph/X images), JSON-LD, `/llms.txt`.
+- **Action**: Read `frontend/docs/wiki/features/seo.md`
+
 - **Task**: Billing: `/settings/billing` (plan, usage, checkout, portal) or the landing pricing section.
 - **Action**: Read `frontend/docs/wiki/features/billing.md`
 

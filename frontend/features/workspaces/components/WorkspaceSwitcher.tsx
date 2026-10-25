@@ -16,15 +16,14 @@ import { useSwitchWorkspace, useWorkspaces } from "../hooks/useWorkspaces";
 import { PLAN_NAMES, ROLE_NAMES, type WorkspaceSummary } from "../types";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 
-const itemClass =
-  "flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-sidebar-foreground/70 transition-colors focus:bg-primary/10 focus:text-primary";
+const itemClass = "flex cursor-pointer items-center gap-2.5";
 
 function WorkspaceTile({ workspace, className }: { workspace: Pick<WorkspaceSummary, "name"> | null; className?: string }) {
   return (
     <span
       aria-hidden
       className={cn(
-        "flex size-7 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/15 text-[11px] font-bold uppercase text-primary",
+        "flex size-8 shrink-0 items-center justify-center rounded-md bg-foreground text-sm font-semibold uppercase text-background",
         className,
       )}
     >
@@ -46,7 +45,7 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
         onClick={reload}
         title="Couldn't load workspaces. Retry"
         className={cn(
-          "flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-[11px] text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
+          "flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground",
           collapsed && "w-9 justify-center px-0",
         )}
       >
@@ -63,7 +62,7 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
         aria-label="Loading workspaces"
         className={cn("flex w-full items-center gap-2 px-2 py-1.5", collapsed && "w-9 justify-center px-0")}
       >
-        <span className="size-7 shrink-0 animate-pulse rounded-lg bg-sidebar-accent" />
+        <span className="size-8 shrink-0 animate-pulse rounded-md bg-sidebar-accent" />
         {!collapsed && <span className="h-3 flex-1 animate-pulse rounded bg-sidebar-accent" />}
       </div>
     );
@@ -78,20 +77,20 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
             aria-label={`Workspace: ${current.name}. Switch workspace`}
             title={collapsed ? current.name : undefined}
             className={cn(
-              "flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
-              collapsed && "w-9 justify-center px-0",
+              "flex w-full items-center gap-2.5 rounded-lg p-1.5 text-left text-foreground transition-colors hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
+              collapsed && "w-auto justify-center p-1",
             )}
           >
             <WorkspaceTile workspace={current} />
             {!collapsed && (
               <>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[11px] font-bold leading-none">{current.name}</span>
-                  <span className="mt-1 block truncate text-[9px] leading-none text-sidebar-foreground/40">
+                  <span className="block truncate text-sm font-semibold leading-tight">{current.name}</span>
+                  <span className="mt-0.5 block truncate text-xs leading-tight text-muted-foreground">
                     {current.type === "personal" ? "Personal" : "Team"} · {PLAN_NAMES[current.plan]}
                   </span>
                 </span>
-                <ChevronsUpDown className="size-3 shrink-0 opacity-40" />
+                <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
               </>
             )}
           </button>
@@ -100,9 +99,9 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
           side={collapsed ? "right" : "bottom"}
           align="start"
           sideOffset={collapsed ? 12 : 4}
-          className="w-60 rounded-2xl border-sidebar-border bg-sidebar p-1 shadow-2xl"
+          className="w-64 p-1.5"
         >
-          <DropdownMenuLabel className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/40">
+          <DropdownMenuLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
             Workspaces
           </DropdownMenuLabel>
           {workspaces.map((workspace) => {
@@ -116,22 +115,22 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
                 }}
                 className={itemClass}
               >
-                <WorkspaceTile workspace={workspace} className="size-6 text-[10px]" />
+                <WorkspaceTile workspace={workspace} className="size-7 text-xs" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{workspace.name}</span>
-                  <span className="block text-[10px] text-sidebar-foreground/40">
+                  <span className="block text-xs text-muted-foreground">
                     {workspace.type === "personal" ? "Personal" : ROLE_NAMES[workspace.role]}
                   </span>
                 </span>
                 {switchingTo === workspace._id ? (
                   <Loader2 className="size-3.5 animate-spin" />
                 ) : isCurrent ? (
-                  <Check className="size-3.5 text-primary" aria-label="Current workspace" />
+                  <Check className="size-4 text-accent-ink" aria-label="Current workspace" />
                 ) : null}
               </DropdownMenuItem>
             );
           })}
-          <DropdownMenuSeparator className="my-1 bg-sidebar-border" />
+          <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => setCreateOpen(true)} className={itemClass}>
             <Plus className="size-4" />
             Create team workspace

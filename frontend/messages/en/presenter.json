@@ -1,7 +1,7 @@
 {
   "header": {
-    "liveHost": "LIVE HOST",
-    "hostConsole": "HOST CONSOLE",
+    "liveHost": "Live session",
+    "hostConsole": "Host console",
     "joined": "{count} joined",
     "copyJoinLink": "Click to copy join link",
     "leaderboard": "Leaderboard",
@@ -25,21 +25,21 @@
     "ended": "Present again"
   },
   "lobby": {
-    "scanOrJoin": "SCAN THE QR — OR JOIN AT",
-    "withCode": "WITH CODE",
-    "joinCode": "JOIN CODE",
+    "scanOrJoin": "Scan the QR code, or go to",
+    "withCode": "and enter the code",
+    "joinCode": "Join code",
     "copyLink": "Click to copy join link",
     "copyCode": "Click to copy join code",
     "copiedCode": "Copied code!",
     "clickToCopy": "Click to copy code",
     "qrLabel": "Join at {url}",
-    "joined": "{count} JOINED",
+    "joined": "{count} joined",
     "waiting": "Waiting for players to enter code...",
     "start": "Start",
     "end": "Close lobby"
   },
   "slide": {
-    "counter": "SLIDE {current} OF {total}",
+    "counter": "Slide {current} of {total}",
     "answered": "answered",
     "answeredOf": "{answered} / {total} answered",
     "phase": {

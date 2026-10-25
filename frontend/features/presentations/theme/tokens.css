@@ -4,9 +4,9 @@
    Every stage (projected screen, host console) and participant surface
    colours itself through these `--deck-*` variables, via the `deck-*`
    Tailwind colours registered below (`bg-deck-stage-bg`, `text-deck-accent/40`…).
-   The defaults reproduce the built-in look exactly: audience surfaces follow
-   the app theme (light/dark), the stage is always dark, accents are the
-   Tailwind palette values the UI used before.
+   The defaults are the Graph paper look: audience surfaces follow the app
+   theme (light/dark), the stage is always dark (warm graphite), the accent is
+   the brand ember, status colours match the app's.
 
    A deck theme overrides any subset on <DeckThemeProvider> (inline style);
    inside that scope the app's shadcn tokens are remapped to the deck ones so
@@ -26,49 +26,52 @@
   --deck-primary: var(--primary);
   --deck-primary-fg: var(--primary-foreground);
 
-  /* Stage — always dark */
-  --deck-stage-bg: #050505;
-  --deck-stage-chrome: #0a0a0a;
-  --deck-stage-panel: #0d0d0d;
-  --deck-stage-fg: #fff;
+  /* Stage — always dark: the app's warm graphite, not pure black, so the
+     projected screen and the product read as one family. */
+  --deck-stage-bg: #141413;
+  --deck-stage-chrome: #1b1b1a;
+  --deck-stage-panel: #1f1f1d;
+  --deck-stage-fg: #f2f1ec;
   --deck-stage-scrim: #000;
-  --deck-stage-ink: oklch(12.9% 0.042 264.695); /* slate-950: text on accent fills */
+  --deck-stage-ink: #1a0d04; /* text on accent fills (the app's primary-foreground in dark) */
   --deck-qr-bg: #fff; /* QR codes need a light quiet zone to scan */
 
-  /* Semantic accents */
-  --deck-accent: oklch(82.8% 0.189 84.429); /* amber-400 */
-  --deck-accent-strong: oklch(76.9% 0.188 70.08); /* amber-500 */
-  --deck-accent-soft: oklch(87.9% 0.169 91.605); /* amber-300 */
-  --deck-correct: oklch(69.6% 0.17 162.48); /* emerald-500 */
-  --deck-correct-soft: oklch(76.5% 0.177 163.223); /* emerald-400 */
-  --deck-correct-deep: oklch(26.2% 0.051 172.552); /* emerald-950 */
-  --deck-correct-alt: oklch(77.7% 0.152 181.912); /* teal-400 */
-  --deck-live: oklch(76.5% 0.177 163.223); /* emerald-400: "answers coming in" dot */
-  --deck-danger: oklch(64.5% 0.246 16.439); /* rose-500 */
-  --deck-danger-strong: oklch(58.6% 0.253 17.585); /* rose-600 */
-  --deck-danger-soft: oklch(71.2% 0.194 13.428); /* rose-400 */
-  --deck-wrong: oklch(70.4% 0.191 22.216); /* red-400: wrong answer, urgent timer */
-  --deck-info: oklch(74.6% 0.16 232.661); /* sky-400: unscored response received */
-  --deck-bar: oklch(70.5% 0.213 47.604); /* orange-500: free-text answer bars */
-  --deck-rank-1: oklch(85.2% 0.199 91.936); /* yellow-400 */
-  --deck-rank-2: oklch(87.1% 0.006 286.286); /* zinc-300 */
-  --deck-rank-3: oklch(66.6% 0.179 58.318); /* amber-600 */
-  --deck-glow-correct: rgb(16 185 129);
-  --deck-glow-accent: rgb(245 158 11);
+  /* Semantic accents. The accent is the brand ember (the app's dark primary);
+     correct / live are the success green, danger and wrong the app's red. */
+  --deck-accent: #f97316; /* orange-500 */
+  --deck-accent-strong: #ea580c; /* orange-600 */
+  --deck-accent-soft: #fb923c; /* orange-400 */
+  --deck-correct: #22c55e; /* green-500 */
+  --deck-correct-soft: #4ade80; /* green-400 */
+  --deck-correct-deep: #052e16; /* green-950 */
+  --deck-correct-alt: #34d399; /* emerald-400 */
+  --deck-live: #22c55e; /* "answers coming in" dot */
+  --deck-danger: #ef4444; /* red-500 */
+  --deck-danger-strong: #dc2626; /* red-600 */
+  --deck-danger-soft: #f87171; /* red-400 */
+  --deck-wrong: #f87171; /* wrong answer, urgent timer */
+  --deck-info: #60a5fa; /* blue-400: unscored response received */
+  --deck-bar: #f97316; /* free-text answer bars, the accent */
+  --deck-rank-1: #fbbf24; /* gold */
+  --deck-rank-2: #d6d3d1; /* silver (stone-300, warm like the stage) */
+  --deck-rank-3: #d97706; /* bronze */
+  --deck-glow-correct: rgb(34 197 94);
+  --deck-glow-accent: rgb(249 115 22);
 
-  /* Word cloud palette */
-  --deck-cloud-1: oklch(74.6% 0.16 232.661); /* sky-400 */
-  --deck-cloud-2: oklch(76.5% 0.177 163.223); /* emerald-400 */
-  --deck-cloud-3: oklch(85.2% 0.199 91.936); /* yellow-400 */
-  --deck-cloud-4: oklch(75% 0.183 55.934); /* orange-400 */
-  --deck-cloud-5: oklch(71.2% 0.194 13.428); /* rose-400 */
-  --deck-cloud-6: oklch(71.4% 0.203 305.504); /* purple-400 */
-  --deck-cloud-7: oklch(78.9% 0.154 211.53); /* cyan-400 */
-  --deck-cloud-8: oklch(70.2% 0.183 293.541); /* violet-400 */
-  --deck-cloud-9: oklch(74% 0.238 322.16); /* fuchsia-400 */
-  --deck-cloud-10: oklch(84.1% 0.238 128.85); /* lime-400 */
-  --deck-cloud-11: oklch(87.9% 0.169 91.605); /* amber-300 */
-  --deck-cloud-12: oklch(85.5% 0.138 181.071); /* teal-300 */
+  /* Word cloud palette: the app's categorical chart hues first, in their order,
+     then lighter steps of warm hues so twelve words never repeat a colour. */
+  --deck-cloud-1: #fb923c;
+  --deck-cloud-2: #60a5fa;
+  --deck-cloud-3: #4ade80;
+  --deck-cloud-4: #a78bfa;
+  --deck-cloud-5: #f472b6;
+  --deck-cloud-6: #22d3ee;
+  --deck-cloud-7: #fbbf24;
+  --deck-cloud-8: #2dd4bf;
+  --deck-cloud-9: #e879f9;
+  --deck-cloud-10: #a3e635;
+  --deck-cloud-11: #fdba74;
+  --deck-cloud-12: #93c5fd;
 }
 
 /* Inside a deck scope the shadcn primitives read the deck tokens. The deck
@@ -136,4 +139,16 @@
   --color-deck-cloud-10: var(--deck-cloud-10);
   --color-deck-cloud-11: var(--deck-cloud-11);
   --color-deck-cloud-12: var(--deck-cloud-12);
+}
+
+/* Graph paper on the stage (the app's motif, drawn in the stage's own ink so
+   it works whatever the app theme): behind the ready, lobby and end screens. */
+.stage-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--deck-stage-fg) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--deck-stage-fg) 6%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: center;
+  mask-image: radial-gradient(ellipse 75% 70% at 50% 50%, #000 35%, transparent 90%);
+  -webkit-mask-image: radial-gradient(ellipse 75% 70% at 50% 50%, #000 35%, transparent 90%);
 }

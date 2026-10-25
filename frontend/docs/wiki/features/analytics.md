@@ -1,30 +1,47 @@
 ---
 summary: Analytics pages, real-time WebSocket event contract, and aggregate metrics spec.
 status: active
-last_updated: 2026-05-13
+last_updated: 2026-10-25
 ---
 
 # Analytics Feature
 
 ## Pages
 
-### Per-Poll Analytics (`/analytics/[id]`)
-- **Route**: `app/(dashboard)/analytics/[id]/page.tsx`
-- Fetches poll data and response summary from backend on mount.
-- Subscribes to Socket.io room `poll:{id}` for live updates.
-- Renders `LiveBarChart` per question.
-- Displays total response count (live-updating via WebSocket).
-- **Publish Results button**: Calls `POST /polls/:id/publish-results` to flip `isResultsPublished`.
+Both pages follow the app-screen rules in `ui/design-system.md` (page header, hairline count strip,
+underline tabs, white sheets) and the dataviz rules below.
 
-### Analytics Overview (`/analytics`)
-- **Route**: `app/(dashboard)/analytics/page.tsx` ← **NEW**
-- Aggregate metrics across all creator polls:
-  - Total votes across all polls
-  - Number of currently active polls (with "Live now" badge)
-  - Top 5 polls by response count
-  - Response trend (basic sparkline)
-- Fetches all polls, then fetches summaries for each.
-- Shows real-time "Live now" indicator for polls whose socket room is active.
+### Analytics overview (`/analytics`)
+- **Route**: `app/(dashboard)/analytics/page.tsx`.
+- Polls of the current workspace from `useCreatorStore().fetchPolls()`, then each poll's
+  `GET /responses/poll/:id/summary` for its response count.
+- Count strip: Polls, Responses, Live now (published, not closed, not expired).
+- "Responses per poll": a ranked bar list (most answered first, one ember hue, the value at each bar's
+  tip, status dot and question count beside the title). Every row links to `/analytics/[id]`. Empty state
+  on graph paper with "New poll".
+
+### Per-poll analytics (`/analytics/[id]`)
+- **Route**: `app/(dashboard)/analytics/[id]/page.tsx`.
+- Fetches the poll and its summary on mount, then follows `poll:{id}` over Socket.io for live counts.
+- Header: back link, title, "Results are public" when published; actions "Copy poll link" and
+  "Publish results" (`POST /polls/:id/publish-results`), or "Share on X" and "Copy poll link" once public.
+- `AnalyticsHeaderStats`: Responses, Status (Live / Closed / Expired, with when), Respondents (Anonymous /
+  Identified), Created.
+- Tabs **Results** and **Voters** (count). Results: `TopChoiceHighlight` (the leading answer as one
+  sentence), the `VisualizationPicker` (Bars by default, Columns, Donut, List; a segmented control of
+  `aria-pressed` buttons) and one `QuestionAnalytics` per question. Assessments (`pollType: TRIAL`) pass
+  `correctOptionIndices` and `explanation`, shown as a check, the word "Correct" and the success colour.
+- Voters: `GET /responses/poll/:id/list` on opening the tab; search by name or email, filter by type
+  (Everyone / Registered / Guests / Anonymous), a table with "View answers" per row.
+
+### Chart rules (`QuestionAnalytics`)
+- One series per question: every bar in `--chart-1` (ember); bars at most 24px with a 4px rounded end;
+  hairline solid grid in `--border`; the count at each bar's tip in `--muted-foreground`; tooltips lead
+  with the value, then the option.
+- Donut: the categorical tokens `--chart-1..6` in fixed order, a 2px `--card` stroke between slices, a
+  legend with values beside it; options past the sixth fold into "Other".
+- The chart tokens were checked with the dataviz palette validator in both themes (lightness band,
+  chroma floor, colour-blind and normal-vision separation, 3:1 against the card).
 
 ## WebSocket Event Contract
 
@@ -65,17 +82,12 @@ Connects to the Socket.io server, joins `poll:{pollId}` room, and calls `onUpdat
 
 ## Components
 
-### `LiveBarChart`
-Located: `features/analytics/components/LiveBarChart.tsx`
-Props: `{ title: string; data: { label: string; votes: number }[] }`
-Uses Recharts `BarChart`. Orange (`#f97316`) bars with rounded tops and 450ms animation.
-
-### `AnalyticsOverview` — **NEW**
-Located: `features/analytics/components/AnalyticsOverview.tsx`
-Renders the aggregate metrics view for the `/analytics` overview page.
+`features/analytics/components/`: `AnalyticsHeaderStats`, `TopChoiceHighlight`, `VisualizationPicker`,
+`QuestionAnalytics` (described above). `AnalyticsOverview.tsx` is not used by any page.
 
 ## Data Fetching
 
 - Summary endpoint: `GET /responses/poll/:id/summary` → returns `PollAnalyticsPayload`
-- All polls: `GET /polls?creatorId=mock-creator-id-123`
-- Publish results: `POST /polls/:id/publish-results` (to be confirmed with backend)
+- Voter list: `GET /responses/poll/:id/list` (authenticated, workspace members who can read the poll)
+- All polls: `useCreatorStore().fetchPolls()` (current workspace)
+- Publish results: `POST /polls/:id/publish-results`

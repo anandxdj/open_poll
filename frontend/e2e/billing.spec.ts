@@ -249,7 +249,7 @@ test("the landing pricing lists every plan from the API", async ({ page }) => {
   await expect(pricing.getByTestId("pricing-free")).toContainText("Up to 100 participants per live session or poll");
   await expect(pricing.getByTestId("pricing-free")).toContainText("Free");
   await expect(pricing.getByTestId("pricing-pro")).toContainText("CSV, Excel and PDF export");
-  await expect(pricing.getByTestId("pricing-pro")).toContainText("Custom");
+  await expect(pricing.getByTestId("pricing-pro")).toContainText("Pricing soon");
   await expect(pricing.getByTestId("pricing-enterprise")).toContainText("Single sign-on and SCIM provisioning");
   await expect(pricing.getByLabel("Yearly")).toHaveCount(0);
 });

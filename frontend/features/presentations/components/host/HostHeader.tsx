@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, Maximize2, Minimize2, Radio, Trophy, Users } from "lucide-react";
+import { Check, Copy, Maximize2, Minimize2, Trophy, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useLive } from "../../live/store";
@@ -38,31 +38,31 @@ export function HostHeader({
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-deck-stage-fg/10 px-5 bg-deck-stage-chrome">
       <div className="flex items-center gap-3 min-w-0">
         {isLive ? (
-          <div className="rounded-full bg-deck-danger/10 border border-deck-danger/20 px-2.5 py-1 text-deck-danger-soft text-[10px] font-bold tracking-wider uppercase flex items-center gap-1.5 shrink-0">
-            <Radio className="size-3 animate-pulse" /> {t("liveHost")}
+          <div className="flex shrink-0 items-center gap-2 rounded-full border border-deck-stage-fg/15 px-2.5 py-1 text-xs font-medium text-deck-stage-fg">
+            <span className="size-1.5 rounded-full bg-deck-live motion-safe:animate-pulse" aria-hidden="true" /> {t("liveHost")}
           </div>
         ) : (
-          <div className="rounded-full bg-deck-stage-fg/5 border border-deck-stage-fg/10 px-2.5 py-1 text-deck-stage-fg/60 text-[10px] font-bold tracking-wider uppercase shrink-0">
+          <div className="shrink-0 rounded-full border border-deck-stage-fg/15 px-2.5 py-1 text-xs font-medium text-deck-stage-fg/70">
             {t("hostConsole")}
           </div>
         )}
-        <h1 className="text-sm font-bold leading-none text-deck-stage-fg/90 truncate">{title}</h1>
+        <h1 className="truncate text-[15px] font-semibold leading-none tracking-[-0.01em] text-deck-stage-fg">{title}</h1>
       </div>
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex shrink-0 items-center gap-2.5">
         <SlotOutlet name="hostToolbar" props={{ presentationId }} />
         {isLive && (
           <>
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-deck-stage-fg/60" title={t("joined", { count: participantCount })}>
-              <Users className="size-3.5" /> {participantCount}
+            <div className="flex items-center gap-1.5 text-sm text-deck-stage-fg/70" title={t("joined", { count: participantCount })}>
+              <Users className="size-4" /> <span className="font-mono tabular-nums">{participantCount}</span>
             </div>
             <button
               type="button"
               onClick={onCopyUrl}
               title={t("copyJoinLink")}
-              className="font-mono text-xs font-bold tracking-widest text-deck-primary bg-deck-primary/10 border border-deck-primary/25 px-3.5 py-1 rounded-full hover:bg-deck-primary/20 transition-all flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-deck-primary/40"
+              className="flex cursor-pointer items-center gap-1.5 rounded-full border border-deck-stage-fg/15 px-3 py-1 font-mono text-sm tracking-[0.12em] text-deck-stage-fg transition-colors hover:bg-deck-stage-fg/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-deck-accent/50"
             >
               <span>{joinCode}</span>
-              {copiedUrl ? <Check className="size-3 text-deck-correct-soft" /> : <Copy className="size-3 text-deck-primary/70" />}
+              {copiedUrl ? <Check className="size-3.5 text-deck-correct-soft" /> : <Copy className="size-3.5 text-deck-stage-fg/60" />}
             </button>
           </>
         )}
@@ -71,13 +71,14 @@ export function HostHeader({
           size="sm"
           onClick={onToggleLeaderboard}
           title={t("toggleLeaderboard")}
-          className={`h-8 rounded-full border px-3 text-xs font-bold transition-all flex items-center gap-1.5 ${
+          aria-pressed={showLeaderboard}
+          className={`flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors ${
             showLeaderboard
-              ? "bg-deck-accent text-deck-stage-ink border-deck-accent shadow-md shadow-deck-accent/20"
-              : "border-deck-accent/30 bg-deck-accent/10 text-deck-accent-soft hover:bg-deck-accent/20"
+              ? "border-deck-stage-fg bg-deck-stage-fg text-deck-stage-bg hover:bg-deck-stage-fg/90"
+              : "border-deck-stage-fg/15 text-deck-stage-fg hover:bg-deck-stage-fg/10"
           }`}
         >
-          <Trophy className="size-3.5" />
+          <Trophy className="size-4" />
           <span className="hidden sm:inline">{t("leaderboard")}</span>
         </Button>
         <Button

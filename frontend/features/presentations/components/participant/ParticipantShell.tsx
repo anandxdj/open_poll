@@ -69,15 +69,15 @@ function ParticipantScreen({ code }: { code: string }) {
 
   return (
     <div className="min-h-screen bg-deck-bg text-deck-fg flex flex-col font-sans">
-      <header className="flex h-14 items-center justify-between border-b border-deck-border/40 px-6 bg-deck-surface/50 backdrop-blur-md">
-        <span className="text-xs font-bold truncate max-w-[200px]">{title}</span>
-        <span className="text-xs font-semibold text-deck-primary">{self.name}</span>
+      <header className="flex h-14 items-center justify-between border-b border-deck-border bg-deck-bg px-5">
+        <span className="max-w-[200px] truncate text-sm font-semibold tracking-[-0.01em]">{title}</span>
+        <span className="flex items-center gap-1.5 text-sm text-deck-muted-fg"><span className="size-1.5 rounded-full bg-deck-live" aria-hidden="true" />{self.name}</span>
       </header>
 
       {showReconnecting && (
         <div
           role="status"
-          className="flex items-center justify-center gap-2 border-b border-deck-border/40 bg-deck-surface/60 px-4 py-1.5 text-xs font-semibold text-deck-muted-fg"
+          className="flex items-center justify-center gap-2 border-b border-deck-border bg-deck-surface px-4 py-1.5 text-sm text-deck-muted-fg"
         >
           <Radio className="size-3 animate-pulse" /> {t("reconnecting")}
         </div>
@@ -103,7 +103,7 @@ function ParticipantMain({ slotProps }: { slotProps: ParticipantSlotProps }) {
   return (
     <>
       {tabs.length > 0 && (
-        <nav className="flex justify-center gap-1 border-b border-deck-border/40 px-6 py-2" aria-label="Sections">
+        <nav className="flex justify-center gap-1 border-b border-deck-border px-6 py-2" aria-label="Sections">
           {[{ id: "slide", label: t("slideTab") }, ...tabs].map((entry) => (
             <button
               key={entry.id}
@@ -142,8 +142,8 @@ function ParticipantBody({ slotProps }: { slotProps: ParticipantSlotProps }) {
   if (status === "lobby") {
     return (
       <div className="text-center space-y-4">
-        <Hourglass className="size-10 text-deck-primary animate-spin mx-auto" />
-        <h2 className="text-xl font-bold">{t("lobbyTitle")}</h2>
+        <Hourglass className="mx-auto size-10 text-deck-primary motion-safe:animate-pulse" />
+        <h2 className="text-2xl font-semibold tracking-[-0.03em]">{t("lobbyTitle")}</h2>
         <p className="text-sm text-deck-muted-fg">{t("lobbyHint")}</p>
       </div>
     );
@@ -158,7 +158,7 @@ function ParticipantBody({ slotProps }: { slotProps: ParticipantSlotProps }) {
     return (
       <div className="text-center space-y-3 text-deck-muted-fg">
         <Loader2 className="size-6 animate-spin mx-auto" />
-        <p className="text-xs">{t("waitingForSlide")}</p>
+        <p className="text-sm">{t("waitingForSlide")}</p>
       </div>
     );
   }

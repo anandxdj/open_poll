@@ -12,7 +12,7 @@ interface RoleSelectProps {
 }
 
 export const selectClass =
-  "h-9 rounded-xl border border-input bg-background px-2.5 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60";
+  "h-9 rounded-md border border-input bg-card px-2.5 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60";
 
 /** A native select for a workspace role (keyboard and screen-reader friendly by default). */
 export function RoleSelect({ value, roles, onChange, disabled, label, className }: RoleSelectProps) {

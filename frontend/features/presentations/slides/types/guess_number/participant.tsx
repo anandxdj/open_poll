@@ -50,7 +50,7 @@ export function GuessNumberParticipant({ slide, mode, onSubmit, submitting }: Pa
             }}
             className="w-full h-3 rounded-lg accent-deck-primary bg-deck-secondary cursor-pointer disabled:cursor-not-allowed"
           />
-          <div className="flex justify-between text-[11px] font-medium text-deck-muted-fg/80 tabular-nums">
+          <div className="flex justify-between text-xs font-medium text-deck-muted-fg tabular-nums">
             <span>{formatNumber(min, 4)}</span>
             <span>{formatNumber(max, 4)}</span>
           </div>

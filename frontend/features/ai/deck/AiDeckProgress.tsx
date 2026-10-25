@@ -23,7 +23,7 @@ export function AiDeckPlanning({ onCancel }: { onCancel: () => void }) {
   const seconds = useElapsedSeconds();
   return (
     <div className="grid gap-5 py-6 text-center" role="status" aria-live="polite" data-testid="ai-deck-planning">
-      <Loader2 className="mx-auto size-8 animate-spin text-primary" aria-hidden />
+      <Loader2 className="mx-auto size-8 animate-spin text-accent-ink" aria-hidden />
       <div className="grid gap-1">
         <p className="text-base font-semibold">{t("title")}</p>
         <p className="text-sm text-muted-foreground">{t("hint")}</p>
@@ -46,7 +46,7 @@ export function AiDeckWriting({ slideCount }: { slideCount: number }) {
   const seconds = useElapsedSeconds();
   return (
     <div className="grid gap-5 py-6 text-center" role="status" aria-live="polite" data-testid="ai-deck-writing">
-      <Loader2 className="mx-auto size-8 animate-spin text-primary" aria-hidden />
+      <Loader2 className="mx-auto size-8 animate-spin text-accent-ink" aria-hidden />
       <div className="grid gap-1">
         <p className="text-base font-semibold">{t("title")}</p>
         <p className="text-sm text-muted-foreground">{t("hint", { count: slideCount })}</p>

@@ -33,13 +33,13 @@ export function PlanCard({ overview }: { overview: BillingOverview }) {
   return (
     <section className="space-y-4" aria-labelledby="billing-plan-heading">
       <div className="space-y-1">
-        <h2 id="billing-plan-heading" className="text-xl font-bold text-foreground/90" data-testid="billing-plan-name">
+        <h2 id="billing-plan-heading" className="text-xl font-semibold tracking-[-0.02em] text-foreground" data-testid="billing-plan-name">
           {t("heading", { plan: PLAN_NAMES[overview.plan] })}
         </h2>
         <p className="text-sm text-muted-foreground">{t("workspace", { name: overview.workspace.name })}</p>
       </div>
 
-      <div className="space-y-5 rounded-[1.5rem] border border-border bg-card p-6">
+      <div className="space-y-5 rounded-xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-center gap-3">
           <span
             data-testid="billing-status"
@@ -48,7 +48,7 @@ export function PlanCard({ overview }: { overview: BillingOverview }) {
               (problem
                 ? "bg-destructive/10 text-destructive ring-destructive/30"
                 : statusKey === "active" || statusKey === "trialing"
-                  ? "bg-primary/10 text-primary ring-primary/30"
+                  ? "bg-primary/10 text-accent-ink ring-primary/30"
                   : "bg-secondary text-muted-foreground ring-border")
             }
           >
@@ -65,7 +65,7 @@ export function PlanCard({ overview }: { overview: BillingOverview }) {
         </div>
 
         {overview.paymentFailed ? (
-          <div role="alert" className="flex gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div role="alert" className="flex gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <p>{t("paymentFailed")}</p>
           </div>
@@ -78,7 +78,7 @@ export function PlanCard({ overview }: { overview: BillingOverview }) {
         {overview.enabled && overview.canOpenPortal ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">{t("portalHint")}</p>
-            <Button className="shrink-0 rounded-xl" onClick={() => void openPortal()} disabled={opening}>
+            <Button className="shrink-0" onClick={() => void openPortal()} disabled={opening}>
               {opening ? <Loader2 className="size-4 animate-spin" /> : <CreditCard className="size-4" />}
               {opening ? t("opening") : t("manage")}
             </Button>

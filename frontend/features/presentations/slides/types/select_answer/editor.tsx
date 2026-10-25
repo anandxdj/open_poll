@@ -41,7 +41,7 @@ function SettingSwitch({
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <div className="flex items-center gap-3 h-10">
         <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
-        <span className="text-xs text-muted-foreground/60">{hint}</span>
+        <span className="text-xs text-muted-foreground">{hint}</span>
       </div>
     </div>
   );
@@ -71,8 +71,8 @@ function CorrectMarker({
       <Icon
         className={
           isCorrect
-            ? "size-5 text-emerald-400"
-            : "size-5 text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
+            ? "size-5 text-success"
+            : "size-5 text-faint hover:text-muted-foreground transition-colors"
         }
       />
     </button>
@@ -138,7 +138,7 @@ function SelectAnswerEditor({ slide, onChange }: SlideEditorProps) {
               ) : (
                 <span
                   aria-hidden
-                  className="flex size-5 shrink-0 items-center justify-center text-[11px] font-bold text-muted-foreground/50"
+                  className="flex size-5 shrink-0 items-center justify-center font-mono text-xs text-muted-foreground"
                 >
                   {String.fromCharCode(65 + i)}
                 </span>
@@ -167,7 +167,7 @@ function SelectAnswerEditor({ slide, onChange }: SlideEditorProps) {
             variant="ghost"
             size="sm"
             onClick={() => onChange({ options: [...slide.options, { text: "", isCorrect: false }] })}
-            className="text-xs text-muted-foreground/70 hover:text-foreground"
+            className="text-xs text-muted-foreground hover:text-foreground"
           >
             <Plus className="size-3.5 mr-1" /> Add option
           </Button>
@@ -182,7 +182,7 @@ function SelectAnswerEditor({ slide, onChange }: SlideEditorProps) {
           onChange={(e) => setConfig({ explanation: e.target.value })}
           maxLength={MAX_EXPLANATION_LENGTH}
           placeholder="Why is this the answer? Shown on the stage after the reveal."
-          className="min-h-20 rounded-xl bg-secondary/15 border-border/40 resize-none [field-sizing:content]"
+          className="min-h-20 bg-card resize-none [field-sizing:content]"
         />
       </div>
     </div>

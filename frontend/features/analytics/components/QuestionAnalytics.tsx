@@ -1,26 +1,28 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { motion, AnimatePresence } from "framer-motion";
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { motion } from "framer-motion";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { VisualizationType } from "./VisualizationPicker";
 
 type Row = { label: string; votes: number };
 
-const PRIMARY = "#d8ad87"; // Sandy Tan
-const COLORS = [PRIMARY, "#e8c9a8", "#b8885f", "#9c704a", "#7a563a"];
+/**
+ * One question's results. Marks follow the dataviz rules: one hue for the
+ * single series (ember; correct answers of an assessment in the success
+ * colour, also marked with a check and the word), bars at most 24px with a
+ * 4px rounded end, hairline solid grid, values in text tokens at the bar tip.
+ * The donut uses the categorical chart tokens in fixed order and folds
+ * anything past the sixth option into "Other".
+ */
+
+const SERIES = "var(--chart-1)";
+const CORRECT = "var(--success)";
+const CATEGORICAL = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)", "var(--chart-6)"];
+const OTHER = "var(--faint)";
+const tick = { fill: "var(--muted-foreground)", fontSize: 12 };
 
 interface QuestionAnalyticsProps {
   title: string;
@@ -30,62 +32,61 @@ interface QuestionAnalyticsProps {
   explanation?: string;
 }
 
-export function QuestionAnalytics({ title, data, type, correctOptionIndices, explanation }: QuestionAnalyticsProps) {
-  const chartData = useMemo(() => data.map((d) => ({ ...d })), [data]);
-  const totalVotes = useMemo(() => data.reduce((sum, d) => sum + d.votes, 0), [data]);
+/** Value first and strong, label second (the reader already knows which mark they hover). */
+function ChartTooltip({ active, payload, total }: { active?: boolean; payload?: { value: number; payload: Row }[]; total: number }) {
+  if (!active || !payload?.length) return null;
+  const { value, payload: row } = payload[0];
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+  return (
+    <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-lg shadow-black/10">
+      <p className="font-mono text-sm font-medium tabular-nums text-foreground">
+        {value} <span className="text-muted-foreground">({pct}%)</span>
+      </p>
+      <p className="mt-0.5 max-w-48 text-xs text-muted-foreground">{row.label}</p>
+    </div>
+  );
+}
 
-  const renderContent = () => {
+const truncate = (v: string, n: number) => (v.length > n ? `${v.slice(0, n - 1)}…` : v);
+
+export function QuestionAnalytics({ title, data, type, correctOptionIndices, explanation }: QuestionAnalyticsProps) {
+  const totalVotes = useMemo(() => data.reduce((sum, d) => sum + d.votes, 0), [data]);
+  const isCorrect = (i: number) => correctOptionIndices?.includes(i) ?? false;
+  const markFill = (i: number) => (isCorrect(i) ? CORRECT : SERIES);
+
+  // Donut slices: six categorical slots in fixed order, the rest folded into "Other".
+  const slices = useMemo(() => {
+    if (data.length <= 6) return data.map((row, i) => ({ ...row, fill: CATEGORICAL[i] }));
+    const head = data.slice(0, 5).map((row, i) => ({ ...row, fill: CATEGORICAL[i] }));
+    const rest = data.slice(5).reduce((sum, row) => sum + row.votes, 0);
+    return [...head, { label: `Other (${data.length - 5})`, votes: rest, fill: OTHER }];
+  }, [data]);
+
+  const tooltip = <Tooltip cursor={{ fill: "var(--accent)" }} content={<ChartTooltip total={totalVotes} />} />;
+
+  const content = () => {
     switch (type) {
       case "bar-v":
         return (
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <BarChart data={chartData} margin={{ top: 8, right: 4, left: -8, bottom: 4 }}>
-              <CartesianGrid vertical={false} stroke="currentColor" className="opacity-[0.08]" />
+            <BarChart data={data} margin={{ top: 24, right: 4, left: -12, bottom: 4 }}>
+              <CartesianGrid vertical={false} stroke="var(--border)" />
               <XAxis
                 dataKey="label"
                 tickLine={false}
-                axisLine={false}
-                tick={{ fill: "currentColor", fontSize: 11 }}
-                className="text-muted-foreground/60"
+                axisLine={{ stroke: "var(--border)" }}
+                tick={tick}
                 interval={0}
-                height={56}
-                tickFormatter={(v: string) => (v.length > 18 ? `${v.slice(0, 16)}…` : v)}
+                height={40}
+                tickFormatter={(v: string) => truncate(v, 18)}
               />
-              <YAxis
-                width={36}
-                tickLine={false}
-                axisLine={false}
-                tick={{ fill: "currentColor", fontSize: 11 }}
-                className="text-muted-foreground/60"
-                allowDecimals={false}
-              />
-              <Tooltip
-                cursor={{ fill: "var(--secondary)", opacity: 0.2 }}
-                contentStyle={{
-                  borderRadius: 12,
-                  border: "1px solid var(--border)",
-                  background: "var(--popover)",
-                  color: "var(--popover-foreground)",
-                  fontSize: "12px",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                }}
-              />
-              <Bar
-                dataKey="votes"
-                radius={[6, 6, 0, 0]}
-                maxBarSize={48}
-                animationDuration={600}
-                animationEasing="ease-out"
-              >
-                {chartData.map((entry, index) => {
-                  const isCorrect = correctOptionIndices?.includes(index);
-                  return (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={isCorrect ? "#10b981" : PRIMARY} 
-                    />
-                  );
-                })}
+              <YAxis width={40} tickLine={false} axisLine={false} tick={tick} allowDecimals={false} />
+              {tooltip}
+              <Bar dataKey="votes" radius={[4, 4, 0, 0]} maxBarSize={24} animationDuration={500}>
+                {data.map((_, i) => (
+                  <Cell key={i} fill={markFill(i)} />
+                ))}
+                <LabelList dataKey="votes" position="top" offset={8} fill="var(--muted-foreground)" fontSize={12} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -94,49 +95,24 @@ export function QuestionAnalytics({ title, data, type, correctOptionIndices, exp
       case "bar-h":
         return (
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <BarChart
-              data={chartData}
-              layout="vertical"
-              margin={{ top: 8, right: 32, left: 32, bottom: 8 }}
-            >
-              <CartesianGrid horizontal={false} stroke="currentColor" className="opacity-[0.08]" />
-              <XAxis type="number" hide />
+            <BarChart data={data} layout="vertical" margin={{ top: 4, right: 40, left: 4, bottom: 4 }}>
+              <CartesianGrid horizontal={false} stroke="var(--border)" />
+              <XAxis type="number" hide allowDecimals={false} />
               <YAxis
                 dataKey="label"
                 type="category"
                 tickLine={false}
-                axisLine={false}
-                tick={{ fill: "currentColor", fontSize: 11 }}
-                className="text-muted-foreground/60"
-                width={100}
-                tickFormatter={(v: string) => (v.length > 12 ? `${v.slice(0, 10)}…` : v)}
+                axisLine={{ stroke: "var(--border)" }}
+                tick={tick}
+                width={128}
+                tickFormatter={(v: string) => truncate(v, 18)}
               />
-              <Tooltip
-                cursor={{ fill: "var(--secondary)", opacity: 0.2 }}
-                contentStyle={{
-                  borderRadius: 12,
-                  border: "1px solid var(--border)",
-                  background: "var(--popover)",
-                  color: "var(--popover-foreground)",
-                  fontSize: "12px",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                }}
-              />
-              <Bar
-                dataKey="votes"
-                radius={[0, 6, 6, 0]}
-                maxBarSize={32}
-                animationDuration={600}
-              >
-                {chartData.map((entry, index) => {
-                  const isCorrect = correctOptionIndices?.includes(index);
-                  return (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={isCorrect ? "#10b981" : PRIMARY} 
-                    />
-                  );
-                })}
+              {tooltip}
+              <Bar dataKey="votes" radius={[0, 4, 4, 0]} maxBarSize={24} animationDuration={500}>
+                {data.map((_, i) => (
+                  <Cell key={i} fill={markFill(i)} />
+                ))}
+                <LabelList dataKey="votes" position="right" offset={8} fill="var(--muted-foreground)" fontSize={12} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -144,124 +120,112 @@ export function QuestionAnalytics({ title, data, type, correctOptionIndices, exp
 
       case "pie":
         return (
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <PieChart>
-              <Pie
-                data={chartData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={5}
-                dataKey="votes"
-                nameKey="label"
-                animationDuration={800}
-              >
-                {chartData.map((entry, index) => {
-                  const isCorrect = correctOptionIndices?.includes(index);
-                  return (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={isCorrect ? "#10b981" : COLORS[index % COLORS.length]} 
-                      stroke="none" 
-                    />
-                  );
-                })}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  borderRadius: 12,
-                  border: "1px solid var(--border)",
-                  background: "var(--popover)",
-                  color: "var(--popover-foreground)",
-                  fontSize: "12px",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="grid h-full items-center gap-6 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="h-56 sm:h-full">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <PieChart>
+                  {/* The 2px surface-coloured stroke is the gap between slices. */}
+                  <Pie
+                    data={slices}
+                    dataKey="votes"
+                    nameKey="label"
+                    innerRadius="62%"
+                    outerRadius="88%"
+                    stroke="var(--card)"
+                    strokeWidth={2}
+                    animationDuration={600}
+                  >
+                    {slices.map((slice) => (
+                      <Cell key={slice.label} fill={slice.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<ChartTooltip total={totalVotes} />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Legend: identity never by colour alone. */}
+            <ul className="space-y-2.5">
+              {slices.map((slice, i) => (
+                <li key={slice.label} className="flex items-center gap-2.5 text-sm">
+                  <span className="size-2.5 shrink-0 rounded-sm" style={{ background: slice.fill }} aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate text-foreground">{slice.label}</span>
+                  {isCorrect(i) && data.length <= 6 ? <Check className="size-4 shrink-0 text-success" aria-label="Correct answer" /> : null}
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">{slice.votes}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         );
 
       case "list":
         return (
-          <div className="flex flex-col gap-4 py-2">
+          <ul className="space-y-4 py-1">
             {data.map((item, i) => {
               const pct = totalVotes > 0 ? (item.votes / totalVotes) * 100 : 0;
-              const isCorrect = correctOptionIndices?.includes(i);
               return (
-                <div key={item.label} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-foreground/80">{item.label}</span>
-                      {isCorrect && (
-                        <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-bold text-emerald-400 uppercase tracking-wider">
-                          Correct Answer
+                <li key={`${item.label}-${i}`}>
+                  <div className="mb-2 flex items-baseline justify-between gap-3 text-sm">
+                    <span className="flex min-w-0 items-center gap-2 text-foreground">
+                      <span className="truncate">{item.label}</span>
+                      {isCorrect(i) ? (
+                        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-success">
+                          <Check className="size-3.5" aria-hidden="true" /> Correct
                         </span>
-                      )}
-                    </div>
-                    <span className="tabular-nums text-muted-foreground/60">
-                      {item.votes} votes ({pct.toFixed(0)}%)
+                      ) : null}
+                    </span>
+                    <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                      {item.votes} ({pct.toFixed(0)}%)
                     </span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-secondary">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
-                      transition={{ duration: 0.8, ease: "easeOut" }}
-                      className={cn("h-full", isCorrect ? "bg-emerald-500" : "bg-primary")}
+                      transition={{ duration: 0.6, ease: [0.32, 0.72, 0, 1] }}
+                      className={cn("h-full rounded-full", isCorrect(i) ? "bg-success" : "bg-chart-1")}
                     />
                   </div>
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ul>
         );
     }
   };
 
-  return (
-    <div className="bezel-outer">
-      <div className="bezel-inner p-6">
-        <div className="mb-6 flex items-center justify-between">
-          <h3 className="text-sm font-semibold tracking-tight text-foreground/90">{title}</h3>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
-              {totalVotes} total
-            </span>
-          </div>
-        </div>
-        <div className="h-64 min-h-[256px] w-full min-w-0">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={type}
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.02 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="h-full w-full"
-            >
-              {renderContent()}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+  // Charts get a fixed height; the list grows with its options.
+  const chartHeight = type === "list" ? undefined : type === "bar-h" ? Math.max(160, data.length * 44) : 256;
 
-        {((correctOptionIndices && correctOptionIndices.length > 0) || explanation) && (
-          <div className="mt-5 pt-4 border-t border-border/40 space-y-2">
-            {correctOptionIndices && correctOptionIndices.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap text-xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
-                  ✓ Correct Answer: {correctOptionIndices.map((i) => data[i]?.label).filter(Boolean).join(", ")}
-                </span>
-              </div>
-            )}
-            {explanation && (
-              <p className="text-xs text-muted-foreground/80 bg-secondary/30 p-3 rounded-xl border border-border/30">
-                💡 <span className="font-semibold text-foreground">Explanation:</span> {explanation}
-              </p>
-            )}
+  return (
+    <section className="rounded-xl border border-border bg-card p-5 sm:p-6">
+      <header className="mb-5 flex items-start justify-between gap-4">
+        <h3 className="text-base font-semibold leading-snug tracking-[-0.015em] text-foreground">{title}</h3>
+        <p className="shrink-0 text-sm text-muted-foreground">
+          <span className="font-mono tabular-nums text-foreground">{totalVotes}</span> answer{totalVotes === 1 ? "" : "s"}
+        </p>
+      </header>
+
+      <div className="w-full min-w-0" style={chartHeight ? { height: chartHeight } : undefined}>
+        {totalVotes === 0 && type !== "list" ? (
+          <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+            No answers yet
           </div>
+        ) : (
+          content()
         )}
       </div>
-    </div>
+
+      {(correctOptionIndices && correctOptionIndices.length > 0) || explanation ? (
+        <div className="mt-5 space-y-2 border-t border-border pt-4 text-sm">
+          {correctOptionIndices && correctOptionIndices.length > 0 ? (
+            <p className="flex items-center gap-2 text-foreground">
+              <Check className="size-4 text-success" aria-hidden="true" />
+              Correct: {correctOptionIndices.map((i) => data[i]?.label).filter(Boolean).join(", ")}
+            </p>
+          ) : null}
+          {explanation ? <p className="text-muted-foreground">{explanation}</p> : null}
+        </div>
+      ) : null}
+    </section>
   );
 }

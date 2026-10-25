@@ -64,7 +64,7 @@ export function AiDeckForm({ form, onChange, onSubmit, onCancel, error, aiAvaila
         <p
           role="note"
           data-testid="ai-deck-mock-capability"
-          className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-foreground"
+          className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-foreground"
         >
           {t("mockCapability")}
         </p>
@@ -156,7 +156,7 @@ export function AiDeckForm({ form, onChange, onSubmit, onCancel, error, aiAvaila
                   "rounded-full border px-3 py-1.5 text-xs font-semibold transition-all",
                   selected
                     ? "border-primary/40 bg-primary/10 text-foreground"
-                    : "border-border bg-secondary/20 text-muted-foreground hover:bg-secondary/50"
+                    : "border-border bg-card text-muted-foreground hover:bg-accent"
                 )}
               >
                 {t(`tones.${tone}`)}
@@ -172,7 +172,7 @@ export function AiDeckForm({ form, onChange, onSubmit, onCancel, error, aiAvaila
           {SLIDE_CATEGORIES.map((category: SlideCategory) => {
             const id = `${ids}-include-${category}`;
             return (
-              <div key={category} className="flex items-start gap-3 rounded-xl border border-border bg-secondary/20 p-3">
+              <div key={category} className="flex items-start gap-3 rounded-lg border border-border bg-secondary/40 p-3">
                 <Switch
                   id={id}
                   size="sm"
@@ -197,7 +197,7 @@ export function AiDeckForm({ form, onChange, onSubmit, onCancel, error, aiAvaila
           aria-expanded={sourceOpen}
           aria-controls={`${ids}-source`}
           onClick={() => setSourceOpen((open) => !open)}
-          className="w-fit text-sm font-medium text-primary underline-offset-4 hover:underline"
+          className="w-fit text-sm font-medium text-accent-ink underline-offset-4 hover:underline"
         >
           {t("form.sourceText")}
         </button>
@@ -227,7 +227,7 @@ export function AiDeckForm({ form, onChange, onSubmit, onCancel, error, aiAvaila
         <Button type="button" variant="outline" className="rounded-xl" onClick={onCancel}>
           {t("planning.cancel")}
         </Button>
-        <Button type="submit" className="rounded-xl bg-primary font-medium text-primary-foreground hover:opacity-90">
+        <Button type="submit">
           <Sparkles className="mr-1.5 size-4" aria-hidden />
           {t("form.submit")}
         </Button>

@@ -65,7 +65,7 @@ function RegionEditor({
           role="img"
           aria-label={image.alt || "Image"}
           aria-describedby={hintId}
-          className="relative w-fit max-w-full cursor-crosshair touch-none select-none overflow-hidden rounded-xl border border-border/40"
+          className="relative w-fit max-w-full cursor-crosshair touch-none select-none overflow-hidden rounded-lg border border-border"
           onPointerDown={(event) => {
             event.currentTarget.setPointerCapture(event.pointerId);
             anchor.current = pinOf(event);
@@ -91,12 +91,12 @@ function RegionEditor({
             src={image.url}
             alt=""
             className="pointer-events-none block max-h-72 w-auto max-w-full"
-            fallback={<p className="p-6 text-xs text-muted-foreground/70">This image could not be loaded.</p>}
+            fallback={<p className="p-6 text-xs text-muted-foreground">This image could not be loaded.</p>}
           />
           {shown && (
             <span
               aria-hidden
-              className="pointer-events-none absolute border-2 border-emerald-400 bg-emerald-400/25"
+              className="pointer-events-none absolute border-2 border-success bg-success/25"
               style={{
                 left: `${shown.x * 100}%`,
                 top: `${shown.y * 100}%`,
@@ -109,7 +109,7 @@ function RegionEditor({
       ) : (
         <EditorNote>Choose an image first, then mark the correct area on it.</EditorNote>
       )}
-      <p id={hintId} className="text-[11px] text-muted-foreground/60">
+      <p id={hintId} className="text-xs text-muted-foreground">
         Drag on the image to mark the area, or type its edges as a percentage of the image. Pins inside it are correct.
       </p>
 
@@ -149,7 +149,7 @@ function RegionEditor({
           variant="ghost"
           size="sm"
           onClick={() => onChange(null)}
-          className="text-xs text-muted-foreground/70 hover:text-foreground"
+          className="text-xs text-muted-foreground hover:text-foreground"
         >
           <Trash2 className="size-3.5 mr-1" /> Clear area
         </Button>

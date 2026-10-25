@@ -136,7 +136,7 @@ test("an owner invites a teammate who joins as editor; roles, sharing and the au
 
   await memberPage.waitForURL(/\/login\?next=/);
   await memberPage.getByLabel("Email").fill(memberEmail);
-  await memberPage.getByLabel("Password").fill(memberPassword);
+  await memberPage.getByLabel("Password", { exact: true }).fill(memberPassword);
   await memberPage.getByRole("button", { name: "Sign in" }).click();
   await memberPage.waitForURL(/\/invites\//);
   await expect(memberPage.getByText(`Signed in as ${memberEmail}`)).toBeVisible();

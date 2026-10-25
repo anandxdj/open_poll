@@ -114,21 +114,21 @@ export function AiDeckOutline({ outline, kinds, include, source, warnings, error
 
       <div className="grid max-h-[46vh] gap-4 overflow-y-auto pr-1" data-testid="ai-deck-outline-sections">
         {outline.sections.map((section, s) => (
-          <section key={s} aria-label={section.title || t("outline.sectionTitle", { number: s + 1 })} className="grid gap-2 rounded-2xl border border-border bg-secondary/10 p-3">
+          <section key={s} aria-label={section.title || t("outline.sectionTitle", { number: s + 1 })} className="grid gap-2 rounded-xl border border-border bg-secondary/40 p-3">
             <Input
               aria-label={t("outline.sectionTitle", { number: s + 1 })}
               value={section.title}
               maxLength={DECK_LIMITS.sectionTitleMax}
               onChange={(event) => onChange(setSectionTitle(outline, s, event.target.value))}
               aria-invalid={submitted && issues.some((issue) => issue.code === "section" && issue.section === s)}
-              className="h-8 border-transparent bg-transparent px-1 text-xs font-bold uppercase tracking-widest text-muted-foreground focus-visible:bg-background"
+              className="h-8 border-transparent bg-transparent px-1 text-sm font-semibold text-foreground focus-visible:bg-background"
             />
             <ol className="grid gap-2">
               {section.slides.map((slide, i) => {
                 const number = slideNumber(outline, s, i);
                 return (
                   <li key={`${s}-${i}`} className="grid gap-2 sm:grid-cols-[auto_13rem_1fr_auto] sm:items-center">
-                    <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary" aria-hidden>
+                    <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 font-mono text-xs font-medium text-accent-ink" aria-hidden>
                       {number}
                     </span>
                     <select
@@ -185,7 +185,7 @@ export function AiDeckOutline({ outline, kinds, include, source, warnings, error
             </ol>
             <button
               type="button"
-              className="flex w-fit items-center gap-1.5 rounded-lg px-1.5 py-1 text-xs font-semibold text-primary hover:bg-primary/10 disabled:pointer-events-none disabled:opacity-40"
+              className="flex w-fit items-center gap-1.5 rounded-lg px-1.5 py-1 text-sm font-medium text-accent-ink hover:bg-primary/10 disabled:pointer-events-none disabled:opacity-40"
               disabled={total >= DECK_LIMITS.maxSlides}
               onClick={() => onChange(addSlide(outline, s, newKind))}
             >
@@ -221,7 +221,7 @@ export function AiDeckOutline({ outline, kinds, include, source, warnings, error
           <Button type="button" variant="outline" className="rounded-xl" onClick={onBack}>
             {t("outline.back")}
           </Button>
-          <Button type="submit" className="rounded-xl bg-primary font-medium text-primary-foreground hover:opacity-90">
+          <Button type="submit">
             <Sparkles className="mr-1.5 size-4" aria-hidden />
             {t("outline.submit")}
           </Button>

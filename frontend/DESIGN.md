@@ -1,60 +1,111 @@
 ---
-name: Open Poll Modern
+name: Open Poll Graph Paper
 colors:
-  background: 'hsl(0 0% 100%)'
-  foreground: 'hsl(222.2 84% 4.9%)'
-  primary: 'hsl(28 50% 69%)' # #d8ad87 Sandy Tan
-  secondary: 'hsl(210 40% 96.1%)'
-  muted: 'hsl(210 40% 96.1%)'
-  border: 'hsl(214.3 31.8% 91.4%)'
+  background: '#f6f6f3' # paper
+  foreground: '#171717' # ink
+  card: '#ffffff' # sheet
+  muted: '#efeee9'
+  muted-foreground: '#5c5a55' # graphite
+  border: '#e2e0d9' # rule
+  primary: '#cf460c' # ember fill, white text 4.6:1
+  accent-ink: '#b93d0b' # ember as text
+  brand: '#ea580c' # display type and logo only
+  dark-background: '#141413'
+  dark-foreground: '#f2f1ec'
+  dark-primary: '#f97316' # near-black text on it
 typography:
-  fontFamily: 'Geist Sans, Inter, sans-serif'
+  fontFamily: 'Inter Tight, ui-sans-serif, system-ui, sans-serif'
+  serif: 'Instrument Serif (italic, one word per page)'
+  mono: 'JetBrains Mono (codes, counts, numbers)'
   headings:
-    fontWeight: '700'
-    letterSpacing: '-0.025em'
+    fontWeight: '600'
+    letterSpacing: '-0.02em at 24px, -0.04em at 36-56px, -0.05em at 60px and up'
   body:
     fontSize: '16px'
     lineHeight: '1.6'
 rounded:
-  default: '0.5rem'
-  md: '0.375rem'
-  lg: '0.5rem'
-  xl: '0.75rem'
+  md: '6px'
+  lg: '8px'
+  xl: '12px'
+  2xl: '16px'
+  full: '9999px'
 ---
 
-# Design System: Open Poll Modern (Supastarter Inspired)
+# Design system: Graph paper
 
-## Creative North Star: "Professional Clarity"
-This design system is inspired by **supastarter.dev**, focusing on a clean, high-contrast, and professional SaaS aesthetic. It prioritizes readability, functional components, and a "production-ready" feel.
+Open Poll is where a room answers a question and the answers get plotted. The
+visual language borrows from that: warm paper, ink, hairline graph-paper grids,
+and one ember-orange mark for the thing that matters (the leading answer, the
+primary action). Light-first, with a complete warm-graphite dark mode.
 
-## Core Principles
+Tokens live in `app/globals.css`; the full rules and component notes are in
+`docs/wiki/ui/design-system.md`. This file is the short brief for anyone (or
+any coding agent) starting a new screen.
 
-### 1. High Contrast & Readability
-Use deep slates for text and pure whites/light slates for backgrounds. Ensure every element has sufficient contrast for accessibility.
+## Principles
 
-### 2. Standardized Component Geometry
-Stick to standard Tailwind radii (0.5rem) and spacing (4px/0.25rem grid). Avoid over-styling with glows or complex gradients.
+1. **Ink acts, ember signals.** Text and structure are ink on paper. Ember marks
+   the one primary action on a screen, the leading data series, checks and
+   selected states. Never decorate with it.
+2. **Plot, don't float.** Product illustrations sit on graph paper (`PlotPanel`,
+   `.mk-grid`) instead of floating in gradient space. Shadows are soft, long and
+   rare: the projected screen, the phone, a dialog.
+3. **Type carries the voice.** Inter Tight 600 with tight tracking for headings.
+   One Instrument Serif italic word per page (the hero's "answer"); nowhere else.
+   JetBrains Mono only for data: join codes, counts, percentages, step numbers.
+4. **Left axis.** Headings, copy and CTAs align to one left edge. Section
+   headers split on wide screens: h2 left, one sentence right.
+5. **Say what it does.** Sentence case, plain verbs, only claims the product
+   backs. No eyebrow labels, no middle-dot meta strings, no arrows appended to
+   button text.
 
-### 3. Functional Motion
-Transitions should be subtle and fast. Use standard easing for UI interactions to maintain a responsive feel.
+## Colour
 
-### 4. Semantic Color Usage
-- **Primary (#d8ad87 Sandy Tan)**: Call to actions, active states, and focus rings.
-- **Secondary/Muted (warm sand)**: Backgrounds for cards, sidebars, and inactive elements.
-- **Destructive (Red)**: Error states and dangerous actions.
+| Role | Light | Dark |
+| --- | --- | --- |
+| Page (paper) | `#f6f6f3` | `#141413` |
+| Sheet (cards, popovers) | `#ffffff` | `#1b1b1a` |
+| Raised fill | `#efeee9` | `#242422` |
+| Rule (borders) | `#e2e0d9` | `#31302d` |
+| Ink (text) | `#171717` | `#f2f1ec` |
+| Graphite (secondary text) | `#5c5a55` | `#a7a49c` |
+| Ember fill (`primary`) | `#cf460c`, white text | `#f97316`, `#1a0d04` text |
+| Ember text (`accent-ink`) | `#b93d0b` | `#fb923c` |
+| Brand (display, logo) | `#ea580c` | `#f97316` |
 
-## Component Guidelines
+Sample sessions in marketing and sign-in follow the app theme, answers shown
+as `ResultRow` cards on graph paper. The real projected stage is always dark
+(warm graphite, `--deck-*` tokens); where a small picture of it appears inside
+a light page (library cards, slide thumbnails), wrap it in
+`<div className="dark ...">` to re-apply the dark tokens.
 
-### Buttons
-- **Primary**: Solid Blue, white text.
-- **Secondary**: Light Gray background or outlined.
-- **Ghost**: Transparent, subtle background on hover.
+## Shape
 
-### Cards
-- Bordered by default (`border-border`).
-- Subtle shadows or flat depending on context.
-- Consistent padding (`p-6`).
+Buttons 8px in the app, pills (`rounded-full`) on marketing and sign-in pages.
+Cards and dialogs 12px, large panels 16px. Borders are 1px rules; a list is
+hairline rows, a feature grid is one bordered block with `gap-px` dividers.
 
-### Typography
-- **Headings**: `tracking-tight font-bold`.
-- **Body**: `leading-relaxed text-muted-foreground` for secondary info, `text-foreground` for primary content.
+## App screens
+
+Paper sidebar with white-sheet active item; page header with a 48px h1 and
+actions on the right; counts as a hairline strip; underline tabs; cards with a
+graph-paper preview on top and the title as a stretched link. Card actions are
+`outline` and `ink` buttons; ember is kept for the page's one main action and
+for things that are live. Phones get a top bar and a drawer.
+
+## Motion
+
+Motion shows results arriving; it never decorates. 150-250ms UI transitions on
+`cubic-bezier(0.32, 0.72, 0, 1)`.
+
+- One load-in on the hero. No fade-and-slide-up on sections.
+- Illustrations play once, the first time they are half on screen, then hold
+  their last frame (`useSeen`, `useStepper`, `CountUp` in
+  `features/landing/components/shared/motion.tsx`).
+- Only two things loop: the hero's sample session and the question-types
+  stage, which moves to the next slide type every 6.5s while on screen. It
+  pauses on hover and focus, has a pause button, and stops for good once
+  someone picks a type.
+- `prefers-reduced-motion`: no autoplay, every illustration shows its
+  settled frame. Anything whose first frame depends on that setting renders
+  after mount, so server and client HTML agree.

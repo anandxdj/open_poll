@@ -19,7 +19,7 @@ import { meta } from "./meta";
 
 type Source = "link" | "file";
 
-const labelClass = "text-xs font-semibold uppercase tracking-wider text-muted-foreground/60";
+const labelClass = "text-sm font-medium text-foreground";
 
 /** The link field shows what was pasted; the slide keeps only the parsed id. */
 function VideoLinkField({ video, onChange }: { video: VideoContent; onChange: (patch: Partial<VideoContent>) => void }) {
@@ -38,7 +38,7 @@ function VideoLinkField({ video, onChange }: { video: VideoContent; onChange: (p
     <div className="space-y-2">
       <Label htmlFor={id} className={labelClass}>
         YouTube or Vimeo link
-        <span className="text-primary/80" aria-hidden>
+        <span className="text-accent-ink" aria-hidden>
           *
         </span>
       </Label>
@@ -59,11 +59,11 @@ function VideoLinkField({ video, onChange }: { video: VideoContent; onChange: (p
         className={entryInputClass}
       />
       {invalid ? (
-        <p className="text-xs text-red-400" role="alert">
+        <p className="text-xs text-destructive" role="alert">
           That isn&apos;t a YouTube or Vimeo video link.
         </p>
       ) : (
-        <p className="text-[11px] text-muted-foreground/60">
+        <p className="text-xs text-muted-foreground">
           Plays through youtube-nocookie.com or player.vimeo.com. A start time in the link (t=…) is kept.
         </p>
       )}
@@ -80,7 +80,7 @@ function VideoUploadField({ video, onChange }: { video: VideoContent; onChange: 
     <div className="space-y-2">
       <p className={labelClass}>Video file</p>
       {video.key ? (
-        <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-secondary/15 px-3 py-2 text-xs">
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs">
           <FileVideo className="size-4 text-muted-foreground" aria-hidden />
           <span className="flex-1 truncate text-muted-foreground">{video.key.split("/").pop()}</span>
           <Button
@@ -119,14 +119,14 @@ function VideoUploadField({ video, onChange }: { video: VideoContent; onChange: 
             type="button"
             onClick={upload.cancel}
             aria-label="Cancel upload"
-            className="text-muted-foreground/60 hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground"
           >
             <X className="size-4" />
           </button>
         </div>
       )}
       {upload.error && (
-        <p className="text-xs text-red-400" role="alert">
+        <p className="text-xs text-destructive" role="alert">
           {upload.error}
         </p>
       )}
@@ -177,7 +177,7 @@ function StartField({ start, onChange }: { start: number; onChange: (start: numb
         className={`${entryInputClass} max-w-32 tabular-nums`}
       />
       {invalid && (
-        <p className="text-xs text-red-400" role="alert">
+        <p className="text-xs text-destructive" role="alert">
           Use minutes:seconds (1:30) or seconds (90).
         </p>
       )}
@@ -205,7 +205,7 @@ function VideoEditor({ slide, onChange }: SlideEditorProps) {
         ]}
       />
       {!storage && source === "link" && (
-        <p className="text-[11px] text-muted-foreground/60">
+        <p className="text-xs text-muted-foreground">
           Uploading video files needs file storage, which isn&apos;t set up on this server.
         </p>
       )}
@@ -215,7 +215,7 @@ function VideoEditor({ slide, onChange }: SlideEditorProps) {
       <StartField start={video.start} onChange={(start) => set({ start })} />
 
       {canEmbed(video) && (
-        <div className="aspect-video overflow-hidden rounded-2xl border border-border/40">
+        <div className="aspect-video overflow-hidden rounded-lg border border-border">
           <VideoEmbed video={video} title="Video preview" />
         </div>
       )}

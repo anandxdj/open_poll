@@ -126,7 +126,7 @@ function MultiSelectAnswer({ slide, mode, onSubmit, submitting }: ParticipantVie
 
   return (
     <div className="space-y-4 w-full">
-      <p className="text-center text-xs font-semibold uppercase tracking-wider text-deck-muted-fg">
+      <p className="text-center text-sm font-medium text-deck-muted-fg">
         {t("selectAll")}
       </p>
       <div className="grid grid-cols-1 gap-3">

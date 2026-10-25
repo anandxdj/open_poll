@@ -19,9 +19,9 @@ import { useHostSession } from "./useHostSession";
 import { useJoinLink } from "./useJoinLink";
 
 const primaryButton =
-  "rounded-full bg-deck-primary text-deck-primary-fg font-bold shadow-xl shadow-deck-primary/20 hover:opacity-90 transition-all active:scale-[0.98]";
+  "rounded-full bg-deck-accent font-semibold text-deck-stage-ink transition-colors hover:bg-deck-accent-soft";
 const outlineButton =
-  "rounded-full border-deck-stage-fg/20 bg-transparent text-deck-stage-fg font-semibold hover:bg-deck-stage-fg/10";
+  "rounded-full border-deck-stage-fg/20 bg-transparent font-medium text-deck-stage-fg hover:bg-deck-stage-fg/10 hover:text-deck-stage-fg";
 
 /** Host console = Stage + host controls, over its own live store. */
 export function HostConsole({ presentationId }: { presentationId: string }) {
@@ -87,7 +87,7 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-deck-stage-bg">
-        <Loader2 className="size-8 animate-spin text-deck-primary/60" />
+        <Loader2 className="size-8 animate-spin text-deck-stage-fg/50" />
       </div>
     );
   }
@@ -98,7 +98,7 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
         <p className="text-sm font-semibold text-deck-danger-soft">{loadError ?? t("load.notFound")}</p>
         <button
           onClick={() => router.push("/polls")}
-          className="text-xs text-deck-stage-fg/40 underline underline-offset-2"
+          className="text-sm text-deck-stage-fg/70 underline underline-offset-4 hover:text-deck-stage-fg"
         >
           {t("load.backToDashboard")}
         </button>
@@ -168,9 +168,9 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
           <button
             onClick={() => setShowLeaderboard(true)}
             title={t("header.leaderboard")}
-            className="absolute right-6 bottom-5 z-10 hidden sm:flex items-center gap-2 rounded-full border border-deck-accent/30 bg-deck-accent/10 px-4 py-2 text-xs font-bold text-deck-accent-soft backdrop-blur-md shadow-lg hover:bg-deck-accent/20 transition-all hover:scale-105 active:scale-95"
+            className="absolute bottom-5 right-6 z-10 hidden items-center gap-2 rounded-full border border-deck-stage-fg/15 bg-deck-stage-chrome px-4 py-2 text-sm font-medium text-deck-stage-fg transition-colors hover:bg-deck-stage-panel sm:flex"
           >
-            <Trophy className="size-4 text-deck-accent" />
+            <Trophy className="size-4 text-deck-rank-1" />
             <span>{t("header.leaderboard")}</span>
           </button>
         }
@@ -179,7 +179,7 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
             <Button
               onClick={() => void session.start()}
               disabled={busy}
-              className="h-10 px-6 text-xs rounded-full bg-deck-primary text-deck-primary-fg font-bold shadow-lg shadow-deck-primary/20 hover:opacity-90 transition-opacity"
+              className={`h-11 px-6 text-sm ${primaryButton}`}
             >
               <RotateCcw className="size-4 mr-2" /> {t("end.presentAgain")}
             </Button>
@@ -187,11 +187,11 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
               variant="outline"
               onClick={() => void session.openLobby()}
               disabled={busy}
-              className={`h-10 px-5 text-xs ${outlineButton}`}
+              className={`h-11 px-5 text-sm ${outlineButton}`}
             >
               {t("end.openLobby")}
             </Button>
-            <Button variant="outline" onClick={() => router.push("/polls")} className={`h-10 px-5 text-xs ${outlineButton}`}>
+            <Button variant="outline" onClick={() => router.push("/polls")} className={`h-11 px-5 text-sm ${outlineButton}`}>
               {t("end.backToDashboard")}
             </Button>
           </>

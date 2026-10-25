@@ -14,7 +14,7 @@ import { listAuditEvents } from "../api/audit.api";
 import { actionOptions, describeAction, describeActor, describeEvent } from "../format";
 import type { AuditEvent } from "../types";
 
-const card = "rounded-[1.5rem] border border-border bg-card p-6";
+const card = "rounded-xl border border-border bg-card p-5 sm:p-6";
 
 interface Filters {
   action: string;
@@ -95,7 +95,7 @@ function AuditPanel({ workspaceId, retentionDays }: { workspaceId: string; reten
   return (
     <section className="space-y-6">
       <div className="space-y-1">
-        <h2 className="text-xl font-bold text-foreground/90">Audit log</h2>
+        <h2 className="text-xl font-semibold tracking-[-0.02em] text-foreground">Audit log</h2>
         <p className="text-sm text-muted-foreground">
           Who changed members, invitations, sharing and settings in this workspace.{" "}
           {retentionDays === null ? "Events are kept without a time limit." : `Events are kept for ${retentionDays} days on this plan.`}
@@ -135,7 +135,7 @@ function AuditPanel({ workspaceId, retentionDays }: { workspaceId: string; reten
               ))}
             </select>
           </div>
-          <Button type="button" variant="ghost" className="rounded-xl" disabled={!filtered} onClick={() => update(NO_FILTERS)}>
+          <Button type="button" variant="ghost" disabled={!filtered} onClick={() => update(NO_FILTERS)}>
             Clear filters
           </Button>
         </div>
@@ -143,7 +143,7 @@ function AuditPanel({ workspaceId, retentionDays }: { workspaceId: string; reten
         {error ? (
           <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-destructive">
             {error}
-            <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => setVersion((value) => value + 1)}>
+            <Button type="button" variant="outline" size="sm" onClick={() => setVersion((value) => value + 1)}>
               Try again
             </Button>
           </div>
@@ -163,7 +163,7 @@ function AuditPanel({ workspaceId, retentionDays }: { workspaceId: string; reten
             <table className="w-full min-w-[40rem] text-left text-sm">
               <caption className="sr-only">Audit events, newest first</caption>
               <thead>
-                <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
+                <tr className="border-b border-border text-xs font-medium text-muted-foreground">
                   <th scope="col" className="py-2 pr-4 font-semibold">When</th>
                   <th scope="col" className="py-2 pr-4 font-semibold">Who</th>
                   <th scope="col" className="py-2 pr-4 font-semibold">What</th>
@@ -178,8 +178,8 @@ function AuditPanel({ workspaceId, retentionDays }: { workspaceId: string; reten
                         {format(new Date(event.createdAt), "MMM d, yyyy HH:mm")}
                       </time>
                     </td>
-                    <td className="py-3 pr-4 text-foreground/90">{describeActor(event)}</td>
-                    <td className="py-3 pr-4 font-medium text-foreground/90">{describeAction(event.action)}</td>
+                    <td className="py-3 pr-4 text-foreground">{describeActor(event)}</td>
+                    <td className="py-3 pr-4 font-medium text-foreground">{describeAction(event.action)}</td>
                     <td className="py-3 text-muted-foreground">{describeEvent(event)}</td>
                   </tr>
                 ))}
@@ -190,7 +190,7 @@ function AuditPanel({ workspaceId, retentionDays }: { workspaceId: string; reten
 
         {cursor ? (
           <div className="flex justify-center">
-            <Button type="button" variant="outline" className="rounded-xl" disabled={loadingMore} onClick={() => void loadMore()}>
+            <Button type="button" variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>
               {loadingMore ? <Loader2 className="size-4 animate-spin" /> : "Load older events"}
             </Button>
           </div>
@@ -208,7 +208,7 @@ export function AuditLog() {
     return (
       <div className={`${card} space-y-3`}>
         <p className="text-sm text-muted-foreground">Couldn&apos;t load this workspace.</p>
-        <Button variant="outline" className="rounded-xl" onClick={retry}>
+        <Button variant="outline" onClick={retry}>
           Try again
         </Button>
       </div>
@@ -225,7 +225,7 @@ export function AuditLog() {
   if (!detail.permissions.includes("workspace:manage")) {
     return (
       <div className={`${card} space-y-2`}>
-        <h2 className="text-xl font-bold text-foreground/90">Audit log</h2>
+        <h2 className="text-xl font-semibold tracking-[-0.02em] text-foreground">Audit log</h2>
         <p className="text-sm text-muted-foreground">Only owners and admins can see the audit log.</p>
       </div>
     );

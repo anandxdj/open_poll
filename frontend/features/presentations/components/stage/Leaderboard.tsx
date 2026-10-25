@@ -25,7 +25,7 @@ export function Leaderboard({ entries, highlightParticipantId, title }: Leaderbo
   const t = useTranslations("live.leaderboard");
 
   if (entries.length === 0) {
-    return <div className="text-center py-10 text-sm text-deck-muted-fg/50">{t("empty")}</div>;
+    return <div className="py-10 text-center text-sm text-deck-muted-fg">{t("empty")}</div>;
   }
 
   const maxScore = Math.max(...entries.map((e) => e.score), 1);
@@ -34,7 +34,7 @@ export function Leaderboard({ entries, highlightParticipantId, title }: Leaderbo
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Trophy className="size-4 text-deck-primary" />
-        <h2 className="text-xs font-bold uppercase tracking-widest text-deck-muted-fg/60">
+        <h2 className="text-sm font-medium text-deck-muted-fg">
           {title ?? t("title")}
         </h2>
       </div>
@@ -49,12 +49,12 @@ export function Leaderboard({ entries, highlightParticipantId, title }: Leaderbo
               initial={{ opacity: 0, x: -16 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, ease, delay: i * 0.06 }}
-              className={`relative overflow-hidden rounded-2xl border px-4 py-3 flex items-center gap-3 ${
+              className={`relative flex items-center gap-3 overflow-hidden rounded-xl border px-4 py-3 ${
                 isMe
-                  ? "border-deck-primary/40 bg-deck-primary/10"
+                  ? "border-deck-primary/50 bg-deck-primary/10"
                   : entry.rank === 1
-                    ? "border-deck-rank-1/30 bg-deck-rank-1/5"
-                    : "border-deck-stage-fg/10 bg-deck-stage-fg/[0.03]"
+                    ? "border-deck-rank-1/40 bg-deck-rank-1/5"
+                    : "border-deck-border bg-deck-surface"
               }`}
             >
               {/* score bar backdrop */}
@@ -62,19 +62,19 @@ export function Leaderboard({ entries, highlightParticipantId, title }: Leaderbo
                 className="absolute inset-y-0 left-0 bg-deck-primary/[0.06]"
                 style={{ width: `${(entry.score / maxScore) * 100}%` }}
               />
-              <span className="relative z-10 w-7 text-center text-sm font-bold tabular-nums text-deck-muted-fg/60">
+              <span className="relative z-10 w-7 text-center font-mono text-sm tabular-nums text-deck-muted-fg">
                 {entry.rank}
               </span>
-              <span className="relative z-10 flex-1 flex items-center gap-2 text-sm font-semibold text-deck-fg/90 truncate">
+              <span className="relative z-10 flex flex-1 items-center gap-2 truncate text-base font-medium text-deck-fg">
                 {entry.name}
                 {isMe && (
-                  <span className="rounded-full bg-deck-primary/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-deck-primary">
+                  <span className="rounded-full bg-deck-primary/15 px-2 py-0.5 text-xs font-medium text-deck-fg">
                     {t("you")}
                   </span>
                 )}
                 {rankIcon(entry.rank)}
               </span>
-              <span className="relative z-10 text-sm font-bold tabular-nums text-deck-primary">
+              <span className="relative z-10 font-mono text-sm font-medium tabular-nums text-deck-fg">
                 {entry.score.toLocaleString()}
               </span>
             </motion.div>

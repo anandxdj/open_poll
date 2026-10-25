@@ -1,7 +1,7 @@
 ---
 summary: Deck builder layout, the slide meta and editor registries, inspector tabs, and slide-rail operations.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-10-25
 ---
 
 # Presentation Builder
@@ -16,11 +16,11 @@ Route `/presentation/create` (`app/(dashboard)/presentation/create/page.tsx`, `?
 | Piece | File | Role |
 | --- | --- | --- |
 | State | `components/builder/useDeckBuilder.ts` | Deck + selected slide, local draft (localStorage), silent backend drafts, explicit save, AI generation. |
-| Frame | `components/builder/BuilderShell.tsx` | Header on top, rail beside the inspector. |
-| Header | `components/builder/BuilderHeader.tsx` | Title, AI generate, Import questions (`features/imports`, optional `onImportQuestions`), Save Draft, Create/Save. |
+| Frame | `components/builder/BuilderShell.tsx` | A studio frame: the header bar across the top, the rail on the left (on top below `lg`), the inspector centred on graph paper (`max-w-3xl`) in its own scroll area. |
+| Header | `components/builder/BuilderHeader.tsx` | Back to the library, the title edited in place (`Deck title`), AI generate (outline), Import questions (`features/imports`, optional `onImportQuestions`) and Save draft (ghost), Create deck / Save changes (the one ember button). |
 | AI dialog | `components/AiPresentationModal.tsx` | "Whole deck" (default for a new deck; see [`ai-deck.md`](./ai-deck.md): outline review, speaker notes, creates the deck and `handleDeckCreated` switches the builder to it) and "Quick slides" (questions merged into this deck). `AiDeckBanner` shows the mock-data notice under the header for `?aiSource=mock`. |
-| Rail | `components/builder/SlideRail.tsx` | Thumbnails, select, reorder, duplicate, delete, "New slide" picker. |
-| Inspector | `components/builder/Inspector.tsx` | Type badge + tabs from the `inspectorTabs` registry. |
+| Rail | `components/builder/SlideRail.tsx` | Paper column (`bg-sidebar`), the selected slide a white sheet; thumbnails (`SlideThumbnail`, scoped `dark` so the stage reads in light mode), select, reorder, duplicate, delete, "New slide" picker. |
+| Inspector | `components/builder/Inspector.tsx` | One white sheet: slide type and kind on the left, the `inspectorTabs` registry as underline tabs on the right, the panel below. |
 | Pure helpers | `components/builder/{deckDraft,slideRailOps}.ts` | Validation, payloads, local draft, rail operations (unit tested). |
 
 ## Slide registries
@@ -69,7 +69,7 @@ Deck-level helpers dispatch through the registry: `blankSlide`, `cleanSlide`, `v
 `normalizeSlideForDraft`. `validateDeck` (in `deckDraft.ts`) checks the title, then prefixes the
 first slide error with `Slide N: `.
 
-Shared pieces for editors are in `slides/editorKit.tsx`: `blankBase(meta)` (every field empty,
+Shared pieces for editors are in `slides/editorKit.tsx` (field labels are 14px sentence case, entry inputs `bg-card`): `blankBase(meta)` (every field empty,
 scoring from `meta.scored`), `cleanBase(slide, meta)`, `requireQuestion`, `padTo`, `FieldLabel`,
 `RemoveEntryButton`, `EditorNote`.
 

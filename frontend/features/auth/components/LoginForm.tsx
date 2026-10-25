@@ -1,16 +1,14 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { JSX, SVGProps, useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { isAxiosError } from "axios";
-import { Loader2 } from "lucide-react";
-import { ProductLogo } from "@/components/ui/ProductLogo";
+import { textLink } from "@/features/landing/components/shared/styles";
+import { cn } from "@/lib/utils";
+import { AuthShell } from "./AuthShell";
+import { AuthDivider, AuthField, AuthSubmit, PasswordField, authSecondaryClass } from "./fields";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import axios from "@/lib/api-client";
 import { toast } from "sonner";
@@ -80,134 +78,68 @@ export function LoginForm() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-dvh bg-radial-glow px-6 overflow-hidden relative">
-      {/* Ambient backgrounds */}
-      <div className="absolute top-1/4 -left-20 size-96 bg-primary/10 blur-[120px] rounded-full animate-pulse" />
-      <div className="absolute bottom-1/4 -right-20 size-96 bg-primary/5 blur-[100px] rounded-full animate-pulse [animation-delay:2s]" />
-
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.32, 0.72, 0, 1] }}
-        className="w-full max-w-sm relative z-10"
-      >
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-10 text-center">
-          <Link href="/" className="group flex items-center gap-3 mb-6">
-            <div className="relative">
-              <div className="absolute -inset-1.5 rounded-xl bg-primary/20 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative size-10 flex items-center justify-center">
-                <ProductLogo size={40} />
-              </div>
-            </div>
-            <span className="text-xl font-bold tracking-tight text-foreground/90">
-              Open Poll
-            </span>
+    <AuthShell
+      title="Log in to your account"
+      description="Welcome back. Enter your details to continue."
+      footer={
+        <>
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" className={textLink}>
+            Sign up
           </Link>
-          <h2 className="text-balance text-center text-xl font-semibold text-foreground">
-            Log in to your account
-          </h2>
-          <p className="text-sm text-muted-foreground mt-2">Enter your credentials to continue</p>
-        </div>
+        </>
+      }
+    >
+      <form onSubmit={handleLogin} className="space-y-5">
+        <AuthField
+          type="email"
+          id="email"
+          name="email"
+          label="Email"
+          autoComplete="email"
+          placeholder="you@company.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={loading}
+        />
+        <PasswordField
+          id="password"
+          name="password"
+          label="Password"
+          autoComplete="current-password"
+          placeholder="Your password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          disabled={loading}
+          aside={
+            <Link href="/forgot-password" className={cn(textLink, "inline-flex min-h-10 items-center text-sm")}>
+              Forgot password?
+            </Link>
+          }
+        />
+        <AuthSubmit loading={loading} disabled={loading}>
+          Sign in
+        </AuthSubmit>
+      </form>
 
-        {/* Double Bezel Card */}
-        <div className="relative group">
-          <div className="absolute -inset-px rounded-3xl bg-gradient-to-b from-border/50 to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
-          <div className="absolute inset-[1px] rounded-[23px] bg-background/50 backdrop-blur-2xl" />
-          
-          <div className="relative p-8 space-y-6">
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="font-medium text-foreground">
-                  Email
-                </Label>
-                <Input
-                  type="email"
-                  id="email"
-                  name="email"
-                  autoComplete="email"
-                  placeholder="john@company.com"
-                  className="bg-secondary/10 border-border/50 h-11 px-4 rounded-xl"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="font-medium text-foreground">
-                    Password
-                  </Label>
-                  <Link href="/forgot-password" className="text-xs text-primary hover:underline">
-                    Forgot?
-                  </Link>
-                </div>
-                <Input
-                  type="password"
-                  id="password"
-                  name="password"
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  className="bg-secondary/10 border-border/50 h-11 px-4 rounded-xl"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all"
-                disabled={loading}
-              >
-                {loading ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-                Sign in
-              </Button>
-            </form>
+      <div className="my-6">
+        <AuthDivider>or</AuthDivider>
+      </div>
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <Separator className="w-full bg-border/50" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background/80 backdrop-blur-md px-3 text-muted-foreground font-medium tracking-wider">
-                  or continue with
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Button
-                asChild
-                variant="outline"
-                className="h-11 rounded-xl border-border/50 bg-secondary/5 hover:bg-secondary/10 hover:text-foreground text-muted-foreground font-medium transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
-              >
-                <a href={getAuthLoginUrl()}>
-                  <SSOIcon className="size-4" aria-hidden={true} />
-                  <span className="text-xs">SSO</span>
-                </a>
-              </Button>
-
-              <Button
-                asChild
-                variant="outline"
-                className="h-11 rounded-xl border-border/50 bg-secondary/5 hover:bg-secondary/10 hover:text-foreground text-muted-foreground font-medium transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
-              >
-                <a href={getGoogleAuthUrl()}>
-                  <GoogleIcon className="size-4" aria-hidden={true} />
-                  <span className="text-xs">Google</span>
-                </a>
-              </Button>
-            </div>
-
-            <p className="text-center text-sm text-muted-foreground pt-2">
-              Don&apos;t have an account?{" "}
-              <Link href="/signup" className="text-primary font-semibold hover:underline underline-offset-4">
-                Sign up
-              </Link>
-            </p>
-          </div>
-        </div>
-      </motion.div>
-    </div>
+      <div className="grid gap-3">
+        <Button asChild variant="outline" className={authSecondaryClass}>
+          <a href={getGoogleAuthUrl()}>
+            <GoogleIcon className="size-4" aria-hidden={true} />
+            Continue with Google
+          </a>
+        </Button>
+        <Button asChild variant="outline" className={authSecondaryClass}>
+          <a href={getAuthLoginUrl()}>
+            <SSOIcon className="size-4" aria-hidden={true} />
+            Continue with SSO
+          </a>
+        </Button>
+      </div>
+    </AuthShell>
   );
 }

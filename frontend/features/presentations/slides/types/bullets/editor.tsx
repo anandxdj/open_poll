@@ -54,7 +54,7 @@ function BulletsEditor({ slide, onChange }: SlideEditorProps) {
             variant="ghost"
             size="sm"
             onClick={() => set({ items: [...content.items, ""] })}
-            className="text-xs text-muted-foreground/70 hover:text-foreground"
+            className="text-xs text-muted-foreground hover:text-foreground"
           >
             <Plus className="size-3.5 mr-1" /> Add bullet
           </Button>

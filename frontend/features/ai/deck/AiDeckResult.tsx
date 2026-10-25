@@ -46,13 +46,13 @@ export function AiDeckResult({ result, onOpen, onAnother }: AiDeckResultProps) {
         <MockDataNotice />
       ) : (
         <p role="status" className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm">
-          <Sparkles className="size-4 shrink-0 text-primary" aria-hidden />
+          <Sparkles className="size-4 shrink-0 text-accent-ink" aria-hidden />
           {t("result.aiNotice")}
         </p>
       )}
 
       {warnings.length > 0 && (
-        <div className="grid gap-1 rounded-xl border border-border bg-secondary/20 px-4 py-3 text-sm" data-testid="ai-deck-warnings">
+        <div className="grid gap-1 rounded-lg border border-border bg-secondary/40 px-4 py-3 text-sm" data-testid="ai-deck-warnings">
           <p className="font-semibold">{t("warnings.title", { count: warnings.length })}</p>
           <ul className="list-disc pl-5 text-muted-foreground">
             {warnings.map((warning, i) => (
@@ -67,7 +67,7 @@ export function AiDeckResult({ result, onOpen, onAnother }: AiDeckResultProps) {
           const meta = slideTypeMeta(slide.type);
           const notes = notesOf(slide);
           return (
-            <li key={slide._id ?? i} className="grid gap-1 rounded-xl border border-border bg-secondary/10 px-3 py-2">
+            <li key={slide._id ?? i} className="grid gap-1 rounded-lg border border-border bg-secondary/40 px-3 py-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold tabular-nums text-muted-foreground">{i + 1}</span>
                 <meta.Icon className={`size-3.5 shrink-0 ${meta.iconClass}`} aria-hidden />
@@ -98,7 +98,7 @@ export function AiDeckResult({ result, onOpen, onAnother }: AiDeckResultProps) {
         <Button type="button" variant="outline" className="rounded-xl" onClick={onAnother}>
           {t("result.another")}
         </Button>
-        <Button type="button" className="rounded-xl bg-primary font-medium text-primary-foreground hover:opacity-90" onClick={onOpen}>
+        <Button type="button" onClick={onOpen}>
           <ExternalLink className="mr-1.5 size-4" aria-hidden />
           {t("result.open")}
         </Button>

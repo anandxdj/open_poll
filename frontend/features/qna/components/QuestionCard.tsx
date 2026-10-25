@@ -47,7 +47,7 @@ export function QuestionCard({
     >
       <div className="min-w-0 flex-1 space-y-1.5">
         <p className="text-sm font-medium leading-snug break-words text-deck-fg">{item.text}</p>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-deck-muted-fg">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-deck-muted-fg">
           <span className="font-semibold">{authorLabel(item, t)}</span>
           {item.pinned && (
             <span className="inline-flex items-center gap-1 text-deck-accent">

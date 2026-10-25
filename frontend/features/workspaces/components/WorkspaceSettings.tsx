@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { SettingsHeading, settingsCard } from "../settings/blocks";
 import { updateWorkspace } from "../api/workspaces.api";
 import { useCapabilities, useCurrentWorkspace, useSwitchWorkspace } from "../hooks/useWorkspaces";
 import { useWorkspaceStore } from "../store/useWorkspaceStore";
@@ -33,16 +34,7 @@ const FEATURE_ROWS: { key: PlanFeature; label: string }[] = [
   { key: "white_label", label: "White label" },
 ];
 
-const card = "rounded-[1.5rem] border border-border bg-card p-6";
 
-function SectionHeading({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="space-y-1">
-      <h2 className="text-xl font-bold text-foreground/90">{title}</h2>
-      <p className="text-sm text-muted-foreground">{description}</p>
-    </div>
-  );
-}
 
 function ReadOnlyField({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
@@ -50,7 +42,7 @@ function ReadOnlyField({ label, value, mono = false }: { label: string; value: s
       <Label>{label}</Label>
       <div
         className={
-          "rounded-xl border border-border bg-secondary/30 px-3 py-2 text-sm text-foreground/60" + (mono ? " font-mono" : "")
+          "rounded-md border border-border bg-secondary/60 px-3 py-2 text-sm text-muted-foreground" + (mono ? " font-mono" : "")
         }
       >
         {value}
@@ -84,8 +76,8 @@ function GeneralSection({ detail }: { detail: WorkspaceDetail }) {
 
   return (
     <section className="space-y-6">
-      <SectionHeading title="Workspace" description="Everything you create here is shared with this workspace's members." />
-      <form onSubmit={(event) => void save(event)} className={`${card} space-y-6`}>
+      <SettingsHeading title="Workspace" description="Everything you create here is shared with this workspace's members." />
+      <form onSubmit={(event) => void save(event)} className={`${settingsCard} space-y-6`}>
         <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
           <div className="space-y-2">
             <Label htmlFor="workspace-name-setting">Name</Label>
@@ -95,11 +87,11 @@ function GeneralSection({ detail }: { detail: WorkspaceDetail }) {
               onChange={(event) => setName(event.target.value)}
               maxLength={120}
               disabled={!canManage || saving}
-              className="rounded-xl"
+             
             />
           </div>
           {canManage ? (
-            <Button type="submit" className="rounded-xl" disabled={saving || !trimmed || !dirty}>
+            <Button type="submit" disabled={saving || !trimmed || !dirty}>
               {saving ? <Loader2 className="size-4 animate-spin" /> : "Save"}
             </Button>
           ) : null}
@@ -128,7 +120,7 @@ function PlanSection({ detail }: { detail: WorkspaceDetail }) {
 
   return (
     <section className="space-y-6">
-      <SectionHeading
+      <SettingsHeading
         title={`${PLAN_NAMES[entitlements.plan]} plan`}
         description={
           capabilities?.billing
@@ -136,12 +128,12 @@ function PlanSection({ detail }: { detail: WorkspaceDetail }) {
             : "Limits and features of this workspace's plan. On this server, plans are assigned by an administrator."
         }
       />
-      <div className={`${card} grid gap-8 md:grid-cols-2`}>
+      <div className={`${settingsCard} grid gap-8 md:grid-cols-2`}>
         <dl className="space-y-3">
           {LIMIT_ROWS.map((row) => (
             <div key={row.key} className="flex items-baseline justify-between gap-4 text-sm">
               <dt className="text-muted-foreground">{row.label}</dt>
-              <dd className="font-semibold text-foreground/90">{formatLimit(entitlements.limits[row.key], row.unit)}</dd>
+              <dd className="font-semibold text-foreground">{formatLimit(entitlements.limits[row.key], row.unit)}</dd>
             </div>
           ))}
         </dl>
@@ -151,9 +143,9 @@ function PlanSection({ detail }: { detail: WorkspaceDetail }) {
             return (
               <li
                 key={row.key}
-                className={"flex items-center gap-2 text-sm" + (included ? " text-foreground/90" : " text-muted-foreground/60")}
+                className={"flex items-center gap-2 text-sm" + (included ? " text-foreground" : " text-muted-foreground")}
               >
-                {included ? <Check className="size-4 text-primary" /> : <Minus className="size-4" />}
+                {included ? <Check className="size-4 text-accent-ink" /> : <Minus className="size-4 text-faint" />}
                 {row.label}
                 <span className="sr-only">{included ? "included" : "not included"}</span>
               </li>
@@ -171,12 +163,12 @@ function TeamWorkspacesSection() {
 
   return (
     <section className="space-y-6">
-      <SectionHeading title="Team workspaces" description="Work with others in a separate workspace with its own plan." />
-      <div className={`${card} flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`}>
+      <SettingsHeading title="Team workspaces" description="Work with others in a separate workspace with its own plan." />
+      <div className={`${settingsCard} flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`}>
         <p className="text-sm text-muted-foreground">
           New team workspaces start on the Free plan with one seat. Switch between workspaces from the sidebar.
         </p>
-        <Button className="shrink-0 rounded-xl" onClick={() => setOpen(true)}>
+        <Button className="shrink-0" onClick={() => setOpen(true)}>
           <Plus className="size-4" />
           Create team workspace
         </Button>
@@ -192,9 +184,9 @@ export function WorkspaceSettings() {
 
   if (failed) {
     return (
-      <div className={`${card} space-y-3`}>
+      <div className={`${settingsCard} space-y-3`}>
         <p className="text-sm text-muted-foreground">Couldn&apos;t load this workspace.</p>
-        <Button variant="outline" className="rounded-xl" onClick={retry}>
+        <Button variant="outline" onClick={retry}>
           Try again
         </Button>
       </div>

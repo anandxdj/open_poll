@@ -72,7 +72,7 @@ export function InviteForm({ workspaceId, myRole, full, onInvited }: InviteFormP
             onChange={(event) => setEmail(event.target.value)}
             maxLength={254}
             disabled={sending || full}
-            className="rounded-xl"
+           
           />
         </div>
         <div className="space-y-2">
@@ -86,14 +86,14 @@ export function InviteForm({ workspaceId, myRole, full, onInvited }: InviteFormP
             className="w-full sm:w-36"
           />
         </div>
-        <Button type="submit" className="rounded-xl" disabled={sending || full || !email.trim()}>
+        <Button type="submit" disabled={sending || full || !email.trim()}>
           {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
           Send invite
         </Button>
       </form>
       <p className="text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[role]}</p>
       {full ? (
-        <p className="text-xs text-amber-600 dark:text-amber-400">
+        <p className="text-xs text-warning">
           Every seat is taken or reserved by a pending invitation. Revoke an invitation or upgrade the plan to invite more people.
         </p>
       ) : null}
@@ -104,9 +104,9 @@ export function InviteForm({ workspaceId, myRole, full, onInvited }: InviteFormP
       ) : null}
 
       {sent ? (
-        <div className="space-y-2 rounded-xl border border-border/60 bg-secondary/20 p-4" data-testid="invite-result">
-          <p className="flex items-center gap-2 text-sm font-medium text-foreground/90">
-            <Check className="size-4 text-primary" />
+        <div className="space-y-2 rounded-lg border border-border bg-secondary/50 p-4" data-testid="invite-result">
+          <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Check className="size-4 text-accent-ink" />
             {sent.refreshed ? "Invitation refreshed for " : "Invitation created for "}
             {sent.invite.email}
           </p>
@@ -116,8 +116,8 @@ export function InviteForm({ workspaceId, myRole, full, onInvited }: InviteFormP
               : "Email isn't set up on this server, so nothing was sent. Share this link yourself; it works once, for that address only."}
           </p>
           <div className="flex gap-2">
-            <Input readOnly value={sent.inviteUrl} aria-label="Invitation link" className="rounded-xl font-mono text-xs" onFocus={(event) => event.currentTarget.select()} />
-            <Button type="button" variant="outline" className="shrink-0 rounded-xl" onClick={() => void copy(sent.inviteUrl)}>
+            <Input readOnly value={sent.inviteUrl} aria-label="Invitation link" className="font-mono text-xs" onFocus={(event) => event.currentTarget.select()} />
+            <Button type="button" variant="outline" className="shrink-0" onClick={() => void copy(sent.inviteUrl)}>
               <Copy className="size-4" />
               Copy
             </Button>

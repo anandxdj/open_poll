@@ -41,18 +41,18 @@ export function HostQnaDrawer() {
         aria-label={open ? t("host.close") : t("host.open")}
         title={pending > 0 ? t("host.pendingBadge", { count: pending }) : t("tab")}
         className={cn(
-          "relative inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-bold transition-colors",
+          "relative inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors",
           open
-            ? "border-deck-primary bg-deck-primary text-deck-primary-fg"
-            : "border-deck-stage-fg/15 bg-deck-stage-fg/5 text-deck-stage-fg/80 hover:bg-deck-stage-fg/10"
+            ? "border-deck-stage-fg bg-deck-stage-fg text-deck-stage-bg"
+            : "border-deck-stage-fg/15 text-deck-stage-fg hover:bg-deck-stage-fg/10"
         )}
       >
-        <MessageCircleQuestion className="size-3.5" aria-hidden />
+        <MessageCircleQuestion className="size-4" aria-hidden />
         <span className="hidden sm:inline">{t("tab")}</span>
         {pending > 0 && (
           <span
             aria-hidden
-            className="min-w-4 rounded-full bg-deck-accent px-1 text-center text-[10px] leading-4 text-deck-stage-ink tabular-nums"
+            className="min-w-5 rounded-full bg-deck-accent px-1 text-center font-mono text-xs leading-5 text-deck-stage-ink tabular-nums"
           >
             {pending}
           </span>

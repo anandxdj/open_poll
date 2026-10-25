@@ -110,14 +110,14 @@ describe("host stage", () => {
     expect(html).toContain("Ready to present");
     expect(html).toContain("READY-ACTION");
     expect(html).not.toContain("LOBBY-ACTION");
-    expect(html).not.toContain("JOIN CODE");
+    expect(html).not.toContain("Join code");
   });
 
   test("the lobby shows the join code, who joined and its actions", () => {
     const html = stage({ status: "lobby", participants: [{ participantId: "p1", name: "Ada" }] });
-    expect(html).toContain("JOIN CODE");
+    expect(html).toContain("Join code");
     expect(html).toContain("123456");
-    expect(html).toContain("1 JOINED");
+    expect(html).toContain("1 joined");
     expect(html).toContain("LOBBY-ACTION");
   });
 
@@ -130,7 +130,7 @@ describe("host stage", () => {
 
   test("a response slide shows its phase; an untimed open one says there is no limit", () => {
     const open = stage({ status: "active", currentSlideIndex: 0, slideId: SLIDE_IDS[0], phase: "open", timing: { startedAt: null, endsAt: null, clockOffsetMs: 0 } });
-    expect(open).toContain("SLIDE 1 OF 3");
+    expect(open).toContain("Slide 1 of 3");
     expect(open).toContain("Voting open");
     expect(open).toContain("No time limit");
     expect(open).not.toContain("Time left");
@@ -152,7 +152,7 @@ describe("host stage", () => {
 
   test("a content slide shows without voting chrome or the answer counter", () => {
     const html = stage({ status: "active", currentSlideIndex: 1, slideId: SLIDE_IDS[1], phase: "shown" });
-    expect(html).toContain("SLIDE 2 OF 3");
+    expect(html).toContain("Slide 2 of 3");
     expect(html).not.toContain("Voting");
     expect(html).not.toContain("answered");
   });
