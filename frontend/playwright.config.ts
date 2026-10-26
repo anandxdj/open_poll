@@ -96,6 +96,9 @@ export default defineConfig({
         // Stripe, metrics, ...) must not leak in (Bun loads it, a blank value here wins) because
         // the specs assert the disabled mode of storage, billing and imports.
         ...Object.fromEntries(OPTIONAL_INTEGRATIONS.map((key) => [key, ""])),
+        // Single sign-on and SCIM (W3-D) need an encryption key; a fixed one for tests only.
+        ENCRYPTION_KEY: "e2e0".repeat(16),
+        API_PUBLIC_URL: e2eEnv.apiOrigin,
       },
     },
     {
