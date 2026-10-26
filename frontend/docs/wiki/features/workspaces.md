@@ -76,7 +76,7 @@ While capabilities or the workspace detail are loading, gated entries are disabl
 | billing | `workspace:billing` (owner); no capability gate: the page explains when billing is off (`features/billing.md`) | W3-C (shipped) |
 | sso | capability `samlSso`, team only, `sso`, `workspace:sso` (admin) | W3-D (shipped) |
 | scim | capability `scim`, team only, `scim`, `workspace:sso` (admin) | W3-D (shipped) |
-| domains | capability `customDomains`, `custom_domains`, `workspace:domains` (admin) | W4-E |
+| domains | capability `customDomains`, `custom_domains`, `workspace:domains` (admin) | W4-E (shipped) |
 
 ### Adding a settings page (later packages)
 
@@ -101,6 +101,20 @@ While capabilities or the workspace detail are loading, gated entries are disabl
 | `components/BrandKitEditor.tsx` | Name, eight colours (picker plus hex field), contrast checks as you type (saving waits until all pass), chart colours (1–12), heading and body fonts, logo and stage background (upload with `brand_logo` / `brand_background` when storage is on, or a link), background overlay. |
 | `components/BrandPreview.tsx`, `ThemeSwatch.tsx` | A stage and a phone drawn with the real deck tokens; a small swatch for lists. |
 | `components/ThemeTab.tsx` | The builder's deck-level Theme tab (`presentation-builder.md`). |
+
+## Custom domains and white-label (W4-E)
+
+`features/domains/`, page `settings/domains` (`DomainsSettings`). Backend contract:
+`backend/docs/wiki/modules/domains.md`; operator setup: `docs/deploy/custom-domains.md`.
+
+| Path | Role |
+| --- | --- |
+| `features/domains/components/DomainsSettings.tsx` | Add a hostname, its CNAME and TXT records to copy with found/missing, Check DNS, status (Waiting for DNS, Live, Needs attention), Open, remove. Same gate reasons as the nav. |
+| `features/domains/hosts.ts` | `customDomainsOn()` (`NEXT_PUBLIC_CUSTOM_DOMAINS=on`), `isPrimaryHost` (site URL, `NEXT_PUBLIC_PRIMARY_HOSTS`, local and `*.vercel.app`), `customDomainAction(pathname)`: `/` join, participant paths and assets pass, the rest redirects. |
+| `lib/proxy/domains.ts` | First step of `PROXY_CHAIN`: on a custom host, asks `GET /api/public/domains/resolve` (cached a minute per host); unknown hosts go to the main site (307), `/` is rewritten to `/live`, other paths move to the main site (308). |
+| `features/domains/hooks/useCustomDomain.ts` | On a custom domain, the resolved workspace: the join page (`app/live/page.tsx`) shows its name, brand kit logo and colours. |
+| `features/branding/PoweredBy.tsx` | The "Made with Open Poll" footer of `PublicPageShell`, hidden on a white-label workspace's domain. |
+| `features/workspaces/settings/CopyValue.tsx` | Label, monospace value and copy button, shared by the SSO, SCIM and domains pages. |
 
 ## Single sign-on and SCIM (W3-D)
 

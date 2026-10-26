@@ -22,7 +22,7 @@ import {
   verifyDomain,
 } from "../api/sso.api";
 import { SSO_ROLES, type SsoConnection, type SsoRole } from "../types";
-import { CopyValue } from "./CopyValue";
+import { CopyValue } from "@/features/workspaces/settings/CopyValue";
 
 const sectionTitle = "text-sm font-semibold text-foreground";
 const pill = "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium";

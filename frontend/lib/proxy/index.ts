@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { authProxy } from "./auth";
+import { domainsProxy } from "./domains";
 import type { ProxyStep } from "./types";
 
 export type { ProxyStep } from "./types";
@@ -12,6 +13,8 @@ export type { ProxyStep } from "./types";
  * adds its step with one line here, placed where it must run.
  */
 export const PROXY_CHAIN: ProxyStep[] = [
+  // A custom domain first: it never serves the signed-in app.
+  domainsProxy,
   authProxy,
 ];
 

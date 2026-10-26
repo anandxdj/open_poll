@@ -17,7 +17,7 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { createScimToken, listScimTokens, revokeScimToken } from "../api/sso.api";
 import type { ScimToken } from "../types";
-import { CopyValue } from "./CopyValue";
+import { CopyValue } from "@/features/workspaces/settings/CopyValue";
 import { useSsoGate } from "./SsoSettings";
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { dateStyle: "medium" });
