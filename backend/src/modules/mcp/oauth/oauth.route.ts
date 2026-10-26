@@ -67,8 +67,24 @@ export function protectedResourceMetadata(req: Request) {
   };
 }
 
-const oauthLimit = (prefix: string, windowSec: number, max: number) =>
-  rateLimit({ prefix, windowSec, max, keyBy: 'ip', onStoreError: 'memory' });
+const oauthLimit = (prefix: string, windowSec: number, max: number, keyBy: 'ip' | ((req: Request) => string | undefined) = 'ip') =>
+  rateLimit({ prefix, windowSec, max, keyBy, onStoreError: 'memory' });
+
+/**
+ * Token and revocation calls come from the connector's servers (Claude's,
+ * ChatGPT's), one IP for all of their users, so they are limited per client;
+ * the body is parsed before the limiter for that.
+ */
+const perClient = (req: Request): string | undefined => {
+  if (typeof req.body?.client_id === 'string') return `client:${req.body.client_id}`;
+  const header = req.headers.authorization;
+  if (header?.startsWith('Basic ')) {
+    const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
+    const separator = decoded.indexOf(':');
+    if (separator > 0) return `client:${decodeURIComponent(decoded.slice(0, separator))}`;
+  }
+  return undefined;
+};
 
 function sendOAuthError(res: Response, error: unknown) {
   if (error instanceof OAuthError) {
@@ -120,7 +136,8 @@ router.use(
 
 router.use(
   '/register',
-  oauthLimit('mcp-oauth-register', 60 * 60, 20),
+  // Hosted connectors register from shared server IPs, one client per user that connects.
+  oauthLimit('mcp-oauth-register', 60 * 60, 300),
   // Secrets of confidential clients never expire: a connector that registered
   // once keeps working until it stops being used (the client TTL).
   clientRegistrationHandler({ clientsStore: oauthClientsStore, clientSecretExpirySeconds: 0, rateLimit: false }),
@@ -130,9 +147,9 @@ router.use(['/token', '/revoke'], anyOrigin);
 
 router.post(
   '/token',
-  oauthLimit('mcp-oauth-token', 60, 60),
   noStore,
   express.urlencoded({ extended: false }),
+  oauthLimit('mcp-oauth-token', 60, 120, perClient),
   async (req, res) => {
     try {
       const client = await authenticateClient(req);
@@ -168,9 +185,9 @@ router.post(
 
 router.post(
   '/revoke',
-  oauthLimit('mcp-oauth-revoke', 60, 60),
   noStore,
   express.urlencoded({ extended: false }),
+  oauthLimit('mcp-oauth-revoke', 60, 120, perClient),
   async (req, res) => {
     try {
       const client = await authenticateClient(req);

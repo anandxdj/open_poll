@@ -34,7 +34,7 @@ const connectedApp = (userId: string, hashSeed: string) => ({
   workspaceId: new mongoose.Types.ObjectId(),
   clientId: 'client-1',
   clientName: 'Claude',
-  scopes: ['deck:read'],
+  scopes: ['deck:read' as const],
   accessTokenHash: `${hashSeed}-access`,
   accessExpiresAt: new Date(Date.now() + 3600_000),
   refreshTokenHash: `${hashSeed}-refresh`,
