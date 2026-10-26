@@ -17,7 +17,7 @@ guarantees live in `platform/tenancy.md`; the workspaces API itself in `modules/
 | `members.schema.ts` | Zod bodies and queries (strict: unknown keys are 400). |
 | `modules/audit/audit.route.ts`, `audit.service.ts` | `GET /api/audit`. |
 | `src/migrations/100-workspace-invites.ts` | One pending invite per workspace and address. |
-| `common/config/email.ts` | `sendWorkspaceInviteEmail` (Resend; logged when `RESEND_API_KEY` is empty). |
+| `common/config/email.ts` | `sendWorkspaceInviteEmail` (Resend; logged when `RESEND_API_KEY` is empty). Every email uses `emailLayout` (`common/config/emailLayout.ts`): the logo, a white sheet on paper, one ember button and the link spelled out under it. |
 
 ## Members
 
