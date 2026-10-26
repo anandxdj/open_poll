@@ -56,7 +56,9 @@ const ALLOWED: readonly Allowed[] = [
   // Credentials of their own.
   { path: '/api/me/*', reason: 'the signed-in user’s own account (privacy page, data export, re-auth); content only from workspaces they still belong to' },
   { path: '/api/me', methods: ['DELETE'], reason: 'the signed-in user deletes their own account' },
-  { path: '/api/mcp/tokens*', reason: 'MCP tokens belong to the user; tools act in the owner’s default workspace through the policy' },
+  { path: '/api/mcp/tokens*', reason: 'MCP tokens belong to the user; tools act in the token’s pinned (else the owner’s default) workspace through the policy' },
+  { path: '/api/mcp/grants*', reason: 'connected apps (OAuth grants) belong to the user; listing and disconnecting touch only their own' },
+  { path: '/api/oauth/requests/:requestId*', reason: 'MCP OAuth consent: the request id is the credential; approve checks active membership of the workspace named in the body (resolveWorkspaceContext)' },
   { methods: ['POST'], path: '/api/ai/generate', reason: 'authenticated and rate limited; stores nothing' },
   { methods: ['POST'], path: '/api/ai/generate-quiz', reason: 'authenticated and rate limited; stores nothing' },
   { methods: ['POST'], path: '/api/ai/generate-and-save', reason: 'authenticated and rate limited; PollService.createPoll checks deck:create in the owner’s default workspace' },

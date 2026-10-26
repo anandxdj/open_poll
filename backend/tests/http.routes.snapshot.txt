@@ -28,6 +28,24 @@ DELETE /scim/v2/Groups/:id
 USE /scim/v2 <anonymous>
 ROUTER /metrics
 GET /metrics
+ROUTER /.well-known
+GET /.well-known/oauth-authorization-server
+GET /.well-known[/oauth-protected-resource,/oauth-protected-resource/mcp]
+ROUTER /oauth
+USE /oauth/authorize <anonymous>
+ROUTER /oauth/authorize
+USE /oauth/authorize <anonymous>
+USE /oauth/authorize urlencodedParser
+ALL /oauth/authorize
+USE /oauth/register <anonymous>
+ROUTER /oauth/register
+USE /oauth/register corsMiddleware
+USE /oauth/register <anonymous>
+USE /oauth/register jsonParser
+POST /oauth/register
+USE /oauth[/token,/revoke] corsMiddleware
+POST /oauth/token
+POST /oauth/revoke
 USE / corsMiddleware
 USE [/api/presentations,/api/quizzes] jsonParser
 USE / jsonParser
@@ -160,6 +178,8 @@ ROUTER /api/mcp
 POST /api/mcp/tokens
 GET /api/mcp/tokens
 DELETE /api/mcp/tokens/:tokenId
+GET /api/mcp/grants
+DELETE /api/mcp/grants/:grantId
 ROUTER /mcp
 POST /mcp
 GET /mcp
@@ -198,6 +218,10 @@ GET /api/me/privacy
 POST /api/me/export
 POST /api/me/reauth
 DELETE /api/me
+ROUTER /api/oauth
+GET /api/oauth/requests/:requestId
+POST /api/oauth/requests/:requestId/approve
+POST /api/oauth/requests/:requestId/deny
 ROUTER /api/oembed
 ROUTER /api/plans
 GET /api/plans
