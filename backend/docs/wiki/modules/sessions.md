@@ -41,10 +41,12 @@ share token is only sent to members who may share (others get `token: null`).
 | `DELETE /api/sessions/:sid/share` | Disables the link; `null` when the session was never shared. |
 | `DELETE /api/sessions/:sid` | Ended sessions only (409 `SESSION_LIVE`). |
 | `GET /api/sessions/:sid/me?participantId&token` | Participant take-home, no account. |
+| `DELETE /api/sessions/:sid/participants/me` | Body `{participantId, token}`: the participant removes their own answers (W4-C). Ended sessions only (409 `SESSION_LIVE`). |
 | `GET /api/public/results/:token` | Public aggregated results, no account. |
 
 Rate limits (Redis, fail open): exports and share changes 30/min per user; take-home 600/min per
-IP (classroom NAT, everyone opens it at the end); public results 300/min per IP.
+IP (classroom NAT, everyone opens it at the end); participant removal 60/min per IP; public results
+300/min per IP.
 
 ### Report
 
@@ -66,6 +68,22 @@ Responses are `Cache-Control: no-store`. It returns the participant's answer per
 slide, and while a session is live nothing leaks early: correctness and points appear once the
 slide stopped accepting answers, the correct answer once the slide is revealed (or the session
 ended). Answers not yet written behind to Mongo are read from the Redis results hash.
+
+### Participant self-removal (W4-C)
+
+`eraseParticipant` (`DELETE /:sid/participants/me`) checks the token like the take-home (401 wrong
+token, 404 unknown), then deletes the participant's answers, their Q&A questions (with the upvotes on
+them) and the upvotes they cast (each upvoted question's `upvoteCount` drops by one), and the
+participant document. Their row in the stored `finalLeaderboard` keeps its rank and score under
+`REMOVED_PARTICIPANT_NAME` ("Removed participant"), so nobody else's rank moves. `slideStats` and the
+session counts are aggregates and stay. Their entries in the session's Redis results, names and tokens
+hashes (kept 6 h after the end) are removed. Afterwards the take-home answers 404.
+
+### Deleting session data
+
+`purgeSessionData(session)` removes a session with its participants, answers, Q&A and Redis keys,
+without an access check. `deleteSession` (the route) authorizes and audits around it; the privacy
+module's retention job and account purge call it directly (`modules/privacy.md`).
 
 ### Sharing
 

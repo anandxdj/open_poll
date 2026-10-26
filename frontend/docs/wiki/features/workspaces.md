@@ -22,6 +22,7 @@ Everything lives in `features/workspaces/`. Backend contract: `backend/docs/wiki
 | `components/SettingsNav.tsx` | The `/settings` nav. |
 | `components/WorkspaceSettings.tsx` | `/settings/workspace` content: name (owners/admins), type, role, slug, plan limits and features, create team workspace. |
 | `settings/sections.ts` | `SETTINGS_SECTIONS` registry and `resolveSection()`. |
+| `settings/retention.ts` | Data retention choices for `/settings/workspace` (`retentionOptions`, `retentionText`), capped by the plan's `retentionDays`. |
 | `settings/blocks.tsx` | What every settings page is built from (also billing and MCP): `settingsCard` (white sheet), `settingsList` (sheet of hairline rows), `SettingsHeading`, `SettingsRow` (label and help left, control right, stacked on phones), `SettingsLoading`, `SettingsFailed`. |
 
 ## Selected workspace
@@ -49,13 +50,16 @@ on smaller screens, as one scrolling row of chips whose disabled reasons are rea
 `settings/profile` (profile: name and email read-only, there is no update API; appearance: Light / Dark /
 System; security: "Reset password" links to `/forgot-password`, the only password flow the API has. The
 old notification switches and "Change password" button did nothing and were removed), `settings/mcp`
-(`McpSettingsSection`), `settings/workspace` (`WorkspaceSettings`), `settings/billing` (`BillingSettings`).
+(`McpSettingsSection`), `settings/privacy` (`PrivacySettings`, below), `settings/workspace` (`WorkspaceSettings`:
+name, plan, **data retention** for owners and admins (`#retention`, `PATCH settings.retentionDays`; applies to
+sessions that end afterwards), team workspaces), `settings/billing` (`BillingSettings`).
 
 The nav lists **every** section in `SETTINGS_SECTIONS`, grouped Account / Workspace. Each entry is a
 link when available, otherwise disabled with one line saying why. `resolveSection` checks, in order:
 
 1. `capability` — `GET /api/capabilities` key the deployment must have (its own reason line).
-2. `teamOnly` — personal workspaces don't have it.
+2. `teamOnly` — personal workspaces don't have it (`TEAM_ONLY_REASON`). From `lg` the first such entry gets a
+   "Create a team workspace" button under its reason that opens `CreateWorkspaceDialog` and switches to the new one.
 3. `feature` — plan feature in the current workspace's entitlements ("Not included in the Free plan.").
 4. `action` — permission from `GET /api/workspaces/:id` ("Requires the Admin role.").
 5. `ready` — the page has shipped ("Coming soon.").
@@ -65,7 +69,7 @@ While capabilities or the workspace detail are loading, gated entries are disabl
 | Section | Gates | Ships in |
 | --- | --- | --- |
 | profile, mcp, workspace | none | W1-B |
-| privacy | – | W4-C |
+| privacy | none (the user's own account) | W4-C (shipped) |
 | members | team only (every member sees the roster; managers get the controls) | W3-B1 |
 | audit | `workspace:manage` (admin) | W3-B1 |
 | brand | `brand_kits`, `workspace:brand` (admin) | W3-A |
@@ -83,6 +87,20 @@ While capabilities or the workspace detail are loading, gated entries are disabl
 3. Gate the page content itself too (a direct URL bypasses the nav): read `useCurrentWorkspace()` and
    `useCapabilities()`, and rely on the API's 403/503 for the real enforcement.
 
+## Privacy (W4-C)
+
+`features/privacy/`. Backend contract: `backend/docs/wiki/modules/privacy.md`.
+
+| Path (`features/privacy/…`) | Role |
+| --- | --- |
+| `types.ts`, `api/privacy.api.ts` | `GET /me/privacy`, `downloadMyData` (blob, saved through a link like the session exports), `confirmPassword`, `deleteAccount`. |
+| `hooks/usePrivacyStatus.ts` | Loads the status; `refresh` re-reads after an export or a refused deletion. |
+| `format.ts` | `formatBytes`, `listNames`, `deletionConsequences` (the dialog's list), `reauthValid`. |
+| `components/PrivacySettings.tsx` | "Your data" (download with the last export and downloads left today, link to the workspace's data retention, the privacy policy) and "Delete account" (what goes and what stays, blockers with links to Members and Billing). |
+| `components/DeleteAccountDialog.tsx` | Consequences, then proof of identity when the last sign-in is over 5 minutes old: the password, or for accounts without one "Log in again" (signs out, remembers `/settings/privacy` through `pendingInvite.ts`, back here after sign-in, also after Google/SSO via `/auth/complete`). On success: sign out, `/login?deleted=<purgeAt>` (the login page says when the account goes). |
+
+Signing in during the 30 days cancels the deletion; the login toast says so (`restored`).
+
 ## Members, invitations, sharing, audit (W3-B1)
 
 Backend contract: `backend/docs/wiki/modules/members-sharing.md`. Plain English strings like the rest
@@ -95,7 +113,7 @@ of the dashboard (next-intl serves the live routes only); native `<select>`s for
 | `members/components/MembersSettings.tsx` | `/settings/members`: seats, `InviteForm`, `MemberRow` list (role select, suspend, remove, leave, make primary owner), `PendingInvites`, confirm dialogs. Non-managers get a read-only roster. Personal workspaces get a one-line explanation. |
 | `members/components/InviteForm.tsx` | Email + role; afterwards shows the invitation link and whether mail went out (`emailSent`): on a server without mail the owner copies it. The link is only returned on create/refresh, never in the pending list. |
 | `invites/components/AcceptInvite.tsx` | `/invites/[token]` (public page, `app/invites/[token]/page.tsx`, `noindex`, no referrer): masked preview, "Sign in to accept" or "Join", error states (`INVITE_EMAIL_MISMATCH` offers to sign in with another account). After accepting it makes the workspace the default and the selection, then goes to `/polls`. |
-| `invites/pendingInvite.ts` | Carries an invitation through sign-in: the invite page stores `/invites/<token>` in `localStorage` (24 h), and `LoginForm` / `useAuthPageRedirect` call `takeInviteRedirect(?next)` after signing in. Only `/invites/<token>` paths are ever returned to. Google/SSO sign-ins land on `/polls`; the emailed link works again from there. |
+| `invites/pendingInvite.ts` | Carries an invitation through sign-in: the invite page stores `/invites/<token>` in `localStorage` (24 h), and `LoginForm` / `useAuthPageRedirect` / `/auth/complete` (Google, SSO) call `takeInviteRedirect(?next)` after signing in. Only `/invites/<token>` paths and `/settings/privacy` (the deletion re-auth) are ever returned to. |
 | `sharing/components/ShareDialog.tsx` | Who a deck (or folder) is shared with: members and groups, share role (editor, presenter, viewer), save = `PUT /api/shares` with the whole list. Entry point: **"Share with team…"** in the library deck card menu (`LibraryCard.tsx`), shown by `useCanShareDecks()` for team workspaces when the role is editor or above. |
 | `sharing/shareModel.ts` | Pure list editing: candidates, add/change/remove, dirty check, redundant-share hint. |
 | `audit/components/AuditLog.tsx` | `/settings/audit`: filters (action or action group, person), "Load older events" cursor paging, readable text from `audit/format.ts`. |
