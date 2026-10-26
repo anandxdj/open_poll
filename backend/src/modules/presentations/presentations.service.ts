@@ -60,8 +60,13 @@ export class PresentationService {
     return crud.listPresentations(ctx);
   }
 
-  static updatePresentation(presentationId: string, actor: Actor, data: UpdatePresentationInput) {
-    return crud.updatePresentation(presentationId, actor, data);
+  static updatePresentation(
+    presentationId: string,
+    actor: Actor,
+    data: UpdatePresentationInput,
+    options?: { expectedVersion?: number },
+  ) {
+    return crud.updatePresentation(presentationId, actor, data, options);
   }
 
   static deletePresentation(presentationId: string, actor: Actor) {

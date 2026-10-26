@@ -217,7 +217,14 @@ async function editSlides(
   const next = edit(deck.slides.map(plainSlide));
   if (next.length === 0) throw ApiError.badRequest('A deck needs at least one slide');
   if (next.length > MAX_SLIDES) throw ApiError.badRequest(`A deck holds at most ${MAX_SLIDES} slides`);
-  const updated = await PresentationService.updatePresentation(id, scope, { slides: next as unknown as ParsedSlide[] });
+  // Compare-and-set on the version read above: a save in between (another
+  // agent call, the web builder) is a 409 DECK_CHANGED, never a lost update.
+  const updated = await PresentationService.updatePresentation(
+    id,
+    scope,
+    { slides: next as unknown as ParsedSlide[] },
+    { expectedVersion: deck.get('__v') as number },
+  );
   auditMcp(ctx, scope, action, { type: 'presentation', id }, { slides: updated.slides.length });
   return updated;
 }

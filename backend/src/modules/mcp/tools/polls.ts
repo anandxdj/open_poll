@@ -179,6 +179,17 @@ function parsePollId(raw: unknown): string {
   return pollId;
 }
 
+/**
+ * Where a new poll goes: the token's workspace, after `deck:create` there.
+ * PollService would otherwise fall back to the user's default workspace and
+ * ignore a token pinned to another one.
+ */
+async function createWorkspaceId(ctx: McpUserContext) {
+  const scope = await workspaceScope(ctx);
+  assertCan(scope, 'deck:create');
+  return scope.workspace._id;
+}
+
 async function assertPollAccess(pollId: string, ctx: McpUserContext, action: Action) {
   const poll = await PollService.getPollById(pollId);
   if (!can(await workspaceScope(ctx), action, poll)) {
@@ -268,8 +279,8 @@ export const POLL_TOOLS = [
         isPublished: parsed.isPublished ?? true,
       });
 
-      // No workspace argument: the poll lands in the token owner's default workspace.
-      const poll = await PollService.createPoll(validated, ctx.userId);
+      // The poll lands in the token's workspace: the pinned one, else the owner's default.
+      const poll = await PollService.createPoll(validated, ctx.userId, await createWorkspaceId(ctx));
       return { poll: serialize(poll) };
     },
   }),
@@ -292,7 +303,7 @@ export const POLL_TOOLS = [
         isPublished: parsed.isPublished ?? true,
       });
 
-      const poll = await PollService.createPoll(validated, ctx.userId);
+      const poll = await PollService.createPoll(validated, ctx.userId, await createWorkspaceId(ctx));
       return { poll: serialize(poll), grading: describeGrading(poll) };
     },
   }),

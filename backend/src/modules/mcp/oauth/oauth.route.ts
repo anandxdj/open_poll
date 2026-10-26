@@ -72,18 +72,20 @@ const oauthLimit = (prefix: string, windowSec: number, max: number, keyBy: 'ip' 
 
 /**
  * Token and revocation calls come from the connector's servers (Claude's,
- * ChatGPT's), one IP for all of their users, so they are limited per client;
- * the body is parsed before the limiter for that.
+ * ChatGPT's), one IP for all of their users, so they are limited per client
+ * and address: per address alone would throttle all users of a connector
+ * together, per client alone would let anyone who learns a client id use up
+ * its window. The body is parsed before the limiter for that.
  */
 const perClient = (req: Request): string | undefined => {
-  if (typeof req.body?.client_id === 'string') return `client:${req.body.client_id}`;
+  let clientId = typeof req.body?.client_id === 'string' ? req.body.client_id : undefined;
   const header = req.headers.authorization;
-  if (header?.startsWith('Basic ')) {
+  if (!clientId && header?.startsWith('Basic ')) {
     const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
     const separator = decoded.indexOf(':');
-    if (separator > 0) return `client:${decodeURIComponent(decoded.slice(0, separator))}`;
+    if (separator > 0) clientId = decodeURIComponent(decoded.slice(0, separator));
   }
-  return undefined;
+  return clientId ? `client:${clientId}:${req.ip}` : undefined;
 };
 
 function sendOAuthError(res: Response, error: unknown) {

@@ -3,6 +3,9 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { describeIntegration, resetTestData, settleLiveEngine, startTestServer, type TestServer } from './harness';
 import { createVerifiedUser, type TestUser } from './fixtures';
+import { McpTokenModel } from '../../src/modules/mcp/mcp.token.model';
+import { WorkspaceModel } from '../../src/modules/workspaces/workspace.model';
+import { WorkspaceMemberModel } from '../../src/modules/workspaces/workspaceMember.model';
 
 /**
  * The MCP surface through the real app: an SDK client over Streamable HTTP
@@ -206,6 +209,69 @@ describeIntegration('MCP over Streamable HTTP', () => {
     expect(sessions.sessions[0].sessionId).toBe(ended.session.sessionId);
     const insights = await call(client, 'get_insights');
     expect(insights.totals.sessions).toBe(1);
+    await client.close();
+  });
+
+  it('acts only in the workspace a token is pinned to, within the role there', async () => {
+    const owner = await createVerifiedUser({ name: 'Owner' });
+    const teammate = await createVerifiedUser({ name: 'Teammate' });
+    const team = await WorkspaceModel.create({ name: 'Acme', slug: `acme-${Date.now()}`, type: 'team', ownerId: owner.id, plan: 'team' });
+    await WorkspaceMemberModel.create({ workspaceId: team._id, userId: owner.id, role: 'owner' });
+    const teammateMembership = await WorkspaceMemberModel.create({ workspaceId: team._id, userId: teammate.id, role: 'presenter' });
+
+    // The owner's default workspace stays their personal one; this token is pinned to the team.
+    const pinned = await connect(await issueToken(owner, { workspaceId: String(team._id) }));
+    const teamDeck = await call(pinned, 'create_deck', { title: 'Team deck', slides: [{ kind: 'heading', title: 'Hi' }] });
+    expect((await call(pinned, 'get_context')).workspace).toMatchObject({ id: String(team._id), pinned: true });
+    const poll = await call(pinned, 'create_poll', { title: 'Team poll', questions: [{ text: 'Lunch spot?', options: ['Tacos', 'Ramen'] }] });
+    expect(poll.poll.workspaceId).toBe(String(team._id));
+
+    const personal = await connect(await issueToken(owner));
+    const personalDeck = await call(personal, 'create_deck', { title: 'Personal deck', slides: [{ kind: 'heading', title: 'Hi' }] });
+    expect((await call(personal, 'list_decks')).decks.map((deck: any) => deck.title)).toEqual(['Personal deck']);
+    await expect(call(pinned, 'get_deck', { deckId: personalDeck.deck.id })).rejects.toThrow();
+    await expect(call(personal, 'open_lobby', { deckId: teamDeck.deck.id })).rejects.toThrow();
+
+    // A presenter may run the team deck but not edit it.
+    const presenter = await connect(await issueToken(teammate, { workspaceId: String(team._id) }));
+    await expect(call(presenter, 'create_deck', { title: 'Nope', slides: [{ kind: 'heading', title: 'Hi' }] })).rejects.toThrow();
+    await expect(call(presenter, 'update_deck', { deckId: teamDeck.deck.id, title: 'Renamed' })).rejects.toThrow();
+    expect((await call(presenter, 'open_lobby', { deckId: teamDeck.deck.id })).session.status).toBe('lobby');
+    await call(presenter, 'end_session', { deckId: teamDeck.deck.id });
+
+    // Removed from the workspace: the next call is refused.
+    await WorkspaceMemberModel.updateOne({ _id: teammateMembership._id }, { status: 'suspended' });
+    await expect(call(presenter, 'list_decks')).rejects.toThrow('not a member of this workspace');
+    for (const client of [pinned, personal, presenter]) await client.close();
+  });
+
+  it('keeps tokens from before decks to the poll tools', async () => {
+    const owner = await createVerifiedUser();
+    const token = await issueToken(owner);
+    await McpTokenModel.updateOne({ userId: owner.id }, { scopes: ['poll:create', 'poll:edit', 'poll:read', 'analytics:read'] });
+    const client = await connect(token);
+    expect((await client.listTools()).tools.map((tool) => tool.name)).not.toContain('create_deck');
+    // Unlisted, so the SDK answers before the dispatcher's own scope check would.
+    await expect(call(client, 'create_deck', { title: 'X', slides: [{ kind: 'heading', title: 'Hi' }] })).rejects.toThrow(
+      'Tool create_deck not found',
+    );
+    expect((await call(client, 'get_context')).note).toContain('Generate a new token');
+    await client.close();
+  });
+
+  it('refuses a slide edit when the deck changed since it was read', async () => {
+    const owner = await createVerifiedUser();
+    const client = await connect(await issueToken(owner));
+    const created = await call(client, 'create_deck', { title: 'Race', slides: [{ kind: 'heading', title: 'One' }] });
+    const results = await Promise.allSettled(
+      ['Two', 'Three', 'Four'].map((title) => call(client, 'add_slides', { deckId: created.deck.id, slides: [{ kind: 'heading', title }] })),
+    );
+    const saved = results.filter((result) => result.status === 'fulfilled').length;
+    for (const result of results) {
+      if (result.status === 'rejected') expect(String(result.reason)).toContain('changed since it was read');
+    }
+    // Every edit that reported success is in the deck; none was silently lost.
+    expect((await call(client, 'get_deck', { deckId: created.deck.id })).deck.slides).toHaveLength(1 + saved);
     await client.close();
   });
 
