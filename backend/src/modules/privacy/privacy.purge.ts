@@ -15,6 +15,9 @@ import { purgeSessionData } from '../sessions/sessions.service';
 import { BrandKitModel } from '../themes/brandKit.model';
 import { ScimTokenModel } from '../scim/scimToken.model';
 import { SsoConnectionModel } from '../sso/ssoConnection.model';
+import { CustomDomainModel } from '../domains/customDomain.model';
+import { ACTIVE_DOMAINS_KEY } from '../domains/domains.service';
+import { redisClient } from '../../common/config/redis';
 import { MediaAssetModel } from '../uploads/media.model';
 import { ResourceShareModel } from '../workspaces/resourceShare.model';
 import { UsageCounterModel } from '../workspaces/usageCounter.model';
@@ -68,6 +71,11 @@ async function purgeContent(filter: Record<string, unknown>) {
 /** A workspace and everything in it: content, sessions, files, brand kits, members, invites, groups, shares, counters. */
 export async function purgeWorkspace(workspace: Pick<IWorkspace, '_id'>) {
   const workspaceId = workspace._id;
+  // Its custom domains stop serving at once (the provisioner forgets them when an admin removes one;
+  // a purge only stops serving, the DNS records are the customer's).
+  const hostnames = (await CustomDomainModel.find({ workspaceId }).select('hostname').lean()).map((d) => d.hostname);
+  if (hostnames.length) await redisClient.sRem(ACTIVE_DOMAINS_KEY, hostnames).catch(() => 0);
+  await CustomDomainModel.deleteMany({ workspaceId });
   await purgeContent({ workspaceId });
   const media = await MediaAssetModel.find({ workspaceId }).select('key').lean();
   if (storage.enabled) {
