@@ -3,6 +3,7 @@ import type { PlanId } from '../../common/plans/plans';
 import { assertCan } from '../../common/tenancy/policy';
 import { ACTIONS, roleAllows, type Action, type WorkspaceRole } from '../../common/tenancy/roles';
 import { resolveWorkspaceContext, type WorkspaceContext } from '../../common/tenancy/workspaceContext.middleware';
+import { assertThemeChoice } from '../themes/themes.service';
 import { ApiError } from '../../common/utils/ApiError';
 import { UserModel } from '../auth/auth.model';
 import { ensureMembership, generateWorkspaceSlug } from './provisioning';
@@ -186,6 +187,11 @@ export class WorkspaceService {
     if (retentionDays !== undefined) {
       if (retentionDays !== null) assertLimit(actor.workspace, 'retentionDays', retentionDays);
       $set['settings.retentionDays'] = retentionDays;
+    }
+    const defaultTheme = input.settings?.defaultTheme;
+    if (defaultTheme !== undefined) {
+      assertCan(actor, 'workspace:brand');
+      $set['settings.defaultTheme'] = defaultTheme ? await assertThemeChoice(defaultTheme, actor.workspace) : null;
     }
 
     const workspace = await WorkspaceModel.findOneAndUpdate(

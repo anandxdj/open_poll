@@ -128,6 +128,8 @@ export interface SessionView {
   audienceCap: number | null;
   /** When session data becomes eligible for deletion (workspace retention); null = kept. */
   retainUntil: string | null;
+  /** The deck theme snapshotted when the session opened (W3-A); null for sessions from before. */
+  theme: ThemeTokens | null;
 }
 
 /** Results of one response slide (host view; also what `question:revealed` broadcasts). */
