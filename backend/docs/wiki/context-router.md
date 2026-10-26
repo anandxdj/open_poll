@@ -39,6 +39,9 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 ### Workspace insights (the analytics overview's data: activity over a date range)
 - `backend/docs/wiki/modules/insights.md`
 
+### Custom domains and white-label (hostname verification, provisioners, resolve, CORS) (W4-E)
+- `backend/docs/wiki/modules/domains.md`
+
 ### Single sign-on (SAML, OIDC per workspace), SCIM provisioning, require SSO (W3-D)
 - `backend/docs/wiki/modules/sso-scim.md`
 - Add `backend/docs/wiki/platform/audit-and-crypto.md` only if touching secret encryption.
