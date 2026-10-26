@@ -89,8 +89,8 @@ describe("SETTINGS_SECTIONS", () => {
     for (const s of SETTINGS_SECTIONS) expect(s.href).toBe(`/settings/${s.id}`);
   });
 
-  test("ships the profile, MCP, workspace, members, billing and audit pages", () => {
-    expect(SETTINGS_SECTIONS.filter((s) => s.ready).map((s) => s.id)).toEqual(["profile", "mcp", "workspace", "members", "billing", "audit"]);
+  test("ships the profile, MCP, privacy, workspace, members, billing and audit pages", () => {
+    expect(SETTINGS_SECTIONS.filter((s) => s.ready).map((s) => s.id)).toEqual(["profile", "mcp", "privacy", "workspace", "members", "billing", "audit"]);
   });
 });
 
@@ -144,7 +144,10 @@ describe("resolveSection", () => {
         reason: "Coming soon.",
       });
     }
-    expect(resolveSection(section("privacy"), { capabilities: null, workspace: null }).reason).toBe("Coming soon.");
+  });
+
+  test("privacy is the user's own page: open with no workspace or capabilities loaded", () => {
+    expect(resolveSection(section("privacy"), { capabilities: null, workspace: null })).toEqual({ available: true, reason: null });
   });
 
   test("members is open to every member of a team workspace; the audit log needs workspace:manage", () => {

@@ -188,7 +188,17 @@
       "unscored": "Recorded",
       "skipped": "Skipped"
     },
-    "emptySlides": "No questions were answered in this session."
+    "emptySlides": "No questions were answered in this session.",
+    "removeTitle": "Remove my answers",
+    "removeHint": "Deletes your name and answers from this session. The session's totals still count them, without your name.",
+    "removeButton": "Remove my answers",
+    "removeConfirmTitle": "Remove your answers?",
+    "removeConfirmBody": "Your name and answers are deleted from this session for good. You can't undo this.",
+    "removeConfirm": "Remove",
+    "removeCancel": "Keep them",
+    "removeFailed": "Your answers could not be removed. Try again.",
+    "erasedTitle": "Your answers were removed",
+    "erasedHint": "Your name and answers are gone from this session."
   },
   "endScreen": {
     "participantLink": "See my results",

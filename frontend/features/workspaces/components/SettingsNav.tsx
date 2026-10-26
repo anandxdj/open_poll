@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useCapabilities, useCurrentWorkspace } from "../hooks/useWorkspaces";
-import { SETTINGS_SECTIONS, resolveSection, type SettingsSection } from "../settings/sections";
+import { useCapabilities, useCurrentWorkspace, useSwitchWorkspace } from "../hooks/useWorkspaces";
+import { SETTINGS_SECTIONS, TEAM_ONLY_REASON, resolveSection, type SettingsSection } from "../settings/sections";
+import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 
 const GROUPS: { id: SettingsSection["group"]; label: string }[] = [
   { id: "account", label: "Account" },
@@ -17,12 +20,19 @@ const GROUPS: { id: SettingsSection["group"]; label: string }[] = [
  * shipped) stay listed, disabled, with a one-line reason.
  *
  * Below lg it is one scrolling row of chips above the page (reasons go to
- * assistive tech only); from lg it is a column with the reasons visible.
+ * assistive tech only); from lg it is a column with the reasons visible. In a
+ * personal workspace the first team-only section offers to create a team
+ * workspace right there (lg).
  */
 export function SettingsNav() {
   const pathname = usePathname();
   const capabilities = useCapabilities();
   const { detail } = useCurrentWorkspace();
+  const { switchTo } = useSwitchWorkspace();
+  const [creating, setCreating] = useState(false);
+  const firstTeamOnly = SETTINGS_SECTIONS.find(
+    (section) => resolveSection(section, { capabilities, workspace: detail }).reason === TEAM_ONLY_REASON,
+  )?.id;
 
   return (
     <nav
@@ -44,17 +54,28 @@ export function SettingsNav() {
 
             if (!available) {
               return (
-                <div
-                  key={section.id}
-                  aria-disabled="true"
-                  title={reason ?? undefined}
-                  className="flex shrink-0 cursor-not-allowed items-start gap-2.5 rounded-full border border-dashed border-border px-3.5 py-2 text-sm text-muted-foreground lg:w-full lg:rounded-lg lg:border-0 lg:px-2.5"
-                >
-                  <Icon className="mt-0.5 size-4 shrink-0 text-faint" />
-                  <span className="min-w-0">
-                    <span className="block whitespace-nowrap lg:whitespace-normal">{section.label}</span>
-                    {reason ? <span className="sr-only lg:not-sr-only lg:mt-0.5 lg:block lg:text-xs lg:leading-snug">{reason}</span> : null}
-                  </span>
+                <div key={section.id} className="shrink-0 lg:w-full">
+                  <div
+                    aria-disabled="true"
+                    title={reason ?? undefined}
+                    className="flex cursor-not-allowed items-start gap-2.5 rounded-full border border-dashed border-border px-3.5 py-2 text-sm text-muted-foreground lg:w-full lg:rounded-lg lg:border-0 lg:px-2.5"
+                  >
+                    <Icon className="mt-0.5 size-4 shrink-0 text-faint" />
+                    <span className="min-w-0">
+                      <span className="block whitespace-nowrap lg:whitespace-normal">{section.label}</span>
+                      {reason ? <span className="sr-only lg:not-sr-only lg:mt-0.5 lg:block lg:text-xs lg:leading-snug">{reason}</span> : null}
+                    </span>
+                  </div>
+                  {section.id === firstTeamOnly ? (
+                    <button
+                      type="button"
+                      onClick={() => setCreating(true)}
+                      className="mt-0.5 hidden items-center gap-1.5 rounded-md py-1 pl-9 pr-2 text-xs font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring lg:flex"
+                    >
+                      <Plus className="size-3.5" aria-hidden="true" />
+                      Create a team workspace
+                    </button>
+                  ) : null}
                 </div>
               );
             }
@@ -79,6 +100,7 @@ export function SettingsNav() {
           })}
         </div>
       ))}
+      <CreateWorkspaceDialog open={creating} onOpenChange={setCreating} onCreated={(created) => void switchTo(created.workspace._id)} />
     </nav>
   );
 }

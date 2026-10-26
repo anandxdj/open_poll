@@ -237,6 +237,19 @@ test("history, report, exports, sharing, participant results and deletion", asyn
   await expect(wrong.getByText("This session isn't available anymore")).toBeVisible();
   await expect(wrong.getByText("Paris")).toHaveCount(0);
 
+  // Ada removes her answers (W4-C): gone from the server and from this device.
+  await mine.goto(`/live/${deck.joinCode}/summary?sid=${sessionId}`);
+  await mine.getByRole("button", { name: "Remove my answers" }).click();
+  await mine.getByRole("alertdialog").getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(mine.getByRole("heading", { name: "Your answers were removed" })).toBeVisible();
+  const takeHome = `${e2eEnv.apiOrigin}/api/sessions/${sessionId}/me?participantId=${ada.participantId}&token=${ada.token}`;
+  expect((await fetch(takeHome)).status).toBe(404);
+  const stored = await mine.evaluate((key) => window.localStorage.getItem(key), `openpoll_participant_${deck.joinCode}_${sessionId}`);
+  expect(stored).toBeNull();
+  // This context's init script stores the credentials again on every load: the server no longer knows them.
+  await mine.goto(`/live/${deck.joinCode}/summary?sid=${sessionId}`);
+  await expect(mine.getByText("This session isn't available anymore")).toBeVisible();
+
   // --- Delete: confirm, back to an empty history ---
   await page.getByRole("button", { name: "Delete session" }).click();
   await expect(page.getByRole("alertdialog")).toContainText("Delete session 1?");
