@@ -2,6 +2,8 @@ import { ZodError } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { handleMcpTool, getMcpServerInstructions, toolsForScopes } from './mcp.tools.js';
 import type { McpUserContext } from './mcp.context.js';
+import { registerMcpPrompts } from './mcp.prompts.js';
+import { registerMcpResources } from './mcp.resources.js';
 
 export type McpSessionContext = McpUserContext;
 
@@ -67,6 +69,9 @@ export function createMcpServer(ctx: McpSessionContext): McpServer {
       );
     }
   }
+
+  registerMcpResources(server, ctx);
+  registerMcpPrompts(server, ctx);
 
   return server;
 }

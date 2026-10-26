@@ -285,6 +285,23 @@ export const agentSlideSchema = z.discriminatedUnion('kind', AGENT_SLIDE_VARIANT
 export type AgentSlide = z.infer<typeof agentSlideSchema>;
 export type AgentSlideKind = AgentSlide['kind'];
 
+export const AGENT_SLIDE_KINDS = AGENT_SLIDE_VARIANTS.map((variant) => variant.shape.kind.value) as [
+  AgentSlideKind,
+  ...AgentSlideKind[],
+];
+
+/**
+ * The advertised shape of a slide in tools that come after create_deck
+ * (add_slides, update_slide): the kind plus open fields. The full union is
+ * about 17k characters of JSON Schema; listing it once, in create_deck, keeps
+ * an agent's tool context small. Handlers still parse with
+ * `agentSlideSchema`, so nothing is accepted that create_deck would refuse.
+ */
+export const agentSlideRefSchema = z
+  .object({ kind: z.enum(AGENT_SLIDE_KINDS).describe('Slide kind') })
+  .loose()
+  .describe('A slide in the create_deck format: "kind" plus that kind\'s fields (list_slide_types has each kind with an example)');
+
 /** Agent fields that replace the mapper's per-kind defaults. */
 const OVERRIDES = ['timeLimit', 'points', 'maxEntries', 'scaleMax'] as const;
 

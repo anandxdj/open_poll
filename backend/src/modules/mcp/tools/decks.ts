@@ -10,6 +10,7 @@ import { agentKinds } from '../../ai/deck/agentMappers';
 import {
   AGENT_SLIDE_EXAMPLES,
   agentKindFields,
+  agentSlideRefSchema,
   agentSlideSchema,
   buildAgentSlides,
   type AgentSlide,
@@ -148,7 +149,7 @@ export const updateDeckInputShape = {
 
 export const addSlidesInputShape = {
   deckId,
-  slides: z.array(agentSlideSchema).min(1).max(MAX_SLIDES).describe(slidesDescription),
+  slides: z.array(agentSlideRefSchema).min(1).max(MAX_SLIDES).describe(slidesDescription),
   position: z
     .number()
     .int()
@@ -160,7 +161,9 @@ export const addSlidesInputShape = {
 export const updateSlideInputShape = {
   deckId,
   slideId: z.string().min(1).describe('Id of the slide to replace (from get_deck)'),
-  slide: agentSlideSchema.describe('The new slide; it replaces the old one whole and keeps its position and id'),
+  slide: agentSlideRefSchema.describe(
+    'The new slide in the create_deck format; it replaces the old one whole and keeps its position and id',
+  ),
 };
 
 export const removeSlidesInputShape = {
@@ -175,6 +178,10 @@ export const reorderSlidesInputShape = {
     .min(1)
     .describe('Every slide id of the deck, in the new order (get_deck lists them)'),
 };
+
+// add_slides and update_slide advertise the light slide shape; these parse the full one.
+const addSlidesSchema = z.object({ ...addSlidesInputShape, slides: z.array(agentSlideSchema).min(1).max(MAX_SLIDES) });
+const updateSlideSchema = z.object({ ...updateSlideInputShape, slide: agentSlideSchema });
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -361,7 +368,7 @@ export const DECK_TOOLS = [
     inputShape: addSlidesInputShape,
     annotations: { readOnlyHint: false, destructiveHint: false },
     async handler(args, ctx) {
-      const parsed = z.object(addSlidesInputShape).parse(args);
+      const parsed = addSlidesSchema.parse(args);
       let at = 0;
       let warnings: string[] = [];
       const deck = await editSlides(ctx, parsed.deckId, 'deck.slides_add', (slides) => {
@@ -385,7 +392,7 @@ export const DECK_TOOLS = [
     inputShape: updateSlideInputShape,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     async handler(args, ctx) {
-      const parsed = z.object(updateSlideInputShape).parse(args);
+      const parsed = updateSlideSchema.parse(args);
       let at = 0;
       const deck = await editSlides(ctx, parsed.deckId, 'deck.slide_update', (slides) => {
         at = findSlideIndex(slides, parsed.slideId);

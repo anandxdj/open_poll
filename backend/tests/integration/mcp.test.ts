@@ -127,6 +127,16 @@ describeIntegration('MCP over Streamable HTTP', () => {
 
     const themed = await call(client, 'update_deck', { deckId, theme: { presetId: 'ocean' } });
     expect(themed.theme.presetId).toBe('ocean');
+
+    // Edit tools advertise a light slide shape but validate the full contract.
+    await expect(
+      call(client, 'update_slide', { deckId, slideId: second.id, slide: { kind: 'wordcloud' } }),
+    ).rejects.toThrow('slide.question');
+
+    const resource = await client.readResource({ uri: `openpoll://decks/${deckId}` });
+    expect(JSON.parse((resource.contents[0] as { text: string }).text).deck.id).toBe(deckId);
+    const prompt = await client.getPrompt({ name: 'quiz_from_document', arguments: { document: 'Bun is a runtime.' } });
+    expect((prompt.messages[0]!.content as { text: string }).text).toContain('<document>\nBun is a runtime.\n</document>');
     await client.close();
   });
 
