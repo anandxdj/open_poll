@@ -22,6 +22,7 @@ import {
   type StoredAnswerResult,
 } from '../presentations/live/state';
 import { buildSessionView, sessionListItem } from '../presentations/live/views';
+import { flushWriteBehind } from '../presentations/live/writeBehind';
 import {
   SESSION_ERROR_CODES,
   type ReportParticipant,
@@ -470,15 +471,9 @@ export const eraseParticipant = async (sessionId: string, participantId: string,
     throw new ApiError(409, 'You can remove your answers once the session has ended', SESSION_ERROR_CODES.sessionLive);
   }
 
-  const answers = await PresentationAnswerModel.deleteMany({ sessionId: session._id, participantId: participant._id });
-  await eraseParticipantQna(session._id, participant._id);
-  await PresentationParticipantModel.deleteOne({ _id: participant._id });
-  await PresentationSessionModel.updateOne(
-    { _id: session._id, 'finalLeaderboard.participantId': String(participant._id) },
-    { $set: { 'finalLeaderboard.$.name': REMOVED_PARTICIPANT_NAME } },
-  );
-
-  // The live keys outlive the session by a few hours for the final screens.
+  // Answers accepted just before the end may still be on their way to Mongo, and the live keys
+  // (kept a few hours for the final screens) could write them back: settle both first.
+  await flushWriteBehind();
   const sid = String(session._id);
   const pid = String(participant._id);
   await Promise.all([
@@ -486,6 +481,14 @@ export const eraseParticipant = async (sessionId: string, participantId: string,
     redisClient.hDel(k.names(sid), pid),
     redisClient.hDel(k.tokens(sid), pid),
   ]).catch(() => {});
+
+  const answers = await PresentationAnswerModel.deleteMany({ sessionId: session._id, participantId: participant._id });
+  await eraseParticipantQna(session._id, participant._id);
+  await PresentationParticipantModel.deleteOne({ _id: participant._id });
+  await PresentationSessionModel.updateOne(
+    { _id: session._id, 'finalLeaderboard.participantId': pid },
+    { $set: { 'finalLeaderboard.$.name': REMOVED_PARTICIPANT_NAME } },
+  );
 
   return { removed: true as const, answers: answers.deletedCount ?? 0 };
 };
