@@ -5,7 +5,7 @@ import { requireFeature } from '../../common/plans/requireFeature';
 import { workspaceContext } from '../../common/tenancy/workspaceContext.middleware';
 import { authenticate, type AuthRequest } from '../auth/auth.middleware';
 import { SessionsController } from './sessions.controller';
-import { shareSchema } from './sessions.schema';
+import { eraseParticipantSchema, shareSchema } from './sessions.schema';
 
 /**
  * Mounted at /api/sessions by src/http/routes.ts. Host routes run
@@ -21,6 +21,7 @@ import { shareSchema } from './sessions.schema';
  * - DELETE /:sessionId/share               disable it
  * - DELETE /:sessionId                     delete the session and its data
  * - GET    /:sessionId/me?participantId&token   participant take-home (participant token, no account)
+ * - DELETE /:sessionId/participants/me           a participant removes their answers (body: participantId, token)
  */
 const router = Router();
 
@@ -34,6 +35,12 @@ const shareLimit = perUser('sessions:share', 30);
 router.get('/', authenticate(), workspaceContext(), SessionsController.list);
 // Participant take-home: per IP and sized for classroom NAT (everyone opens it at the end).
 router.get('/:sessionId/me', rateLimit({ prefix: 'sessions:me', windowSec: 60, max: 600 }), SessionsController.takeHome);
+router.delete(
+  '/:sessionId/participants/me',
+  rateLimit({ prefix: 'sessions:erase', windowSec: 60, max: 60 }),
+  validate(eraseParticipantSchema),
+  SessionsController.eraseParticipant
+);
 router.get(
   '/:sessionId/export.csv',
   authenticate(),

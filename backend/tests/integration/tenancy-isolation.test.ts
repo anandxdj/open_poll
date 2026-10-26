@@ -53,6 +53,8 @@ const ALLOWED: readonly Allowed[] = [
   { path: '/api/sso/*', reason: 'pre-sign-in SSO flow (discover, login redirect, ACS, metadata, callback)', planned: true },
 
   // Credentials of their own.
+  { path: '/api/me/*', reason: 'the signed-in user’s own account (privacy page, data export, re-auth); content only from workspaces they still belong to' },
+  { path: '/api/me', methods: ['DELETE'], reason: 'the signed-in user deletes their own account' },
   { path: '/api/mcp/tokens*', reason: 'MCP tokens belong to the user; tools act in the owner’s default workspace through the policy' },
   { methods: ['POST'], path: '/api/ai/generate', reason: 'authenticated and rate limited; stores nothing' },
   { methods: ['POST'], path: '/api/ai/generate-quiz', reason: 'authenticated and rate limited; stores nothing' },
@@ -75,6 +77,7 @@ const ALLOWED: readonly Allowed[] = [
   ...bothAliases('/api/presentations/:id/live-state', 'participant resync, participant token', ['GET']),
   { path: '/api/presentations/:presentationId/qna*', reason: 'participant Q&A, participant token (the host side runs workspace context)' },
   { path: '/api/sessions/:sessionId/me', methods: ['GET'], reason: 'participant take-home, participant token' },
+  { path: '/api/sessions/:sessionId/participants/me', methods: ['DELETE'], reason: 'a participant removes their own answers, participant token' },
   { path: '/api/responses/poll/:pollId/ballot', methods: ['POST'], reason: 'public poll voting' },
   { path: '/api/responses/guest-token', methods: ['POST'], reason: 'public poll voting' },
   { path: '/api/responses', methods: ['POST'], reason: 'public poll voting, signed ballot' },

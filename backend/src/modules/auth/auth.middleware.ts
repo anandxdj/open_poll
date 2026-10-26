@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { ApiError } from '../../common/utils/ApiError';
 import { verifyAccessToken } from '../../common/utils/jwt.utils';
 import { UserModel } from './auth.model';
+import { isAccountUsable } from './auth.service';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -9,6 +10,8 @@ export interface AuthRequest extends Request {
     email: string;
     name: string;
     role: string;
+    /** When this session's sign-in happened (seconds since the epoch); absent on older tokens. */
+    authTime?: number;
   };
 }
 
@@ -29,7 +32,8 @@ export const authenticate = (optional = false) => async (req: AuthRequest, res: 
     const decoded = verifyAccessToken(token) as any;
     const user = await UserModel.findById(decoded.id);
 
-    if (!user) {
+    // An account waiting to be deleted signs nobody in until its owner signs in again.
+    if (!user || !isAccountUsable(user)) {
       if (optional) return next();
       throw ApiError.unauthorized('User no longer exists');
     }
@@ -39,6 +43,7 @@ export const authenticate = (optional = false) => async (req: AuthRequest, res: 
       email: user.email,
       name: user.name,
       role: user.role,
+      ...(typeof decoded.authTime === 'number' ? { authTime: decoded.authTime } : {}),
     };
 
     next();
