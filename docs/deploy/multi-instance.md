@@ -24,6 +24,7 @@ up), not a function that sleeps between requests.
 | Mongo writes of answers | Each instance writes its own accepted answers in batches; a duplicate key means someone else (reconciliation, a replay) stored it first and is ignored. Totals are exact because ending a session recounts them (`scoreFinalAt`). |
 | Auto-reveal of scored timed slides | A global schedule (`live:autoreveal` ZSET) polled by every instance every 250 ms; the successful `ZREM` picks the one that reveals. |
 | Scheduled jobs | `common/jobs/scheduler.ts` takes a Redis lock per job: one instance runs each job per tick. |
+| MCP (`/mcp`) | Stateless Streamable HTTP: each request builds its own server from the bearer token, so any instance answers any call and no stickiness is needed. OAuth requests and codes for connectors live in Redis (`mcp:oauth:*`), grants in Mongo. |
 | Rate limits | Redis counters (`rl:*`), shared. Per-IP limits assume the load balancer sets `X-Forwarded-For` (the app trusts exactly one proxy hop). |
 | Migrations | `bun run start:prod` runs them before the server starts; they are idempotent and lock guarded, so every instance can run them on boot. |
 

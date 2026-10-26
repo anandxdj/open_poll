@@ -31,6 +31,8 @@ Code: `backend/src/app.ts`, `backend/src/http/`. Tests: `backend/tests/http.rout
    | `/api/sso/saml/:connectionId/acs` | `express.urlencoded({extended:false, limit:'1mb'})` | `samlAcsRouter` (`mergeParams`) | The IdP form post is cross-origin; the CORS allow-list would reject its Origin. |
    | `/scim/v2` | `express.json({type:['application/json','application/scim+json'], limit:'1mb'})` | `scimRouter` | `mongoSanitize` strips keys containing `.` (`urn:…:2.0:User`). |
    | `/metrics` | none | `metricsRouter` | Prometheus scrape, bearer `METRICS_TOKEN` (404 when unset), no browser context. |
+   | `/.well-known` | none | `wellKnownRouter` (`modules/mcp/oauth/oauth.route.ts`) | MCP OAuth metadata (RFC 8414, RFC 9728), read by connectors from any origin; `cors()` per route. |
+   | `/oauth` | per route (`urlencoded`; the SDK register handler brings `json`) | default (`modules/mcp/oauth/oauth.route.ts`) | MCP OAuth authorize, register, token, revoke: called from origins the allow-list would reject, no cookies; `cors()` per route (`modules/mcp.md`). |
 
 3. `corsMiddleware` (a rejected origin reaches `errorHandler` → 500, as before)
 4. `express.json({limit:'1mb'})` on `LARGE_JSON_PATHS` (`/api/presentations`, `/api/quizzes`), then `express.json({limit:'100kb'})` for everything else (a body parsed by the first is skipped by the second)
@@ -39,7 +41,7 @@ Code: `backend/src/app.ts`, `backend/src/http/`. Tests: `backend/tests/http.rout
 7. `errorHandler`. There is no custom 404: unmatched requests get Express's default 404, as before the split.
 
 Handlers on the pre-parser routers must not rely on `cookieParser` or `mongoSanitize`, and they get
-no CORS headers. A request they do not answer falls through to the normal chain.
+no CORS headers unless they set their own (the MCP OAuth routers answer any origin with `cors()`). A request they do not answer falls through to the normal chain.
 
 ## Mount table (`MOUNTS`)
 
@@ -66,6 +68,7 @@ One line per entry.
 | `/api/invites` | `invitesRouter` (`modules/workspaces/invites.route.ts`) | W3-B1 |
 | `/api/library` | `modules/library/library.route.ts` | W1-C |
 | `/api/me` | `modules/privacy/privacy.route.ts` | W4-C |
+| `/api/oauth` | default (`modules/mcp/oauth/oauth.consent.route.ts`) | MCP agents |
 | `/api/oembed` | `oembedRouter` (`modules/embeds/embeds.route.ts`) | W4-D |
 | `/api/plans` | `plansRouter` (`modules/billing/billing.route.ts`) | W3-C |
 | `/api/public/domains` | `publicDomainsRouter` (`modules/domains/domains.route.ts`) | W4-E |

@@ -1,7 +1,7 @@
 ---
 summary: Workspace selection (store, X-Workspace-Id, switcher), the /settings shell with its gated section nav, members, invitations, the ShareDialog, the audit log, and how a package adds a settings page.
 status: active
-last_updated: 2026-10-25
+last_updated: 2026-10-26
 ---
 
 # Workspaces and Settings
@@ -50,9 +50,35 @@ on smaller screens, as one scrolling row of chips whose disabled reasons are rea
 `settings/profile` (profile: name and email read-only, there is no update API; appearance: Light / Dark /
 System; security: "Reset password" links to `/forgot-password`, the only password flow the API has. The
 old notification switches and "Change password" button did nothing and were removed), `settings/mcp`
-(`McpSettingsSection`), `settings/privacy` (`PrivacySettings`, below), `settings/workspace` (`WorkspaceSettings`:
+(`McpSettingsSection`, below), `settings/privacy` (`PrivacySettings`, below), `settings/workspace` (`WorkspaceSettings`:
 name, plan, **data retention** for owners and admins (`#retention`, `PATCH settings.retentionDays`; applies to
 sessions that end afterwards), team workspaces), `settings/billing` (`BillingSettings`).
+
+### Settings → MCP (`features/mcp/`)
+
+Backend contract: `backend/docs/wiki/modules/mcp.md`.
+
+- **Connect Claude or ChatGPT** (`ConnectorSteps`): the server address (`mcpUrl` from
+  `GET /api/mcp/tokens`, copy button) and three steps: add it as a custom connector, sign in, choose
+  the workspace and permissions on the consent page.
+- **Connected apps** (`ConnectedAppsList`): OAuth grants from `GET /api/mcp/grants` with app name,
+  workspace, last use and permission chips (`scopes.ts` `scopeName`); Disconnect calls
+  `DELETE /api/mcp/grants/:id` and the app's tokens stop working at once.
+- **Personal access tokens** (`TokenList`): label and "Acts in" (your current workspace, or one
+  workspace from `useWorkspaces()`), Generate shows the `mcp-remote` config once. Tokens without deck
+  scopes (`isPollOnly`) carry a "Polls only" chip and a line saying to generate a new one.
+
+### MCP consent page (`/oauth/consent?request=<id>`)
+
+`app/oauth/consent/page.tsx` → `features/mcp/components/OAuthConsent.tsx`, in the `AuthShell` frame
+(`aside={false}`, noindex, no referrer: the request id is a credential). A remote connector's
+authorize step lands here. Signed out: "Sign in to connect an app", with `/login?next=` and the path
+remembered for Google and SSO sign-in (`pendingInvite.ts` accepts `/oauth/consent?request=<id>`).
+Signed in: `ConsentForm` (presentational) shows the app name marked unverified with the address the
+browser returns to, a workspace select with the user's role in each, the requested permissions as
+checkboxes (all ticked), and Allow / Cancel. Both answers return `{redirectUrl}`; the page does a
+full navigation there (the app's callback, which may be an app scheme). A 404 (expired, already
+answered) shows "This request has expired".
 
 The nav lists **every** section in `SETTINGS_SECTIONS`, grouped Account / Workspace. Each entry is a
 link when available, otherwise disabled with one line saying why. `resolveSection` checks, in order:

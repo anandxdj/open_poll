@@ -1,7 +1,7 @@
 ---
 summary: The landing page sections, header with mobile menu, sign-in pages and their shared shell, Privacy/Terms, and what each claim on the page is backed by.
 status: active
-last_updated: 2026-10-25
+last_updated: 2026-10-26
 ---
 
 # Landing and sign-in surfaces
@@ -57,8 +57,9 @@ Result states (sent, verified, expired, invalid) are the same shell with `icon` 
 | --- | --- |
 | `/login`, `/signup` | `features/auth/components/LoginForm.tsx`, `SignupForm.tsx` |
 | `/forgot-password`, `/reset-password/[token]`, `/verify-email/[token]` | `app/(auth)/**` |
-| `/auth/complete` | `app/auth/complete/page.tsx` (loading state; then a remembered invitation or `/settings/privacy`, else `/polls`) |
+| `/auth/complete` | `app/auth/complete/page.tsx` (loading state; then a remembered invitation, `/settings/privacy` or MCP consent request, else `/polls`) |
 | `/invites/[token]` | `features/workspaces/invites/components/AcceptInvite.tsx` (only its `Shell` and class names changed) |
+| `/oauth/consent` | `features/mcp/components/OAuthConsent.tsx`: an AI app's connection request (MCP OAuth); details in `workspaces.md` |
 | `/privacy`, `/terms` | `app/privacy`, `app/terms` via `features/landing/components/legal/LegalPage.tsx` (header, footer, placeholder notice). `/privacy` keeps the owner's placeholder paragraph and adds what the product does with data (export, account deletion, participants removing their answers, retention), which stays accurate as written. |
 
 Behaviour notes: errors still surface as toasts; the signup and reset hints state the API's real
