@@ -8,6 +8,8 @@ export interface IMcpToken extends Document {
   last4: string;
   label: string;
   scopes: McpScope[];
+  /** Workspace the token acts in; null = the user's default workspace at call time. */
+  workspaceId?: mongoose.Types.ObjectId | null;
   lastUsedAt?: Date | null;
   expiresAt?: Date | null;
   createdAt: Date;
@@ -26,6 +28,7 @@ const mcpTokenSchema = new Schema<IMcpToken>(
       required: true,
       default: [],
     },
+    workspaceId: { type: Schema.Types.ObjectId, ref: 'Workspace', default: null },
     lastUsedAt: { type: Date, default: null },
     expiresAt: { type: Date, default: null },
   },

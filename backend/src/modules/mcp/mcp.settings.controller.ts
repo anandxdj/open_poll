@@ -11,7 +11,7 @@ export class McpSettingsController {
       if (!req.user) throw ApiError.unauthorized('Not authenticated');
 
       const baseUrl = getMcpPublicUrl(req);
-      const issued = await McpTokenService.issueToken(req.user.id, req.body.label, baseUrl);
+      const issued = await McpTokenService.issueToken(req.user.id, req.body.label, baseUrl, req.body.workspaceId);
 
       return ApiResponse.created(res, 'MCP token created successfully', {
         token: issued.token,

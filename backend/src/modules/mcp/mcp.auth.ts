@@ -9,6 +9,10 @@ export interface McpAuthRequest extends Request {
     tokenId: string;
     tokenHash: string;
     scopes: McpScope[];
+    /** Pinned workspace; null = the user's default workspace. */
+    workspaceId: string | null;
+    kind: 'pat' | 'oauth';
+    clientId?: string;
     user: {
       id: string;
       email: string;
@@ -35,6 +39,8 @@ export const mcpAuth = async (req: McpAuthRequest, _res: Response, next: NextFun
       tokenId: resolved.tokenId,
       tokenHash: resolved.tokenHash,
       scopes: resolved.scopes,
+      workspaceId: resolved.workspaceId,
+      kind: 'pat',
       user: resolved.user,
     };
 
