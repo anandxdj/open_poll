@@ -13,6 +13,7 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { addDomain, listDomains, removeDomain, verifyDomain } from "../api/domains.api";
 import type { CustomDomain, DomainsOverview } from "../types";
+import { SectionUnavailable } from "@/features/workspaces/settings/SectionUnavailable";
 
 const pill = "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium";
 const STATUS: Record<CustomDomain["status"], { label: string; className: string }> = {
@@ -148,14 +149,7 @@ export function DomainsSettings() {
 
   if (workspaceFailed) return <SettingsFailed message="This workspace could not be loaded." onRetry={retryWorkspace} />;
   if (!detail || !capabilities) return <SettingsLoading>Loading custom domains…</SettingsLoading>;
-  if (reason) {
-    return (
-      <div className="space-y-6">
-        {header}
-        <p className={cn(settingsCard, "text-sm text-muted-foreground")}>{reason}</p>
-      </div>
-    );
-  }
+  if (reason) return <SectionUnavailable id="domains" title="Custom domains" description="Your audience joins and sees results on your own address." />;
   if (failed) return <SettingsFailed message="Custom domains could not be loaded." onRetry={() => setAttempt((n) => n + 1)} />;
   if (!data || data.id !== workspaceId) return <SettingsLoading>Loading custom domains…</SettingsLoading>;
 

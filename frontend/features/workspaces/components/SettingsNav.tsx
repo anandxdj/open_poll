@@ -9,6 +9,10 @@ import { useCapabilities, useCurrentWorkspace, useSwitchWorkspace } from "../hoo
 import { SETTINGS_SECTIONS, TEAM_ONLY_REASON, resolveSection, type SettingsSection } from "../settings/sections";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 
+/** A section that does not open here: dashed chip on phones, muted row from lg. */
+const lockedClass =
+  "flex items-start gap-2.5 rounded-full border border-dashed border-border px-3.5 py-2 text-sm text-muted-foreground lg:w-full lg:rounded-lg lg:border-0 lg:px-2.5";
+
 const GROUPS: { id: SettingsSection["group"]; label: string }[] = [
   { id: "account", label: "Account" },
   { id: "workspace", label: "Workspace" },
@@ -16,8 +20,10 @@ const GROUPS: { id: SettingsSection["group"]; label: string }[] = [
 
 /**
  * Settings navigation: every section from SETTINGS_SECTIONS. Sections the
- * deployment, plan, role or workspace type rules out (or whose page has not
- * shipped) stay listed, disabled, with a one-line reason.
+ * deployment, plan, role or workspace type rules out stay listed, muted, with
+ * a one-line reason, and still open: their page explains and offers the way
+ * forward (switch workspace, create a team workspace, see plans). Sections
+ * whose page has not shipped are disabled.
  *
  * Below lg it is one scrolling row of chips above the page (reasons go to
  * assistive tech only); from lg it is a column with the reasons visible. In a
@@ -55,17 +61,33 @@ export function SettingsNav() {
             if (!available) {
               return (
                 <div key={section.id} className="shrink-0 lg:w-full">
-                  <div
-                    aria-disabled="true"
-                    title={reason ?? undefined}
-                    className="flex cursor-not-allowed items-start gap-2.5 rounded-full border border-dashed border-border px-3.5 py-2 text-sm text-muted-foreground lg:w-full lg:rounded-lg lg:border-0 lg:px-2.5"
-                  >
-                    <Icon className="mt-0.5 size-4 shrink-0 text-faint" />
-                    <span className="min-w-0">
-                      <span className="block whitespace-nowrap lg:whitespace-normal">{section.label}</span>
-                      {reason ? <span className="sr-only lg:not-sr-only lg:mt-0.5 lg:block lg:text-xs lg:leading-snug">{reason}</span> : null}
-                    </span>
-                  </div>
+                  {section.ready && reason ? (
+                    // Built but locked here: its page says why and how to get it (SectionUnavailable).
+                    <Link
+                      href={section.href}
+                      title={reason}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        lockedClass,
+                        "hover:bg-accent/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
+                        active && "border-solid bg-card text-foreground lg:border",
+                      )}
+                    >
+                      <Icon className="mt-0.5 size-4 shrink-0 text-faint" />
+                      <span className="min-w-0">
+                        <span className="block whitespace-nowrap lg:whitespace-normal">{section.label}</span>
+                        <span className="sr-only lg:not-sr-only lg:mt-0.5 lg:block lg:text-xs lg:leading-snug">{reason}</span>
+                      </span>
+                    </Link>
+                  ) : (
+                    <div aria-disabled="true" title={reason ?? undefined} className={cn(lockedClass, "cursor-not-allowed")}>
+                      <Icon className="mt-0.5 size-4 shrink-0 text-faint" />
+                      <span className="min-w-0">
+                        <span className="block whitespace-nowrap lg:whitespace-normal">{section.label}</span>
+                        {reason ? <span className="sr-only lg:not-sr-only lg:mt-0.5 lg:block lg:text-xs lg:leading-snug">{reason}</span> : null}
+                      </span>
+                    </div>
+                  )}
                   {section.id === firstTeamOnly ? (
                     <button
                       type="button"

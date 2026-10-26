@@ -19,6 +19,7 @@ import { createScimToken, listScimTokens, revokeScimToken } from "../api/sso.api
 import type { ScimToken } from "../types";
 import { CopyValue } from "@/features/workspaces/settings/CopyValue";
 import { useSsoGate } from "./SsoSettings";
+import { SectionUnavailable } from "@/features/workspaces/settings/SectionUnavailable";
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { dateStyle: "medium" });
 
@@ -58,14 +59,7 @@ export function ScimSettings() {
 
   if (workspaceFailed) return <SettingsFailed message="This workspace could not be loaded." onRetry={retryWorkspace} />;
   if (!ready) return <SettingsLoading>Loading SCIM provisioning…</SettingsLoading>;
-  if (reason) {
-    return (
-      <div className="space-y-6">
-        {header}
-        <p className={cn(settingsCard, "text-sm text-muted-foreground")}>{reason}</p>
-      </div>
-    );
-  }
+  if (reason) return <SectionUnavailable id="scim" title="SCIM provisioning" description="Your identity provider adds, updates and removes members and groups here." />;
   if (failed) return <SettingsFailed message="SCIM tokens could not be loaded." onRetry={() => setAttempt((n) => n + 1)} />;
   if (!data || data.id !== workspaceId) return <SettingsLoading>Loading SCIM tokens…</SettingsLoading>;
 
