@@ -27,7 +27,7 @@ feature in `modules/polls` — see `modules/polls.md`.
 |---|---|
 | `presentations.service.ts` | **Facade** (`PresentationService` + `publishPresentationEvent`, `computeSlideDistributionHelper`). The stable API for the socket, MCP, AI, worker and controllers; delegates only. Methods take an `actor`: the request (policy context) or a bare user id (sockets, scripts, tests). |
 | `access.ts` | `getPresentationById` (404 for trashed decks), `authorizeDeck(id, actor, action)` (`assertCan`), `canActOnDeck` (socket yes/no), `actorContext` (a bare user id resolves its membership in the deck's workspace). |
-| `crud.service.ts` | Create (in the request's workspace), workspace-scoped list, update (settings/theme patched field by field), delete (with sessions and their Redis keys). |
+| `crud.service.ts` | Create (in the request's workspace, on its default theme), workspace-scoped list, update (settings patched field by field, theme fields checked and replaced), delete (with sessions and their Redis keys). |
 | `live/session.service.ts` | The session engine: `openLobby`, `startSession`, `gotoSlide`/`advanceSlide`, `closeCurrentSlide`, `reopenCurrentSlide`, `revealCurrentSlide`, `endPresentation`, `getHostState`, `listSessions`, `getPresentationByCode`. Only writer of the deck mirror. |
 | `live/state.ts` | Slide states and phases, the Redis **answer windows** (`loadAnswerWindow`, rebuilt from the session document on a miss), live-session lookup, `StoredAnswerResult`. |
 | `live/answer.service.ts` | `submitAnswer` hot path: window lookup, registry `accept`/`score` in JS, then ONE Redis script call; replays by `clientAnswerId`; metrics. |
@@ -185,10 +185,11 @@ Exports: one column per guess / per item / per item and axis / x and y.
     (`presenter` | `audience`), `settings` (`audienceLocale`, `nickname`,
     `showResultsOnDevices`, `qna{}`, `reactions{enabled, emojis ≤6}`, `quiz{leaderboard,
     showCorrectOnDevices}`, `audiencePaced{resultsVisibility, assessment{}}`, `embed{allowed}`),
-    `theme` (`{presetId:'amber', brandKitId, overrides}`), `isTemplate`, `templateSourceId`,
+    `theme` (`{presetId:'graph-paper', brandKitId, overrides}`, see `modules/themes.md`), `isTemplate`, `templateSourceId`,
     `legacy` (`{source:'poll'|'quiz', sourceId}` or null), `deletedAt` (trash: 404 and hidden
     from lists). Create/update accept `pace`, `settings` (any subset; update patches field by
-    field) and `theme.presetId`.
+    field) and `theme` (`presetId`, `brandKitId`, `overrides`, each replaced whole and checked by
+    `assertThemeChoice`); a create without `theme` takes the workspace's `settings.defaultTheme`.
   - Mirror of the live session (written only by `live/session.service.ts`): `status`
     (`draft` never presented → `lobby` / `active` while a session is live → `ended`),
     `currentSlideIndex`, `questionStartedAt`, `questionEndsAt` (the deadline, or the close
