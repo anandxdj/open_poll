@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, expect, it } from 'bun:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { describeIntegration, resetTestData, startTestServer, type TestServer } from './harness';
+import { describeIntegration, resetTestData, settleLiveEngine, startTestServer, type TestServer } from './harness';
 import { createVerifiedUser, type TestUser } from './fixtures';
 
 /**
@@ -29,6 +29,24 @@ async function connect(token: string) {
   });
   await client.connect(transport);
   return client;
+}
+
+type Joined = { participantId: string; token: string; sessionId: string };
+
+/** A participant joins the deck's live session the way a phone does. */
+async function join(deckId: string, name: string): Promise<Joined> {
+  const res = await server.request(`/api/presentations/${deckId}/join`, { method: 'POST', body: { name } });
+  const json = (await res.json()) as any;
+  if (res.status !== 200) throw new Error(`join → ${res.status}: ${json.message}`);
+  return json.data;
+}
+
+async function answer(deckId: string, who: Joined, slideIndex: number, body: Record<string, unknown>) {
+  const res = await server.request(`/api/presentations/${deckId}/answer`, {
+    method: 'POST',
+    body: { participantId: who.participantId, participantToken: who.token, slideIndex, ...body },
+  });
+  if (res.status !== 200) throw new Error(`answer → ${res.status}: ${((await res.json()) as any).message}`);
 }
 
 /** Calls a tool and returns its parsed JSON result, throwing the error text on isError. */
@@ -109,6 +127,75 @@ describeIntegration('MCP over Streamable HTTP', () => {
 
     const themed = await call(client, 'update_deck', { deckId, theme: { presetId: 'ocean' } });
     expect(themed.theme.presetId).toBe('ocean');
+    await client.close();
+  });
+
+  it('runs a deck live with a room and reads the results back', async () => {
+    const owner = await createVerifiedUser({ name: 'Host' });
+    const client = await connect(await issueToken(owner));
+
+    const created = await call(client, 'create_deck', {
+      title: 'Friday retro',
+      slides: [
+        { kind: 'heading', title: 'Friday retro' },
+        {
+          kind: 'multiple_choice_quiz',
+          question: '2 + 2?',
+          options: [
+            { text: '4', isCorrect: true },
+            { text: '5', isCorrect: false },
+          ],
+          timeLimit: 60,
+        },
+        { kind: 'wordcloud', question: 'One word for the week?', timeLimit: 0 },
+        { kind: 'open_ended', question: 'What should we stop doing?', timeLimit: 0 },
+        { kind: 'leaderboard' },
+      ],
+    });
+    const deckId = created.deck.id;
+
+    const lobby = await call(client, 'open_lobby', { deckId });
+    expect(lobby.join.url).toEndWith(`/live/${created.deck.joinCode}`);
+    expect(lobby.session.status).toBe('lobby');
+    await expect(call(client, 'open_lobby', { deckId })).rejects.toThrow('restart: true');
+
+    const people = await Promise.all(['Ana', 'Ben', 'Cy'].map((name) => join(deckId, name)));
+    expect((await call(client, 'get_live_state', { deckId })).session.participantCount).toBe(3);
+
+    expect((await call(client, 'start_session', { deckId })).session.current.kind).toBe('heading');
+    expect((await call(client, 'next_slide', { deckId })).session.current.kind).toBe('multiple_choice_quiz');
+    await Promise.all(people.map((who, i) => answer(deckId, who, 1, { optionIndex: i === 2 ? 1 : 0 })));
+    const revealed = await call(client, 'reveal_results', { deckId });
+    expect(revealed.results.counts).toEqual([2, 1]);
+    expect(revealed.leaderboard.map((row: any) => row.name).sort()).toEqual(['Ana', 'Ben', 'Cy']);
+
+    await call(client, 'next_slide', { deckId });
+    await Promise.all(people.map((who, i) => answer(deckId, who, 2, { entries: [i === 2 ? 'busy' : 'calm'] })));
+    await call(client, 'next_slide', { deckId });
+    await Promise.all(people.map((who, i) => answer(deckId, who, 3, { text: `long meetings ${i}` })));
+    expect((await call(client, 'previous_slide', { deckId })).session.current.position).toBe(2);
+    await call(client, 'go_to_slide', { deckId, position: 4 });
+    await expect(call(client, 'next_slide', { deckId })).rejects.toThrow('last slide');
+
+    const ended = await call(client, 'end_session', { deckId });
+    expect(ended.session.isLive).toBe(false);
+    await settleLiveEngine();
+
+    const results = await call(client, 'get_session_results', { deckId });
+    expect(results.session.participantCount).toBe(3);
+    const byKind = Object.fromEntries(results.slides.map((slide: any) => [slide.kind, slide]));
+    expect(byKind.multiple_choice_quiz.results.counts).toEqual([2, 1]);
+    expect(byKind.wordcloud.results.words).toContainEqual({ text: 'calm', count: 2 });
+    expect(byKind.open_ended.results.responses).toHaveLength(3);
+    expect(results.leaderboard[0]).toMatchObject({ rank: 1, correctCount: 1 });
+    expect(results.note).toContain('typed by audience members');
+    const serialized = JSON.stringify(results);
+    for (const who of people) expect(serialized).not.toContain(who.participantId);
+
+    const sessions = await call(client, 'list_sessions', { deckId });
+    expect(sessions.sessions[0].sessionId).toBe(ended.session.sessionId);
+    const insights = await call(client, 'get_insights');
+    expect(insights.totals.sessions).toBe(1);
     await client.close();
   });
 
