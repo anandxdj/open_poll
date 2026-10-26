@@ -74,6 +74,7 @@ const rawEnvSchema = z.object({
   FORCE_PUBLIC_DNS: optional(z.string()),
   REDIS_URL: optional(z.string().regex(/^rediss?:\/\//, 'must start with redis:// or rediss://')),
   FRONTEND_URL: optional(httpUrl),
+  API_PUBLIC_URL: optional(httpUrl),
   ALLOWED_ORIGINS: optional(z.string()),
   JWT_ACCESS_SECRET: optional(z.string()),
   JWT_SECRET: optional(z.string()),
@@ -176,6 +177,11 @@ export interface AppEnv {
   google: { clientId: string; clientSecret: string; redirectUri: string } | null;
   /** null when OIDC sign-in is not configured. */
   oidc: { issuer: string; clientId: string; clientSecret: string; redirectUri: string } | null;
+  /**
+   * The API's own public origin (API_PUBLIC_URL, else http://localhost:PORT), no trailing slash.
+   * SSO builds its SAML entity id, ACS and OIDC redirect URLs from it, never from request headers.
+   */
+  apiPublicUrl: string;
   /** AES-256-GCM key for secrets at rest (common/utils/crypto); null when ENCRYPTION_KEY is unset. */
   encryptionKey: Buffer | null;
   /** null when Stripe billing is not configured. Price ids map Stripe prices to plans. */
@@ -467,6 +473,7 @@ export function parseEnv(source: Record<string, string | undefined> = process.en
           redirectUri: raw.OIDC_REDIRECT_URI ?? `http://localhost:${PORT}/auth/callback`,
         }
       : null,
+    apiPublicUrl: (raw.API_PUBLIC_URL ?? `http://localhost:${PORT}`).replace(/\/+$/, ''),
     encryptionKey,
     billing,
     storage,

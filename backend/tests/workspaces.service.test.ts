@@ -204,7 +204,8 @@ describe('workspace request schemas', () => {
     expect(updateWorkspaceSchema.safeParse({}).success).toBe(false);
     expect(updateWorkspaceSchema.safeParse({ settings: {} }).success).toBe(false);
     expect(updateWorkspaceSchema.safeParse({ plan: 'team' }).success).toBe(false);
-    expect(updateWorkspaceSchema.safeParse({ settings: { requireSso: true } }).success).toBe(false);
+    expect(updateWorkspaceSchema.safeParse({ settings: { allowedEmailDomains: ['x.com'] } }).success).toBe(false);
+    expect(updateWorkspaceSchema.parse({ settings: { requireSso: true } })).toEqual({ settings: { requireSso: true } });
     expect(updateWorkspaceSchema.safeParse({ settings: { retentionDays: 0 } }).success).toBe(false);
     expect(updateWorkspaceSchema.parse({ settings: { retentionDays: null } })).toEqual({ settings: { retentionDays: null } });
   });

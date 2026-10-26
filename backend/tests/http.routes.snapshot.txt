@@ -5,8 +5,27 @@ ROUTER /api/billing/webhook
 POST /api/billing/webhook
 USE /api/sso/saml/:connectionId/acs urlencodedParser
 ROUTER /api/sso/saml/:connectionId/acs
+POST /api/sso/saml/:connectionId/acs
 USE /scim/v2 jsonParser
 ROUTER /scim/v2
+USE /scim/v2 scimAuth
+USE /scim/v2 <anonymous>
+GET /scim/v2/ServiceProviderConfig
+GET /scim/v2/ResourceTypes
+GET /scim/v2/Schemas
+GET /scim/v2/Users
+POST /scim/v2/Users
+GET /scim/v2/Users/:id
+PUT /scim/v2/Users/:id
+PATCH /scim/v2/Users/:id
+DELETE /scim/v2/Users/:id
+GET /scim/v2/Groups
+POST /scim/v2/Groups
+GET /scim/v2/Groups/:id
+PUT /scim/v2/Groups/:id
+PATCH /scim/v2/Groups/:id
+DELETE /scim/v2/Groups/:id
+USE /scim/v2 <anonymous>
 ROUTER /metrics
 GET /metrics
 USE / corsMiddleware
@@ -36,6 +55,20 @@ GET /api/workspaces/:workspaceId/members
 PATCH /api/workspaces/:workspaceId/members/:userId
 DELETE /api/workspaces/:workspaceId/members/:userId
 POST /api/workspaces/:workspaceId/members/:userId/transfer-ownership
+ROUTER /api/workspaces/:workspaceId/scim
+GET /api/workspaces/:workspaceId/scim/tokens
+POST /api/workspaces/:workspaceId/scim/tokens
+DELETE /api/workspaces/:workspaceId/scim/tokens/:tokenId
+ROUTER /api/workspaces/:workspaceId/sso
+GET /api/workspaces/:workspaceId/sso
+POST /api/workspaces/:workspaceId/sso/connections
+PATCH /api/workspaces/:workspaceId/sso/connections/:connectionId
+DELETE /api/workspaces/:workspaceId/sso/connections/:connectionId
+POST /api/workspaces/:workspaceId/sso/connections/:connectionId/metadata
+POST /api/workspaces/:workspaceId/sso/connections/:connectionId/domains
+POST /api/workspaces/:workspaceId/sso/connections/:connectionId/domains/:domain/verify
+DELETE /api/workspaces/:workspaceId/sso/connections/:connectionId/domains/:domain
+POST /api/workspaces/:workspaceId/sso/connections/:connectionId/test
 ROUTER /api/auth
 GET /api/auth/login
 GET /api/auth/continue
@@ -183,6 +216,10 @@ ROUTER /api/shares
 GET /api/shares
 PUT /api/shares
 ROUTER /api/sso
+GET /api/sso/discover
+GET /api/sso/saml/:connectionId/metadata
+GET /api/sso/oidc/:connectionId/callback
+GET /api/sso/:connectionId/login
 ROUTER /api/templates
 ROUTER /api/themes
 GET /api/themes/presets

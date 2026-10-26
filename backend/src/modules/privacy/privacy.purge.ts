@@ -13,6 +13,8 @@ import { AnalyticsModel } from '../responses/analytics.model';
 import { ResponseModel } from '../responses/responses.model';
 import { purgeSessionData } from '../sessions/sessions.service';
 import { BrandKitModel } from '../themes/brandKit.model';
+import { ScimTokenModel } from '../scim/scimToken.model';
+import { SsoConnectionModel } from '../sso/ssoConnection.model';
 import { MediaAssetModel } from '../uploads/media.model';
 import { ResourceShareModel } from '../workspaces/resourceShare.model';
 import { UsageCounterModel } from '../workspaces/usageCounter.model';
@@ -74,6 +76,8 @@ export async function purgeWorkspace(workspace: Pick<IWorkspace, '_id'>) {
   await Promise.all([
     MediaAssetModel.deleteMany({ workspaceId }),
     BrandKitModel.deleteMany({ workspaceId }),
+    SsoConnectionModel.deleteMany({ workspaceId }),
+    ScimTokenModel.deleteMany({ workspaceId }),
     ImportJobModel.deleteMany({ workspaceId }),
     WorkspaceInviteModel.deleteMany({ workspaceId }),
     WorkspaceGroupModel.deleteMany({ workspaceId }),
