@@ -229,8 +229,9 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   IndexedDB, in `live/store` + `live/offline/**`), frontend contract types (`slideTicket`, `AnswerResult`,
   error codes `NOT_ACCEPTING`, `TIME_UP`, `ALREADY_ANSWERED`, `RATE_LIMITED`, `NOT_JOINED`), await the
   `live:join` ack before `answer:submit` after a reconnect, remove the legacy `quiz:event` dual-emit.
-- **W2-A** presenter view + remote + timer/kick, **W2-F** audience pace, **W3-D** SAML / per-workspace
-  OIDC / SCIM, **W3-B2** folders/templates/duplicate/co-editing. (**W3-A** themes and brand kits are built:
+- **W2-A** presenter view + remote + timer/kick, **W2-F** audience pace, **W3-B2**
+  folders/templates/duplicate/co-editing. (**W3-D** SAML, per-workspace OIDC and SCIM are built:
+  `backend/docs/wiki/modules/sso-scim.md`, `docs/deploy/sso.md`.) (**W3-A** themes and brand kits are built:
   `backend/docs/wiki/modules/themes.md`.)
   (**W3-G** workspace insights is built: `GET /api/insights` and the `/analytics` overview, see
   `backend/docs/wiki/modules/insights.md`.)
@@ -284,9 +285,7 @@ Wave 4 A → B → C → D → E; then the close-out.
   `backend/src/modules/ai/deck/slideMappers.ts` and `deck/mock.ts` (and for `qna` if wanted).
 - **Q&A section in session reports and exports** (W2-B is merged, W2-C reports do not show Q&A yet).
 - **Plan gates still to apply** (feature keys exist from W3-C; W2-C gates XLSX/PDF, W3-F consumes
-  `ai_deck`, W3-E consumes `import`, W3-B1 enforces `seats` on invites, W3-A `brand_kits`): W3-D `sso` /
-  `scim` and seats (`assertSeats` from `workspaces/members.service.ts`, plus
-  `syncSeatsAfterMembershipChange` after provisioning a member); W4-E `custom_domains` /
+  `ai_deck`, W3-E consumes `import`, W3-B1 enforces `seats` on invites, W3-A `brand_kits`, W3-D `sso` / `scim` and seats): W4-E `custom_domains` /
   `white_label`. (W4-C retention is enforced by the `privacy-retention-purge` job.)
 - **W3-B2 must delete a folder's `ResourceShare` rows when it deletes a folder** (sharing reads the raw
   `folders` collection).
