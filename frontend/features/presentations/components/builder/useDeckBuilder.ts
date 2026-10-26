@@ -31,6 +31,7 @@ import {
   type DeckDraft,
 } from "./deckDraft";
 import * as rail from "./slideRailOps";
+import type { DeckThemeRef } from "@/features/themes/types";
 
 // Prevents double-creation across remounts/rapid saves during navigation.
 let isGlobalCreatingPresentation = false;
@@ -49,6 +50,7 @@ export function useDeckBuilder() {
 
   const [title, setTitle] = useState(seedName ?? "");
   const [slides, setSlides] = useState<PresentationSlide[]>([blankSlide()]);
+  const [theme, setTheme] = useState<DeckThemeRef | null>(null);
   const [active, setActive] = useState(0);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!editId);
@@ -99,6 +101,7 @@ export function useDeckBuilder() {
         const presentation = await getPresentation(editId);
         setTitle(presentation.title);
         setSlides(presentation.slides);
+        setTheme(presentation.theme ?? null);
       } catch {
         toast.error("Could not load presentation deck for editing.");
         router.push("/polls");
@@ -123,6 +126,7 @@ export function useDeckBuilder() {
 
   const updateDeck = (patch: Partial<Omit<DeckDraft, "slides">>) => {
     if (patch.title !== undefined) setTitle(patch.title);
+    if (patch.theme !== undefined) setTheme(patch.theme);
   };
 
   const applyRail = (next: rail.RailState) => {
@@ -343,7 +347,7 @@ export function useDeckBuilder() {
   return {
     editId,
     loading,
-    deck: { title, slides } satisfies DeckDraft,
+    deck: { title, slides, id: editId, theme } satisfies DeckDraft,
     title,
     setTitle,
     slides,

@@ -346,6 +346,15 @@ has a runtime.
 - `<DeckThemeProvider theme={{ tokens: { primary: '#…' } }}>` sets overrides as inline variables
   on a `display: contents` element; inside it the shadcn tokens (`--primary`, `--background`…)
   are remapped to the deck ones so `Button`/`Input` follow. `DECK_TOKENS` lists every token.
+- **Session themes (W3-A).** The live store keeps the session's `theme` snapshot (host `SessionView`,
+  participant `live-state`, code lookup). `LiveDeckTheme` (`features/themes/LiveDeckTheme.tsx`) wraps the
+  host console and participant shell in `DeckThemeProvider theme={deckThemeFrom(theme)}`. The built-in
+  look (`custom: false`) maps to nothing. A custom theme sets the stage tokens, the accents, correct and
+  wrong, `cloud-1..12` from its chart colours, and on phones only `primary`/`primary-fg`/`ring` (phones keep
+  following the app's light or dark theme). `DeckTheme` also carries fonts (the provider sets the body
+  `font-family`, `--theme-font-heading` for `h1`–`h3`, and loads Google Fonts stylesheets with
+  `<link precedence>`), a logo (`StageLobby`, the participant header) and a stage background picture
+  (`Stage`, under the stage colour at the kit's overlay). `useDeckTheme()` reads them.
 - `tests/unit/theme.tokens.test.ts` fails on a `deck-*` utility or `var(--deck-*)` that names no
   token, and when `DECK_TOKENS` and `tokens.css` drift.
 
