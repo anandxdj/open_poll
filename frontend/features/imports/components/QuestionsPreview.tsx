@@ -16,7 +16,7 @@ export function QuestionsPreview({ questions, errors }: { questions: QuestionPre
       {questions.length > 0 ? (
         <div className="max-h-56 overflow-auto rounded-xl border border-border">
           <table className="w-full text-left text-xs" aria-label={t("questions.previewLabel")}>
-            <thead className="sticky top-0 bg-secondary/60 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <thead className="sticky top-0 bg-secondary text-xs font-medium text-muted-foreground">
               <tr>
                 <th scope="col" className="px-3 py-2">{t("questions.colRow")}</th>
                 <th scope="col" className="px-3 py-2">{t("questions.colType")}</th>
@@ -43,8 +43,8 @@ export function QuestionsPreview({ questions, errors }: { questions: QuestionPre
       ) : null}
 
       {errors.length > 0 ? (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+        <div className="rounded-lg border border-warning/30 bg-warning/10 p-3">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-warning">
             <AlertTriangle className="size-3.5" aria-hidden /> {t("questions.problemsTitle")}
           </p>
           <ul className="mt-2 max-h-32 space-y-1 overflow-auto text-xs text-foreground/80">

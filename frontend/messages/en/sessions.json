@@ -27,7 +27,9 @@
   },
   "report": {
     "back": "Sessions",
+    "title": "Session report",
     "run": "Session {number}",
+    "startedAt": "Started {date}",
     "loading": "Loading the report…",
     "loadFailed": "Couldn't load this report.",
     "notFound": "This session doesn't exist or you don't have access to it.",
@@ -37,8 +39,7 @@
       "participants": "Participants",
       "responses": "Responses",
       "participation": "Participation",
-      "duration": "Duration",
-      "started": "Started"
+      "duration": "Duration"
     },
     "participationHint": "Answers out of everything participants could have answered.",
     "slides": {
@@ -138,6 +139,7 @@
   "public": {
     "kicker": "Shared results",
     "run": "Session {number}",
+    "cta": "Run your own session",
     "loading": "Loading results…",
     "unavailableTitle": "These results aren't available",
     "unavailableHint": "The link may have expired, been switched off, or mistyped. Ask the person who shared it for a new one.",
@@ -163,7 +165,7 @@
     "removedTitle": "You were removed from this session",
     "loadFailed": "Couldn't load your results.",
     "retry": "Try again",
-    "run": "{title} · Session {number}",
+    "run": "{title}, session {number}",
     "rank": "Rank",
     "rankOf": "#{rank} of {total}",
     "score": "Points",

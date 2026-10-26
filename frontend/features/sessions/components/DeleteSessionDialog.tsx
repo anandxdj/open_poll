@@ -44,13 +44,13 @@ export function DeleteSessionDialog({ open, onOpenChange, sessionId, runNumber, 
 
   return (
     <AlertDialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <AlertDialogContent className="rounded-3xl border-border bg-card">
+      <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-xl font-bold">{t("title", { number: runNumber })}</AlertDialogTitle>
+          <AlertDialogTitle className="text-lg font-semibold">{t("title", { number: runNumber })}</AlertDialogTitle>
           <AlertDialogDescription className="text-sm text-muted-foreground">{t("body")}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="mt-4 gap-3">
-          <AlertDialogCancel className="rounded-xl border-border bg-secondary/50 hover:bg-secondary">
+          <AlertDialogCancel>
             {t("cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
@@ -59,7 +59,7 @@ export function DeleteSessionDialog({ open, onOpenChange, sessionId, runNumber, 
               event.preventDefault();
               void confirm();
             }}
-            className="rounded-xl bg-red-500 font-bold text-white transition-colors hover:bg-red-600"
+            className="bg-destructive text-white transition-colors hover:bg-destructive/90"
           >
             {t("confirm")}
           </AlertDialogAction>

@@ -8,14 +8,15 @@ import { cn } from "@/lib/utils";
 import { useTakeHome } from "../hooks/useTakeHome";
 import { answerTone, formatResponseTime, type AnswerTone } from "../query";
 import type { TakeHome, TakeHomeSlide } from "../types";
-import { MessageCard, Skeleton, StatTile } from "./ui";
+import { PublicPageShell } from "@/features/landing/components/shared/PublicPageShell";
+import { LiveNotice, MessageCard, SectionTitle, Skeleton, StatStrip } from "./ui";
 
 const toneStyle: Record<AnswerTone, string> = {
-  correct: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  wrong: "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400",
-  pending: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  unscored: "border-border bg-secondary/40 text-muted-foreground",
-  skipped: "border-border bg-secondary/20 text-muted-foreground/70",
+  correct: "border-success/30 bg-success/10 text-success",
+  wrong: "border-destructive/30 bg-destructive/10 text-destructive",
+  pending: "border-warning/30 bg-warning/10 text-warning",
+  unscored: "border-border bg-secondary text-muted-foreground",
+  skipped: "border-border bg-background text-muted-foreground",
 };
 const toneIcon = { correct: Check, wrong: X, pending: Clock, unscored: Check, skipped: Minus } as const;
 
@@ -29,38 +30,36 @@ export function ParticipantSummary({ code, sessionId }: { code: string; sessionI
   const { status, data, reload } = useTakeHome(code, sessionId);
 
   return (
-    <div className="min-h-dvh bg-background text-foreground">
-      <main className="mx-auto w-full max-w-lg space-y-5 px-4 py-8">
-        {status === "loading" ? (
-          <div role="status" aria-label={t("loading")} className="space-y-3">
-            <Skeleton className="h-20" />
-            <Skeleton className="h-40" />
-          </div>
-        ) : status === "noCredentials" ? (
-          <MessageCard title={t("noCredentialsTitle")} hint={t("noCredentialsHint")}>
-            <Button asChild className="rounded-xl font-bold">
-              <Link href="/live">{t("joinAnother")}</Link>
-            </Button>
-          </MessageCard>
-        ) : status === "notFound" ? (
-          <MessageCard title={t("notFoundTitle")} hint={t("notFoundHint")}>
-            <Button asChild variant="outline" className="rounded-xl">
-              <Link href="/live">{t("joinAnother")}</Link>
-            </Button>
-          </MessageCard>
-        ) : status === "removed" ? (
-          <MessageCard title={t("removedTitle")} />
-        ) : status === "failed" || !data ? (
-          <MessageCard tone="error" title={t("loadFailed")}>
-            <Button variant="outline" size="sm" className="rounded-xl" onClick={reload}>
-              <RefreshCw /> {t("retry")}
-            </Button>
-          </MessageCard>
-        ) : (
-          <TakeHomeContent data={data} />
-        )}
-      </main>
-    </div>
+    <PublicPageShell label={t("kicker")}>
+      {status === "loading" ? (
+        <div role="status" aria-label={t("loading")} className="space-y-3">
+          <Skeleton className="h-20" />
+          <Skeleton className="h-40" />
+        </div>
+      ) : status === "noCredentials" ? (
+        <MessageCard title={t("noCredentialsTitle")} hint={t("noCredentialsHint")}>
+          <Button asChild>
+            <Link href="/live">{t("joinAnother")}</Link>
+          </Button>
+        </MessageCard>
+      ) : status === "notFound" ? (
+        <MessageCard title={t("notFoundTitle")} hint={t("notFoundHint")}>
+          <Button asChild variant="outline" className="bg-card">
+            <Link href="/live">{t("joinAnother")}</Link>
+          </Button>
+        </MessageCard>
+      ) : status === "removed" ? (
+        <MessageCard title={t("removedTitle")} />
+      ) : status === "failed" || !data ? (
+        <MessageCard tone="error" title={t("loadFailed")}>
+          <Button variant="outline" size="sm" className="bg-card" onClick={reload}>
+            <RefreshCw /> {t("retry")}
+          </Button>
+        </MessageCard>
+      ) : (
+        <TakeHomeContent data={data} />
+      )}
+    </PublicPageShell>
   );
 }
 
@@ -68,38 +67,28 @@ export function ParticipantSummary({ code, sessionId }: { code: string; sessionI
 export function TakeHomeContent({ data }: { data: TakeHome }) {
   const t = useTranslations("sessions.summary");
   return (
-    <>
-      <header className="space-y-1">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-primary">{t("kicker")}</p>
-        <h1 className="text-2xl font-extrabold tracking-tight">{data.me.name}</h1>
-        <p className="text-sm text-muted-foreground">
+    <div className="space-y-8">
+      <header>
+        <h1 className="text-4xl font-semibold leading-none tracking-[-0.04em]">{data.me.name}</h1>
+        <p className="mt-3 text-base text-muted-foreground">
           {t("run", { title: data.session.title, number: data.session.runNumber })}
         </p>
       </header>
 
-      <dl className="grid grid-cols-2 gap-3">
-        <StatTile
-          label={t("rank")}
-          value={t("rankOf", { rank: data.me.rank, total: data.session.participantCount })}
-        />
-        <StatTile label={t("score")} value={data.me.score.toLocaleString()} />
-        <StatTile label={t("correct")} value={data.me.correctCount} />
-        <StatTile
-          label={t("answered")}
-          value={t("answeredOf", { answered: data.me.answeredCount, total: data.slides.length })}
-        />
-      </dl>
+      <StatStrip
+        pairs
+        stats={[
+          { label: t("rank"), value: t("rankOf", { rank: data.me.rank, total: data.session.participantCount }) },
+          { label: t("score"), value: data.me.score.toLocaleString() },
+          { label: t("correct"), value: data.me.correctCount },
+          { label: t("answered"), value: t("answeredOf", { answered: data.me.answeredCount, total: data.slides.length }) },
+        ]}
+      />
 
-      {data.session.status !== "ended" ? (
-        <p role="status" className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">
-          {t("liveHint")}
-        </p>
-      ) : null}
+      {data.session.status !== "ended" ? <LiveNotice>{t("liveHint")}</LiveNotice> : null}
 
-      <section aria-labelledby="answers-title" className="space-y-3">
-        <h2 id="answers-title" className="text-base font-bold tracking-tight">
-          {t("slidesTitle")}
-        </h2>
+      <section aria-labelledby="answers-title" className="space-y-4">
+        <SectionTitle id="answers-title">{t("slidesTitle")}</SectionTitle>
         {data.slides.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("emptySlides")}</p>
         ) : (
@@ -112,7 +101,7 @@ export function TakeHomeContent({ data }: { data: TakeHome }) {
           </ol>
         )}
       </section>
-    </>
+    </div>
   );
 }
 
@@ -122,44 +111,42 @@ function AnswerCard({ slide }: { slide: TakeHomeSlide }) {
   const Icon = toneIcon[tone];
 
   return (
-    <article className="space-y-3 rounded-[1.5rem] border border-border bg-card p-4">
+    <article className="space-y-3 rounded-xl border border-border bg-card p-4">
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
-            {t("slideNumber", { number: slide.slideIndex + 1 })}
-          </p>
-          <h3 className="text-sm font-bold leading-snug text-foreground/90">{slide.label}</h3>
+          <p className="text-sm text-muted-foreground">{t("slideNumber", { number: slide.slideIndex + 1 })}</p>
+          <h3 className="mt-0.5 text-base font-semibold leading-snug tracking-[-0.01em]">{slide.label}</h3>
         </div>
         <span
           className={cn(
-            "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider",
+            "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium",
             toneStyle[tone]
           )}
         >
-          <Icon aria-hidden className="size-3" />
+          <Icon aria-hidden className="size-3.5" />
           {t(`status.${tone}`)}
         </span>
       </header>
 
-      <dl className="space-y-2 text-sm">
+      <dl className="grid gap-2.5 text-sm">
         <div>
-          <dt className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">{t("yourAnswer")}</dt>
-          <dd className={cn("break-words font-medium", !slide.answer && "text-muted-foreground")}>
+          <dt className="text-muted-foreground">{t("yourAnswer")}</dt>
+          <dd className={cn("mt-0.5 break-words text-base font-medium", !slide.answer && "text-muted-foreground")}>
             {slide.answer ?? t("noAnswer")}
           </dd>
         </div>
         {slide.correctAnswer && slide.isCorrect !== true ? (
           <div>
-            <dt className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">{t("correctAnswer")}</dt>
-            <dd className="break-words font-medium text-emerald-600 dark:text-emerald-400">{slide.correctAnswer}</dd>
+            <dt className="text-muted-foreground">{t("correctAnswer")}</dt>
+            <dd className="mt-0.5 break-words text-base font-medium text-success">{slide.correctAnswer}</dd>
           </div>
         ) : null}
       </dl>
 
       {slide.answered ? (
-        <footer className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <footer className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-3 text-sm text-muted-foreground">
           {slide.points !== null ? (
-            <span className="font-bold tabular-nums text-foreground/80">
+            <span className="font-mono tabular-nums text-foreground">
               {slide.points > 0 ? t("points", { points: slide.points.toLocaleString() }) : t("noPoints")}
             </span>
           ) : null}
