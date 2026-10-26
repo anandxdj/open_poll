@@ -114,91 +114,104 @@ const authorizeProvider = {
   },
 } as Pick<OAuthServerProvider, 'clientsStore' | 'authorize'> as OAuthServerProvider;
 
+async function tokenEndpoint(req: Request, res: Response) {
+  try {
+    const client = await authenticateClient(req);
+    const body = req.body ?? {};
+    const resource = typeof body.resource === 'string' ? body.resource : undefined;
+    if (body.grant_type === 'authorization_code') {
+      res.json(
+        await exchangeAuthorizationCode(client, {
+          code: assertTokenRequestParam(body.code, 'code'),
+          codeVerifier: typeof body.code_verifier === 'string' ? body.code_verifier : undefined,
+          redirectUri: typeof body.redirect_uri === 'string' ? body.redirect_uri : undefined,
+          resource,
+        }),
+      );
+      return;
+    }
+    if (body.grant_type === 'refresh_token') {
+      res.json(
+        await exchangeRefreshToken(client, {
+          refreshToken: assertTokenRequestParam(body.refresh_token, 'refresh_token'),
+          scopes: typeof body.scope === 'string' ? body.scope.split(' ').filter(Boolean) : undefined,
+          resource,
+        }),
+      );
+      return;
+    }
+    throw new UnsupportedGrantTypeError('Use authorization_code or refresh_token');
+  } catch (error) {
+    sendOAuthError(res, error);
+  }
+}
+
+async function revokeEndpoint(req: Request, res: Response) {
+  try {
+    const client = await authenticateClient(req);
+    await revokeToken(client, assertTokenRequestParam(req.body?.token, 'token'));
+    res.status(200).end();
+  } catch (error) {
+    sendOAuthError(res, error);
+  }
+}
+
 const anyOrigin = cors();
 
+/**
+ * Routers are built when the app is (createApp → mountPreParserRoutes), not
+ * at import, like the app's own mounts: path-mounted layers then carry their
+ * path for the route-table tests whatever imported this module first.
+ */
+
 /** Mounted at `/.well-known`. */
-export const wellKnownRouter = Router();
-
-wellKnownRouter.get('/oauth-authorization-server', anyOrigin, (req, res) => {
-  res.json(authorizationServerMetadata(req));
-});
-
-wellKnownRouter.get(['/oauth-protected-resource', '/oauth-protected-resource/mcp'], anyOrigin, (req, res) => {
-  res.json(protectedResourceMetadata(req));
-});
+export function wellKnownRouter(): Router {
+  const router = Router();
+  router.get('/oauth-authorization-server', anyOrigin, (req, res) => {
+    res.json(authorizationServerMetadata(req));
+  });
+  router.get(['/oauth-protected-resource', '/oauth-protected-resource/mcp'], anyOrigin, (req, res) => {
+    res.json(protectedResourceMetadata(req));
+  });
+  return router;
+}
 
 /** Mounted at `/oauth`. */
-const router = Router();
+export function oauthRouter(): Router {
+  const router = Router();
 
-router.use(
-  '/authorize',
-  oauthLimit('mcp-oauth-authorize', 60, 60),
-  authorizationHandler({ provider: authorizeProvider, rateLimit: false }),
-);
+  router.use(
+    '/authorize',
+    oauthLimit('mcp-oauth-authorize', 60, 60),
+    authorizationHandler({ provider: authorizeProvider, rateLimit: false }),
+  );
 
-router.use(
-  '/register',
-  // Hosted connectors register from shared server IPs, one client per user that connects.
-  oauthLimit('mcp-oauth-register', 60 * 60, 300),
-  // Secrets of confidential clients never expire: a connector that registered
-  // once keeps working until it stops being used (the client TTL).
-  clientRegistrationHandler({ clientsStore: oauthClientsStore, clientSecretExpirySeconds: 0, rateLimit: false }),
-);
+  router.use(
+    '/register',
+    // Hosted connectors register from shared server IPs, one client per user that connects.
+    oauthLimit('mcp-oauth-register', 60 * 60, 300),
+    // Secrets of confidential clients never expire: a connector that registered
+    // once keeps working until it stops being used (the client TTL).
+    clientRegistrationHandler({ clientsStore: oauthClientsStore, clientSecretExpirySeconds: 0, rateLimit: false }),
+  );
 
-router.use(['/token', '/revoke'], anyOrigin);
+  router.use(['/token', '/revoke'], anyOrigin);
 
-router.post(
-  '/token',
-  noStore,
-  express.urlencoded({ extended: false }),
-  oauthLimit('mcp-oauth-token', 60, 120, perClient),
-  async (req, res) => {
-    try {
-      const client = await authenticateClient(req);
-      const body = req.body ?? {};
-      const resource = typeof body.resource === 'string' ? body.resource : undefined;
-      if (body.grant_type === 'authorization_code') {
-        res.json(
-          await exchangeAuthorizationCode(client, {
-            code: assertTokenRequestParam(body.code, 'code'),
-            codeVerifier: typeof body.code_verifier === 'string' ? body.code_verifier : undefined,
-            redirectUri: typeof body.redirect_uri === 'string' ? body.redirect_uri : undefined,
-            resource,
-          }),
-        );
-        return;
-      }
-      if (body.grant_type === 'refresh_token') {
-        res.json(
-          await exchangeRefreshToken(client, {
-            refreshToken: assertTokenRequestParam(body.refresh_token, 'refresh_token'),
-            scopes: typeof body.scope === 'string' ? body.scope.split(' ').filter(Boolean) : undefined,
-            resource,
-          }),
-        );
-        return;
-      }
-      throw new UnsupportedGrantTypeError('Use authorization_code or refresh_token');
-    } catch (error) {
-      sendOAuthError(res, error);
-    }
-  },
-);
+  router.post(
+    '/token',
+    noStore,
+    express.urlencoded({ extended: false }),
+    oauthLimit('mcp-oauth-token', 60, 120, perClient),
+    tokenEndpoint,
+  );
 
-router.post(
-  '/revoke',
-  noStore,
-  express.urlencoded({ extended: false }),
-  oauthLimit('mcp-oauth-revoke', 60, 120, perClient),
-  async (req, res) => {
-    try {
-      const client = await authenticateClient(req);
-      await revokeToken(client, assertTokenRequestParam(req.body?.token, 'token'));
-      res.status(200).end();
-    } catch (error) {
-      sendOAuthError(res, error);
-    }
-  },
-);
+  router.post(
+    '/revoke',
+    noStore,
+    express.urlencoded({ extended: false }),
+    oauthLimit('mcp-oauth-revoke', 60, 120, perClient),
+    revokeEndpoint,
+  );
 
-export default router;
+  return router;
+}

@@ -14,7 +14,7 @@ import insightsRouter from '../modules/insights/insights.route';
 import libraryRouter from '../modules/library/library.route';
 import mcpRouter from '../modules/mcp/mcp.route';
 import mcpSettingsRouter from '../modules/mcp/mcp.settings.route';
-import mcpOAuthRouter, { wellKnownRouter } from '../modules/mcp/oauth/oauth.route';
+import { oauthRouter, wellKnownRouter } from '../modules/mcp/oauth/oauth.route';
 import mcpOAuthConsentRouter from '../modules/mcp/oauth/oauth.consent.route';
 import metricsRouter from '../modules/metrics/metrics.route';
 import pollsRouter from '../modules/polls/polls.route';
@@ -120,8 +120,8 @@ export function mountPreParserRoutes(app: Express): void {
     scimRouter,
   );
   app.use('/metrics', metricsRouter);
-  app.use('/.well-known', wellKnownRouter);
-  app.use('/oauth', mcpOAuthRouter);
+  app.use('/.well-known', wellKnownRouter());
+  app.use('/oauth', oauthRouter());
 }
 
 /** System routes, the root OIDC callback and the mount table. */
