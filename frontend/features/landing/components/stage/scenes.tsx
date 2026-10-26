@@ -107,20 +107,15 @@ function TypeAnswerScene() {
 
 /* ── Word cloud ────────────────────────────────────────────────────────── */
 
-// Answers in the order they arrive; a word grows with every repeat.
+// Answers in the order they arrive, one at a time: a new word appears in its
+// own spot and every repeat makes it bigger there.
 const WORD_STREAM = [
-  "practical", "fun", "clear", "practical", "useful", "hands-on", "fun", "practical",
-  "engaging", "clear", "relevant", "practical", "insightful", "fun", "useful", "hands-on",
-  "practical", "clear", "inspiring", "engaging", "fun", "practical", "relevant", "useful",
-  "helpful", "hands-on", "clear", "fast", "practical", "interactive", "fun", "deep",
-  "engaging", "focused", "insightful", "friendly", "energizing", "useful", "practical", "new",
-  "clear", "eye-opening", "concrete", "lively", "relevant", "honest", "hands-on", "smart",
-  "inspiring", "creative", "valuable", "sharp", "actionable", "open", "playful", "warm",
-  "fresh", "collaborative", "real", "bold", "simple", "motivating", "candid", "thoughtful",
-  "timely", "solid", "curious", "calm",
+  "practical", "fun", "clear", "practical", "useful", "hands-on", "practical", "engaging",
+  "fun", "clear", "relevant", "practical", "insightful", "fun", "useful", "practical",
+  "inspiring", "hands-on", "clear", "practical", "engaging", "fun", "helpful", "fast",
+  "practical", "interactive", "deep", "focused", "clear", "useful", "friendly", "new",
+  "practical", "fun", "energizing", "honest", "lively", "practical", "calm", "creative",
 ];
-// Answers that land per tick.
-const PER_TICK = 2;
 
 // The product's cloud colours are deck tokens tuned for the dark stage; here they map to the
 // app's categorical chart colours, which hold 3:1 on the stage in both themes.
@@ -140,9 +135,9 @@ const CLOUD_COLOURS = {
 } as React.CSSProperties;
 
 function WordCloudScene() {
-  const step = useStepper(Math.ceil(WORD_STREAM.length / PER_TICK), 130);
+  const step = useStepper(WORD_STREAM.length, 140);
   const counts = new Map<string, number>();
-  for (const w of WORD_STREAM.slice(0, (step + 1) * PER_TICK)) counts.set(w, (counts.get(w) ?? 0) + 1);
+  for (const w of WORD_STREAM.slice(0, step + 1)) counts.set(w, (counts.get(w) ?? 0) + 1);
   const words = [...counts].map(([text, count]) => ({ text, count }));
 
   return (

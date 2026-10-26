@@ -281,14 +281,23 @@ the explanation shows in `reveal`/`report`, and only graded slides (`points > 0`
 options — an ungraded one shows plain results. `isGradedSlide(slide)` (`slides/shared.ts`) is the
 participant shell's rule: a 0-point select answer gets "response received", never right/wrong.
 
-**wordcloud.** `slides/types/wordcloud/WordCloud.tsx` lays the words out on the client once
-mounted: it measures each word's ink on a canvas in the cloud's own font (900 weight,
-`tracking-tight`), places the most frequent first on an Archimedean spiral stretched to the box's
-aspect ratio (big words read across, about 40% of the smaller ones run vertically), then scales the
-whole cloud to fit its box (up to 1.5× when sparse). It lays out again when the box resizes or a
-font finishes loading. Colours come from `cloud-1..12`, hashed from the word, so a word keeps its
-colour as the cloud grows. New words fade in at their spot; the rest spring to new places.
-`className` replaces the default box (the landing sample uses it).
+**wordcloud.** `slides/types/wordcloud/WordCloud.tsx` draws the words; the layout lives in
+`cloudLayout.ts` (pure, tested in `tests/unit/wordcloud.layout.test.ts`). Each word's ink is measured on a
+canvas in the cloud's own font (900 weight, `tracking-tight`); sizes grow with every repeat (log scale up to
+8 answers, then relative to the top word).
+- **Live** (`mode="live"`, the stage while voting and after reveal, and the landing sample): the previous
+  cloud is the starting point of the next. A word keeps the spot it first landed on and grows there; bigger
+  words keep their spot first (ties: the older word) and a smaller word in the way slides just far enough out
+  of it. New words land on a spiral from the middle with room around them to grow into, and keep their
+  orientation (about 40% of small new words run vertically). When a new word finds no room, or 40 words
+  are shown (`LIVE_LIMIT`), the cloud starts over: the top 3 (`KEEP_ON_RESET`) stay where they are, the rest
+  give way to what is arriving, and a word that dropped out comes back when someone sends it again.
+  Updates with the same counts move nothing; a font that finishes loading re-measures the words in place;
+  only a new box size lays the cloud out afresh.
+- **Fit** (`mode="fit"`, session reports): every word at once, at the largest size (up to 1.6×) where all
+  of them fit.
+- Colours come from `cloud-1..12`, hashed from the word, so a word keeps its colour. `className` replaces
+  the default box (the landing sample uses it).
 
 **Advanced interactive types** (`guess_number`, `hundred_points`, `grid_2x2`, `pin_on_image`; all
 `response`). The participant slide carries the type's sanitized settings (`config`, and `content` for
