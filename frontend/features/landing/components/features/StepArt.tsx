@@ -121,7 +121,7 @@ export function ShareArt() {
   const step = useStepper(3, 650, seen);
   return (
     <ArtFrame ref={ref} size="sm" label="Illustration of a session report with actions to export it, share a results link and run the deck again.">
-      <div className={cn(artSheet, "p-3")}>
+      <div className={cn(artSheet, "@container p-3")}>
         <div className="flex items-baseline justify-between gap-2">
           <p className="truncate text-sm font-medium text-foreground">Team offsite</p>
           <p className="shrink-0 text-xs text-muted-foreground">
@@ -133,14 +133,15 @@ export function ShareArt() {
             <span key={i} className={cn("flex-1 rounded-t-sm", i === 3 ? "bg-chart-1" : "bg-muted-foreground/30")} style={{ height: `${h}%` }} />
           ))}
         </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          <span className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-foreground">
+        {/* One row at every width: in a narrow sheet "Run again" keeps only its icon. */}
+        <div className="mt-3 flex gap-1.5">
+          <span className="flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-foreground">
             <Table className="size-3" aria-hidden="true" />
             Export
           </span>
           <span
             className={cn(
-              "flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors duration-300",
+              "flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium transition-colors duration-300",
               step >= 1 ? "border-primary bg-primary text-primary-foreground" : "border-border text-foreground",
             )}
           >
@@ -149,12 +150,12 @@ export function ShareArt() {
           </span>
           <span
             className={cn(
-              "flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-foreground transition-opacity duration-300",
+              "flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs text-foreground transition-opacity duration-300",
               step >= 2 ? "opacity-100" : "opacity-40",
             )}
           >
             <Play className="size-3" aria-hidden="true" />
-            Run again
+            <span className="hidden @[17.5rem]:inline">Run again</span>
           </span>
         </div>
       </div>

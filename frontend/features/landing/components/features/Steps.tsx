@@ -52,11 +52,15 @@ export function Steps() {
                   )}
                 />
               </div>
-              <div className="mt-6">
+              {/* Picture over words on phones and in the three lg columns; side by side in
+                  between, where a full-width picture would stretch thin. */}
+              <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 sm:items-center sm:gap-8 lg:grid-cols-1 lg:items-start lg:gap-6">
                 <step.art />
+                <div>
+                  <h3 className="text-2xl font-semibold tracking-[-0.03em]">{step.title}</h3>
+                  <p className="mt-3 max-w-md text-base leading-relaxed text-muted-foreground">{step.body}</p>
+                </div>
               </div>
-              <h3 className="mt-6 text-2xl font-semibold tracking-[-0.03em]">{step.title}</h3>
-              <p className="mt-3 max-w-md text-base leading-relaxed text-muted-foreground">{step.body}</p>
             </li>
           ))}
         </ol>
