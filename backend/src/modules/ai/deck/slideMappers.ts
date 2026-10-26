@@ -326,7 +326,10 @@ const formatIssues = (issues: readonly { path: PropertyKey[]; message: string }[
  * schema (`safeParse`), so a slide that passes here is exactly what
  * `POST /api/presentations` would store.
  */
-export const toRegistrySlide = (mapper: DeckSlideMapper, generated: GeneratedSlide | undefined): MappedSlide => {
+export const toRegistrySlide = <S extends GeneratedSlide>(
+  mapper: { type: string; map(slide: S): Record<string, unknown> },
+  generated: S | undefined,
+): MappedSlide => {
   if (!generated || typeof generated !== 'object') return { ok: false, issues: ['The slide is missing from the output'] };
   const def = getSlideType(mapper.type);
   if (!def) return { ok: false, issues: [`Slide type "${mapper.type}" is not available`] };
