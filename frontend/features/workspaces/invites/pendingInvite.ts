@@ -5,7 +5,8 @@
  * invite path, and the login form sends the user back to it afterwards.
  *
  * The privacy page uses the same round trip when an account without a
- * password signs in again to confirm its deletion (RETURN_PATHS).
+ * password signs in again to confirm its deletion (RETURN_PATHS), and so does
+ * the MCP consent page when an AI app asks to connect a signed-out visitor.
  */
 
 const STORAGE_KEY = "openpoll_pending_invite";
@@ -15,13 +16,16 @@ const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 /** Only `/invites/<token>` paths may be returned to (never an arbitrary redirect target). */
 const INVITE_PATH = /^\/invites\/[A-Za-z0-9_-]{16,200}$/;
 
+/** `/oauth/consent?request=<id>`: an AI app's connection request waiting for the user (MCP). */
+const CONSENT_PATH = /^\/oauth\/consent\?request=[A-Za-z0-9_-]{20,200}$/;
+
 /** Other pages a sign-in may come back to. */
 const RETURN_PATHS: ReadonlySet<string> = new Set(["/settings/privacy"]);
 
 export const isInvitePath = (value: unknown): value is string => typeof value === "string" && INVITE_PATH.test(value);
 
 const isReturnPath = (value: unknown): value is string =>
-  isInvitePath(value) || (typeof value === "string" && RETURN_PATHS.has(value));
+  isInvitePath(value) || (typeof value === "string" && (RETURN_PATHS.has(value) || CONSENT_PATH.test(value)));
 
 export const invitePath = (token: string) => `/invites/${token}`;
 
