@@ -35,7 +35,7 @@ const ARROWS: Record<string, Direction> = {
  */
 export function Grid2x2Participant({ slide, mode, onSubmit, submitting }: ParticipantViewProps) {
   const t = useTranslations("slidesAdvanced.grid2x2");
-  const { items, x, y } = gridConfig(slide);
+  const { items, x, y, quadrants } = gridConfig(slide);
   const [positions, setPositions] = useState<(GridPosition | null)[]>(() => items.map(() => null));
   const [active, setActive] = useState(0);
   const [announcement, setAnnouncement] = useState("");
@@ -130,6 +130,7 @@ export function Grid2x2Participant({ slide, mode, onSubmit, submitting }: Partic
         x={x}
         y={y}
         tone="device"
+        quadrants={quadrants}
         boardRef={boardRef}
         markers={positions.flatMap((position, index) => (position ? [{ index, position, active: index === active }] : []))}
         boardProps={{

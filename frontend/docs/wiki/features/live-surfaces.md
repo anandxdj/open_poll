@@ -313,7 +313,7 @@ own config without data (`thumbnail`, before the first answer).
 | --- | --- | --- |
 | `guess_number` | slider + number field over min…max in steps (snapped, starts mid-range), big value readout | histogram (one bar per value for small ranges), guesses / mean / median; `reveal`/`report` light up the bars within correct ± tolerance and show "Correct answer" |
 | `hundred_points` | per item: − / + (5 points), slider and number field; live "points left / too many", submit only at exactly 100 | average points per item as bars, authored order live, best first with ranks once revealed |
-| `grid_2x2` | square board with named axes; tap or drag the selected item (a tap near a placed item grabs it), or focus the board and move it with the arrow keys (Shift = 5 steps, Enter = next item); item list shows what is placed | the same board with each item numbered at its average position + legend with the coordinates |
+| `grid_2x2` | square board with named axes and corners; tap or drag the selected item (a tap near a placed item grabs it), or focus the board and move it with the arrow keys (Shift = 5 steps, Enter = next item); item list shows what is placed | the same board with each item numbered at its average position over a faint dot for every placement (the newest 200 participants), corner names, and a legend with the coordinates |
 | `pin_on_image` | the image: tap / drag to drop and move one pin, or focus it and use the arrow keys (cursor) + Enter; submit sends `{x, y}` in [0,1] | the image with the newest pins live; once revealed a heatmap of all pins, the correct area (dashed) and "N of M in the correct area" |
 
 Participant inputs are keyboard-accessible and ≥ 44 px; the board and image use `touch-action: none`

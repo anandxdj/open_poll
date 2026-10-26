@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { WordCloud } from "@/features/presentations/slides/types/wordcloud/WordCloud";
+import { GridBoard } from "@/features/presentations/slides/types/grid_2x2/Board";
 import { Check, ChevronUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CountUp, ease, useStepper } from "../shared/motion";
@@ -375,56 +376,63 @@ function HundredPointsScene() {
 
 /* ── 2 by 2 grid ───────────────────────────────────────────────────────── */
 
-// x = effort (low → high), y = impact (low → high), both 0..1
-const IDEAS = [
-  { label: "Onboarding emails", x: 0.22, y: 0.78 },
-  { label: "New pricing", x: 0.72, y: 0.84 },
-  { label: "Dark mode", x: 0.3, y: 0.28 },
-  { label: "Mobile app", x: 0.84, y: 0.36 },
-];
-const VOTES = [
-  [0.16, 0.7], [0.28, 0.86], [0.2, 0.82], [0.66, 0.9], [0.78, 0.76], [0.36, 0.22],
-  [0.24, 0.34], [0.9, 0.42], [0.8, 0.3], [0.7, 0.8], [0.26, 0.72], [0.34, 0.32],
+const IDEAS = ["Onboarding emails", "New pricing", "Dark mode", "Mobile app"];
+const EFFORT = { label: "Effort", min: 0, max: 10 };
+const IMPACT = { label: "Impact", min: 0, max: 10 };
+const CORNERS = { topLeft: "Quick wins", topRight: "Big bets", bottomLeft: "Fill-ins", bottomRight: "Money pits" };
+// Each participant's place for every idea, as [effort, impact], in arrival order.
+const PLACEMENTS: [number, number][][] = [
+  [[2, 8], [7, 9], [3, 3], [8, 4]],
+  [[3, 9], [8, 8], [2, 2], [9, 3]],
+  [[2, 7], [6, 9], [4, 3], [8, 5]],
+  [[1, 8], [7, 8], [3, 2], [9, 4]],
+  [[3, 8], [8, 9], [2, 4], [7, 3]],
+  [[2, 9], [7, 7], [3, 4], [8, 4]],
 ];
 
+const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
+
+/** The product's own board (`GridBoard`): numbered averages over a dot per placement, corners named. */
 function GridScene() {
-  const fromDot = useFrom({ opacity: 0, scale: 0 });
+  const step = useStepper(PLACEMENTS.length, 450);
+  const shown = PLACEMENTS.slice(0, step + 1);
+  const averages = IDEAS.map((_, i) => ({
+    x: shown.reduce((sum, p) => sum + p[i][0], 0) / shown.length,
+    y: shown.reduce((sum, p) => sum + p[i][1], 0) / shown.length,
+  }));
+  const dots = shown.flatMap((p) => p.map(([x, y]) => ({ x, y })));
+
   return (
-    <div className="flex h-full gap-3">
-      <span className="self-center font-mono text-xs text-faint [writing-mode:vertical-rl] rotate-180">Impact</span>
-      <div className="flex flex-1 flex-col">
-        <div className="relative flex-1 rounded-lg border border-border">
-          <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
-          <div className="absolute inset-x-0 top-1/2 h-px bg-border" />
-          <span className="absolute left-2 top-1.5 text-xs text-muted-foreground">Quick wins</span>
-          <span className="absolute right-2 top-1.5 text-xs text-muted-foreground">Big bets</span>
-          {VOTES.map(([x, y], i) => (
-            <motion.span
-              key={i}
-              initial={fromDot}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3, ease, delay: 0.1 + i * 0.06 }}
-              className="absolute -ml-1 -mt-1 size-2 rounded-full bg-muted-foreground/50"
-              style={{ left: `${x * 100}%`, top: `${(1 - y) * 100}%` }}
-            />
-          ))}
-          {IDEAS.map((idea, i) => (
-            <motion.div
-              key={idea.label}
-              initial={fromDot}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, ease, delay: 1 + i * 0.15 }}
-              className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
-              style={{ left: `${idea.x * 100}%`, top: `${(1 - idea.y) * 100}%` }}
-            >
-              <span className="size-3.5 rounded-full border-2 border-background bg-primary" />
-              <span className="mt-1 whitespace-nowrap rounded bg-background/80 px-1 text-xs font-medium text-foreground">
-                {idea.label}
-              </span>
-            </motion.div>
-          ))}
+    <div className="@container h-full">
+      <div className="flex h-full flex-col gap-3 @xl:flex-row @xl:items-start @xl:gap-8">
+        <div className="w-[min(100%,13.5rem)] shrink-0 @xl:w-[17rem]">
+          <GridBoard
+            x={EFFORT}
+            y={IMPACT}
+            tone="device"
+            quadrants={CORNERS}
+            dots={dots}
+            markers={averages.map((position, index) => ({ index, position }))}
+          />
         </div>
-        <span className="mt-1.5 text-center font-mono text-xs text-faint">Effort</span>
+        <div className="min-w-0 flex-1 @xl:pt-1">
+          <ol className="grid grid-cols-2 gap-x-4 gap-y-1.5 @xl:grid-cols-1 @xl:gap-y-2">
+            {IDEAS.map((idea, i) => (
+              <li key={idea} className="flex min-w-0 items-center gap-2.5 text-sm">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary font-mono text-xs text-primary-foreground">
+                  {i + 1}
+                </span>
+                <span className="min-w-0 flex-1 truncate font-medium text-foreground">{idea}</span>
+                <span className="hidden shrink-0 font-mono text-xs tabular-nums text-muted-foreground @xl:inline">
+                  {fmt(averages[i].x)}, {fmt(averages[i].y)}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-3 hidden text-sm text-muted-foreground @xl:block">
+            <span className="font-mono tabular-nums text-foreground">{shown.length}</span> participants answered
+          </p>
+        </div>
       </div>
     </div>
   );
