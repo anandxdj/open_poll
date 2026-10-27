@@ -19,7 +19,6 @@ import {
   Trophy,
   type LucideIcon,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { useMounted } from "@/hooks/use-mounted";
 import { cn } from "@/lib/utils";
 import { container, sectionY } from "../shared/styles";
@@ -206,7 +205,6 @@ export function QuestionTypes() {
                 <div className="flex min-w-0 items-center gap-2.5 text-sm font-medium">
                   <current.icon className="size-4 shrink-0 text-accent-ink" aria-hidden="true" />
                   <span className="truncate">{current.label}</span>
-                  <Badge variant="outline">Sample</Badge>
                 </div>
                 {canAutoplay ? (
                   <button
@@ -254,11 +252,6 @@ export function QuestionTypes() {
             <p className="mt-4 text-base text-muted-foreground lg:hidden">{current.description}</p>
           </div>
         </div>
-
-        <p className="mt-10 max-w-2xl text-base text-muted-foreground">
-          Add headings, text, bullets, images, big numbers, quotes and video between questions to tell the story
-          around them.
-        </p>
       </div>
     </section>
   );
