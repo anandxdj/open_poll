@@ -116,13 +116,31 @@ export function fontSizeFor(count: number, maxCount: number, range: { min: numbe
   return Math.round((range.min + (range.max - range.min) * (0.12 + 0.88 * clamp(norm, 0, 1))) * scale);
 }
 
-/** Whether `box` touches any placed box, each grown by `room(itsFontSize)` on every side. */
-function overlaps(box: Box, placed: PlacedBox[], room: (fontSize: number) => number = () => 0) {
-  for (const p of placed) {
+/** Space a placed word keeps around it, from its font size. */
+type Room = (fontSize: number) => number;
+
+const noRoom: Room = () => 0;
+
+/**
+ * The index of a placed box that `box` touches, each grown by `room(itsFontSize)`
+ * on every side, or -1. The box at `first` is tried first: neighbouring steps
+ * on a spiral mostly run into the same word.
+ */
+function hitIndex(box: Box, placed: PlacedBox[], room: Room, first: number) {
+  const touches = (p: PlacedBox) => {
     const r = room(p.fontSize);
-    if (box.left < p.right + r && box.right > p.left - r && box.top < p.bottom + r && box.bottom > p.top - r) return true;
-  }
-  return false;
+    return box.left < p.right + r && box.right > p.left - r && box.top < p.bottom + r && box.bottom > p.top - r;
+  };
+  if (first >= 0 && first < placed.length && touches(placed[first])) return first;
+  for (let i = 0; i < placed.length; i++) if (touches(placed[i])) return i;
+  return -1;
+}
+
+/** How far `box` sinks into `p` grown by `room` on every side: across (divided by `aspect`) or up and down, whichever is less. */
+function depth(box: Box, p: Box, room: number, aspect: number) {
+  const across = Math.min(box.right - p.left, p.right - box.left) + room;
+  const down = Math.min(box.bottom - p.top, p.bottom - box.top) + room;
+  return Math.min(across / aspect, down);
 }
 
 interface Candidate extends Word {
@@ -134,14 +152,25 @@ interface Candidate extends Word {
 /**
  * Places words in the given order: each keeps its spot when it still fits,
  * otherwise takes the first free spot on a spiral around it (or around the
- * middle, for a new word). Words that find no room come back in `overflow`.
+ * middle, for a new word). Words that find no room come back in `overflow`;
+ * with `failFast`, the first such word ends the layout.
  */
-function place(items: Candidate[], frame: Frame, measure: Measure, maxCount: number, scale = 1) {
+function place(items: Candidate[], frame: Frame, measure: Measure, maxCount: number, scale = 1, failFast = false) {
   const range = sizeRange(frame);
   const rotateLimit = range.min + (range.max - range.min) * 0.35;
   const halfW = frame.width / 2 - EDGE;
   const halfH = frame.height / 2 - EDGE;
   const aspect = clamp(frame.width / frame.height, 1, 3);
+  // The spiral's steps (its values of t) only depend on the frame's shape, so
+  // every word walks the same ones: they are worked out once, as far as needed.
+  const spiral = [0.3];
+  const spiralAt = (i: number) => {
+    while (spiral.length <= i) {
+      const t = spiral[spiral.length - 1];
+      spiral.push(t + Math.min(0.3, 3 / (1.6 * t * aspect + 1)));
+    }
+    return spiral[i];
+  };
   const boxes: PlacedBox[] = [];
   const words: PlacedWord[] = [];
   const overflow: Candidate[] = [];
@@ -157,8 +186,8 @@ function place(items: Candidate[], frame: Frame, measure: Measure, maxCount: num
           ? 90
           : -90
         : 0;
-    if (rotate && measure(item.text, fontSize).width > frame.height - 2 * EDGE) rotate = 0;
     const ink = measure(item.text, fontSize);
+    if (rotate && ink.width > frame.height - 2 * EDGE) rotate = 0;
     const padX = fontSize * PAD_X + 1;
     const padY = fontSize * PAD_Y + 1;
     const w = (rotate ? ink.height + 2 * padY : ink.width + 2 * padX) / 2;
@@ -167,29 +196,60 @@ function place(items: Candidate[], frame: Frame, measure: Measure, maxCount: num
     // two sizes (plus a little for every word); a word already on screen only
     // needs to not touch. A new word that finds no such spot settles for one
     // that only doesn't touch, before the cloud counts as full.
-    const growRoom = (other: number) => Math.max(other, fontSize) * GROW_ROOM + range.max * 0.08;
+    const growRoom: Room = (other) => Math.max(other, fontSize) * GROW_ROOM + range.max * 0.08;
     const start = item.at ?? { x: 0, y: 0 };
     const phase = seededRand(item.text + "_rot") * Math.PI * 2;
-    const reach = Math.hypot(frame.width, frame.height);
-    const find = (room?: (other: number) => number, hereOnly = false) => {
-      const fits = (cx: number, cy: number) => {
-        if (Math.abs(cx) + w > halfW || Math.abs(cy) + h > halfH) return null;
+    // The spiral stops where it leaves the frame for good: past this radius no
+    // step can hold the word (1px spare for rounding).
+    const reach = Math.min(
+      Math.hypot(frame.width, frame.height),
+      Math.hypot((Math.abs(start.x) + halfW - w) / aspect, Math.abs(start.y) + halfH - h) + 1,
+    );
+    type Spot = { x: number; y: number; box: PlacedBox };
+    // With `room`, the first spot that keeps it from every neighbour or, failing
+    // that, the first that only doesn't touch, both found on one walk.
+    const find = (room?: Room, hereOnly = false): Spot | null => {
+      if (w > halfW || h > halfH) return null;
+      let loose: Spot | null = null;
+      let roomHit = -1;
+      let looseHit = -1;
+      // The spot, or how far the word can move from it and still not fit: less
+      // than that up or down, and `aspect` times that across.
+      const fits = (cx: number, cy: number): Spot | number => {
+        const outX = Math.abs(cx) + w - halfW;
+        const outY = Math.abs(cy) + h - halfH;
+        if (outX > 0 || outY > 0) return Math.max(outX / aspect, outY);
         const box = { left: cx - w, top: cy - h, right: cx + w, bottom: cy + h, fontSize };
-        return overlaps(box, boxes, room) ? null : box;
+        let slack = Infinity;
+        if (room) {
+          roomHit = hitIndex(box, boxes, room, roomHit);
+          if (roomHit < 0) return { x: cx, y: cy, box };
+          slack = depth(box, boxes[roomHit], room(boxes[roomHit].fontSize), aspect);
+        }
+        if (!loose) {
+          looseHit = hitIndex(box, boxes, noRoom, looseHit);
+          if (looseHit < 0) loose = { x: cx, y: cy, box };
+          else slack = Math.min(slack, depth(box, boxes[looseHit], 0, aspect));
+        }
+        return room || !loose ? slack : loose;
       };
       const here = fits(start.x, start.y);
-      if (here) return { x: start.x, y: start.y, box: here };
-      if (hereOnly) return null;
-      // Archimedean spiral around the start, stretched to the frame, in steps of about 3px.
-      for (let t = 0.3; 1.6 * t <= reach; ) {
+      if (typeof here !== "number") return here;
+      if (hereOnly) return loose;
+      // Archimedean spiral around the start, stretched to the frame, in steps of
+      // about 3px. From `t0` to `t` the centre moves less than
+      // 1.6 (t - t0)(t + 1) up or down (`aspect` times that across), so the
+      // steps still within the last miss's slack are skipped: they can't fit either.
+      let t0 = 0;
+      let slack = here - 1e-6;
+      for (let i = 0, t = spiralAt(0); 1.6 * t <= reach; t = spiralAt(++i)) {
+        if (1.6 * (t - t0) * (t + 1) < slack) continue;
         const radius = 1.6 * t;
-        const cx = start.x + radius * Math.cos(t + phase) * aspect;
-        const cy = start.y + radius * Math.sin(t + phase);
-        const box = fits(cx, cy);
-        if (box) return { x: cx, y: cy, box };
-        t += Math.min(0.3, 3 / (radius * aspect + 1));
+        const spot = fits(start.x + radius * Math.cos(t + phase) * aspect, start.y + radius * Math.sin(t + phase));
+        if (typeof spot !== "number") return spot;
+        [t0, slack] = [t, spot - 1e-6];
       }
-      return null;
+      return loose;
     };
     // A word already on screen that now overlaps a bigger one slides just far
     // enough out of the way, rather than jumping to the next free spot.
@@ -212,10 +272,11 @@ function place(items: Candidate[], frame: Frame, measure: Measure, maxCount: num
       }
       return null;
     };
-    const spot = item.at ? (find(undefined, true) ?? push() ?? find()) : (find(growRoom) ?? find());
+    const spot = item.at ? (find(undefined, true) ?? push() ?? find()) : find(growRoom);
 
     if (!spot) {
       overflow.push(item);
+      if (failFast) break;
       continue;
     }
     boxes.push(spot.box);
@@ -239,14 +300,31 @@ function place(items: Candidate[], frame: Frame, measure: Measure, maxCount: num
 
 const byCount = (a: Word, b: Word) => b.count - a.count || a.text.localeCompare(b.text);
 
+/** A finished cloud's scale: a few words may grow up to `FIT_MAX` to fill the frame, many shrink as far as `FIT_MIN`. */
+const FIT_MAX = 1.6;
+const FIT_MIN = 1.6 * 0.85 ** 12;
+/** How close (as a ratio) the scale gets to the largest one where every word fits. */
+const FIT_PRECISION = 1.02;
+
 /** Every word at once, at the largest size where all of them fit (finished results). */
 function fitAll(words: Word[], frame: Frame, measure: Measure): CloudState {
   const sorted = [...words].sort(byCount).map((w, age) => ({ ...w, age }));
   const maxCount = sorted[0]?.count ?? 1;
-  // A few words may grow up to 1.6x to fill the frame; many shrink until they fit.
-  let laid = place(sorted, frame, measure, maxCount, 1.6);
-  for (let scale = 1.6 * 0.85, tries = 0; laid.overflow.length > 0 && tries < 12; scale *= 0.85, tries++) {
-    laid = place(sorted, frame, measure, maxCount, scale);
+  let laid = place(sorted, frame, measure, maxCount, FIT_MAX, true);
+  if (laid.overflow.length > 0) {
+    // Narrow down between a scale that fits and one that doesn't; a try that
+    // leaves a word out stops there.
+    let best: typeof laid | null = null;
+    let low = FIT_MIN;
+    let high = FIT_MAX;
+    while (high / low > FIT_PRECISION) {
+      const scale = Math.sqrt(low * high);
+      const next = place(sorted, frame, measure, maxCount, scale, true);
+      if (next.overflow.length > 0) high = scale;
+      else [low, best] = [scale, next];
+    }
+    // Not even the smallest size holds them all: show the ones that fit.
+    laid = best ?? place(sorted, frame, measure, maxCount, FIT_MIN);
   }
   return { words: laid.words, seen: Object.fromEntries(words.map((w) => [w.text, w.count])), nextAge: sorted.length };
 }
