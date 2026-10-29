@@ -155,8 +155,9 @@ example, `text-deck-stage-fg` on the dark stage or a display heading's tracking.
 - **Cards**: 12px radius, 1px border, a graph-paper preview strip on top, the title as a stretched link, `outline`
   and `ink` actions. No uppercase micro-labels, nothing under 12px.
 - **Builders (studio frame)**: a header bar (back, title edited in place, outline/ghost actions, one ember
-  save/publish), a paper rail on the left, the editor as one white sheet centred on graph paper, the preview
-  beside it on wide screens. Inspector tabs are underline tabs; choices of two values are segmented controls.
+  action: Present on a saved deck, Create deck or Publish otherwise), a paper rail on the left, the slide
+  itself on graph paper in the middle with its speaker notes under it, the inspector as a panel on the right
+  on wide screens (the deck builder; the poll builder still shows a sheet and a phone preview). Inspector tabs are underline tabs; choices of two values are segmented controls.
 - **Settings**: sections are an h2 (20px) with one sentence, then a white sheet (`settingsCard`) or a sheet of
   hairline rows (`settingsList` + `SettingsRow`); notices are neutral (`bg-secondary`), not ember; choices of
   two or three values are a segmented control of `aria-pressed` buttons. Blocks in

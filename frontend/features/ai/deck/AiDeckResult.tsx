@@ -9,11 +9,9 @@ import type { PresentationSlide } from "@/features/presentations/types/deck";
 import { MockDataNotice } from "./AiSourceNotice";
 import type { DeckCreatedResponse } from "./types";
 
-/** A stored slide; `notes` (host-only speaker notes) is not part of the builder's slide type yet. */
-type SlideWithNotes = PresentationSlide & { notes?: string };
-
+/** A slide's host-only speaker notes, trimmed. */
 const notesOf = (slide: PresentationSlide) => {
-  const notes = (slide as SlideWithNotes).notes;
+  const notes = slide.notes;
   return typeof notes === "string" ? notes.trim() : "";
 };
 

@@ -414,3 +414,13 @@ describe("select_answer settings: graded, multi-select, explanation", () => {
     expect(switchesOn(ungraded)).toBe(0);
   });
 });
+
+describe("speaker notes", () => {
+  for (const type of ALL_TYPES) {
+    test(`${type}: notes survive clean and draft normalization`, () => {
+      const slide: PresentationSlide = { ...blankSlide(type), notes: "Pause here for questions." };
+      expect(cleanSlide(slide).notes).toBe("Pause here for questions.");
+      expect(normalizeSlideForDraft(slide).notes).toBe("Pause here for questions.");
+    });
+  }
+});

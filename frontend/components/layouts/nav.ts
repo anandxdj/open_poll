@@ -39,3 +39,9 @@ export function activeNavHref(pathname: string | null, links: readonly NavLink[]
   }
   return best?.href ?? null;
 }
+
+/** Builders (studio screens) that want the room: the rail starts collapsed there. */
+const STUDIO_PREFIXES = ["/presentation/create", "/create"];
+
+export const isStudioPath = (pathname: string | null) =>
+  Boolean(pathname && STUDIO_PREFIXES.some((prefix) => matches(pathname, prefix)));
