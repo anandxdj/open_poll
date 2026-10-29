@@ -35,6 +35,21 @@ function box(w: PlacedWord) {
   return { left: w.x - hw, right: w.x + hw, top: w.y - hh, bottom: w.y + hh };
 }
 
+/** Every word inside the frame, and no two touching. */
+function expectApartInFrame(cloud: CloudState) {
+  const boxes = cloud.words.map(box);
+  for (const [i, a] of boxes.entries()) {
+    expect(a.left).toBeGreaterThanOrEqual(-FRAME.width / 2);
+    expect(a.right).toBeLessThanOrEqual(FRAME.width / 2);
+    expect(a.top).toBeGreaterThanOrEqual(-FRAME.height / 2);
+    expect(a.bottom).toBeLessThanOrEqual(FRAME.height / 2);
+    for (const b of boxes.slice(i + 1)) {
+      const apart = a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+      expect(apart).toBe(true);
+    }
+  }
+}
+
 describe("live word cloud", () => {
   test("a word keeps its spot while new words arrive", () => {
     const first = stream(["practical"]).cloud;
@@ -55,17 +70,7 @@ describe("live word cloud", () => {
   test("words never overlap and stay inside the frame", () => {
     const answers = Array.from({ length: 30 }, (_, i) => `word${i % 18}`);
     const { cloud } = stream(answers);
-    const boxes = cloud.words.map(box);
-    for (const [i, a] of boxes.entries()) {
-      expect(a.left).toBeGreaterThanOrEqual(-FRAME.width / 2);
-      expect(a.right).toBeLessThanOrEqual(FRAME.width / 2);
-      expect(a.top).toBeGreaterThanOrEqual(-FRAME.height / 2);
-      expect(a.bottom).toBeLessThanOrEqual(FRAME.height / 2);
-      for (const b of boxes.slice(i + 1)) {
-        const apart = a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
-        expect(apart).toBe(true);
-      }
-    }
+    expectApartInFrame(cloud);
   });
 
   test("a full cloud starts over with its top words in place", () => {
@@ -100,9 +105,39 @@ describe("live word cloud", () => {
 });
 
 describe("finished word cloud (fit)", () => {
+  const many = Array.from({ length: 70 }, (_, i) => ({ text: `answer${i}`, count: (i % 5) + 1 }));
+
   test("shows every word, shrinking to fit", () => {
-    const words = Array.from({ length: 70 }, (_, i) => ({ text: `answer${i}`, count: (i % 5) + 1 }));
-    const cloud = advance(EMPTY_CLOUD, words, FRAME, measure, "fit");
+    const cloud = advance(EMPTY_CLOUD, many, FRAME, measure, "fit");
     expect(cloud.words).toHaveLength(70);
+    expectApartInFrame(cloud);
+  });
+
+  test("biggest words first, and a word never smaller than one with fewer answers", () => {
+    const cloud = advance(EMPTY_CLOUD, many, FRAME, measure, "fit");
+    for (const [i, a] of cloud.words.entries()) {
+      for (const b of cloud.words.slice(i + 1)) {
+        expect(a.count).toBeGreaterThanOrEqual(b.count);
+        if (a.count > b.count) expect(a.fontSize).toBeGreaterThanOrEqual(b.fontSize);
+      }
+    }
+  });
+
+  test("a few words grow past their live size", () => {
+    const few = [
+      { text: "practical", count: 3 },
+      { text: "fun", count: 1 },
+    ];
+    const live = advance(EMPTY_CLOUD, few, FRAME, measure);
+    const fit = advance(EMPTY_CLOUD, few, FRAME, measure, "fit");
+    expect(find(fit, "practical")!.fontSize).toBeGreaterThan(find(live, "practical")!.fontSize);
+    expectApartInFrame(fit);
+  });
+
+  // A loose bound (the layout takes tens of milliseconds): it only catches a return to whole seconds.
+  test("lays out many words quickly", () => {
+    const started = performance.now();
+    advance(EMPTY_CLOUD, many, FRAME, measure, "fit");
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 });
