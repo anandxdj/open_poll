@@ -6,27 +6,20 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import {
-  BarChart2,
   ChevronsUpDown,
-  LayoutGrid,
   LogOut,
   Menu,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
-  Plus,
-  Presentation,
-  Settings,
   Sun,
   User,
   X,
-  type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { ProductLogo } from "@/components/ui/ProductLogo";
-import { useCreatePollModal } from "@/features/polls/components/CreatePollModalProvider";
-import { useCreatePresentationModal } from "@/features/presentations/components/CreatePresentationModalProvider";
+import { HOME_PATH } from "@/lib/routes";
 import { useAuthStore } from "@/features/auth";
 import { WorkspaceSwitcher } from "@/features/workspaces/components/WorkspaceSwitcher";
 import {
@@ -36,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { activeNavHref, MAIN_NAV, WORKSPACE_NAV, type NavLink } from "./nav";
 
 const ease = [0.32, 0.72, 0, 1] as const;
 
@@ -66,21 +60,12 @@ const initials = (name: string) =>
     .toUpperCase()
     .substring(0, 2);
 
-type NavItem =
-  | { label: string; Icon: LucideIcon; href: string }
-  | { label: string; Icon: LucideIcon; action: "poll" | "deck" };
-
-/** "New poll" and "New deck" open the create modals rather than a page. */
-const NAV: NavItem[] = [
-  { href: "/polls", label: "Library", Icon: LayoutGrid },
-  { action: "poll", label: "New poll", Icon: Plus },
-  { action: "deck", label: "New deck", Icon: Presentation },
-  { href: "/analytics", label: "Analytics", Icon: BarChart2 },
-];
+const ALL_NAV = [...MAIN_NAV, ...WORKSPACE_NAV];
 
 /**
- * Everything inside the creator sidebar: brand, workspace, navigation and the
- * account menu. Rendered by the desktop rail (collapsible) and the phone drawer.
+ * Everything inside the creator sidebar: brand, workspace, the places (main
+ * and workspace groups) and the account menu. Rendered by the desktop rail
+ * (collapsible) and the phone drawer.
  */
 function SidebarContent({
   collapsed = false,
@@ -95,8 +80,6 @@ function SidebarContent({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { open: openCreatePollModal } = useCreatePollModal();
-  const { open: openCreatePresentationModal } = useCreatePresentationModal();
   const { setTheme, resolvedTheme } = useTheme();
   const { user, logout } = useAuthStore();
   const [imgError, setImgError] = useState(false);
@@ -112,24 +95,44 @@ function SidebarContent({
     router.push("/login");
   };
 
+  const activeHref = activeNavHref(pathname, ALL_NAV);
+
   const itemClass = (active: boolean) =>
     cn(
-      "group relative flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-sm font-medium transition-colors duration-150",
+      "group relative flex h-[38px] w-full items-center gap-2.5 rounded-lg border px-2.5 text-sm font-medium transition-colors duration-150",
       "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
       active
-        ? "bg-card text-foreground shadow-[0_1px_2px_rgb(23_23_23/0.06)] ring-1 ring-border"
-        : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-      collapsed && "w-9 justify-center px-0",
+        ? "border-border bg-card text-foreground shadow-xs"
+        : "border-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+      collapsed && "w-[38px] justify-center px-0",
     );
+
+  const renderLink = ({ href, label, Icon }: NavLink) => {
+    const active = href === activeHref;
+    return (
+      <Link
+        key={href}
+        href={href}
+        onClick={onNavigate}
+        aria-current={active ? "page" : undefined}
+        aria-label={collapsed ? label : undefined}
+        title={collapsed ? label : undefined}
+        className={itemClass(active)}
+      >
+        <Icon className={cn("size-[18px] shrink-0", active && "text-accent-ink")} strokeWidth={1.8} aria-hidden="true" />
+        {!collapsed ? <span className="truncate">{label}</span> : null}
+      </Link>
+    );
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Brand + collapse */}
       <div className={cn("flex h-14 shrink-0 items-center gap-2 px-3", collapsed && "justify-center px-0")}>
         <Link
-          href="/polls"
+          href={HOME_PATH}
           onClick={onNavigate}
-          aria-label="Open Poll library"
+          aria-label="Open Poll home"
           className="flex min-w-0 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           <ProductLogo size={26} decorative />
@@ -159,63 +162,31 @@ function SidebarContent({
       ) : null}
 
       {/* Current workspace */}
-      <div className={cn("shrink-0 px-3 pb-3", collapsed && "flex justify-center px-0")}>
+      <div className={cn("shrink-0 px-3 pb-4", collapsed && "flex justify-center px-0")}>
         <WorkspaceSwitcher collapsed={collapsed} />
       </div>
 
-      <nav aria-label="Main" className={cn("flex-1 space-y-1 border-t border-sidebar-border px-3 pt-3", collapsed && "flex flex-col items-center px-0")}>
-        {NAV.map((item) => {
-          const { label, Icon } = item;
-          const active = "href" in item && Boolean(pathname?.startsWith(item.href));
-          const content = (
-            <>
-              <Icon className={cn("size-[18px] shrink-0", active ? "text-accent-ink" : "")} strokeWidth={1.8} aria-hidden="true" />
-              {!collapsed ? <span className="truncate">{label}</span> : null}
-            </>
-          );
-          if ("href" in item) {
-            return (
-              <Link
-                key={label}
-                href={item.href}
-                onClick={onNavigate}
-                aria-current={active ? "page" : undefined}
-                aria-label={collapsed ? label : undefined}
-                title={collapsed ? label : undefined}
-                className={itemClass(active)}
-              >
-                {content}
-              </Link>
-            );
-          }
-          return (
-            <button
-              key={label}
-              type="button"
-              onClick={() => {
-                onNavigate?.();
-                if (item.action === "poll") openCreatePollModal();
-                else openCreatePresentationModal();
-              }}
-              aria-label={collapsed ? label : undefined}
-              title={collapsed ? label : undefined}
-              className={itemClass(false)}
-            >
-              {content}
-            </button>
-          );
-        })}
+      <nav aria-label="Main" className={cn("flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-3 pt-2", collapsed && "items-center px-0")}>
+        <div className={cn("flex flex-col gap-0.5", collapsed && "items-center")}>{MAIN_NAV.map(renderLink)}</div>
+        <div className={cn("flex flex-col gap-0.5", collapsed && "items-center")}>
+          {collapsed ? (
+            <span aria-hidden="true" className="mb-1 h-px w-6 bg-sidebar-border" />
+          ) : (
+            <span className="meta-label px-2.5 pb-1.5">Workspace</span>
+          )}
+          {WORKSPACE_NAV.map(renderLink)}
+        </div>
       </nav>
 
       {/* Account */}
-      <div className={cn("shrink-0 border-t border-sidebar-border p-3", collapsed && "flex justify-center px-0")}>
+      <div className={cn("shrink-0 p-3", collapsed && "flex justify-center px-0")}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               aria-label="Account menu"
               className={cn(
-                "flex w-full items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors duration-150 hover:bg-sidebar-accent",
+                "flex w-full items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors duration-150 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
                 collapsed && "w-auto",
               )}
             >
@@ -244,11 +215,6 @@ function SidebarContent({
                 <User /> Profile
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/settings" onClick={onNavigate} className="cursor-pointer">
-                <Settings /> Settings
-              </Link>
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={toggleTheme} className="cursor-pointer">
               {resolvedTheme === "dark" ? <Moon /> : <Sun />}
               Theme
@@ -265,12 +231,12 @@ function SidebarContent({
   );
 }
 
-/** Desktop rail (md and up): 240px, collapses to 60px. */
+/** Desktop rail (md and up): 248px, collapses to 64px. */
 export default function Sidebar() {
   const [open, setOpen] = useState(true);
   return (
     <motion.aside
-      animate={{ width: open ? 240 : 60 }}
+      animate={{ width: open ? 248 : 64 }}
       transition={{ duration: 0.32, ease }}
       className="relative z-20 hidden shrink-0 overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:block"
     >
@@ -285,7 +251,7 @@ export function MobileTopBar() {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur-md md:hidden">
-        <Link href="/polls" aria-label="Open Poll library" className="flex items-center gap-2 rounded-md">
+        <Link href={HOME_PATH} aria-label="Open Poll home" className="flex items-center gap-2 rounded-md">
           <ProductLogo size={24} decorative />
           <span className="text-[15px] font-semibold tracking-[-0.02em]">Open Poll</span>
         </Link>
