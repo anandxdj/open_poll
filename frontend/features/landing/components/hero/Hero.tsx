@@ -48,7 +48,7 @@ export function Hero() {
           <motion.div {...reveal(0.16)} className="lg:col-span-6 lg:justify-self-end">
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
               <Link
-                href={authed ? "/polls" : "/signup"}
+                href={authed ? "/home" : "/signup"}
                 className={cn(linkButton({ size: "xl" }), pill, "w-full sm:w-auto")}
               >
                 {authed ? "Open your dashboard" : "Start for free"}
@@ -66,12 +66,9 @@ export function Hero() {
           </motion.div>
         </div>
 
-        <motion.figure {...reveal(0.28)} className="mt-14 md:mt-20">
+        <motion.div {...reveal(0.28)} className="mt-14 md:mt-20">
           <LiveRoomPreview />
-          <figcaption className="mt-5 max-w-md text-sm text-muted-foreground md:mt-6">
-            A sample session. Answers land on the big screen as people vote from their phones.
-          </figcaption>
-        </motion.figure>
+        </motion.div>
       </div>
     </section>
   );

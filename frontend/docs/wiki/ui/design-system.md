@@ -1,13 +1,13 @@
 ---
 summary: The Open Poll design foundation ("Graph paper": tokens, type, radius, spacing, motion, primitives) and the rules for marketing and sign-in surfaces.
 status: active
-last_updated: 2026-10-25
+last_updated: 2026-10-30
 ---
 
 # Design system
 
-"Graph paper": light-first warm paper and ink with a complete warm-graphite dark mode, one ember-orange
-accent, Inter Tight. Restrained and precise: borders first, hairline graph-paper grids behind product
+"Graph paper" (2.0 since 2026-10-30): light-first warm paper and ink with a near-black graphite dark mode,
+one ember-orange accent, Inter Tight, pill-shaped buttons. Restrained and precise: borders first, hairline graph-paper grids behind product
 illustrations, shadows soft and rare. The tokens live in `app/globals.css` (`@theme inline` plus `:root`
 and `.dark`); components read tokens, never raw hex. Live surfaces layer their `--deck-*` tokens
 (`features/presentations/theme/tokens.css`) on top of these. The short brief for new screens is
@@ -17,11 +17,11 @@ and `.dark`); components read tokens, never raw hex. Live surfaces layer their `
 
 | Token | Light | Dark | Use |
 | --- | --- | --- | --- |
-| `background` (paper) | `#f6f6f3` | `#141413` | Page |
-| `card` (sheet) | `#ffffff` | `#1b1b1a` | Panels, cards, alternating sections, popovers |
-| `secondary` / `muted` (raised) | `#efeee9` | `#242422` | Raised fills, bar tracks |
-| `accent` | `#ebeae4` | `#2a2a27` | Hover and selected backgrounds |
-| `border` (rule) | `#e2e0d9` | `#31302d` | 1px dividers (`border-subtle` is one step quieter) |
+| `background` (paper) | `#f6f6f3` | `#0d0d0c` | Page |
+| `card` (sheet) | `#ffffff` | `#161615` | Panels, cards, alternating sections (popovers `#1a1a19` in dark) |
+| `secondary` / `muted` (raised) | `#efeee9` | `#1f1f1d` | Raised fills, bar tracks |
+| `accent` | `#ebeae4` | `#262624` | Hover and selected backgrounds |
+| `border` (rule) | `#e2e0d9` | `#2b2a27` | 1px dividers (`border-subtle` is one step quieter) |
 | `input` | `#8c8981` | `#6d6b65` | Form-field boundary, at least 3:1 (WCAG 1.4.11) |
 | `foreground` (ink) | `#171717` | `#f2f1ec` | Text |
 | `muted-foreground` (graphite) | `#5c5a55` | `#a7a49c` | Secondary text (AA on every surface) |
@@ -48,14 +48,17 @@ loaded in italic only) for one word per page, today the hero's "answer" in `text
 JetBrains Mono (`font-mono`) for join codes, ids, timers, counts and step numbers (always with
 `tabular-nums`). Scale 12/14/16/18/20/24/30/36/48/56/72 and the hero's `clamp(3rem, 9vw, 6.75rem)`.
 Body is 14-16. Headings are semibold; tracking tightens with size (`-0.02em` at 18-24, `-0.035em` at
-30-36, `-0.04em` at 48-56, `-0.05em` for the hero). Nothing below 12px. No all-caps eyebrow labels, no
-middle-dot meta strings, no arrows appended to button text.
+30-36, `-0.04em` at 48-56, `-0.05em` for the hero). Nothing below 12px. No middle-dot meta strings, no
+arrows appended to button text. Mono caps exist once, as the `meta-label` utility (12px JetBrains Mono,
+uppercase, `0.06em`, graphite): a date or small fact beside a heading, a sidebar group name. Not an eyebrow
+over every heading, never on something you act on. Home's greeting carries the app's serif word.
 
 ## Radius, borders, elevation
 
-`rounded-md` 6 (inputs, small buttons), `rounded-lg` 8 (app buttons, chips, menus), `rounded-xl` 12
-(cards, dialogs, popovers), `rounded-2xl` 16 (large panels, the projected screen, plot panels),
-`rounded-full` (marketing buttons and nav links, avatars). Borders are 1px `border-border`; a strong
+The scale is tokens in `@theme inline`: `rounded-sm` 6, `rounded-md` 10 (inputs, small controls),
+`rounded-lg` 12 (menus, chips, nav items), `rounded-xl` 16 (cards, popovers, tiles), `rounded-2xl` 20
+(dialogs, large panels, the projected screen, plot panels), `rounded-full` (every button, segmented
+controls, avatars, status pills). Borders are 1px `border-border`; a strong
 rule (top of a list, the FAQ) is `border-foreground/15`. Shadows are soft, long and rare
 (`0 32px 64px -24px` ink at 25-45%): the projected screen, the phone, the recommended pricing card,
 illustration frames, dialogs.
@@ -72,7 +75,7 @@ columns, the sentence in 5, bottom-aligned).
 150-250ms for UI transitions, `cubic-bezier(0.32, 0.72, 0, 1)` (`--ease-brand`) for larger moves. Nothing
 delays a task. Motion shows results arriving, never decoration. Landing: one load-in for the hero and no
 section reveals; product illustrations play once when half on screen and hold their last frame
-(`features/landing/components/shared/motion.tsx`: `useSeen`, `useStepper`, `CountUp`, `ease`). Two things
+(`features/landing/components/shared/motion.tsx`: `useStepper`, `CountUp`, `ease`). Two things
 loop: the hero's sample session and the question-types stage (autoplay every 6.5s while on screen, paused on
 hover/focus, a pause button, stopped for good once a type is picked; the `.mk-progress` line is its timer).
 `prefers-reduced-motion` stops all of it and shows settled frames (`.mk-surface` collapses animations and
@@ -81,13 +84,14 @@ first frame depends on reduced motion renders after mount (`useMounted`), or hyd
 
 ## Primitives (`components/ui`)
 
-- `Button`: variants `default` (ember fill), `ink` (ink fill: a strong action that is not the screen's one accent
-  action, like Present on a library card), `outline` (`border-foreground/15`), `secondary`, `ghost`, `destructive`,
-  `link`; sizes `xs`, `sm`, `default` (36), `lg` (40), `touch` (44), `xl` (48), icon sizes. One `default` per screen.
+- `Button`: a pill (`rounded-full`) in every variant and size, app and marketing alike. Variants `default` (ember
+  fill), `ink` (ink fill: a strong action that is not the screen's one accent action, like Present on a library
+  card), `outline` (`border-foreground/15`), `secondary`, `ghost`, `destructive`, `link`; sizes `xs`, `sm`,
+  `default` (36), `lg` (40), `touch` (44), `xl` (48), icon sizes. One `default` per screen.
   Links styled as buttons use `buttonVariants` (`linkButton` in `features/landing/components/shared/styles.ts`);
   marketing adds `pill` (`rounded-full`) from the same file.
-- `Input`, `Textarea`: 6px radius, `border-input`, `bg-background`, focus = `border-ring` + 3px ring at 25%.
-- `Card`: 12px, 1px border, no shadow. `Dialog`, `AlertDialog`, `Popover`, `DropdownMenu`: 12 / 12 / 12 / 8 radius,
+- `Input`, `Textarea`: 10px radius, `border-input`, `bg-background`, focus = `border-ring` + 3px ring at 25%.
+- `Card`: 16px, 1px border, no shadow. `Dialog`, `AlertDialog`, `Popover`, `DropdownMenu`: 20 / 20 / 16 / 12 radius,
   border, soft shadow, scrim `black/60`.
 - `Badge`: 12px label, variants `default`, `outline`, `accent`, `success`, `warning`, `danger`, `info`.
 - `ProductLogo`: the Open Poll mark as inline SVG in `--brand` (also `public/logo-openpoll.svg` for the favicon).
@@ -96,13 +100,14 @@ first frame depends on reduced motion renders after mount (`useMounted`), or hyd
 Utilities kept for older screens, restyled flat: `bezel-outer`/`bezel-inner` (one bordered surface),
 `bg-radial-glow` (a faint accent light), `skeleton`, `noise`, `animate-ai-glow`, `custom-scrollbar`, `scrollbar-none`.
 Marketing and sign-in: `mk-focus`, `mk-skip-link`, `.mk-surface`, `.mk-grid` (40px graph paper fading toward
-the bottom), `.mk-grid-flat` (the same grid without the fade, for `PlotPanel`, `ArtFrame` illustrations and the
+the bottom), `.mk-grid-flat` (the same grid without the fade, for `PlotPanel` illustrations, the question-types stage and the
 sign-in aside) and `.mk-progress` (the stage's countdown line).
 
 ## Marketing and sign-in surfaces
 
 See [`../features/landing-auth.md`](../features/landing-auth.md). Rules: copy states only what the product does;
-product illustrations are labelled "Sample" and exposed as one image, and sit on graph paper (`PlotPanel`);
+product illustrations are exposed as one image whose label says what they show, and sit on graph paper
+(`PlotPanel`); the hero preview carries the page's one "Sample session" badge;
 sample sessions (the hero, the question-types stage, the sign-in aside) follow the app theme and show answers
 as `ResultRow` cards; the real projected stage stays dark (`features/live-surfaces.md`), and the library's mini
 deck screens and the builder's slide thumbnails keep its dark look (`<div className="dark ...">` re-applies the
@@ -136,8 +141,12 @@ The creator shell, `/polls`, every `/settings` page, `/analytics`, both builders
 flattened in the build) and unlayered CSS beats every utility, so a blanket heading rule would override, for
 example, `text-deck-stage-fg` on the dark stage or a display heading's tracking.
 
-- **Shell**: the sidebar is paper (`sidebar`), 14px nav items, the active one a white sheet with a ring and an
-  ember icon; on phones a top bar opens it as a drawer (`core/routing-and-layouts.md`).
+- **Shell**: the sidebar is paper (`sidebar`) with places only (Home, Library, Analytics; Members and Settings
+  under a "Workspace" `meta-label`), 14px nav items, the active one a white sheet with a rule and an ember icon;
+  the workspace switcher is a bordered sheet; on phones a top bar opens it as a drawer
+  (`core/routing-and-layouts.md`, `ui/components.md`). Creating is a page action, not a nav item.
+- **Home** (`features/home.md`): greeting with the serif name, the live deck on the dark stage tokens, four
+  start tiles, the headline numbers, recent work as library cards, recent sessions and top content.
 - **Page header**: left-aligned h1 at 36/48px (`tracking-[-0.04em]`) with one sentence under it, actions on the
   right; one `default` (ember) button per page.
 - **Counts**: a hairline strip (`border-y`, `divide`), label above a 30/36px number, not a row of glowing cards.
@@ -146,8 +155,9 @@ example, `text-deck-stage-fg` on the dark stage or a display heading's tracking.
 - **Cards**: 12px radius, 1px border, a graph-paper preview strip on top, the title as a stretched link, `outline`
   and `ink` actions. No uppercase micro-labels, nothing under 12px.
 - **Builders (studio frame)**: a header bar (back, title edited in place, outline/ghost actions, one ember
-  save/publish), a paper rail on the left, the editor as one white sheet centred on graph paper, the preview
-  beside it on wide screens. Inspector tabs are underline tabs; choices of two values are segmented controls.
+  action: Present on a saved deck, Create deck or Publish otherwise), a paper rail on the left, the slide
+  itself on graph paper in the middle with its speaker notes under it, the inspector as a panel on the right
+  on wide screens (the deck builder; the poll builder still shows a sheet and a phone preview). Inspector tabs are underline tabs; choices of two values are segmented controls.
 - **Settings**: sections are an h2 (20px) with one sentence, then a white sheet (`settingsCard`) or a sheet of
   hairline rows (`settingsList` + `SettingsRow`); notices are neutral (`bg-secondary`), not ember; choices of
   two or three values are a segmented control of `aria-pressed` buttons. Blocks in

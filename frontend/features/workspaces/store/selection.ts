@@ -1,3 +1,4 @@
+import { HOME_PATH } from "@/lib/routes";
 import type { WorkspaceList } from "../types";
 
 /** Request header naming the workspace a request acts in (backend workspaceContext()). */
@@ -34,9 +35,9 @@ export function workspaceHeaderValue(selection: WorkspaceSelection, authUserId: 
 /**
  * Where to land after switching workspace. Settings pages exist in every
  * workspace, so they reload in place; any other page may show content of the
- * previous workspace, so the dashboard is the safe target.
+ * previous workspace, so Home is the safe target.
  */
 export function pathAfterSwitch(pathname: string | null): string {
   if (pathname && (pathname === "/settings" || pathname.startsWith("/settings/"))) return pathname;
-  return "/polls";
+  return HOME_PATH;
 }

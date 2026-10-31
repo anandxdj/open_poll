@@ -7,6 +7,7 @@ import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { takeInviteRedirect } from "@/features/workspaces/invites/pendingInvite";
+import { HOME_PATH } from "@/lib/routes";
 
 function AuthCallbackHandler() {
   const router = useRouter();
@@ -41,7 +42,7 @@ function AuthCallbackHandler() {
           if (ok) {
             toast.success("Signed in successfully!");
             // Back to an invitation (or the privacy page) the user left to sign in.
-            router.replace(takeInviteRedirect(null) ?? "/polls");
+            router.replace(takeInviteRedirect(null) ?? HOME_PATH);
             return;
           }
           throw new Error("checkAuth failed");

@@ -51,6 +51,9 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: The analytics pages (`/analytics` workspace insights, `/analytics/[id]` poll results).
 - **Action**: Read `frontend/docs/wiki/features/analytics.md`
 
+- **Task**: Changing Home at `/home` (the landing page after sign-in: live now, start tiles, numbers, recent work).
+- **Action**: Read `frontend/docs/wiki/features/home.md`
+
 - **Task**: Changing the library at `/polls` (poll + deck cards, filters, convert to presentation).
 - **Action**: Read `frontend/docs/wiki/features/library.md`
 

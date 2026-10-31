@@ -83,7 +83,7 @@ export function AcceptInvite({ token }: { token: string }) {
       // Make it the default and the selected workspace, then start fresh in it.
       await switchWorkspace(joined.workspace._id).catch(() => undefined);
       useWorkspaceStore.getState().select(joined.workspace._id);
-      window.location.assign("/polls");
+      window.location.assign("/home");
     } catch (err) {
       setError({ message: getApiErrorMessage(err) ?? "Could not accept the invitation", code: getApiErrorCode(err) });
       setAccepting(false);
