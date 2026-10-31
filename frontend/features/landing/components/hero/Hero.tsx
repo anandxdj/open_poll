@@ -66,12 +66,9 @@ export function Hero() {
           </motion.div>
         </div>
 
-        <motion.figure {...reveal(0.28)} className="mt-14 md:mt-20">
+        <motion.div {...reveal(0.28)} className="mt-14 md:mt-20">
           <LiveRoomPreview />
-          <figcaption className="mt-5 max-w-md text-sm text-muted-foreground md:mt-6">
-            A sample session. Answers land on the big screen as people vote from their phones.
-          </figcaption>
-        </motion.figure>
+        </motion.div>
       </div>
     </section>
   );

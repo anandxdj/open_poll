@@ -114,7 +114,7 @@ test("the FAQ opens one answer at a time from the keyboard", async ({ page }) =>
   await page.setViewportSize(DESKTOP);
   await page.goto("/#faq");
   const first = page.getByRole("button", { name: "Does my audience need an account?" });
-  const second = page.getByRole("button", { name: "What kinds of questions can I ask?" });
+  const second = page.getByRole("button", { name: "Can I use my existing slides or questions?" });
 
   await first.focus();
   await page.keyboard.press("Enter");
