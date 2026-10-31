@@ -9,9 +9,10 @@ import scimRouter from '../src/modules/scim/scim.route';
 import { samlAcsRouter } from '../src/modules/sso/sso.route';
 
 /**
- * Behaviour of the pre-wired special mounts. Probe handlers are attached to the
- * empty stub routers for the duration of this file, then removed so the route
- * snapshot never sees them. Needs no Mongo or Redis.
+ * Behaviour of the pre-wired special mounts. Probe handlers are put first on
+ * the routers for the duration of this file (ahead of their real handlers and
+ * SCIM's bearer auth), then removed so the route snapshot never sees them.
+ * Needs no Mongo or Redis.
  */
 const echo = (req: Request, res: Response) => {
   res.json({
@@ -38,6 +39,7 @@ beforeAll(async () => {
   for (const [router, path] of probes) {
     stackSizes.set(router, router.stack.length);
     router.post(path, echo);
+    router.stack.unshift(router.stack.pop()!);
   }
   server = createServer(createApp());
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -46,7 +48,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
-  for (const [router, size] of stackSizes) router.stack.splice(size);
+  for (const [router] of stackSizes) router.stack.shift();
   consoleError.mockRestore();
 });
 
@@ -153,6 +155,11 @@ describe('createApp special mounts', () => {
 
   it('leaves unknown paths to the default 404', async () => {
     expect((await fetch(`${baseUrl}/api/library/missing`)).status).toBe(404);
-    expect((await fetch(`${baseUrl}/scim/v2/Unknown`)).status).toBe(404);
+  });
+
+  it('answers SCIM paths in SCIM format, starting with its bearer check', async () => {
+    const res = await fetch(`${baseUrl}/scim/v2/Unknown`);
+    expect(res.headers.get('content-type')).toContain('application/scim+json');
+    expect(((await res.json()) as { schemas: string[] }).schemas).toEqual(['urn:ietf:params:scim:api:messages:2.0:Error']);
   });
 });

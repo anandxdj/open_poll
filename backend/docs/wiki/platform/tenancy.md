@@ -150,7 +150,8 @@ token that both carry `authTime` (seconds, the sign-in's time; refreshes copy it
 token's hash stored on the user. `req.user.authTime` exposes it; `DELETE /api/me` uses it as
 re-authentication (`modules/privacy.md`). An account with `deletionRequestedAt` or `deletedAt` set
 is not usable (`isAccountUsable`): `authenticate()`, refresh and MCP tokens reject it, and a new
-sign-in during the grace period cancels the deletion (`restored`).
+sign-in during the grace period cancels the deletion (`restored`). The same goes for `active: false`
+(an account its workspace's SCIM client deactivated, `modules/sso-scim.md`), which also cannot sign in.
 
 ### Provider identities (`modules/auth/identities.ts`)
 
@@ -166,5 +167,5 @@ fail with 409. Each provider now has its own `identities[]` entry:
   email matching always allowed).
 - Both keep the pre-hijack rule: linking an unverified local account wipes its password,
   pending tokens, sessions and role first (`resetUnverifiedAccount`).
-- Per-workspace SSO (W3-D) uses `provider: 'saml' | 'oidc_ws'` with `connectionId`, through
-  `identityFilter()` / `linkedIdentity()` / `linkIdentity()`.
+- Per-workspace SSO (W3-D, `modules/sso-scim.md`) uses `provider: 'saml' | 'oidc_ws'` with
+  `connectionId`, through `identityFilter()` / `linkedIdentity()` / `linkIdentity()`.

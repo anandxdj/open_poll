@@ -19,6 +19,7 @@ import {
 } from '../../common/config/email';
 import { identityFilter, linkIdentity } from './identities';
 import { audit } from '../../common/audit/audit';
+import { assertSsoNotRequired, SSO_REQUIRED } from '../sso/requireSso';
 
 /** The Google userinfo (v3) fields account linking relies on. */
 export interface GoogleProfile {
@@ -71,9 +72,12 @@ const accessClaims = (user: IUser, authTime?: number) => ({
   ...(authTime ? { authTime } : {}),
 });
 
-/** False once the account asked to be deleted (or was): its tokens and sign-ins stop working. */
-export const isAccountUsable = (user: Pick<IUser, 'deletionRequestedAt' | 'deletedAt'>) =>
-  !user.deletionRequestedAt && !user.deletedAt;
+/**
+ * False once the account asked to be deleted (or was), or its workspace's SCIM
+ * client deactivated it: its tokens and sign-ins stop working.
+ */
+export const isAccountUsable = (user: Pick<IUser, 'deletionRequestedAt' | 'deletedAt'> & { active?: boolean }) =>
+  !user.deletionRequestedAt && !user.deletedAt && user.active !== false;
 
 /**
  * Starts a session for a user who just proved who they are: an access token
@@ -83,6 +87,7 @@ export const isAccountUsable = (user: Pick<IUser, 'deletionRequestedAt' | 'delet
  */
 export const startSession = async (user: IUser) => {
   if (user.deletedAt) throw ApiError.unauthorized('This account was deleted');
+  if (user.active === false) throw ApiError.forbidden('Your organization turned this account off');
   const authTime = Math.floor(Date.now() / 1000);
   const accessToken = generateAccessToken(accessClaims(user, authTime));
   const refreshToken = generateRefreshToken({ id: user._id, authTime });
@@ -162,6 +167,7 @@ export class AuthService {
       throw ApiError.forbidden('Please verify your email before logging in');
     }
 
+    await assertSsoNotRequired(user);
     user.lastLogin = new Date();
     const { accessToken, refreshToken, restored } = await startSession(user);
 
@@ -376,10 +382,12 @@ export class AuthService {
       );
 
       const user = await AuthService.findOrLinkGoogleUser(googleUserRes.data);
+      await assertSsoNotRequired(user);
       const { accessToken, refreshToken, restored } = await startSession(user);
 
       return { user, accessToken, refreshToken, restored };
     } catch (error: any) {
+      if (error instanceof ApiError && error.code === SSO_REQUIRED) throw error;
       const detail = error.response?.data?.error_description || error.response?.data?.error || error.message;
       console.error('Google OAuth Error:', detail);
       throw ApiError.unauthorized(`Google authentication failed: ${detail}`);

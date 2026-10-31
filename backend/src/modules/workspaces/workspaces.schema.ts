@@ -19,6 +19,8 @@ export const updateWorkspaceSchema = z
       .strictObject({
         /** Days session data is kept; null = as long as the plan allows. Capped by the plan's retentionDays. */
         retentionDays: z.number().int().min(1).nullable().optional(),
+        /** Sign-ins for the workspace's verified SSO domains must use SSO (W3-D, `workspace:sso`). */
+        requireSso: z.boolean().optional(),
         /** Theme new decks start with (W3-A, `workspace:brand`); null = the built-in look. */
         defaultTheme: z
           .strictObject({
@@ -32,7 +34,10 @@ export const updateWorkspaceSchema = z
   })
   .refine(
     (body) =>
-      body.name !== undefined || body.settings?.retentionDays !== undefined || body.settings?.defaultTheme !== undefined,
+      body.name !== undefined ||
+      body.settings?.retentionDays !== undefined ||
+      body.settings?.defaultTheme !== undefined ||
+      body.settings?.requireSso !== undefined,
     { message: 'Nothing to update' },
   );
 

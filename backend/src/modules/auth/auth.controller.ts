@@ -7,6 +7,7 @@ import { redisClient } from '../../common/config/redis';
 import { env } from '../../common/config/env';
 import type { AuthRequest } from './auth.middleware';
 import { OidcService, type OidcTransaction } from './oidc.service';
+import { SSO_REQUIRED } from '../sso/requireSso';
 
 export const sessionCookieOptions = {
   httpOnly: true,
@@ -45,6 +46,7 @@ export const AUTH_MESSAGES = {
  * with one of these instead of rendering JSON or echoing provider errors.
  */
 export type AuthErrorCode =
+  | 'sso_required'
   | 'sso_unavailable'
   | 'sso_expired'
   | 'sso_failed'
@@ -52,7 +54,7 @@ export type AuthErrorCode =
   | 'google_failed'
   | 'oauth_failed';
 
-const loginErrorUrl = (code: AuthErrorCode) => `${env.FRONTEND_URL}/login?error=${code}`;
+export const loginErrorUrl = (code: AuthErrorCode | string) => `${env.FRONTEND_URL}/login?error=${code}`;
 
 const logAuthFailure = (flow: string, error: any) =>
   console.error(`${flow} failed:`, error?.code || error?.message || 'unknown error');
@@ -70,7 +72,7 @@ const safeEqual = (a: unknown, b: unknown) => {
  * history, and Referer headers). Park it behind a short-lived single-use
  * exchange code instead.
  */
-const redirectWithExchangeCode = async (res: Response, accessToken: string, refreshToken: string) => {
+export const redirectWithExchangeCode = async (res: Response, accessToken: string, refreshToken: string) => {
   res.cookie('refreshToken', refreshToken, sessionCookieOptions);
   const exchangeCode = crypto.randomBytes(32).toString('hex');
   await redisClient.set(`auth:oauth-exchange:${exchangeCode}`, accessToken, { EX: 60 });
@@ -145,7 +147,7 @@ export class AuthController {
     } catch (error) {
       res.clearCookie(OIDC_STATE_COOKIE, oauthStateCookieOptions);
       logAuthFailure('OIDC callback', error);
-      return res.redirect(loginErrorUrl('sso_failed'));
+      return res.redirect(loginErrorUrl((error as ApiError)?.code === SSO_REQUIRED ? 'sso_required' : 'sso_failed'));
     }
   }
 
@@ -280,7 +282,7 @@ export class AuthController {
       return await redirectWithExchangeCode(res, accessToken, refreshToken);
     } catch (error) {
       logAuthFailure('Google callback', error);
-      return res.redirect(loginErrorUrl('google_failed'));
+      return res.redirect(loginErrorUrl((error as ApiError)?.code === SSO_REQUIRED ? 'sso_required' : 'google_failed'));
     }
   }
 

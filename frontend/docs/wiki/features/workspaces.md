@@ -74,8 +74,8 @@ While capabilities or the workspace detail are loading, gated entries are disabl
 | audit | `workspace:manage` (admin) | W3-B1 |
 | brand | `brand_kits`, `workspace:brand` (admin) | W3-A (shipped) |
 | billing | `workspace:billing` (owner); no capability gate: the page explains when billing is off (`features/billing.md`) | W3-C (shipped) |
-| sso | capability `samlSso`, team only, `sso`, `workspace:sso` (admin) | W3-D |
-| scim | capability `scim`, team only, `scim`, `workspace:sso` (admin) | W3-D |
+| sso | capability `samlSso`, team only, `sso`, `workspace:sso` (admin) | W3-D (shipped) |
+| scim | capability `scim`, team only, `scim`, `workspace:sso` (admin) | W3-D (shipped) |
 | domains | capability `customDomains`, `custom_domains`, `workspace:domains` (admin) | W4-E |
 
 ### Adding a settings page (later packages)
@@ -101,6 +101,19 @@ While capabilities or the workspace detail are loading, gated entries are disabl
 | `components/BrandKitEditor.tsx` | Name, eight colours (picker plus hex field), contrast checks as you type (saving waits until all pass), chart colours (1–12), heading and body fonts, logo and stage background (upload with `brand_logo` / `brand_background` when storage is on, or a link), background overlay. |
 | `components/BrandPreview.tsx`, `ThemeSwatch.tsx` | A stage and a phone drawn with the real deck tokens; a small swatch for lists. |
 | `components/ThemeTab.tsx` | The builder's deck-level Theme tab (`presentation-builder.md`). |
+
+## Single sign-on and SCIM (W3-D)
+
+`features/sso/`, pages `settings/sso` (`SsoSettings`) and `settings/scim` (`ScimSettings`). Backend
+contract: `backend/docs/wiki/modules/sso-scim.md`; operator setup: `docs/deploy/sso.md`.
+
+| Path (`features/sso/…`) | Role |
+| --- | --- |
+| `types.ts`, `api/sso.api.ts` | Connections, domains, metadata import, test link, SCIM tokens, `discoverSso(email)`. |
+| `components/SsoSettings.tsx` | `useSsoGate` (capability, team, plan, role, the same reasons as the nav), "Require single sign-on" (off until a connection is on with a verified domain and a passed test; the owner keeps password sign-in), connection cards, a new SAML or OIDC connection. Shows the result of a test sign-in (`?test=success|domain`). |
+| `components/ConnectionCard.tsx` | On/off (disabled while something is missing), Test sign-in (a one-time link), the values to copy into the IdP, IdP details (metadata XML or entity ID, URL and certificate; attribute names; OIDC issuer, client, write-only secret), domains with their TXT record and Verify, access (create accounts on first sign-in, default role, roles from IdP groups), delete. |
+| `components/ScimSettings.tsx` | Base URL, tokens (shown once on create, revoke with confirmation). |
+| `components/SsoDiscovery.tsx` | The login page's "Continue with SSO": asks for the work email, finds the connection and goes to it (`?email=` as a hint), else the deployment-wide SSO as before. A password sign-in refused with `SSO_REQUIRED` goes there too. |
 
 ## Privacy (W4-C)
 
