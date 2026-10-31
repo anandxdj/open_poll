@@ -12,7 +12,8 @@ described in [`design-system.md`](./design-system.md#primitives-componentsui).
 ## Layout Components
 
 ### `Sidebar` (`components/layouts/Sidebar.tsx`)
-- Desktop rail (`md` and up) 248px, collapses to 64px icons; below `md` the same content in a drawer.
+- Desktop rail (`md` and up) 248px, collapses to 64px icons; below `md` the same content in a drawer. On builder
+  routes (`isStudioPath`) it starts collapsed, a choice kept apart from the one made on other pages.
 - Brand (links to `/home`), `WorkspaceSwitcher`, then places only, in two groups from `components/layouts/nav.ts`:
   `MAIN_NAV` Home, Library, Analytics; `WORKSPACE_NAV` (under a `meta-label` "Workspace") Members, Settings.
   Creating is a page action (Home, Library), never a nav item.
