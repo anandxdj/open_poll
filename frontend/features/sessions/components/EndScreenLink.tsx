@@ -33,7 +33,7 @@ function EndScreenLinkInner({ role, presentationId }: EndScreenLinkProps) {
   const sessionId = useLive((s) => (s.me as { sessionId?: string } | null)?.sessionId ?? null);
 
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-2xl border px-5 py-3 text-sm font-bold transition-colors";
+    "inline-flex items-center justify-center gap-2 rounded-lg border px-5 py-3 text-sm font-medium transition-colors";
 
   if (role === "host") {
     return (

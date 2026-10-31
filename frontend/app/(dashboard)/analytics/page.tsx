@@ -9,6 +9,17 @@ import { useCreatePollModal } from "@/features/polls/components/CreatePollModalP
 import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  ActivityChart,
+  HeadlineNumbers,
+  InsightsError,
+  LiveNow,
+  RangeSwitch,
+  RecentSessions,
+  TopContent,
+} from "@/features/analytics/components/InsightsOverview";
+import { useInsights } from "@/features/analytics/hooks/useInsights";
+import type { RangeDays } from "@/features/analytics/insights";
 
 type ApiOk<T> = { success: boolean; data: T };
 type SummaryData = { totalResponses?: number };
@@ -19,11 +30,14 @@ function isPollActive(poll: Poll) {
 }
 
 /**
- * /analytics: responses across the workspace's polls. Counts are a hairline
- * strip; "Responses per poll" is a ranked bar list (one hue, most answered
+ * /analytics: workspace insights for a range (headline numbers against the
+ * previous period, activity per day, top decks and polls, recent sessions),
+ * then every poll's responses as a ranked bar list (one hue, most answered
  * first, the value at each bar's tip) where every row opens that poll.
  */
 export default function AnalyticsPage() {
+  const [days, setDays] = useState<RangeDays>(30);
+  const insights = useInsights(days);
   const { polls, isLoading: pollsLoading, fetchPolls } = useCreatorStore();
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>({});
   const [countsLoading, setCountsLoading] = useState(false);
@@ -68,12 +82,6 @@ export default function AnalyticsPage() {
     [polls, responseCounts]
   );
 
-  const totalResponses = useMemo(
-    () => Object.values(responseCounts).reduce((a, b) => a + b, 0),
-    [responseCounts]
-  );
-
-  const activeCount = useMemo(() => polls.filter(isPollActive).length, [polls]);
   const isLoading = pollsLoading || countsLoading;
   const { open: openCreatePollModal } = useCreatePollModal();
 
@@ -81,37 +89,30 @@ export default function AnalyticsPage() {
   const ranked = useMemo(() => [...summaries].sort((a, b) => b.totalResponses - a.totalResponses), [summaries]);
   const max = Math.max(1, ...ranked.map((s) => s.totalResponses));
 
-  const stats = [
-    { label: "Polls", value: polls.length },
-    { label: "Responses", value: totalResponses },
-    { label: "Live now", value: activeCount, live: true },
-  ];
-
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 pb-16 pt-8 sm:px-6 md:pt-12 lg:px-8">
-      <header>
-        <h1 className="text-4xl font-semibold leading-none tracking-[-0.04em] sm:text-5xl">Analytics</h1>
-        <p className="mt-3 text-base text-muted-foreground">Responses across the polls in this workspace.</p>
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-4xl font-semibold leading-none tracking-[-0.04em] sm:text-5xl">Analytics</h1>
+          <p className="mt-3 text-base text-muted-foreground">Live sessions and poll responses in this workspace.</p>
+          <LiveNow data={insights.data} />
+        </div>
+        <div className="self-start sm:self-auto">
+          <RangeSwitch value={days} onChange={setDays} />
+        </div>
       </header>
 
-      <dl className="mt-8 grid grid-cols-3 border-y border-border">
-        {stats.map((stat, i) => (
-          <div key={stat.label} className={cn("py-4 sm:py-5", i > 0 && "border-l border-border pl-4 sm:pl-6")}>
-            <dt className="flex items-center gap-2 text-sm text-muted-foreground">
-              {stat.live ? (
-                <span
-                  aria-hidden="true"
-                  className={cn("size-1.5 rounded-full", stat.value ? "bg-success motion-safe:animate-pulse" : "bg-faint")}
-                />
-              ) : null}
-              {stat.label}
-            </dt>
-            <dd className="mt-1.5 text-3xl font-semibold leading-none tracking-[-0.03em] sm:text-4xl">
-              {isLoading ? <span className="inline-block h-8 w-10 animate-pulse rounded-md bg-muted" /> : stat.value}
-            </dd>
+      <div className="mt-8 space-y-12">
+        {insights.status === "error" && !insights.data ? <InsightsError onRetry={insights.retry} /> : null}
+        <div aria-busy={insights.status === "loading"} className={cn("space-y-12 transition-opacity duration-200", insights.status === "loading" && insights.data && "opacity-60")}>
+          <HeadlineNumbers data={insights.data} />
+          <ActivityChart data={insights.data} />
+          <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-8">
+            <TopContent data={insights.data} />
+            <RecentSessions data={insights.data} />
           </div>
-        ))}
-      </dl>
+        </div>
+      </div>
 
       <section aria-labelledby="per-poll-title" className="mt-12">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -119,7 +120,9 @@ export default function AnalyticsPage() {
             <h2 id="per-poll-title" className="text-xl font-semibold tracking-[-0.02em]">
               Responses per poll
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">Most answered first. Open a poll for its results and voters.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              All time, most answered first. Open a poll for its results and voters.
+            </p>
           </div>
         </div>
 

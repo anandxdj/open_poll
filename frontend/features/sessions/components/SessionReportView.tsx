@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Link2, RefreshCw, Trash2 } from "lucide-react";
+import { Link2, RefreshCw, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useSessionReport } from "../hooks/useSessionReport";
@@ -23,7 +22,7 @@ import { LeaderboardPanel } from "./LeaderboardPanel";
 import { ParticipantsTable } from "./ParticipantsTable";
 import { ShareDialog } from "./ShareDialog";
 import { SlideResultCard } from "./SlideResultCard";
-import { MessageCard, PageHeader, Skeleton, StatTile, StatusBadge } from "./ui";
+import { BackLink, LiveNotice, MessageCard, page, SectionTitle, Skeleton, StatStrip, StatusBadge } from "./ui";
 
 /** `/presentations/[id]/sessions/[sessionId]`: the report of one run. */
 export function SessionReportView({ presentationId, sessionId }: { presentationId: string; sessionId: string }) {
@@ -36,85 +35,77 @@ export function SessionReportView({ presentationId, sessionId }: { presentationI
   const backHref = sessionsPath(report?.session.presentationId ?? presentationId);
 
   const header = (
-    <PageHeader>
-      <div className="flex min-w-0 items-center gap-3">
-        <Link
-          href={backHref}
-          aria-label={t("back")}
-          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" />
-        </Link>
+    <>
+      <BackLink href={backHref}>{t("back")}</BackLink>
+      <header className="mt-4 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         {report ? (
           <div className="min-w-0">
-            <h1 className="truncate text-sm font-semibold text-foreground/90">{report.session.title}</h1>
-            <p className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              {t("run", { number: report.session.runNumber })}
+            <h1 className="text-balance text-3xl font-semibold leading-tight tracking-[-0.035em] sm:text-4xl">
+              {report.session.title}
+            </h1>
+            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{t("run", { number: report.session.runNumber })}</span>
               <StatusBadge status={report.session.status} />
+              <span>{t("startedAt", { date: formatDateTime(report.session.startedAt) })}</span>
             </p>
           </div>
         ) : (
-          <h1 className="text-sm font-semibold text-foreground/90">{t("back")}</h1>
+          <h1 className="text-3xl font-semibold leading-tight tracking-[-0.035em] sm:text-4xl">{t("title")}</h1>
         )}
-      </div>
-      {report ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <ExportMenu report={report} />
-          {report.access.share ? (
-            <Button variant="outline" size="sm" className="rounded-xl font-bold" onClick={() => setShareOpen(true)}>
-              <Link2 /> {report.share?.active ? t("share.buttonShared") : t("share.button")}
-            </Button>
-          ) : null}
-          {report.access.delete && !report.session.isLive ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="rounded-xl font-bold text-red-500 hover:bg-red-500/10 hover:text-red-500"
-              onClick={() => setDeleteOpen(true)}
-            >
-              <Trash2 /> {t("delete.button")}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-    </PageHeader>
+        {report ? (
+          <div className="flex flex-wrap items-center gap-2 md:shrink-0">
+            {report.access.delete && !report.session.isLive ? (
+              <Button
+                variant="ghost"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 /> {t("delete.button")}
+              </Button>
+            ) : null}
+            <ExportMenu report={report} />
+            {report.access.share ? (
+              <Button variant="outline" className="bg-card" onClick={() => setShareOpen(true)}>
+                <Link2 /> {report.share?.active ? t("share.buttonShared") : t("share.button")}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </header>
+    </>
   );
 
   if (loading) {
     return (
-      <>
+      <div className={page}>
         {header}
-        <div role="status" aria-label={t("loading")} className="mx-auto w-full max-w-5xl space-y-4 px-4 py-6 md:px-6">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            {[0, 1, 2, 3, 4].map((key) => (
-              <Skeleton key={key} className="h-20" />
-            ))}
-          </div>
+        <div role="status" aria-label={t("loading")} className="mt-8 space-y-6">
+          <Skeleton className="h-24" />
           <Skeleton className="h-96" />
         </div>
-      </>
+      </div>
     );
   }
 
   if (error || !report) {
     return (
-      <>
+      <div className={page}>
         {header}
-        <div className="px-4 py-10">
+        <div className="mt-10">
           <MessageCard tone="error" title={error === "notFound" ? t("notFound") : t("loadFailed")}>
             {error === "failed" ? (
-              <Button variant="outline" size="sm" className="rounded-xl" onClick={reload}>
+              <Button variant="outline" size="sm" className="bg-card" onClick={reload}>
                 <RefreshCw /> {t("retry")}
               </Button>
             ) : null}
           </MessageCard>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className={page}>
       {header}
       <ReportContent report={report} />
 
@@ -135,7 +126,7 @@ export function SessionReportView({ presentationId, sessionId }: { presentationI
         runNumber={report.session.runNumber}
         onDeleted={() => router.replace(sessionsPath(report.session.presentationId))}
       />
-    </>
+    </div>
   );
 }
 
@@ -152,31 +143,26 @@ export function ReportContent({ report }: { report: SessionReport }) {
   );
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6 md:px-6">
-      {session.isLive ? (
-        <p role="status" className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">
-          {t("liveBanner")}
-        </p>
-      ) : null}
+    <div className="mt-8 space-y-10">
+      {session.isLive ? <LiveNotice>{t("liveBanner")}</LiveNotice> : null}
 
-      <dl className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <StatTile label={t("stats.participants")} value={session.participantCount.toLocaleString()} />
-        <StatTile label={t("stats.responses")} value={session.answerCount.toLocaleString()} />
-        <StatTile
-          label={t("stats.participation")}
-          value={formatPercent(session.participationRate)}
-          hint={t("participationHint")}
-        />
-        <StatTile label={t("stats.duration")} value={formatDuration(session.durationMs)} />
-        <StatTile label={t("stats.started")} value={<span className="text-sm">{formatDateTime(session.startedAt)}</span>} />
-      </dl>
+      <StatStrip
+        stats={[
+          { label: t("stats.participants"), value: session.participantCount.toLocaleString() },
+          { label: t("stats.responses"), value: session.answerCount.toLocaleString() },
+          {
+            label: t("stats.participation"),
+            value: formatPercent(session.participationRate),
+            hint: t("participationHint"),
+          },
+          { label: t("stats.duration"), value: formatDuration(session.durationMs) },
+        ]}
+      />
 
       <section aria-labelledby="slides-title" className="space-y-4">
-        <h2 id="slides-title" className="text-base font-bold tracking-tight">
-          {t("slides.title")}
-        </h2>
+        <SectionTitle id="slides-title">{t("slides.title")}</SectionTitle>
         {charted.length === 0 ? (
-          <p className="rounded-2xl border border-border bg-card px-5 py-6 text-sm text-muted-foreground">{t("slides.empty")}</p>
+          <p className="rounded-xl border border-border bg-card px-5 py-6 text-sm text-muted-foreground">{t("slides.empty")}</p>
         ) : (
           charted.map((slide) => (
             <SlideResultCard
@@ -192,7 +178,7 @@ export function ReportContent({ report }: { report: SessionReport }) {
           ))
         )}
         {skipped.length > 0 ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {t("slides.notShownList", { slides: skipped.map((slide) => `${slide.slideIndex + 1}. ${slide.label}`).join("; ") })}
           </p>
         ) : null}

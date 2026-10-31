@@ -2,7 +2,7 @@ import type { ComponentPropsWithoutRef, Ref } from "react";
 
 import { cn } from "@/lib/utils";
 import { formatNumber } from "../../advanced/read";
-import { fractionOf, type GridAxis, type GridPosition } from "./config";
+import { fractionOf, type GridAxis, type GridPosition, type GridQuadrants } from "./config";
 
 /** `device`: on a participant's phone (app theme). `stage`: on the projected screen (always dark). */
 export type BoardTone = "device" | "stage";
@@ -21,6 +21,8 @@ const TONE = {
     line: "bg-deck-border",
     marker: "bg-deck-primary/75 text-deck-primary-fg",
     active: "bg-deck-primary text-deck-primary-fg ring-4 ring-deck-primary/30",
+    corner: "text-deck-muted-fg",
+    dot: "bg-deck-muted-fg/40",
   },
   stage: {
     label: "text-deck-stage-fg/60",
@@ -28,20 +30,25 @@ const TONE = {
     line: "bg-deck-stage-fg/15",
     marker: "bg-deck-accent text-deck-stage-ink",
     active: "bg-deck-accent text-deck-stage-ink ring-4 ring-deck-accent/30",
+    corner: "text-deck-stage-fg/55",
+    dot: "bg-deck-stage-fg/35",
   },
 } as const;
 
 /**
  * A square board with a cross through the middle, the two axes labelled with
- * their name and range, and a numbered marker per placed item. The vertical
- * axis grows upwards. `boardProps` carries the participant's pointer and
- * keyboard handlers; the stage passes none.
+ * their name and range, optional corner names, and a numbered marker per placed
+ * item over faint dots (`dots`: individual placements). The vertical axis grows
+ * upwards. `boardProps` carries the participant's pointer and keyboard
+ * handlers; the stage passes none.
  */
 export function GridBoard({
   x,
   y,
   tone,
   markers,
+  quadrants,
+  dots,
   boardRef,
   boardProps,
   className,
@@ -50,6 +57,8 @@ export function GridBoard({
   y: GridAxis;
   tone: BoardTone;
   markers: BoardMarker[];
+  quadrants?: GridQuadrants;
+  dots?: GridPosition[];
   boardRef?: Ref<HTMLDivElement>;
   boardProps?: ComponentPropsWithoutRef<"div">;
   className?: string;
@@ -79,6 +88,38 @@ export function GridBoard({
       >
         <span aria-hidden className={cn("absolute inset-y-0 left-1/2 w-px", colors.line)} />
         <span aria-hidden className={cn("absolute inset-x-0 top-1/2 h-px", colors.line)} />
+        {quadrants ? (
+          <>
+            {(
+              [
+                ["topLeft", "left-2.5 top-2"],
+                ["topRight", "right-2.5 top-2 text-right"],
+                ["bottomLeft", "bottom-2 left-2.5"],
+                ["bottomRight", "bottom-2 right-2.5 text-right"],
+              ] as const
+            ).map(([key, place]) =>
+              quadrants[key] ? (
+                <span
+                  key={key}
+                  className={cn("pointer-events-none absolute max-w-[45%] truncate text-xs font-medium", place, colors.corner)}
+                >
+                  {quadrants[key]}
+                </span>
+              ) : null
+            )}
+          </>
+        ) : null}
+        {dots?.map((dot, i) => {
+          const { fx, fy } = fractionOf(dot, x, y);
+          return (
+            <span
+              key={i}
+              aria-hidden
+              className={cn("pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full", colors.dot)}
+              style={{ left: `${fx * 100}%`, top: `${(1 - fy) * 100}%` }}
+            />
+          );
+        })}
         {markers.map(({ index, position, active }) => {
           const { fx, fy } = fractionOf(position, x, y);
           return (

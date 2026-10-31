@@ -9,9 +9,15 @@ export const MAX_GRID_ITEMS = 10;
 /** Largest absolute axis bound. */
 export const GRID_AXIS_LIMIT = 1000;
 export const MAX_AXIS_LABEL = 40;
+export const MAX_QUADRANT_LABEL = 40;
 
 export type GridAxis = { label: string; min: number; max: number };
-export type Grid2x2Config = { items: string[]; x: GridAxis; y: GridAxis };
+/** Optional names for the board's corners (e.g. "Quick wins"); empty = unnamed. */
+export type GridQuadrants = { topLeft: string; topRight: string; bottomLeft: string; bottomRight: string };
+export type Grid2x2Config = { items: string[]; x: GridAxis; y: GridAxis; quadrants: GridQuadrants };
+
+export const QUADRANT_KEYS = ["topLeft", "topRight", "bottomLeft", "bottomRight"] as const;
+export const NO_QUADRANTS: GridQuadrants = { topLeft: "", topRight: "", bottomLeft: "", bottomRight: "" };
 /** A place on the grid, in axis units. */
 export type GridPosition = { x: number; y: number };
 
@@ -23,10 +29,22 @@ const rawAxis = (value: unknown): GridAxis => {
   return { label: text(a.label), min: numberOr(a.min, DEFAULT_AXIS_RANGE.min), max: numberOr(a.max, DEFAULT_AXIS_RANGE.max) };
 };
 
+const rawQuadrants = (value: unknown): GridQuadrants => {
+  const q = record(value);
+  return { topLeft: text(q.topLeft), topRight: text(q.topRight), bottomLeft: text(q.bottomLeft), bottomRight: text(q.bottomRight) };
+};
+
+const viewQuadrants = (q: GridQuadrants): GridQuadrants => ({
+  topLeft: q.topLeft.trim(),
+  topRight: q.topRight.trim(),
+  bottomLeft: q.bottomLeft.trim(),
+  bottomRight: q.bottomRight.trim(),
+});
+
 /** The stored settings as they are, each field on its own fallback: for the editor, which edits one field at a time. */
 export function rawGridConfig(slide: object): Grid2x2Config {
   const c = configOf(slide);
-  return { items: textList(c.items), x: rawAxis(c.x), y: rawAxis(c.y) };
+  return { items: textList(c.items), x: rawAxis(c.x), y: rawAxis(c.y), quadrants: rawQuadrants(c.quadrants) };
 }
 
 const viewAxis = (axis: GridAxis, fallbackLabel: string): GridAxis => ({
@@ -37,7 +55,18 @@ const viewAxis = (axis: GridAxis, fallbackLabel: string): GridAxis => ({
 /** Settings for the views: nameless axes get a label and a broken range falls back to 0–10, like the backend. */
 export function gridConfig(slide: object): Grid2x2Config {
   const raw = rawGridConfig(slide);
-  return { items: raw.items, x: viewAxis(raw.x, FALLBACK_LABEL.x), y: viewAxis(raw.y, FALLBACK_LABEL.y) };
+  return {
+    items: raw.items,
+    x: viewAxis(raw.x, FALLBACK_LABEL.x),
+    y: viewAxis(raw.y, FALLBACK_LABEL.y),
+    quadrants: viewQuadrants(raw.quadrants),
+  };
+}
+
+/** A corner name that is too long (a save-time message, lowercase, unprefixed), or null. */
+export function quadrantIssue(quadrants: GridQuadrants): string | null {
+  const long = QUADRANT_KEYS.some((key) => quadrants[key].trim().length > MAX_QUADRANT_LABEL);
+  return long ? `keep corner names under ${MAX_QUADRANT_LABEL} characters.` : null;
 }
 
 /** First problem with one axis (a save-time message, lowercase, unprefixed), or null. */
@@ -115,9 +144,19 @@ export interface GridItemResult {
 export interface Grid2x2Distribution {
   x: GridAxis;
   y: GridAxis;
+  quadrants: GridQuadrants;
   items: GridItemResult[];
   voters: number;
+  /** The newest participants' own placements (each one's position per item, in item order). */
+  placements: GridPosition[][];
 }
+
+const positionOf = (value: unknown): GridPosition | null => {
+  const p = record(value);
+  const x = finite(p.x);
+  const y = finite(p.y);
+  return x === null || y === null ? null : { x, y };
+};
 
 /** The server's results, or null when `value` is not a grid_2x2 distribution. */
 export function parseGridDistribution(value: unknown): Grid2x2Distribution | null {
@@ -126,11 +165,17 @@ export function parseGridDistribution(value: unknown): Grid2x2Distribution | nul
   return {
     x: viewAxis(rawAxis(d.x), FALLBACK_LABEL.x),
     y: viewAxis(rawAxis(d.y), FALLBACK_LABEL.y),
+    quadrants: viewQuadrants(rawQuadrants(d.quadrants)),
     items: (Array.isArray(d.items) ? d.items : []).map((entry): GridItemResult => {
       const item = record(entry);
       return { text: text(item.text), x: finite(item.x), y: finite(item.y), count: countOf(item.count) };
     }),
     voters: countOf(d.voters),
+    placements: (Array.isArray(d.placements) ? d.placements : []).flatMap((entry) => {
+      if (!Array.isArray(entry)) return [];
+      const positions = entry.map(positionOf);
+      return positions.every((p): p is GridPosition => p !== null) ? [positions] : [];
+    }),
   };
 }
 
@@ -139,8 +184,10 @@ export function emptyGridDistribution(config: Grid2x2Config): Grid2x2Distributio
   return {
     x: config.x,
     y: config.y,
+    quadrants: config.quadrants,
     items: config.items.map((item) => ({ text: item, x: null, y: null, count: 0 })),
     voters: 0,
+    placements: [],
   };
 }
 

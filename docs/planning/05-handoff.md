@@ -230,8 +230,9 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   error codes `NOT_ACCEPTING`, `TIME_UP`, `ALREADY_ANSWERED`, `RATE_LIMITED`, `NOT_JOINED`), await the
   `live:join` ack before `answer:submit` after a reconnect, remove the legacy `quiz:event` dual-emit.
 - **W2-A** presenter view + remote + timer/kick, **W2-F** audience pace, **W3-D** SAML / per-workspace
-  OIDC / SCIM, **W3-B2** folders/templates/duplicate/co-editing, **W3-A** themes/brand kits,
-  **W3-G** workspace insights.
+  OIDC / SCIM, **W3-B2** folders/templates/duplicate/co-editing, **W3-A** themes/brand kits.
+  (**W3-G** workspace insights is built: `GET /api/insights` and the `/analytics` overview, see
+  `backend/docs/wiki/modules/insights.md`.)
 - **Wave 4:** W4-A accessibility, W4-B locales (`es`), W4-C GDPR/retention (enforce `retentionDays`),
   W4-D embeds/oEmbed/add-in panes, W4-E custom domains/white-label.
 - **Close-out:** refresh `01-competitive-roadmap.md` status tables, README "What's next",
@@ -240,7 +241,7 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
 Remaining merge order (from the plan; flexible when a later package is ready early and conflicts are
 trivial, note deviations here): W2-D phase 2 → W2-A (adds the NotesTab and the `notes` field of the
 frontend `Presentation` type) → W2-F; Wave 3: W3-D and W3-B2 (W3-B1 is merged), W3-A after W2-A, then
-W3-G; Wave 4 A → B → C → D → E; then the close-out.
+Wave 4 A → B → C → D → E; then the close-out.
 
 ## Process notes
 

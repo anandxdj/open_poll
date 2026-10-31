@@ -25,7 +25,8 @@ export const pdfText = (value: string) =>
     })
     .join('');
 
-const COLORS = { text: '#111827', muted: '#6b7280', track: '#f3f4f6', bar: '#f59e0b', correct: '#10b981', rule: '#e5e7eb' };
+// The app's Graph paper colours: ink, graphite, paper track, ember bars, green for correct answers.
+const COLORS = { text: '#171717', muted: '#5c5a55', track: '#efeee9', bar: '#cf460c', correct: '#15803d', rule: '#e2e0d9' };
 
 const formatDate = (date: Date) => date.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
 
@@ -67,7 +68,7 @@ export const writePdf = async (res: Response, ctx: ExportContext) => {
     formatDate(session.startedAt),
     session.endedAt ? formatDuration(session.endedAt.getTime() - session.startedAt.getTime()) : 'still live',
   ];
-  doc.moveDown(0.2).font('Helvetica').fontSize(10).fillColor(COLORS.muted).text(meta.join('  ·  '));
+  doc.moveDown(0.2).font('Helvetica').fontSize(10).fillColor(COLORS.muted).text(meta.join(',  '));
 
   // --- Key numbers ---
   const responses = ctx.slides.reduce((sum, slide) => sum + answeredCountOf(ctx, slide), 0);
@@ -84,7 +85,7 @@ export const writePdf = async (res: Response, ctx: ExportContext) => {
   stats.forEach(([label, value], i) => {
     const x = left + i * statWidth;
     doc.font('Helvetica-Bold').fontSize(18).fillColor(COLORS.text).text(value, x, statTop, { width: statWidth - 10 });
-    doc.font('Helvetica').fontSize(9).fillColor(COLORS.muted).text(label.toUpperCase(), x, statTop + 24, {
+    doc.font('Helvetica').fontSize(9).fillColor(COLORS.muted).text(label, x, statTop + 24, {
       width: statWidth - 10,
     });
   });

@@ -4,12 +4,13 @@ import { useEffect, useEffectEvent, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import axios from "axios";
 import { toast } from "sonner";
-import { CheckCircle2, ChevronLeft, RotateCcw, XCircle, Award, BarChart2, RefreshCw } from "lucide-react";
+import { CheckCircle2, ChevronLeft, RotateCcw, XCircle, Award, BarChart2 } from "lucide-react";
 
 import type { Poll } from "@/features/polls/store/useCreatorStore";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 type Props = {
   poll: Poll;
@@ -254,86 +255,70 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
     if (isTrial && trialResult) {
       return (
         <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, ease }}
-          className="space-y-6 py-6"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease }}
+          className="space-y-8"
         >
-          {/* Badge Header */}
-          <div className="flex flex-col items-center gap-4 text-center">
-            <div className="relative">
-              <div className={`absolute -inset-4 rounded-full blur-xl ${trialResult.passed ? 'bg-emerald-500/20' : 'bg-rose-500/20'}`} />
-              <div className={`relative flex size-20 items-center justify-center rounded-full border text-white shadow-xl ${
+          <div className="space-y-3">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
                 trialResult.passed
-                  ? 'border-emerald-500 bg-gradient-to-br from-emerald-500 to-teal-700 shadow-emerald-500/20'
-                  : 'border-rose-500 bg-gradient-to-br from-rose-500 to-red-700 shadow-rose-500/20'
-              }`}>
-                {trialResult.passed ? <Award className="size-10" /> : <XCircle className="size-10" />}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <span className={`text-[10px] font-bold uppercase tracking-widest ${trialResult.passed ? 'text-emerald-500' : 'text-rose-500'}`}>
-                {trialResult.passed ? 'Trial Passed 🎉' : `Trial Attempt #${trialResult.attemptNumber} Failed`}
-              </span>
-              <h2 className="text-3xl font-extrabold text-foreground">
-                Score: {trialResult.percentage}%
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Passing grade required: <span className="font-bold text-foreground">{trialResult.passingScorePercentage}%</span> ({trialResult.score}/{trialResult.maxScore} points)
-              </p>
-            </div>
+                  ? "border-success/30 bg-success/10 text-success"
+                  : "border-destructive/30 bg-destructive/10 text-destructive"
+              )}
+            >
+              {trialResult.passed ? <Award className="size-3.5" aria-hidden /> : <XCircle className="size-3.5" aria-hidden />}
+              {trialResult.passed ? "Passed" : `Not passed, attempt ${trialResult.attemptNumber}`}
+            </span>
+            <p className="font-mono text-6xl font-medium leading-none tabular-nums tracking-[-0.04em]">
+              {trialResult.percentage}%
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Pass mark <span className="font-mono tabular-nums text-foreground">{trialResult.passingScorePercentage}%</span>.{" "}
+              <span className="font-mono tabular-nums text-foreground">{trialResult.score}</span> of{" "}
+              <span className="font-mono tabular-nums text-foreground">{trialResult.maxScore}</span> points.
+            </p>
           </div>
 
-          {/* Question Breakdown */}
-          <div className="space-y-4 rounded-2xl border border-border/60 bg-secondary/20 p-5">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Question Breakdown
+          <section aria-labelledby="breakdown-title" className="space-y-3">
+            <h3 id="breakdown-title" className="text-lg font-semibold tracking-[-0.02em]">
+              Your answers
             </h3>
-
-            <div className="space-y-3">
+            <ol className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
               {trialResult.breakdown.map((item, idx) => (
-                <div
-                  key={idx}
-                  className={`rounded-xl border p-4 transition-all ${
-                    item.isCorrect
-                      ? 'border-emerald-500/30 bg-emerald-500/5'
-                      : 'border-rose-500/30 bg-rose-500/5'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-semibold text-foreground">
-                      Q{idx + 1}. {item.questionText}
-                    </p>
-                    <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                      item.isCorrect ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
-                    }`}>
-                      {item.isCorrect ? 'Correct' : 'Incorrect'}
+                <li key={idx} className="space-y-2 px-4 py-3.5">
+                  <div className="flex items-start gap-3">
+                    <span className="w-5 shrink-0 pt-0.5 font-mono text-sm tabular-nums text-muted-foreground">{idx + 1}</span>
+                    <p className="min-w-0 flex-1 text-base font-medium leading-snug text-foreground">{item.questionText}</p>
+                    <span
+                      className={cn(
+                        "inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium",
+                        item.isCorrect
+                          ? "border-success/30 bg-success/10 text-success"
+                          : "border-destructive/30 bg-destructive/10 text-destructive"
+                      )}
+                    >
+                      {item.isCorrect ? <CheckCircle2 className="size-3.5" aria-hidden /> : <XCircle className="size-3.5" aria-hidden />}
+                      {item.isCorrect ? "Correct" : "Incorrect"}
                     </span>
                   </div>
-
                   {item.explanation && (
-                    <p className="mt-2 text-xs text-muted-foreground border-t border-border/40 pt-2">
-                      💡 <span className="font-semibold text-foreground">Explanation:</span> {item.explanation}
+                    <p className="pl-8 text-sm text-muted-foreground">
+                      <span className="font-medium text-foreground">Explanation: </span>
+                      {item.explanation}
                     </p>
                   )}
-                </div>
+                </li>
               ))}
-            </div>
-          </div>
+            </ol>
+          </section>
 
-          {/* Retry Button on Failure */}
           {!trialResult.passed && (
-            <div className="flex justify-center pt-2">
-              <button
-                type="button"
-                onClick={handleRetry}
-                className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95"
-              >
-                <RotateCcw className="size-4" />
-                Retry Trial
-              </button>
-            </div>
+            <Button onClick={handleRetry}>
+              <RotateCcw /> Try again
+            </Button>
           )}
         </motion.div>
       );
@@ -341,81 +326,59 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
 
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5, ease }}
-        className="flex flex-col items-center gap-6 py-12 text-center"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease }}
+        className="space-y-6 rounded-xl border border-border bg-card p-6 sm:p-8"
       >
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
+        <motion.span
+          initial={{ scale: 0.6, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.1 }}
-          className="relative"
+          className="flex size-12 items-center justify-center rounded-full bg-success/10 text-success"
         >
-          <div className="absolute -inset-4 rounded-full bg-primary/10 blur-xl" />
-          <div className="relative flex size-20 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-foreground/20 shadow-[0_0_40px_rgba(216,173,135,0.25)]">
-            <CheckCircle2 className="size-10 text-primary-foreground" />
-          </div>
-        </motion.div>
+          <CheckCircle2 className="size-6" aria-hidden />
+        </motion.span>
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-foreground/90">You&apos;re all done!</h2>
-          <p className="text-sm text-muted-foreground/60 max-w-xs">
-            Your response has been submitted. Every vote shapes the outcome.
+          <h2 className="text-2xl font-semibold tracking-[-0.03em]">Your answers are in</h2>
+          <p className="text-base text-muted-foreground">
+            You answered <span className="font-mono tabular-nums text-foreground">{total}</span> question
+            {total !== 1 ? "s" : ""}. Thanks for taking part.
           </p>
         </div>
-        <div className="rounded-2xl border border-border bg-secondary/30 px-5 py-3 text-xs font-medium text-muted-foreground/60">
-          {total} question{total !== 1 ? "s" : ""} answered · Thank you for participating
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="pt-2"
-        >
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all cursor-pointer active:scale-95 group"
-          >
-            <BarChart2 className="size-4 group-hover:scale-110 transition-transform" />
-            <span>View Live Results</span>
-            <RefreshCw className="size-3.5 opacity-70 group-hover:rotate-180 transition-transform duration-500" />
-          </button>
-        </motion.div>
+        <Button onClick={() => window.location.reload()}>
+          <BarChart2 /> See live results
+        </Button>
       </motion.div>
     );
   }
 
   // ── Question step ───────────────────────────────────────────────
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-8">
       {/* Progress */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs font-medium text-muted-foreground/50">
+      <div className="space-y-2.5">
+        <div className="flex min-h-8 items-center justify-between text-sm text-muted-foreground">
           <button
+            type="button"
             onClick={goBack}
             disabled={step === 0}
-            className="flex items-center gap-1 hover:text-foreground/80 disabled:opacity-0 transition-all"
+            className="-ml-1 flex items-center gap-1 rounded-md px-1 py-1 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:invisible"
           >
-            <ChevronLeft className="size-3.5" /> Back
+            <ChevronLeft className="size-4" aria-hidden /> Back
           </button>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {!current.isMandatory && (
-              <button
-                type="button"
-                onClick={handleSkip}
-                className="text-primary hover:text-primary/80 font-bold transition-all px-2.5 py-1 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 select-none uppercase tracking-wide text-[10px]"
-              >
+              <Button type="button" variant="outline" size="sm" className="bg-card" onClick={handleSkip}>
                 Skip
-              </button>
+              </Button>
             )}
-            <span className="tabular-nums">
-              {step + 1} / {total}
+            <span className="font-mono tabular-nums">
+              {step + 1} of {total}
             </span>
           </div>
         </div>
-        <div className="h-1 rounded-full bg-secondary overflow-hidden">
+        <div className="h-1 overflow-hidden rounded-full bg-secondary">
           <motion.div
             className="h-full rounded-full bg-primary"
             animate={{ width: `${progress}%` }}
@@ -424,111 +387,88 @@ export function StepByStepForm({ poll, deviceId, guestInfo }: Props) {
         </div>
       </div>
 
-      {/* Question card */}
+      {/* Question */}
       <AnimatePresence mode="wait">
         <motion.div
           key={qid}
-          initial={{ x: 32, opacity: 0 }}
+          initial={{ x: 24, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          exit={{ x: -32, opacity: 0 }}
-          transition={{ duration: 0.3, ease }}
-          className="space-y-6"
+          exit={{ x: -24, opacity: 0 }}
+          transition={{ duration: 0.25, ease }}
+          className="space-y-5"
         >
-          {/* Counter */}
-          <div className="flex items-center justify-between">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-primary/70">
-              Question {step + 1}
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span>Question {step + 1}</span>
+              {isMulti && (
+                <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs text-foreground">
+                  Choose all that apply
+                </span>
+              )}
             </div>
-            {isMulti && (
-              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
-                Multi-Select (Choose all that apply)
-              </span>
-            )}
+            <h2 className="text-balance text-2xl font-semibold leading-tight tracking-[-0.03em] md:text-3xl">
+              {current.text}
+            </h2>
           </div>
 
-          {/* Question text */}
-          <h2 className="text-2xl font-bold leading-snug text-foreground/90 md:text-3xl">
-            {current.text}
-          </h2>
-
           {/* Options */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5">
             {current.options.map((opt, idx) => {
               const isSelected = isMulti ? multiSelections.includes(idx) : selectedNow === idx;
               return (
-                <motion.button
+                <button
                   key={`${qid}-${idx}`}
                   type="button"
+                  aria-pressed={isMulti ? isSelected : undefined}
                   disabled={submitting || (!isMulti && selectedNow !== null)}
                   onClick={() => (isMulti ? toggleMulti(idx) : chooseSingle(idx))}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ duration: 0.15 }}
                   className={cn(
-                    "group relative flex w-full items-center gap-4 rounded-2xl border px-5 py-4 text-left transition-all duration-300",
+                    "group flex min-h-14 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                     isSelected
-                      ? "border-primary/60 bg-primary/10 shadow-[0_0_20px_rgba(216,173,135,0.05)]"
-                      : "border-border bg-secondary/30 hover:border-primary/30 hover:bg-secondary/50"
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-card shadow-[0_1px_2px_rgb(23_23_23/0.06)] hover:border-foreground/25"
                   )}
                 >
-                  {/* Option letter / checkbox */}
-                  <div
+                  <span
                     className={cn(
-                      "flex size-8 shrink-0 items-center justify-center rounded-xl border text-xs font-bold transition-all duration-300",
+                      "flex size-7 shrink-0 items-center justify-center rounded-md border font-mono text-sm transition-colors duration-150",
                       isSelected
                         ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-secondary text-muted-foreground/60 group-hover:border-primary/40 group-hover:text-foreground"
+                        : "border-border bg-background text-muted-foreground group-hover:text-foreground"
                     )}
                   >
                     {String.fromCharCode(65 + idx)}
-                  </div>
-                  <span
-                    className={cn(
-                      "text-sm font-medium leading-snug transition-colors duration-200",
-                      isSelected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
-                    )}
-                  >
-                    {opt}
                   </span>
+                  <span className="min-w-0 flex-1 text-base leading-snug text-foreground">{opt}</span>
                   {isSelected ? (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="ml-auto shrink-0"
-                    >
-                      <CheckCircle2 className="size-5 text-primary" />
-                    </motion.div>
+                    <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="shrink-0">
+                      <CheckCircle2 className="size-5 text-accent-ink" aria-hidden />
+                    </motion.span>
                   ) : (
-                    <kbd className="ml-auto hidden md:inline-flex items-center justify-center rounded-md border border-border/80 bg-secondary/60 px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-muted-foreground/60 shadow-sm transition-all duration-300 group-hover:border-primary/30 group-hover:text-primary group-hover:bg-primary/10 select-none uppercase whitespace-nowrap shrink-0">
-                      Press {idx + 1}
+                    // Number keys pick an option on a keyboard.
+                    <kbd className="hidden shrink-0 rounded border border-border bg-background px-1.5 font-mono text-xs text-muted-foreground md:inline">
+                      {idx + 1}
                     </kbd>
                   )}
-                </motion.button>
+                </button>
               );
             })}
           </div>
 
-          {/* Confirm Multi Button */}
           {isMulti && (
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={confirmMulti}
-                className="rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground shadow-md hover:bg-primary/90 transition-all"
-              >
-                {step >= total - 1 ? "Submit Assessment" : "Confirm Answer →"}
-              </button>
+            <div className="flex justify-end">
+              <Button type="button" disabled={submitting} onClick={confirmMulti}>
+                {step >= total - 1 ? "Submit answers" : "Next question"}
+              </Button>
             </div>
           )}
         </motion.div>
       </AnimatePresence>
 
-      {/* Submitting indicator */}
       {submitting && (
-        <div className="text-center text-xs text-muted-foreground/40 animate-pulse">
-          Submitting your answers…
-        </div>
+        <p role="status" className="text-sm text-muted-foreground">
+          Sending your answers…
+        </p>
       )}
     </div>
   );

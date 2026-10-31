@@ -48,6 +48,9 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Billing: `/settings/billing` (plan, usage, checkout, portal) or the landing pricing section.
 - **Action**: Read `frontend/docs/wiki/features/billing.md`
 
+- **Task**: The analytics pages (`/analytics` workspace insights, `/analytics/[id]` poll results).
+- **Action**: Read `frontend/docs/wiki/features/analytics.md`
+
 - **Task**: Changing the library at `/polls` (poll + deck cards, filters, convert to presentation).
 - **Action**: Read `frontend/docs/wiki/features/library.md`
 
