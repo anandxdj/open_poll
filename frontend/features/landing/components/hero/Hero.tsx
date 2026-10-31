@@ -48,7 +48,7 @@ export function Hero() {
           <motion.div {...reveal(0.16)} className="lg:col-span-6 lg:justify-self-end">
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
               <Link
-                href={authed ? "/polls" : "/signup"}
+                href={authed ? "/home" : "/signup"}
                 className={cn(linkButton({ size: "xl" }), pill, "w-full sm:w-auto")}
               >
                 {authed ? "Open your dashboard" : "Start for free"}

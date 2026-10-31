@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -34,6 +34,25 @@ export function ImportButton({ className }: { className?: string }) {
   return (
     <ImportIntlProvider>
       <ImportButtonInner className={className} />
+    </ImportIntlProvider>
+  );
+}
+
+function ImportLauncherInner({ children }: { children: (open: () => void) => ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      {children(() => setOpen(true))}
+      {open ? <ImportDialog open={open} onOpenChange={setOpen} /> : null}
+    </>
+  );
+}
+
+/** The import dialog behind a trigger of the caller's own (Home's start tile). */
+export function ImportLauncher({ children }: { children: (open: () => void) => ReactNode }) {
+  return (
+    <ImportIntlProvider>
+      <ImportLauncherInner>{children}</ImportLauncherInner>
     </ImportIntlProvider>
   );
 }

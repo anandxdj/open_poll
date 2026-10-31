@@ -142,8 +142,8 @@ test("an owner invites a teammate who joins as editor; roles, sharing and the au
   await expect(memberPage.getByText(`Signed in as ${memberEmail}`)).toBeVisible();
   await memberPage.getByRole("button", { name: `Join ${teamName}` }).click();
 
-  // They land in the shared workspace and see its deck.
-  await memberPage.waitForURL(/\/polls/);
+  // They land on Home in the shared workspace and see its deck under recent work.
+  await memberPage.waitForURL(/\/home/);
   await expect(memberPage.getByRole("heading", { name: deckTitle })).toBeVisible();
 
   // The invitation is single use.

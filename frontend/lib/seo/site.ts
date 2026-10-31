@@ -91,7 +91,7 @@ export function publicPage(path: string): PublicPage {
  * (`/p/`, `/r/`, `/live/<code>`, invitations) are not listed: they carry a
  * noindex tag instead, which crawlers can only see if they may fetch the page.
  */
-export const CRAWL_DISALLOW = ["/polls", "/create", "/settings", "/analytics", "/presentation", "/auth/", "/test", "/api/"];
+export const CRAWL_DISALLOW = ["/home", "/polls", "/create", "/settings", "/analytics", "/presentation", "/auth/", "/test", "/api/"];
 
 /**
  * AI search, assistant and training crawlers. They get the same rules as
