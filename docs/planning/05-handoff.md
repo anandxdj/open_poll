@@ -235,8 +235,9 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   `backend/docs/wiki/modules/themes.md`.)
   (**W3-G** workspace insights is built: `GET /api/insights` and the `/analytics` overview, see
   `backend/docs/wiki/modules/insights.md`.)
-- **Wave 4:** W4-A accessibility, W4-B locales (`es`), W4-D embeds/oEmbed/add-in panes, W4-E custom
-  domains/white-label. (**W4-C** GDPR/retention is built: `/api/me` export and deletion, the account
+- **Wave 4:** W4-A accessibility, W4-B locales (`es`), W4-D embeds/oEmbed/add-in panes. (**W4-E**
+  custom domains and white-label are built: `backend/docs/wiki/modules/domains.md`,
+  `docs/deploy/custom-domains.md`.) (**W4-C** GDPR/retention is built: `/api/me` export and deletion, the account
   and retention purge jobs, participant self-removal, `/settings/privacy`, see
   `backend/docs/wiki/modules/privacy.md` and `docs/compliance/`.)
 - **Close-out:** refresh `01-competitive-roadmap.md` status tables, README "What's next",
@@ -285,8 +286,7 @@ Wave 4 A → B → C → D → E; then the close-out.
   `backend/src/modules/ai/deck/slideMappers.ts` and `deck/mock.ts` (and for `qna` if wanted).
 - **Q&A section in session reports and exports** (W2-B is merged, W2-C reports do not show Q&A yet).
 - **Plan gates still to apply** (feature keys exist from W3-C; W2-C gates XLSX/PDF, W3-F consumes
-  `ai_deck`, W3-E consumes `import`, W3-B1 enforces `seats` on invites, W3-A `brand_kits`, W3-D `sso` / `scim` and seats): W4-E `custom_domains` /
-  `white_label`. (W4-C retention is enforced by the `privacy-retention-purge` job.)
+  `ai_deck`, W3-E consumes `import`, W3-B1 enforces `seats` on invites, W3-A `brand_kits`, W3-D `sso` / `scim` and seats, W4-E `custom_domains` / `white_label`): none left. (W4-C retention is enforced by the `privacy-retention-purge` job.)
 - **W3-B2 must delete a folder's `ResourceShare` rows when it deletes a folder** (sharing reads the raw
   `folders` collection).
 - **Proxy protected prefixes:** add `/presentations` and `/presentation/create` (signed-out visitors

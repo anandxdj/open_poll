@@ -17,6 +17,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { InviteForm } from "./InviteForm";
 import { MemberRow, type MemberAction } from "./MemberRow";
 import { PendingInvites } from "./PendingInvites";
+import { SectionUnavailable } from "../../settings/SectionUnavailable";
 
 
 
@@ -244,14 +245,7 @@ export function MembersSettings() {
     );
   }
   if (detail.workspace.type !== "team") {
-    return (
-      <div className={`${settingsCard} space-y-2`}>
-        <h2 className="text-xl font-semibold tracking-[-0.02em] text-foreground">Members</h2>
-        <p className="text-sm text-muted-foreground">
-          Personal workspaces have only you. Create a team workspace from the workspace menu to work with others.
-        </p>
-      </div>
-    );
+    return <SectionUnavailable id="members" title="Members" description="Personal workspaces have only you. Work with others in a team workspace." />;
   }
   // Keyed so switching workspace starts from a clean state.
   return <MembersPanel key={detail.workspace._id} detail={detail} />;

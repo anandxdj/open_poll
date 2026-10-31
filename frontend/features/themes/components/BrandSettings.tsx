@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -13,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { updateWorkspace } from "@/features/workspaces/api/workspaces.api";
 import { useCapabilities, useCurrentWorkspace } from "@/features/workspaces/hooks/useWorkspaces";
 import { selectClass } from "@/features/workspaces/members/components/RoleSelect";
@@ -32,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { deleteBrandKit } from "../api/themes.api";
 import { useThemeCatalog } from "../hooks/useThemeCatalog";
 import { DEFAULT_PRESET_ID, type BrandKit, type BrandKitInput, type ThemeCatalog } from "../types";
+import { SectionUnavailable } from "@/features/workspaces/settings/SectionUnavailable";
 import { BrandKitEditor } from "./BrandKitEditor";
 import { ThemeSwatch } from "./ThemeSwatch";
 
@@ -143,32 +143,15 @@ export function BrandSettings() {
   const [removing, setRemoving] = useState<BrandKit | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const header = (
-    <SettingsHeading
-      title="Brand"
-      description="Your colours, fonts and logo on the projected screen and the audience's phones."
-    />
-  );
-
   if (workspaceFailed) return <SettingsFailed message="This workspace could not be loaded." onRetry={retry} />;
   if (!detail) return <SettingsLoading>Loading brand settings…</SettingsLoading>;
   if (!allowed || !canManage) {
     return (
-      <div className="space-y-6">
-        {header}
-        <div className={cn(settingsCard, "space-y-3")}>
-          <p className="text-sm text-muted-foreground">
-            {!allowed
-              ? "Brand kits come with the Pro, Team and Enterprise plans."
-              : "Only owners and admins can manage brand kits. Every member can pick one for a deck in the builder."}
-          </p>
-          {!allowed && detail.permissions.includes("workspace:billing") ? (
-            <Link href="/settings/billing" className={cn(buttonVariants({ variant: "outline" }), "bg-card")}>
-              See plans
-            </Link>
-          ) : null}
-        </div>
-      </div>
+      <SectionUnavailable
+        id="brand"
+        title="Brand"
+        description="Brand kits come with the Pro, Team and Enterprise plans; owners and admins manage them."
+      />
     );
   }
   if (failed) return <SettingsFailed message="Brand kits could not be loaded." onRetry={reload} />;

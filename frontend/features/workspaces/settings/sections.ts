@@ -115,7 +115,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     href: "/settings/domains",
     icon: Globe,
     group: "workspace",
-    ready: false,
+    ready: true,
     capability: { key: "customDomains", reason: "Custom domains aren't enabled on this server." },
     feature: "custom_domains",
     action: { name: "workspace:domains", minimumRole: "admin" },

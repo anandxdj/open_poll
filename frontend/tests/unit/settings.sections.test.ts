@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import { SETTINGS_SECTIONS, resolveSection, type SettingsSection } from "@/features/workspaces/settings/sections";
 import type { Capabilities, PlanFeature, WorkspaceAction, WorkspaceDetail } from "@/features/workspaces/types";
+import { openableIn } from "@/features/workspaces/settings/SectionUnavailable";
+import type { WorkspaceSummary } from "@/features/workspaces/types";
 
 const capabilities = (on: Partial<Capabilities> = {}): Capabilities => ({
   billing: false,
@@ -89,8 +91,8 @@ describe("SETTINGS_SECTIONS", () => {
     for (const s of SETTINGS_SECTIONS) expect(s.href).toBe(`/settings/${s.id}`);
   });
 
-  test("ships every page but custom domains", () => {
-    expect(SETTINGS_SECTIONS.filter((s) => s.ready).map((s) => s.id)).toEqual(["profile", "mcp", "privacy", "workspace", "members", "brand", "billing", "sso", "scim", "audit"]);
+  test("ships every page", () => {
+    expect(SETTINGS_SECTIONS.filter((s) => s.ready).map((s) => s.id)).toEqual(["profile", "mcp", "privacy", "workspace", "members", "brand", "billing", "sso", "scim", "domains", "audit"]);
   });
 });
 
@@ -138,12 +140,11 @@ describe("resolveSection", () => {
   });
 
   test("and last whether the page has shipped", () => {
-    for (const id of ["domains"] as const) {
-      expect(resolveSection(section(id), { capabilities: everything, workspace: workspace() })).toEqual({
-        available: false,
-        reason: "Coming soon.",
-      });
-    }
+    // Every page has shipped; a section added before its page still says so.
+    expect(resolveSection({ ...section("domains"), ready: false }, { capabilities: everything, workspace: workspace() })).toEqual({
+      available: false,
+      reason: "Coming soon.",
+    });
   });
 
   test("privacy is the user's own page: open with no workspace or capabilities loaded", () => {
@@ -164,5 +165,21 @@ describe("resolveSection", () => {
   test("a shipped section with every gate passing is available", () => {
     const shipped = { ...section("sso"), ready: true };
     expect(resolveSection(shipped, { capabilities: everything, workspace: workspace() })).toEqual({ available: true, reason: null });
+  });
+});
+
+describe("where a locked section would open", () => {
+  const summary = (over: Partial<WorkspaceSummary>): WorkspaceSummary => ({
+    _id: "w", name: "W", slug: "w", type: "team", plan: "enterprise", role: "owner", isDefault: false, ...over,
+  });
+  const find = (id: string) => SETTINGS_SECTIONS.find((s) => s.id === id)!;
+
+  test("by workspace type, plan and role", () => {
+    expect(openableIn(find("sso"), summary({}))).toBe(true);
+    expect(openableIn(find("sso"), summary({ type: "personal" }))).toBe(false);
+    expect(openableIn(find("sso"), summary({ plan: "team" }))).toBe(false);
+    expect(openableIn(find("sso"), summary({ role: "editor" }))).toBe(false);
+    expect(openableIn(find("brand"), summary({ type: "personal", plan: "pro", role: "owner" }))).toBe(true);
+    expect(openableIn(find("members"), summary({ plan: "free", role: "viewer" }))).toBe(true);
   });
 });
