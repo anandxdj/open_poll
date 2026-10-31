@@ -1,28 +1,42 @@
 export const MCP_TOKEN_PREFIX = 'opoll_mcp_';
+/** OAuth access tokens (remote connectors). Opaque, stored as a sha256 hash like PATs. */
+export const MCP_OAUTH_ACCESS_PREFIX = 'opoll_oat_';
+/** OAuth refresh tokens: rotated on every use. */
+export const MCP_OAUTH_REFRESH_PREFIX = 'opoll_ort_';
 
 export const MCP_SCOPES = [
   'poll:create',
   'poll:edit',
   'poll:read',
   'analytics:read',
+  'deck:read',
+  'deck:write',
+  'session:run',
+  'results:read',
 ] as const;
 
 export type McpScope = (typeof MCP_SCOPES)[number];
 
-export const MCP_MAX_TOKENS_PER_USER = 5;
+/**
+ * What a token issued before decks reached MCP carries. Those tokens are not
+ * widened: a secret already pasted somewhere keeps the power it was issued
+ * with, and settings labels it "polls only".
+ */
+export const MCP_POLL_ONLY_SCOPES: readonly McpScope[] = ['poll:create', 'poll:edit', 'poll:read', 'analytics:read'];
 
-// Read by assertToolScope in mcp.tools.ts — a tool missing from this map is
-// rejected as unknown, so registering a tool without a scope fails closed.
-export const MCP_TOOL_SCOPES: Record<string, McpScope> = {
-  list_polls: 'poll:read',
-  get_poll: 'poll:read',
-  create_poll: 'poll:create',
-  create_assessment: 'poll:create',
-  edit_poll: 'poll:edit',
-  convert_poll_to_assessment: 'poll:edit',
-  get_poll_analytics: 'analytics:read',
-  get_share_link: 'poll:read',
+/** Shown on the OAuth consent page and in settings. */
+export const MCP_SCOPE_LABELS: Record<McpScope, string> = {
+  'poll:read': 'See your polls and assessments',
+  'poll:create': 'Create polls and assessments',
+  'poll:edit': 'Edit your polls and assessments',
+  'analytics:read': 'Read poll vote counts',
+  'deck:read': 'See decks, slide types and themes',
+  'deck:write': 'Create and edit decks',
+  'session:run': 'Run live sessions: open the lobby, move slides, reveal and end',
+  'results:read': 'Read session results, Q&A and workspace insights',
 };
+
+export const MCP_MAX_TOKENS_PER_USER = 5;
 
 // Enough of an Express request to read the origin off, without importing express here.
 type OriginSource = {

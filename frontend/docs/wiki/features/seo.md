@@ -50,7 +50,7 @@ must set it**.
 
 The root layout also sets `applicationName`, keywords, category, the default
 Open Graph / X card (`summary_large_image`), `formatDetection` off and the
-`theme-color` for light (`#f6f6f3`) and dark (`#141413`).
+`theme-color` for light (`#f6f6f3`) and dark (`#0d0d0c`).
 
 ## Structured data (`lib/seo/json-ld.ts`)
 

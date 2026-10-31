@@ -314,7 +314,8 @@ export function useDeckBuilder() {
     };
   }, []);
 
-  const handleSave = async () => {
+  /** Validates and saves the deck, then opens the library, or the host console when `next` is "present". */
+  const handleSave = async (next: "library" | "present" = "library") => {
     const cleaned = slides.map(cleanSlide);
 
     const error = validateDeck(title, cleaned);
@@ -335,7 +336,7 @@ export function useDeckBuilder() {
         toast.success("Presentation deck created!");
       }
       clearDraft(draftStorageKey);
-      router.push("/polls");
+      router.push(next === "present" && editId ? `/presentation/host/${editId}` : "/polls");
     } catch (err) {
       isExplicitSaveRef.current = false;
       toast.error(getApiErrorMessage(err) || "Failed to save presentation deck.");

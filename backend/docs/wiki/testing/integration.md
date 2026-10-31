@@ -80,6 +80,15 @@ Mongo and the shared `redisClient` connect with the first server and disconnect 
   suite polls for them (`auditEvents()`); invite links come from the create response
   (`inviteUrl`), never from the database (only the token hash is stored).
 
+## MCP suites
+
+`tests/integration/mcp.test.ts` drives `/mcp` with the SDK's own client
+(`Client` + `StreamableHTTPClientTransport` against `server.baseUrl`, the bearer token in
+`requestInit.headers`), so tool schemas, validation and transport are exercised as a connector sees
+them; participants join and answer through the REST routes. `tests/integration/mcp-oauth.test.ts`
+runs the OAuth flow with `fetch` (`redirect: 'manual'` to read the 302s, `URLSearchParams` bodies
+for the token endpoint). Details in `modules/mcp.md`.
+
 ## Spikes (`tests/spikes/`)
 
 | Spike | Result under Bun 1.4.3 | Notes for the owning package |

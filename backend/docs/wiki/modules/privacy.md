@@ -26,7 +26,7 @@ per-user rate limit.
 `buildUserExport(userId)` zips (fflate, level 6) a README and JSON files: `profile`, `workspaces`,
 `polls`, `presentations` (created by the user, in workspaces they still belong to or from before
 workspaces), `sessions-hosted` (summaries, no participant data), `poll-responses` (answers they sent
-signed in), `uploads`, `imports`, `mcp-tokens` (label, prefix, last 4), `activity` (their audit
+signed in), `uploads`, `imports`, `mcp-tokens` (label, prefix, last 4), `mcp-connected-apps` (OAuth grants: app name, workspace, scopes, never tokens), `activity` (their audit
 events), `exports`. Each file holds at most 10,000 rows, newest first (`EXPORT_MAX_ROWS`; the README
 names cut files). Never included: password hash, token hashes, refresh token, answers other people
 gave. The archive is built in the request and never stored; `DataExportJob` (`userId, status, bytes,

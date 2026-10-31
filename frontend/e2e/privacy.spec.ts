@@ -104,5 +104,5 @@ test("download your data, set data retention, delete the account and keep it by 
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Welcome back. Your account will not be deleted.")).toBeVisible();
-  await expect(page).toHaveURL(/\/polls/);
+  await expect(page).toHaveURL(/\/home/);
 });

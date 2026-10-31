@@ -24,12 +24,11 @@ export function FinalCta() {
             Run your first live session
           </h2>
           <p className="mt-5 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Start with a free account and have a deck ready in minutes. Joining a session someone else is presenting?
-            Use the join page.
+            Start with a free account and have a deck ready in minutes.
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row lg:col-span-5 lg:justify-end">
-          <Link href={authed ? "/polls" : "/signup"} className={cn(linkButton({ size: "xl" }), pill, "w-full sm:w-auto")}>
+          <Link href={authed ? "/home" : "/signup"} className={cn(linkButton({ size: "xl" }), pill, "w-full sm:w-auto")}>
             {authed ? "Open your dashboard" : "Start for free"}
           </Link>
           <Link

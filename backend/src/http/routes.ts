@@ -14,6 +14,8 @@ import insightsRouter from '../modules/insights/insights.route';
 import libraryRouter from '../modules/library/library.route';
 import mcpRouter from '../modules/mcp/mcp.route';
 import mcpSettingsRouter from '../modules/mcp/mcp.settings.route';
+import { oauthRouter, wellKnownRouter } from '../modules/mcp/oauth/oauth.route';
+import mcpOAuthConsentRouter from '../modules/mcp/oauth/oauth.consent.route';
 import metricsRouter from '../modules/metrics/metrics.route';
 import pollsRouter from '../modules/polls/polls.route';
 import presentationsRouter from '../modules/presentations/presentations.route';
@@ -73,6 +75,7 @@ const MOUNTS: readonly Mount[] = [
   ['/api/invites', invitesRouter],
   ['/api/library', libraryRouter],
   ['/api/me', privacyRouter],
+  ['/api/oauth', mcpOAuthConsentRouter],
   ['/api/oembed', oembedRouter],
   ['/api/plans', plansRouter],
   ['/api/public/domains', publicDomainsRouter],
@@ -100,6 +103,9 @@ export const LARGE_JSON_PATHS = ['/api/presentations', '/api/quizzes'];
  * - SCIM sends `application/scim+json` with `urn:...:2.0:User` keys that
  *   mongoSanitize would strip for containing dots.
  * - Prometheus scrapes /metrics with a bearer token and no browser context.
+ * - Remote MCP connectors (Claude, ChatGPT, browser-based clients) call the
+ *   OAuth metadata, registration and token endpoints from origins we do not
+ *   know; they read no cookies, so they answer any origin.
  */
 export function mountPreParserRoutes(app: Express): void {
   app.use('/api/billing/webhook', express.raw({ type: 'application/json', limit: '1mb' }), billingWebhookRouter);
@@ -114,6 +120,8 @@ export function mountPreParserRoutes(app: Express): void {
     scimRouter,
   );
   app.use('/metrics', metricsRouter);
+  app.use('/.well-known', wellKnownRouter());
+  app.use('/oauth', oauthRouter());
 }
 
 /** System routes, the root OIDC callback and the mount table. */

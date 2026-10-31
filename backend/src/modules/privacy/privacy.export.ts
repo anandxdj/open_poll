@@ -4,6 +4,7 @@ import { AuditEventModel } from '../audit/audit.model';
 import { UserModel } from '../auth/auth.model';
 import { ImportJobModel } from '../imports/import.model';
 import { McpTokenModel } from '../mcp/mcp.token.model';
+import { McpGrantModel } from '../mcp/oauth/oauth.grant.model';
 import { PollModel } from '../polls/polls.model';
 import { PresentationModel, PresentationSessionModel } from '../presentations/presentations.model';
 import { ResponseModel } from '../responses/responses.model';
@@ -46,6 +47,7 @@ poll-responses.json     answers you sent to polls while signed in
 uploads.json            files you uploaded (name, type, size, link)
 imports.json            slide and question imports you started
 mcp-tokens.json         AI assistant (MCP) tokens you created (never the secret)
+mcp-connected-apps.json Apps you connected through sign-in (OAuth), never their tokens
 activity.json           what you did that the audit log records, newest first
 exports.json            earlier exports of your data
 
@@ -87,7 +89,7 @@ export async function buildUserExport(userId: string, now = new Date()): Promise
   };
   const limit = EXPORT_MAX_ROWS + 1;
 
-  const [polls, presentations, sessions, responses, uploads, imports, mcpTokens, activity, exports] = await Promise.all([
+  const [polls, presentations, sessions, responses, uploads, imports, mcpTokens, mcpGrants, activity, exports] = await Promise.all([
     PollModel.find(ownContent).sort({ createdAt: -1 }).limit(limit).lean(),
     PresentationModel.find(ownContent).sort({ createdAt: -1 }).limit(limit).lean(),
     PresentationSessionModel.find({ hostUserId: userId })
@@ -107,6 +109,7 @@ export async function buildUserExport(userId: string, now = new Date()): Promise
       .select('workspaceId kind status title resultPresentationId warnings createdAt updatedAt')
       .lean(),
     McpTokenModel.find({ userId: uid }).select('label prefix last4 scopes lastUsedAt expiresAt createdAt').lean(),
+    McpGrantModel.find({ userId: uid }).select('clientName workspaceId scopes lastUsedAt createdAt').lean(),
     AuditEventModel.find({ actorId: uid })
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -150,6 +153,7 @@ export async function buildUserExport(userId: string, now = new Date()): Promise
     'uploads.json': capped('uploads.json', uploads.map(plain)),
     'imports.json': capped('imports.json', imports.map(plain)),
     'mcp-tokens.json': mcpTokens.map(plain),
+    'mcp-connected-apps.json': mcpGrants.map(plain),
     'activity.json': capped('activity.json', activity.map(plain)),
     'exports.json': exports.map(plain),
   } satisfies Record<string, unknown>;

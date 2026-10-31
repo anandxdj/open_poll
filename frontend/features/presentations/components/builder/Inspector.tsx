@@ -10,7 +10,9 @@ import { inspectorTabsFor, type InspectorTabProps } from "./inspectorTabs";
 const ease = [0.32, 0.72, 0, 1] as const;
 
 /**
- * Edits the selected slide through the tabs in the `inspectorTabs` registry.
+ * Edits the selected slide through the tabs in the `inspectorTabs` registry:
+ * the slide type on top, the tabs under it, the panel below. It is flat; the
+ * builder frame gives it its surface (a side panel from `xl`, a sheet below).
  * The chosen tab sticks while switching slides, falling back to the first tab
  * when the chosen one doesn't apply to the new slide.
  */
@@ -36,14 +38,13 @@ export function Inspector(props: InspectorTabProps) {
   return (
     <motion.div
       key={index}
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease }}
-      className="rounded-xl border border-border bg-card shadow-[0_24px_48px_-32px_rgb(23_23_23/0.3)]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2, ease }}
     >
-      {/* Slide type on the left, the inspector tabs as underline tabs on the right. */}
-      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-border px-5 pt-4 sm:px-6">
-        <span className="inline-flex items-center gap-2 pb-3 text-sm font-medium text-foreground">
+      {/* Slide type, then the inspector tabs as underline tabs. */}
+      <div className={cn("border-b border-border px-5 pt-4", tabs.length <= 1 && "pb-4")}>
+        <span className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
           <span className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-accent-ink">
             <meta.Icon className="size-4" />
           </span>
@@ -57,7 +58,7 @@ export function Inspector(props: InspectorTabProps) {
             <div
               role="tablist"
               aria-label="Slide inspector"
-              className="-mb-px flex items-center gap-5"
+              className="scrollbar-none -mb-px mt-3 flex items-center gap-4 overflow-x-auto"
             >
               {tabs.map((tab, position) => {
                 const selected = tab.id === current?.id;
@@ -73,7 +74,7 @@ export function Inspector(props: InspectorTabProps) {
                     onClick={() => setChosen(tab.id)}
                     onKeyDown={(e) => onTabKeyDown(e, position)}
                     className={cn(
-                      "inline-flex items-center gap-1.5 border-b-2 pb-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                      "inline-flex shrink-0 items-center gap-1.5 border-b-2 pb-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                       selected
                         ? "border-foreground text-foreground"
                         : "border-transparent text-muted-foreground hover:text-foreground"
@@ -91,7 +92,7 @@ export function Inspector(props: InspectorTabProps) {
       {current && (
         <div
           id={`inspector-panel-${current.id}`}
-          className="space-y-6 p-5 sm:p-6"
+          className="space-y-6 p-5"
           {...(tabs.length > 1 && { role: "tabpanel", "aria-labelledby": `inspector-tab-${current.id}` })}
         >
           <current.Panel {...props} />
