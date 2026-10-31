@@ -39,6 +39,9 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 ### Workspace insights (the analytics overview's data: activity over a date range)
 - `backend/docs/wiki/modules/insights.md`
 
+### Themes and brand kits (deck themes, presets, brand kit CRUD, the session theme snapshot)
+- `backend/docs/wiki/modules/themes.md`
+
 ### Privacy: data export, account deletion and purge, session retention, participant self-removal (W4-C)
 - `backend/docs/wiki/modules/privacy.md`
 - Add `backend/docs/wiki/modules/sessions.md` only if touching session deletion or the take-home.

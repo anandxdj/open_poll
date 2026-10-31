@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { audienceTab } from "@/features/qna/builder/AudienceTab";
+import { themeTab } from "@/features/themes/components/ThemeTab";
 import type { PresentationSlide } from "../../types/deck";
 import type { DeckDraft } from "./deckDraft";
 import { contentTab } from "./tabs/ContentTab";
@@ -39,6 +40,7 @@ export const INSPECTOR_TABS: InspectorTabDef[] = [
   audienceTab,
   contentTab,
   settingsTab,
+  themeTab,
 ];
 
 export const inspectorTabsFor = (slide: PresentationSlide): InspectorTabDef[] =>

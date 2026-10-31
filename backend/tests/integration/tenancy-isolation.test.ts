@@ -47,6 +47,7 @@ const ALLOWED: readonly Allowed[] = [
   { path: '/api/auth/*', reason: 'sign-in, sign-up, token refresh and the profile of the signed-in user' },
   { path: '/api/capabilities', reason: 'public deployment capabilities, no tenant data' },
   { path: '/api/plans', reason: 'public plan catalogue' },
+  { path: '/api/themes/presets', methods: ['GET'], reason: 'built-in themes and font choices, the same for everyone' },
   { path: '/api/oembed', reason: 'public oEmbed discovery of published embeds', planned: true },
   { path: '/api/public/*', reason: 'public by design: shared results by token, domain resolution for TLS' },
   { path: '/api/billing/webhook', reason: 'Stripe webhook, authenticated by signature' },

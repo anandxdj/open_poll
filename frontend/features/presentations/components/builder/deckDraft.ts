@@ -2,11 +2,16 @@ import type { PresentationDraftInput } from "../../api/crud";
 import { normalizeSlideForDraft, validateSlide } from "../../slides/editor";
 import { slideTypeMeta } from "../../slides/meta";
 import type { PresentationSlide } from "../../types/deck";
+import type { DeckThemeRef } from "@/features/themes/types";
 
 /** What the builder edits: deck-level fields plus the slide list. */
 export interface DeckDraft {
   title: string;
   slides: PresentationSlide[];
+  /** The saved deck's id; null until the first save. */
+  id?: string | null;
+  /** The saved deck's theme; the Theme tab saves it on its own (not part of drafts). */
+  theme?: DeckThemeRef | null;
 }
 
 // ---------- Local (browser) draft ----------

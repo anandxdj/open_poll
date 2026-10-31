@@ -3,7 +3,7 @@ import { ApiError } from '../../../common/utils/ApiError';
 import { redisClient } from '../../../common/config/redis';
 import { getEntitlements } from '../../../common/plans/entitlements';
 import { WorkspaceModel } from '../../workspaces/workspace.model';
-import { resolveTheme } from '../../themes/resolve';
+import { resolveDeckTheme } from '../../themes/resolve';
 import { PresentationModel, type IPresentation } from '../models/presentation.model';
 import { PresentationParticipantModel } from '../models/participant.model';
 import {
@@ -137,7 +137,7 @@ const sessionEntitlements = async (presentation: IPresentation, actor: Actor): P
 
 const createSession = async (presentation: IPresentation, actor: Actor): Promise<IPresentationSession> => {
   const [themeSnapshot, entitlementsSnapshot] = await Promise.all([
-    resolveTheme(presentation.theme),
+    resolveDeckTheme(presentation),
     sessionEntitlements(presentation, actor),
   ]);
   const runNumber = (presentation.sessionCount ?? 0) + 1;
@@ -776,6 +776,11 @@ export const getPresentationByCode = async (joinCode: string) => {
     currentSlideIndex: presentation.currentSlideIndex,
     serverNow: new Date().toISOString(),
   };
+
+  // The live session's theme, so the join screen already looks like the deck (W3-A).
+  result.theme = presentation.activeSessionId
+    ? ((await PresentationSessionModel.findById(presentation.activeSessionId).select('themeSnapshot').lean())?.themeSnapshot ?? null)
+    : null;
 
   if (presentation.status === 'active' && presentation.currentSlideIndex >= 0 && presentation.activeSessionId) {
     const session = await PresentationSessionModel.findById(presentation.activeSessionId);

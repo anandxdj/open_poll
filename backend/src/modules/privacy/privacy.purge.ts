@@ -12,6 +12,7 @@ import { PresentationModel, PresentationSessionModel } from '../presentations/pr
 import { AnalyticsModel } from '../responses/analytics.model';
 import { ResponseModel } from '../responses/responses.model';
 import { purgeSessionData } from '../sessions/sessions.service';
+import { BrandKitModel } from '../themes/brandKit.model';
 import { MediaAssetModel } from '../uploads/media.model';
 import { ResourceShareModel } from '../workspaces/resourceShare.model';
 import { UsageCounterModel } from '../workspaces/usageCounter.model';
@@ -62,7 +63,7 @@ async function purgeContent(filter: Record<string, unknown>) {
   }
 }
 
-/** A workspace and everything in it: content, sessions, files, members, invites, groups, shares, counters. */
+/** A workspace and everything in it: content, sessions, files, brand kits, members, invites, groups, shares, counters. */
 export async function purgeWorkspace(workspace: Pick<IWorkspace, '_id'>) {
   const workspaceId = workspace._id;
   await purgeContent({ workspaceId });
@@ -72,6 +73,7 @@ export async function purgeWorkspace(workspace: Pick<IWorkspace, '_id'>) {
   }
   await Promise.all([
     MediaAssetModel.deleteMany({ workspaceId }),
+    BrandKitModel.deleteMany({ workspaceId }),
     ImportJobModel.deleteMany({ workspaceId }),
     WorkspaceInviteModel.deleteMany({ workspaceId }),
     WorkspaceGroupModel.deleteMany({ workspaceId }),

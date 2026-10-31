@@ -103,6 +103,7 @@ export const buildSessionView = async (
     answerCount,
     audienceCap: session.entitlementsSnapshot?.audienceCap ?? null,
     retainUntil: iso(session.retainUntil),
+    theme: session.themeSnapshot ?? null,
   };
 };
 

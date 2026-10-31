@@ -192,7 +192,11 @@ interface InspectorTabProps {
 ```
 
 Built in: **Content** (`tabs/ContentTab.tsx`: question + the type's `Editor`) and **Settings**
-(`tabs/SettingsTab.tsx`: time limit, points, speed bonus). A feature adds a tab by exporting an
+(`tabs/SettingsTab.tsx`: time limit, points, speed bonus). **Theme** (`features/themes/components/ThemeTab.tsx`,
+order 40, W3-A) is deck-level: presets and the workspace's brand kits as swatches (kits only when the
+plan has `brand_kits`), and an accent override with its contrast shown. It saves the deck's `theme` on
+its own with `PATCH /presentations/:id` (not through drafts), so a new deck must be saved first;
+`DeckDraft.id` and `DeckDraft.theme` carry what it needs. A feature adds a tab by exporting an
 `InspectorTabDef` and adding one line to `INSPECTOR_TABS` (alphabetical; `order` sets position).
 A deck-level tab (e.g. a theme picker) reads `deck` and writes through `onDeckChange`; a new deck
 field also needs a place in `DeckDraft`, `useDeckBuilder` and the save payloads.

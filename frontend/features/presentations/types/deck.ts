@@ -3,6 +3,7 @@
 // events) stay in `../types.ts`.
 
 import type { ContentSlideType, SlideContent } from "./content";
+import type { DeckThemeRef } from "@/features/themes/types";
 
 export type PresentationSlideType =
   | "select_answer"
@@ -107,6 +108,8 @@ export interface Presentation {
   questionStartedAt?: string | null;
   questionEndsAt?: string | null;
   slides: PresentationSlide[];
+  /** Preset, brand kit and accent override (W3-A); sessions snapshot the resolved look. */
+  theme?: DeckThemeRef;
   createdAt: string;
   updatedAt: string;
 }
