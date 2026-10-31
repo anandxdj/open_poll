@@ -1,10 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Check, Clock, Minus, RefreshCw, X } from "lucide-react";
+import { Check, Clock, Loader2, Minus, RefreshCw, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { eraseMyAnswers } from "../api/sessions";
+import { participantKey, readSummaryCredentials } from "../credentials";
 import { useTakeHome } from "../hooks/useTakeHome";
 import { answerTone, formatResponseTime, type AnswerTone } from "../query";
 import type { TakeHome, TakeHomeSlide } from "../types";
@@ -28,10 +41,30 @@ const toneIcon = { correct: Check, wrong: X, pending: Clock, unscored: Check, sk
 export function ParticipantSummary({ code, sessionId }: { code: string; sessionId?: string | null }) {
   const t = useTranslations("sessions.summary");
   const { status, data, reload } = useTakeHome(code, sessionId);
+  const [erased, setErased] = useState(false);
+
+  /** Deletes this participant's answers, then forgets them on this device. */
+  async function removeMyAnswers(sid: string) {
+    const credentials = readSummaryCredentials(window.localStorage, code, sid);
+    if (!credentials) throw new Error("No participant credentials on this device");
+    await eraseMyAnswers(sid, credentials.participantId, credentials.token);
+    try {
+      window.localStorage.removeItem(participantKey(code, sid));
+    } catch {
+      // Storage unavailable: the server already forgot them.
+    }
+    setErased(true);
+  }
 
   return (
     <PublicPageShell label={t("kicker")}>
-      {status === "loading" ? (
+      {erased ? (
+        <MessageCard title={t("erasedTitle")} hint={t("erasedHint")}>
+          <Button asChild variant="outline" className="bg-card">
+            <Link href="/live">{t("joinAnother")}</Link>
+          </Button>
+        </MessageCard>
+      ) : status === "loading" ? (
         <div role="status" aria-label={t("loading")} className="space-y-3">
           <Skeleton className="h-20" />
           <Skeleton className="h-40" />
@@ -57,14 +90,17 @@ export function ParticipantSummary({ code, sessionId }: { code: string; sessionI
           </Button>
         </MessageCard>
       ) : (
-        <TakeHomeContent data={data} />
+        <TakeHomeContent data={data} onRemove={() => removeMyAnswers(data.session.sessionId)} />
       )}
     </PublicPageShell>
   );
 }
 
-/** A participant's results; the page around it handles loading, missing credentials and errors. */
-export function TakeHomeContent({ data }: { data: TakeHome }) {
+/**
+ * A participant's results; the page around it handles loading, missing
+ * credentials and errors. `onRemove` (ended sessions) offers to delete them.
+ */
+export function TakeHomeContent({ data, onRemove }: { data: TakeHome; onRemove?: () => Promise<void> }) {
   const t = useTranslations("sessions.summary");
   return (
     <div className="space-y-8">
@@ -101,7 +137,53 @@ export function TakeHomeContent({ data }: { data: TakeHome }) {
           </ol>
         )}
       </section>
+
+      {onRemove && data.session.status === "ended" ? <RemoveMyAnswers onRemove={onRemove} /> : null}
     </div>
+  );
+}
+
+function RemoveMyAnswers({ onRemove }: { onRemove: () => Promise<void> }) {
+  const t = useTranslations("sessions.summary");
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function confirm() {
+    setBusy(true);
+    try {
+      await onRemove();
+    } catch {
+      toast.error(t("removeFailed"));
+      setBusy(false);
+      setOpen(false);
+    }
+  }
+
+  return (
+    <section aria-labelledby="remove-title" className="space-y-3 border-t border-border pt-6">
+      <h2 id="remove-title" className="text-base font-semibold tracking-[-0.01em]">
+        {t("removeTitle")}
+      </h2>
+      <p className="text-sm text-muted-foreground">{t("removeHint")}</p>
+      <Button variant="destructive" size="sm" onClick={() => setOpen(true)}>
+        {t("removeButton")}
+      </Button>
+      <AlertDialog open={open} onOpenChange={(next) => !busy && setOpen(next)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-semibold">{t("removeConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground">{t("removeConfirmBody")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 gap-3">
+            <AlertDialogCancel disabled={busy}>{t("removeCancel")}</AlertDialogCancel>
+            <Button disabled={busy} onClick={() => void confirm()} className="bg-destructive text-white hover:bg-destructive/90">
+              {busy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+              {t("removeConfirm")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
   );
 }
 

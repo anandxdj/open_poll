@@ -41,6 +41,8 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const authError = searchParams.get("error");
+  // Set by the privacy page after the account asked to be deleted: the purge date.
+  const scheduledDeletion = Date.parse(searchParams.get("deleted") ?? "");
   const shownAuthError = useRef(false);
   const { setToken, setUser } = useAuthStore();
   const [email, setEmail] = useState("");
@@ -61,12 +63,13 @@ export function LoginForm() {
     setLoading(true);
     try {
       const res = await axios.post("/auth/login", { email, password });
-      const { user, accessToken } = res.data.data;
+      const { user, accessToken, restored } = res.data.data;
       
       setToken(accessToken);
       setUser(user);
       
-      toast.success("Welcome back!");
+      // `restored`: this sign-in cancelled the account's scheduled deletion.
+      toast.success(restored ? "Welcome back. Your account will not be deleted." : "Welcome back!");
       // Back to an invitation the user opened before signing in, else the dashboard.
       router.push(takeInviteRedirect(searchParams.get("next")) ?? "/polls");
     } catch (err) {
@@ -90,6 +93,13 @@ export function LoginForm() {
         </>
       }
     >
+      {Number.isFinite(scheduledDeletion) ? (
+        <p role="status" className="mb-6 rounded-lg border border-border bg-secondary px-4 py-3 text-sm text-muted-foreground">
+          Your account will be deleted on{" "}
+          {new Date(scheduledDeletion).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}. Log in
+          before then to keep it.
+        </p>
+      ) : null}
       <form onSubmit={handleLogin} className="space-y-5">
         <AuthField
           type="email"

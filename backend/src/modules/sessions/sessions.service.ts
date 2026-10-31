@@ -22,6 +22,7 @@ import {
   type StoredAnswerResult,
 } from '../presentations/live/state';
 import { buildSessionView, sessionListItem } from '../presentations/live/views';
+import { flushWriteBehind } from '../presentations/live/writeBehind';
 import {
   SESSION_ERROR_CODES,
   type ReportParticipant,
@@ -231,12 +232,12 @@ const deleteSessionScopedDocuments = async (sessionId: mongoose.Types.ObjectId) 
   await questions.deleteMany({ sessionId });
 };
 
-/** Deletes an ended session with its participants, answers and Redis state; audited. */
-export const deleteSession = async (sessionId: string, req: WorkspaceRequest) => {
-  const { session } = await authorizeSession(sessionId, req, 'deck:delete');
-  if (session.isLive) {
-    throw new ApiError(409, 'End the session before deleting it', SESSION_ERROR_CODES.sessionLive);
-  }
+/**
+ * Removes a session and everything stored for it: participants, answers, Q&A
+ * and its Redis state. No access check: callers authorize (the delete route,
+ * the retention job, account purge).
+ */
+export const purgeSessionData = async (session: IPresentationSession) => {
   const sid = String(session._id);
   const [answers, participants] = await Promise.all([
     PresentationAnswerModel.deleteMany({ sessionId: session._id }),
@@ -246,12 +247,22 @@ export const deleteSession = async (sessionId: string, req: WorkspaceRequest) =>
   await PresentationSessionModel.deleteOne({ _id: session._id });
   const keys = allSessionKeys(sid, sessionSlides(session).map(slideIdOf));
   await redisClient.del(keys).catch(() => {});
+  return { participants: participants.deletedCount ?? 0, answers: answers.deletedCount ?? 0 };
+};
+
+/** Deletes an ended session with its participants, answers and Redis state; audited. */
+export const deleteSession = async (sessionId: string, req: WorkspaceRequest) => {
+  const { session } = await authorizeSession(sessionId, req, 'deck:delete');
+  if (session.isLive) {
+    throw new ApiError(409, 'End the session before deleting it', SESSION_ERROR_CODES.sessionLive);
+  }
+  const sid = String(session._id);
+  const removed = await purgeSessionData(session);
 
   void audit(req, 'session.delete', { type: 'session', id: sid }, {
     presentationId: String(session.presentationId),
     runNumber: session.runNumber,
-    participants: participants.deletedCount ?? 0,
-    answers: answers.deletedCount ?? 0,
+    ...removed,
   });
   return { sessionId: sid, deleted: true };
 };
@@ -412,4 +423,72 @@ export const getTakeHome = async (sessionId: string, participantId: string, toke
     },
     slides: takeHomeSlides,
   };
+};
+
+// ---------------------------------------------------------------------------
+// Participant erasure
+// ---------------------------------------------------------------------------
+
+/** The name a participant who removed their answers keeps in the stored final leaderboard. */
+export const REMOVED_PARTICIPANT_NAME = 'Removed participant';
+
+/** A participant's Q&A questions and upvotes (the questions they upvoted lose that vote). */
+const eraseParticipantQna = async (sessionId: mongoose.Types.ObjectId, participantId: mongoose.Types.ObjectId) => {
+  const db = mongoose.connection.db;
+  if (!db) return;
+  const names = new Set((await db.listCollections({}, { nameOnly: true }).toArray()).map((c) => c.name));
+  if (!names.has('qnaquestions')) return;
+  const questions = db.collection('qnaquestions');
+  if (names.has('qnaupvotes')) {
+    const upvotes = db.collection('qnaupvotes');
+    const cast = await upvotes.find({ sessionId, participantId }, { projection: { questionId: 1 } }).toArray();
+    if (cast.length) {
+      await questions.updateMany({ _id: { $in: cast.map((u) => u.questionId) } }, { $inc: { upvoteCount: -1 } });
+      await upvotes.deleteMany({ sessionId, participantId });
+    }
+    const own = (await questions.find({ sessionId, participantId }, { projection: { _id: 1 } }).toArray()).map((q) => q._id);
+    if (own.length) await upvotes.deleteMany({ questionId: { $in: own } });
+  }
+  await questions.deleteMany({ sessionId, participantId });
+};
+
+/**
+ * A participant removes what they sent to an ended session (participant token,
+ * no account): their answers, Q&A questions and upvotes and the participant
+ * record go, and their row in the stored final leaderboard keeps its place
+ * under a neutral name so nobody else's rank changes. Aggregated results
+ * (counts, word clouds, the session totals) stay, with no name attached.
+ */
+export const eraseParticipant = async (sessionId: string, participantId: string, token: string) => {
+  const notFound = () => ApiError.notFound('Session or participant not found');
+  if (!mongoose.isValidObjectId(sessionId) || !mongoose.isValidObjectId(participantId)) throw notFound();
+  const session = await PresentationSessionModel.findById(sessionId);
+  if (!session) throw notFound();
+  const participant = await PresentationParticipantModel.findOne({ _id: participantId, sessionId: session._id }).lean();
+  if (!participant) throw notFound();
+  if (!secretsMatch(participant.token, token)) throw ApiError.unauthorized('Invalid participant token');
+  if (session.isLive) {
+    throw new ApiError(409, 'You can remove your answers once the session has ended', SESSION_ERROR_CODES.sessionLive);
+  }
+
+  // Answers accepted just before the end may still be on their way to Mongo, and the live keys
+  // (kept a few hours for the final screens) could write them back: settle both first.
+  await flushWriteBehind();
+  const sid = String(session._id);
+  const pid = String(participant._id);
+  await Promise.all([
+    ...sessionSlides(session).map((slide) => redisClient.hDel(k.results(sid, slideIdOf(slide)), pid)),
+    redisClient.hDel(k.names(sid), pid),
+    redisClient.hDel(k.tokens(sid), pid),
+  ]).catch(() => {});
+
+  const answers = await PresentationAnswerModel.deleteMany({ sessionId: session._id, participantId: participant._id });
+  await eraseParticipantQna(session._id, participant._id);
+  await PresentationParticipantModel.deleteOne({ _id: participant._id });
+  await PresentationSessionModel.updateOne(
+    { _id: session._id, 'finalLeaderboard.participantId': pid },
+    { $set: { 'finalLeaderboard.$.name': REMOVED_PARTICIPANT_NAME } },
+  );
+
+  return { removed: true as const, answers: answers.deletedCount ?? 0 };
 };

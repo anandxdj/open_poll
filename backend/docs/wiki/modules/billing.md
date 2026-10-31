@@ -176,7 +176,7 @@ the rest.
 | `consumeUsage(ws, 'ai_deck')` | `POST /api/ai/generate-deck` | W3-F |
 | `consumeUsage(ws, 'import')` | `POST /api/imports` | W3-E |
 | `assertLimit(ws, 'seats', n)` | invites, SCIM/SSO JIT (or rely on seat sync for JIT) | W3-B1, W3-D |
-| `assertLimit(ws, 'retentionDays', d)` | already in `WorkspaceService.update`; enforcement of purging | W4-C |
+| `assertLimit(ws, 'retentionDays', d)` | `WorkspaceService.update`; sessions are purged at `retainUntil` by `privacy-retention-purge` | W4-C (done) |
 
 Already enforced: `audienceCap` in live sessions (W1-A1) and on poll responses (here),
 `auditRetentionDays` in `audit()`, `retentionDays` on workspace settings, team-workspace

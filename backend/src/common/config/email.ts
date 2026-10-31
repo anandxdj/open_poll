@@ -105,3 +105,19 @@ export const sendWorkspaceInviteEmail = async (
   );
   return Boolean(delivered);
 };
+
+/** After DELETE /api/me: when the account goes, and that signing in keeps it. */
+export const sendAccountDeletionEmail = async (email: string, purgeAt: Date) => {
+  const loginUrl = `${env.FRONTEND_URL}/login`;
+  const date = purgeAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  await sendEmail(
+    email,
+    'Your Open Poll account will be deleted',
+    emailLayout({
+      heading: 'Your account will be deleted',
+      body: `<p style="margin: 0;">You asked us to delete your Open Poll account. On ${date} we delete it for good, with your personal workspace and everything in it.</p><p style="margin: 16px 0 0;">Changed your mind? Log in before then and your account stays as it is.</p>`,
+      button: { href: loginUrl, label: 'Log in to keep my account' },
+      footer: "If you didn't ask for this, log in now and change your password.",
+    })
+  );
+};
