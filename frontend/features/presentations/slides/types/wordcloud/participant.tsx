@@ -53,7 +53,8 @@ export function WordcloudParticipant({ slide, mode, onSubmit, submitting }: Part
                 onClick={() => setEntries((prev) => prev.filter((_, j) => j !== i))}
                 disabled={locked}
                 aria-label={t("remove", { word: entry })}
-                className="rounded-full p-0.5 hover:bg-deck-primary/20 transition-colors text-deck-primary/70 hover:text-deck-primary"
+                // 44 px tall touch target; the negative margins keep the chip its size.
+                className="-my-3 -mr-2 inline-flex h-11 w-8 items-center justify-center rounded-full text-deck-primary/70 transition-colors hover:text-deck-primary"
               >
                 <X className="size-3.5" />
               </button>

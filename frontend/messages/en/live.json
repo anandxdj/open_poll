@@ -57,6 +57,7 @@
     "title": "Leaderboard",
     "finalStandings": "Final standings",
     "empty": "No scores yet — waiting for the first answers.",
+    "finalEmpty": "No scores in this session.",
     "you": "You"
   },
   "timer": {

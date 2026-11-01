@@ -23,6 +23,7 @@ import {
 } from "../api/sso.api";
 import { SSO_ROLES, type SsoConnection, type SsoRole } from "../types";
 import { CopyValue } from "@/features/workspaces/settings/CopyValue";
+import { ConfirmDialog } from "@/features/workspaces/members/components/ConfirmDialog";
 
 const sectionTitle = "text-sm font-semibold text-foreground";
 const pill = "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium";
@@ -45,6 +46,7 @@ export function ConnectionCard({
   onRemoved: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [metadata, setMetadata] = useState("");
   const [manual, setManual] = useState(false);
   const [saml, setSaml] = useState({
@@ -446,17 +448,26 @@ export function ConnectionCard({
           variant="ghost"
           className="text-destructive hover:text-destructive"
           disabled={busy !== null}
-          onClick={() => {
-            if (!window.confirm(`Delete ${connection.name}? People stop signing in through it.`)) return;
-            void run("delete", async () => {
-              await deleteConnection(workspaceId, connection.id);
-              onRemoved();
-            }, "Connection deleted");
-          }}
+          onClick={() => setConfirmingDelete(true)}
         >
           <Trash2 className="size-4" /> Delete connection
         </Button>
       </footer>
+      <ConfirmDialog
+        open={confirmingDelete}
+        title={`Delete ${connection.name}?`}
+        description="People stop signing in through it."
+        confirmLabel="Delete connection"
+        destructive
+        busy={busy === "delete"}
+        onCancel={() => setConfirmingDelete(false)}
+        onConfirm={() => {
+          void run("delete", async () => {
+            await deleteConnection(workspaceId, connection.id);
+            onRemoved();
+          }, "Connection deleted").finally(() => setConfirmingDelete(false));
+        }}
+      />
     </article>
   );
 }

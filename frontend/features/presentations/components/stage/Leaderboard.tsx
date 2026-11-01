@@ -11,6 +11,8 @@ interface LeaderboardProps {
   entries: LeaderboardEntry[];
   highlightParticipantId?: string;
   title?: string;
+  /** The session is over: an empty list means nobody scored, not "waiting". */
+  final?: boolean;
 }
 
 const rankIcon = (rank: number) => {
@@ -21,11 +23,11 @@ const rankIcon = (rank: number) => {
 };
 
 /** Ranked score list — leaderboard slides, the host's leaderboard modal and both end screens. */
-export function Leaderboard({ entries, highlightParticipantId, title }: LeaderboardProps) {
+export function Leaderboard({ entries, highlightParticipantId, title, final }: LeaderboardProps) {
   const t = useTranslations("live.leaderboard");
 
   if (entries.length === 0) {
-    return <div className="py-10 text-center text-sm text-deck-muted-fg">{t("empty")}</div>;
+    return <div className="py-10 text-center text-sm text-deck-muted-fg">{t(final ? "finalEmpty" : "empty")}</div>;
   }
 
   const maxScore = Math.max(...entries.map((e) => e.score), 1);

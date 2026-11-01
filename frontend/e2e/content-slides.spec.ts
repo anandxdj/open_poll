@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { expect, joinAsParticipant, openLobby, test, type Participant } from "./fixtures";
+import { endSession, expect, joinAsParticipant, openLobby, test, type Participant } from "./fixtures";
 
 /**
  * Content slides live (W1-D): a content-only deck presented fullscreen without
@@ -109,7 +109,7 @@ test("a content-only deck is presented fullscreen, without a lobby or participan
   // F again leaves fullscreen; the last slide offers to end the session.
   await hostPage.keyboard.press("f");
   await expect.poll(() => hostPage.evaluate(() => document.fullscreenElement === null)).toBe(true);
-  await hostPage.getByRole("button", { name: "End Session" }).click();
+  await endSession(hostPage);
   await expect(stage.getByRole("heading", { name: "Session ended" })).toBeVisible();
 
   // One run, never had a participant.
@@ -204,7 +204,7 @@ test("a mixed deck (heading, word cloud, select answer) is clicked through live"
   await expect(grace.page.getByText("Not quite…")).toBeVisible({ timeout: REVEAL_TIMEOUT });
 
   // --- End ---
-  await hostPage.getByRole("button", { name: "End Session" }).click();
+  await endSession(hostPage);
   await expect(stage.getByRole("heading", { name: "Session ended" })).toBeVisible();
   await forBoth(players, async ({ page }) => {
     await expect(page.getByRole("heading", { name: "That's a wrap!" })).toBeVisible();

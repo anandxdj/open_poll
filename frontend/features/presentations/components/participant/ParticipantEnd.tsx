@@ -35,6 +35,7 @@ export function ParticipantEnd() {
         entries={leaderboard}
         highlightParticipantId={participantId}
         title={t("leaderboard.finalStandings")}
+        final
       />
       {presentationId && <SlotOutlet name="endScreen" props={{ role: "participant", presentationId }} />}
     </div>

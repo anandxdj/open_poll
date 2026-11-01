@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { expect, joinAsParticipant, openLobby, test, type Participant } from "./fixtures";
+import { endSession, expect, joinAsParticipant, openLobby, test, type Participant } from "./fixtures";
 
 /**
  * The advanced interactive slide types (W2-E): a deck with guess_number,
@@ -213,7 +213,7 @@ test("guess, 100 points, 2x2 grid and pin slides run live and reveal", async ({ 
   await expect(linus.page.getByText("Not quite…")).toBeVisible({ timeout: REVEAL_TIMEOUT });
 
   // --- End: Ada led with 800 points ---
-  await hostPage.getByRole("button", { name: "End Session" }).click();
+  await endSession(hostPage);
   await expect(stage.getByRole("heading", { name: "Session ended" })).toBeVisible();
   await expect(ada.page.getByText(/You finished\s*#1/)).toBeVisible();
 });

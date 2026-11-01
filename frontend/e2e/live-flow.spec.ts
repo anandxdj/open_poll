@@ -1,4 +1,4 @@
-import { expect, joinAsParticipant, openLobby, test, type Participant } from "./fixtures";
+import { endSession, expect, joinAsParticipant, openLobby, test, type Participant } from "./fixtures";
 
 /**
  * Characterization of the live deck flow as users see it: the ready screen
@@ -198,7 +198,7 @@ test("host runs a deck with two participants from lobby to the end screen", asyn
 
   // --- End ---
   await expect(hostPage.getByRole("button", { name: "Next Slide" })).toHaveCount(0);
-  await hostPage.getByRole("button", { name: "End Session" }).click();
+  await endSession(hostPage);
   await expect(stage.getByRole("heading", { name: "Session ended" })).toBeVisible();
   await expect(stage.getByText("Final standings")).toBeVisible();
   await expect(hostPage.getByRole("button", { name: "Present again" })).toBeVisible();
