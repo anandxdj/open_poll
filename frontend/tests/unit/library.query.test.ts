@@ -6,6 +6,7 @@ import {
   countsWithout,
   countsWithStatus,
   DEFAULT_FILTERS,
+  duplicateOpenPath,
   emptyStateCopy,
   filtersKey,
   filtersToSearch,
@@ -15,6 +16,7 @@ import {
   parseLibraryFilters,
   replaceLibraryItem,
   statusLabel,
+  withFreshFirstPage,
 } from "@/features/library/query";
 import type { LibraryCard, LibraryCounts, PollLibraryCard, PresentationLibraryCard } from "@/features/library/types";
 
@@ -97,6 +99,21 @@ describe("pages and mutations", () => {
     expect(merged.find((card) => cardKey(card) === "poll:2")!.title).toBe("edited");
     // A poll and a deck may share nothing but the id string; they stay distinct.
     expect(mergeLibraryItems([poll("7")], [deck("7")]).map(cardKey)).toEqual(["poll:7", "presentation:7"]);
+  });
+
+  test("puts a refetched first page on top and keeps the cards loaded after it", () => {
+    // A duplicate went to the top and pushed deck 2 off the first page.
+    const loaded = [poll("1"), deck("2"), poll("3"), deck("4")];
+    const firstPage = [deck("copy"), poll("1", { title: "edited" })];
+    const merged = withFreshFirstPage(loaded, firstPage);
+    expect(merged.map(cardKey)).toEqual(["presentation:copy", "poll:1", "presentation:2", "poll:3", "presentation:4"]);
+    expect(merged[1]!.title).toBe("edited");
+    expect(withFreshFirstPage([], firstPage).map(cardKey)).toEqual(["presentation:copy", "poll:1"]);
+  });
+
+  test("opens a duplicate where its draft is edited", () => {
+    expect(duplicateOpenPath("presentation", "d1")).toBe("/presentation/create?id=d1");
+    expect(duplicateOpenPath("poll", "p1")).toBe("/create?draftId=p1");
   });
 
   test("replaces one card in place", () => {

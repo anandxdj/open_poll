@@ -20,6 +20,8 @@ export const ACTION_LABELS: Record<string, string> = {
   "share.revoke": "Stopped sharing",
   "media.upload": "Uploaded a file",
   "poll.convert": "Converted a poll to a deck",
+  "poll.duplicate": "Duplicated a poll",
+  "presentation.duplicate": "Duplicated a deck",
 };
 
 /** Groups offered as `prefix.*` filters. */
