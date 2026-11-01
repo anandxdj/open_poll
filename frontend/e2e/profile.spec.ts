@@ -49,7 +49,8 @@ test("rename yourself, change your password, sign in with the new one", async ({
   // Name: Save is off until it changes; an empty name is refused inline.
   await accountMenu.click();
   await page.getByRole("menuitem", { name: "Profile" }).click();
-  await expect(page).toHaveURL(/\/settings\/profile/);
+  // The URL changes once the page has loaded; the first visit compiles it under `next dev`.
+  await expect(page).toHaveURL(/\/settings\/profile/, { timeout: 60_000 });
   const nameField = page.getByLabel("Full name");
   const save = page.getByRole("button", { name: "Save", exact: true });
   await expect(nameField).toHaveValue("Pat Profile");
