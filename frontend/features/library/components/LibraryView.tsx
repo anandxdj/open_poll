@@ -254,7 +254,13 @@ export function LibraryView() {
       {!library.loading && library.items.length > 0 ? (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {library.items.map((card) => (
-            <LibraryCard key={cardKey(card)} card={card} onRemoved={library.remove} onChanged={library.replace} />
+            <LibraryCard
+              key={cardKey(card)}
+              card={card}
+              onRemoved={library.remove}
+              onChanged={library.replace}
+              onDuplicated={library.refresh}
+            />
           ))}
         </div>
       ) : null}

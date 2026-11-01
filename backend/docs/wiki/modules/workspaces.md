@@ -91,6 +91,7 @@ workspace itself (W3-C checkout), never inherited. Tune the gate in
 | `POST /api/polls/:id/close` | + `workspaceContext` | `deck:host` |
 | `POST /api/polls/:id/publish-results` | + `workspaceContext` | `session:share` |
 | `DELETE /api/polls/:id` | + `workspaceContext` | `deck:delete` |
+| `POST /api/polls/:id/duplicate` | + rate limit, `workspaceContext` | `deck:create`, then `deck:read` on the source; the copy is stored in `req.workspace` |
 | `GET /api/responses/poll/:pollId/list` | + `workspaceContext` | `session:read` |
 
 - Denials are `403 FORBIDDEN` (`assertCan`); a poll in another workspace is denied even to its

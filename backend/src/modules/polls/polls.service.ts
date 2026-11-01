@@ -1,13 +1,27 @@
 import type { Types } from 'mongoose';
-import { PollModel } from './polls.model';
+import { PollModel, type IPoll } from './polls.model';
 import type { CreatePollInput, UpdatePollInput } from './polls.schema';
 import { ApiError } from '../../common/utils/ApiError';
+import { copyTitle } from '../../common/utils/copyTitle';
 import { assertCan } from '../../common/tenancy/policy';
 import { resolveWorkspaceContext } from '../../common/tenancy/workspaceContext.middleware';
 import { AnalyticsModel } from '../responses/analytics.model';
 import { assertQuestionsGradeable } from './polls.grading';
 
 type IdLike = Types.ObjectId | string;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** Expiry of a duplicate whose source closes within a day: the poll builder's default for a new poll. */
+const DUPLICATE_EXPIRY_DAYS = 7;
+
+/**
+ * Expiry of a poll's duplicate: the source's while it is at least a day away
+ * (still a usable window), otherwise a week from `now`. Always in the future.
+ */
+export function duplicateExpiresAt(sourceExpiresAt: Date | null | undefined, now: Date): Date {
+  if (sourceExpiresAt && sourceExpiresAt.getTime() - now.getTime() >= DAY_MS) return new Date(sourceExpiresAt);
+  return new Date(now.getTime() + DUPLICATE_EXPIRY_DAYS * DAY_MS);
+}
 
 /** The workspace a poll list is read from, and who is reading it. */
 export interface PollListScope {
@@ -46,6 +60,39 @@ export class PollService {
     });
 
     return newPoll;
+  }
+
+  /**
+   * Copies a poll into `workspaceId` as an unpublished draft: title "Copy of
+   * …", questions (options, answers, points, explanations), pollType, pass
+   * mark and anonymity. Never its responses: the copy starts with zeroed
+   * analytics, open and with results unpublished, expiring per
+   * `duplicateExpiresAt`. The caller has authorized both the read of the
+   * source and the create in `workspaceId`.
+   */
+  static async duplicatePoll(source: IPoll, creatorId: string, workspaceId: IdLike, now = new Date()) {
+    const expiresAt = duplicateExpiresAt(source.expiresAt, now);
+    return this.createPoll(
+      {
+        title: copyTitle(source.title),
+        pollType: source.pollType,
+        passingScorePercentage: source.passingScorePercentage,
+        isAnonymous: source.isAnonymous,
+        expiresAt: expiresAt.toISOString(),
+        isPublished: false,
+        questions: source.questions.map((question) => ({
+          text: question.text,
+          options: [...question.options],
+          type: question.type ?? 'single',
+          correctOptionIndices: [...(question.correctOptionIndices ?? [])],
+          explanation: question.explanation ?? '',
+          points: question.points ?? 1,
+          isMandatory: question.isMandatory ?? true,
+        })),
+      },
+      creatorId,
+      workspaceId,
+    );
   }
 
   static async getPollById(pollId: string) {

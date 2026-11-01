@@ -1,7 +1,7 @@
 ---
 summary: Playwright end-to-end suite — services it boots, environment overrides, the seeded host, and how to run it.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-01
 ---
 
 # End-to-End Tests (Playwright)
@@ -90,6 +90,11 @@ lookup's HTTP status (404 until a session was opened).
   takes it down, marks it answered), a reaction floating up the stage, and the builder's Audience
   tab plus adding a Q&A slide. The deck is created with `settings` through the API directly (the
   `host.createDeck` fixture sends title and slides only). ~20 s.
+
+- `e2e/duplicate.spec.ts` — LIB-19: "Duplicate" from the library card menu on a two-slide deck and
+  a published poll; both copies appear as drafts, the deck copy opens from its toast in the builder
+  with both slides and the notes, and the originals (and the deck's empty session list) are
+  unchanged through the API. ~6 s.
 
 - `e2e/members.spec.ts` — teams and sharing: owner invites a second (seeded) account from
   `/settings/members`, the invite link is read from the form (no mail provider in e2e), the invitee

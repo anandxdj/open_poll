@@ -1,7 +1,7 @@
 ---
 summary: Unified library (polls + decks as cards, cursor pagination, search), "Convert to presentation" for polls, and the legacy-quiz copy (migration 010).
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-01
 ---
 
 # Library Module (`src/modules/library/`)
@@ -90,6 +90,14 @@ copy (`201`) and repoints the poll, leaving the earlier deck alone. The pointer 
 conditional update on the value the request read, so racing conversions create exactly one deck:
 losers delete theirs and return the winner's. Audit action `poll.convert`.
 
+## Duplicate
+
+The library card menu's "Duplicate" calls the entity's own route, not `/api/library`:
+`POST /api/presentations/:id/duplicate` (`modules/presentations.md` → Routes) and
+`POST /api/polls/:id/duplicate` (`modules/polls.md` → Duplicate). Both need `deck:read` on the
+source and `deck:create` in the current workspace, make a draft `Copy of <title>` there and never
+copy runs, answers or responses. The copy has the newest `updatedAt`, so it heads the first page.
+
 ## select_answer additions (in `presentations/slides/types/select_answer.ts`)
 
 Additive, for converted polls; single-select decks behave exactly as before (golden tests).
@@ -129,6 +137,7 @@ Migration 011 creates `library_workspace_updated` on `polls` and `presentations`
 - `tests/library.query.test.ts` — cursor, merge order, filters, scope, cards, query schemas.
 - `tests/library.convert.test.ts` — POLL/TRIAL mapping, clipping, unconvertible polls.
 - `tests/presentations.selectAnswer.test.ts` — multi-select, ungraded slides, config schema.
+- `tests/integration/duplicate.test.ts` — duplicate decks and polls (see above).
 - `tests/integration/library.test.ts` — union, pagination (incl. ties), type/status/folder/search
   filters, isolation, workspace scope, convert POLL/TRIAL, idempotency, races, polls still voting,
   converted deck played live.

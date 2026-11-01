@@ -97,6 +97,7 @@ PATCH /api/polls/:pollId
 POST /api/polls/:id/close
 POST /api/polls/:id/publish-results
 DELETE /api/polls/:id
+POST /api/polls/:id/duplicate
 ROUTER /api/responses
 POST /api/responses/poll/:pollId/ballot
 POST /api/responses/guest-token
@@ -121,6 +122,7 @@ GET /api/presentations
 GET /api/presentations/:id
 PATCH /api/presentations/:id
 DELETE /api/presentations/:id
+POST /api/presentations/:id/duplicate
 ROUTER /api/presentations
 GET /api/presentations/:id/host/state
 POST /api/presentations/:id/host/open-lobby
@@ -145,6 +147,7 @@ GET /api/quizzes
 GET /api/quizzes/:id
 PATCH /api/quizzes/:id
 DELETE /api/quizzes/:id
+POST /api/quizzes/:id/duplicate
 ROUTER /api/quizzes
 GET /api/quizzes/:id/host/state
 POST /api/quizzes/:id/host/open-lobby

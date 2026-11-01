@@ -83,6 +83,17 @@ export function mergeLibraryItems(loaded: LibraryCard[], page: LibraryCard[]): L
   return [...loaded.filter((card) => !incoming.has(cardKey(card))), ...page];
 }
 
+/**
+ * The loaded cards after the first page was fetched again (a duplicate added
+ * an item): the fresh page on top, then the cards loaded earlier that it does
+ * not hold. Cursors are positions, so "Load more" still continues after the
+ * last card loaded before.
+ */
+export function withFreshFirstPage(loaded: LibraryCard[], firstPage: LibraryCard[]): LibraryCard[] {
+  const fresh = new Set(firstPage.map(cardKey));
+  return [...firstPage, ...loaded.filter((card) => !fresh.has(cardKey(card)))];
+}
+
 /** Replaces one card in place (after a mutation such as close or convert). */
 export const replaceLibraryItem = (items: LibraryCard[], next: LibraryCard): LibraryCard[] =>
   items.map((card) => (cardKey(card) === cardKey(next) ? next : card));
@@ -138,6 +149,10 @@ export function cardLinks(card: LibraryCard, origin: string): CardLinks {
 
 /** Deck builder URL of a converted poll's deck. */
 export const deckBuilderPath = (presentationId: string) => `/presentation/create?id=${presentationId}`;
+
+/** Where a new duplicate opens. Copies are drafts: the deck builder, or the poll's draft editor. */
+export const duplicateOpenPath = (entityType: LibraryCard["entityType"], id: string) =>
+  entityType === "poll" ? `/create?draftId=${id}` : deckBuilderPath(id);
 
 export function statusLabel(card: LibraryCard): string {
   if (card.entityType === "poll") {

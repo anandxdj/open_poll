@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { PresentationCrudController } from '../controllers/crud.controller';
 import { validate } from '../../../common/middlewares/validate.middleware';
 import { workspaceContext } from '../../../common/tenancy/workspaceContext.middleware';
-import { authenticate } from '../../auth/auth.middleware';
+import { authenticate, type AuthRequest } from '../../auth/auth.middleware';
+import { rateLimit } from '../../../common/middlewares/rateLimit.middleware';
 import { createPresentationSchema, updatePresentationSchema } from '../presentations.schema';
 
 const router = Router();
@@ -25,5 +26,13 @@ router.patch(
   PresentationCrudController.update
 );
 router.delete('/:id', authenticate(), workspaceContext(), PresentationCrudController.delete);
+// A copy writes a whole deck from a body-less request: per user, so one account cannot flood the collection.
+router.post(
+  '/:id/duplicate',
+  authenticate(),
+  rateLimit({ prefix: 'presentations:duplicate', windowSec: 60, max: 30, keyBy: (req) => (req as AuthRequest).user?.id }),
+  workspaceContext(),
+  PresentationCrudController.duplicate
+);
 
 export default router;

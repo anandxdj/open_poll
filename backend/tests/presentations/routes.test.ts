@@ -26,6 +26,7 @@ describe('presentations route table', () => {
   // The session engine (W1-A1) added live-state, start/goto/close/reopen and the
   // session list, and put workspaceContext() after authenticate() on every
   // creator and host route (+1 handler each; goto/advance also validate).
+  // Duplicate adds a per-user rate limit between authenticate() and workspaceContext().
   it('matches the route list and middleware counts', () => {
     expect(listRoutes((presentationsRouter as any).stack)).toEqual([
       'GET /code/:code (3)',
@@ -38,6 +39,7 @@ describe('presentations route table', () => {
       'GET /:id (3)',
       'PATCH /:id (4)',
       'DELETE /:id (3)',
+      'POST /:id/duplicate (4)',
       'GET /:id/host/state (3)',
       'POST /:id/host/open-lobby (3)',
       'POST /:id/host/start (3)',
