@@ -49,7 +49,8 @@ export function ScalesParticipant({ slide, mode, onSubmit, submitting }: Partici
                   const value = Number(e.target.value);
                   setRatings((prev) => prev.map((r, j) => (j === i ? value : r)));
                 }}
-                className="w-full h-2 rounded-lg accent-deck-primary bg-deck-secondary cursor-pointer"
+                // 44 px tall touch target; the browser still draws a thin track.
+                className="w-full h-11 cursor-pointer bg-transparent accent-deck-primary"
               />
 
               <div className="flex justify-between text-xs font-medium text-deck-muted-fg">

@@ -81,7 +81,8 @@ export default function LiveJoinPage() {
               />
               <Button
                 type="submit"
-                disabled={checking || code.length < 6}
+                // A short code still submits, so the "6-digit code" message can say what is wrong.
+                disabled={checking || code.length === 0}
                 className="h-12 w-full rounded-lg bg-deck-primary text-base font-semibold text-deck-primary-fg"
               >
                 {checking ? (

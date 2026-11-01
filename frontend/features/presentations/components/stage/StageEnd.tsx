@@ -16,7 +16,7 @@ export function StageEnd({ actions }: { actions?: ReactNode }) {
   return (
     <div className="relative my-auto w-full max-w-md space-y-6 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
       <h2 className="text-4xl font-semibold tracking-[-0.04em] text-deck-stage-fg sm:text-5xl">{tp("title")}</h2>
-      <Leaderboard entries={leaderboard} title={t("finalStandings")} />
+      <Leaderboard entries={leaderboard} title={t("finalStandings")} final />
       {actions && <div className="flex flex-wrap items-center justify-center gap-3 pt-2">{actions}</div>}
       {presentationId && <SlotOutlet name="endScreen" props={{ role: "host", presentationId }} />}
     </div>
