@@ -264,7 +264,7 @@ Per-resource shares can grant editor, presenter or viewer, but only for shareabl
 | LIB-16 | Convert a poll to a presentation | New self-paced deck of `select_answer` slides opens in the builder; responses not copied; poll keeps working | be:integration/library.test.ts, be:library.convert.test.ts | P1 |
 | LIB-17 | Convert again (force) versus a repeat convert ("Open converted deck") | Repeat returns the same deck; force makes a new one; races make exactly one | be:integration/library.test.ts | P2 |
 | LIB-18 | Convert a poll a deck cannot represent | Refused, naming the question | be:library.convert.test.ts, be:integration/library.test.ts | P2 |
-| LIB-19 | Duplicate a deck or poll from the library | Not implemented (only slide duplicate exists); product gap | NONE | P2 |
+| LIB-19 | Duplicate a deck or poll from the library (or Home) | "Copy of <title>": a draft deck with every slide, notes and theme, or an unpublished poll; no sessions or responses copied; viewers and presenters refused | e2e:duplicate.spec.ts, int:duplicate.test.ts | — |
 | LIB-20 | Badges and status pills (Assessment, Self-paced deck, From poll or quiz; Draft, Lobby open, Live, Ended) | Correct labels | unit:library.query.test.ts | P2 |
 | LIB-21 | Library scoped to the selected workspace; switching changes the list | No cross-workspace items | be:integration/library.test.ts, be:integration/tenancy-isolation.test.ts | P1 |
 | LIB-22 | `/presentations` | Redirects to `/polls?type=presentation` | NONE | P2 |
