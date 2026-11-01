@@ -4,6 +4,8 @@ import { validate } from '../../../common/middlewares/validate.middleware';
 import { workspaceContext } from '../../../common/tenancy/workspaceContext.middleware';
 import { authenticate } from '../../auth/auth.middleware';
 import { advanceSlideSchema, gotoSlideSchema } from '../presentations.schema';
+// Registers the job that ends idle lobbies and presented sessions.
+import '../live/idleSessions';
 
 const router = Router();
 

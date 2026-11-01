@@ -40,6 +40,14 @@ export interface ISessionShare {
   expiresAt: Date | null;
 }
 
+/**
+ * Why a session ended: the host ended it (End Session, or a new lobby replaced
+ * it), or the idle-session job did after a lobby or a presented session saw no
+ * activity for too long. null for sessions that ended before it was recorded.
+ */
+export const SESSION_END_REASONS = ['host', 'lobby_idle', 'live_idle'] as const;
+export type SessionEndReason = (typeof SESSION_END_REASONS)[number];
+
 export interface IPresentationSession extends Document {
   _id: mongoose.Types.ObjectId;
   presentationId: mongoose.Types.ObjectId;
@@ -54,6 +62,13 @@ export interface IPresentationSession extends Document {
   joinCode: string;
   startedAt: Date;
   endedAt: Date | null;
+  endReason: SessionEndReason | null;
+  /**
+   * Last host command, join or answer while live (`live/activity.ts`; joins and
+   * answers are written at most every few minutes). The idle-session job ends
+   * sessions by it. null for sessions opened before it was recorded.
+   */
+  lastActivityAt: Date | null;
   currentSlideId: mongoose.Types.ObjectId | null;
   currentSlideIndex: number;
   /** slideId → state, for every visited slide. */
@@ -72,6 +87,8 @@ export interface IPresentationSession extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export const LIVE_ACTIVITY_INDEX = 'live_sessions_by_activity';
 
 export const SESSION_STATUSES = ['lobby', 'active', 'ended'] as const satisfies readonly SessionStatus[];
 
@@ -140,6 +157,8 @@ const PresentationSessionSchema = new Schema<IPresentationSession>(
     joinCode: { type: String, required: true },
     startedAt: { type: Date, required: true },
     endedAt: { type: Date, default: null },
+    endReason: { type: String, enum: [...SESSION_END_REASONS, null], default: null },
+    lastActivityAt: { type: Date, default: null },
     currentSlideId: { type: Schema.Types.ObjectId, default: null },
     currentSlideIndex: { type: Number, default: -1 },
     slideStates: { type: Map, of: SlideStateSchema, default: () => new Map() },
@@ -169,6 +188,11 @@ PresentationSessionSchema.index(
 );
 PresentationSessionSchema.index({ 'share.token': 1 }, { unique: true, sparse: true });
 PresentationSessionSchema.index({ retainUntil: 1 });
+// The idle-session job's lookup; only live sessions are indexed (created by migration 200).
+PresentationSessionSchema.index(
+  { status: 1, lastActivityAt: 1 },
+  { partialFilterExpression: { isLive: true }, name: LIVE_ACTIVITY_INDEX }
+);
 
 export const PresentationSessionModel = mongoose.model<IPresentationSession>(
   'PresentationSession',

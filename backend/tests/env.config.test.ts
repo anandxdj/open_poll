@@ -93,4 +93,24 @@ describe('env validation', () => {
     const { warnings } = parseEnv({ ...PROD_BASE, ID_SIGNING_SECRET: undefined, JWT_REFRESH_SECRET: PROD_BASE.JWT_ACCESS_SECRET });
     expect(warnings).toHaveLength(2);
   });
+
+  it('ends idle lobbies after 6 hours and presented sessions after 12 unless configured', () => {
+    expect(parseEnv({}).env.sessionIdle).toEqual({ lobbyHours: 6, liveHours: 12 });
+    expect(parseEnv({ SESSION_IDLE_LOBBY_HOURS: '2', SESSION_IDLE_LIVE_HOURS: '1.5' }).env.sessionIdle).toEqual({
+      lobbyHours: 2,
+      liveHours: 1.5,
+    });
+    expect(parseEnv({ SESSION_IDLE_LOBBY_HOURS: ' ', SESSION_IDLE_LIVE_HOURS: '' }).env.sessionIdle).toEqual({
+      lobbyHours: 6,
+      liveHours: 12,
+    });
+  });
+
+  it('rejects idle thresholds that are not a number of hours from 1 to 8760', () => {
+    const problems = problemsOf({ SESSION_IDLE_LOBBY_HOURS: '0.5', SESSION_IDLE_LIVE_HOURS: 'twelve' });
+    expect(problems).toHaveLength(2);
+    expect(problems[0]).toStartWith('SESSION_IDLE_LOBBY_HOURS');
+    expect(problems[1]).toStartWith('SESSION_IDLE_LIVE_HOURS');
+    expect(problemsOf({ SESSION_IDLE_LIVE_HOURS: '9000' })[0]).toStartWith('SESSION_IDLE_LIVE_HOURS');
+  });
 });

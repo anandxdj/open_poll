@@ -63,6 +63,12 @@ const optional = <T extends z.ZodType>(schema: T) =>
 
 const httpUrl = z.url({ protocol: /^https?$/, error: 'must be an http(s) URL' });
 const stripePriceId = z.string().regex(/^price_/, 'must be a Stripe price id (price_…)');
+// Activity is recorded at most every 5 minutes and the idle-session job runs every 10, so
+// thresholds under an hour would be imprecise; a year is effectively "never".
+const idleHours = z.coerce
+  .number()
+  .min(1, 'must be at least 1 (hours)')
+  .max(8760, 'must be at most 8760 (hours, one year)');
 const hostname = z
   .string()
   .regex(/^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i, 'must be a hostname');
@@ -124,6 +130,8 @@ const rawEnvSchema = z.object({
   DOMAIN_VERCEL_TEAM_ID: optional(z.string()),
   METRICS_TOKEN: optional(z.string().min(16, 'must be at least 16 characters')),
   SOCKET_REDIS_ADAPTER: optional(z.enum(['on', 'off'], { error: 'must be on or off' })),
+  SESSION_IDLE_LOBBY_HOURS: optional(idleHours),
+  SESSION_IDLE_LIVE_HOURS: optional(idleHours),
 });
 
 type RawEnv = z.infer<typeof rawEnvSchema>;
@@ -216,6 +224,12 @@ export interface AppEnv {
   metricsToken: string | null;
   /** SOCKET_REDIS_ADAPTER=on: link Socket.io servers through Redis (multi-instance rooms and fetchSockets). */
   socketRedisAdapter: boolean;
+  /**
+   * Hours without activity after which the idle-session job ends a live session:
+   * `lobbyHours` (SESSION_IDLE_LOBBY_HOURS, default 6) for a lobby, `liveHours`
+   * (SESSION_IDLE_LIVE_HOURS, default 12) for a session being presented.
+   */
+  sessionIdle: { lobbyHours: number; liveHours: number };
   capabilities: Capabilities;
 }
 
@@ -482,6 +496,10 @@ export function parseEnv(source: Record<string, string | undefined> = process.en
     domains,
     metricsToken,
     socketRedisAdapter: raw.SOCKET_REDIS_ADAPTER === 'on',
+    sessionIdle: {
+      lobbyHours: raw.SESSION_IDLE_LOBBY_HOURS ?? 6,
+      liveHours: raw.SESSION_IDLE_LIVE_HOURS ?? 12,
+    },
     capabilities: {
       billing: billing !== null,
       storage: storage !== null,
