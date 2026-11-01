@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { PollController } from './polls.controller';
 import { validate } from '../../common/middlewares/validate.middleware';
 import { createPollRequestSchema, updatePollSchema } from './polls.schema';
-import { authenticate } from '../auth/auth.middleware';
+import { authenticate, type AuthRequest } from '../auth/auth.middleware';
+import { rateLimit } from '../../common/middlewares/rateLimit.middleware';
 import { workspaceContext } from '../../common/tenancy/workspaceContext.middleware';
 
 const router = Router();
@@ -23,5 +24,14 @@ router.patch('/:pollId', authenticate(), validate(updatePollSchema), workspaceCo
 router.post('/:id/close', authenticate(), workspaceContext(), PollController.close);
 router.post('/:id/publish-results', authenticate(), workspaceContext(), PollController.publishResults);
 router.delete('/:id', authenticate(), workspaceContext(), PollController.delete);
+// Read the source, create the copy as a draft in the current workspace. Per-user
+// limit: a body-less request writes a whole poll.
+router.post(
+  '/:id/duplicate',
+  authenticate(),
+  rateLimit({ prefix: 'polls:duplicate', windowSec: 60, max: 30, keyBy: (req) => (req as AuthRequest).user?.id }),
+  workspaceContext(),
+  PollController.duplicate,
+);
 
 export default router;

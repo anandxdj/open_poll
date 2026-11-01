@@ -74,7 +74,9 @@ Mongo and the shared `redisClient` connect with the first server and disconnect 
 
 - `tests/integration/tenancy-isolation.test.ts` — route-table guard check (runs without services too)
   and the cross-workspace REST/socket matrix; `tests/helpers/routeTable.ts` walks the Express
-  stack. Details in `platform/tenancy.md`.
+  stack. Details in `platform/tenancy.md`. The matrix includes the duplicate routes.
+- `tests/integration/duplicate.test.ts` — duplicate decks and polls: fidelity, no runs or responses
+  copied, roles and shares, other-workspace refusal; a fake storage driver stands in for S3.
 - `tests/integration/members.http.test.ts` — members, invites, shares, audit log and migration 100
   through the real app (see `modules/members-sharing.md`). Audit events are fire-and-forget, so the
   suite polls for them (`auditEvents()`); invite links come from the create response

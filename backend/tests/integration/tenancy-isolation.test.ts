@@ -207,8 +207,10 @@ describeIntegration('tenancy isolation: cross-workspace matrix', () => {
       ['POST', `${deck}/host/reveal`],
       ['POST', `${deck}/host/end`],
       ['GET', `${deck}/sessions`],
+      ['POST', `${deck}/duplicate`],
       ['GET', `/api/quizzes/${deckA._id}`],
       ['POST', `/api/quizzes/${deckA._id}/host/start`],
+      ['POST', `/api/quizzes/${deckA._id}/duplicate`],
       ['GET', `/api/shares?resourceType=presentation&resourceId=${deckA._id}`],
       ['PUT', `/api/shares?resourceType=presentation&resourceId=${deckA._id}`, { shares: [] }],
       ['PATCH', `/api/polls/${draftA._id}`, { title: 'pwned' }],
@@ -216,6 +218,8 @@ describeIntegration('tenancy isolation: cross-workspace matrix', () => {
       ['POST', `/api/polls/${publishedA._id}/close`],
       ['POST', `/api/polls/${publishedA._id}/publish-results`],
       ['DELETE', `/api/polls/${publishedA._id}`],
+      ['POST', `/api/polls/${draftA._id}/duplicate`],
+      ['POST', `/api/polls/${publishedA._id}/duplicate`],
       ['GET', `/api/polls/${draftA._id}`],
       ['GET', `/api/responses/poll/${publishedA._id}/list`],
       ['POST', `/api/library/convert/poll/${publishedA._id}`],
@@ -245,9 +249,11 @@ describeIntegration('tenancy isolation: cross-workspace matrix', () => {
         expect(DENIED, `${method} ${path} → ${res.status}`).toContain(res.status);
       }
 
-      // Nothing changed.
+      // Nothing changed, and nothing was copied anywhere.
       expect((await PresentationModel.findById(deckA._id))).toMatchObject({ title: 'Alpha deck', status: 'draft', activeSessionId: null });
       expect(await PollModel.countDocuments({ _id: { $in: [draftA._id, publishedA._id] } })).toBe(2);
+      expect(await PresentationModel.countDocuments({})).toBe(1);
+      expect(await PollModel.countDocuments({})).toBe(2);
       expect((await PollModel.findById(publishedA._id))).toMatchObject({ title: 'Alpha published poll' });
       expect(await ResourceShareModel.countDocuments({})).toBe(0);
       expect(await WorkspaceMemberModel.countDocuments({ workspaceId: wsA })).toBe(3);
@@ -267,6 +273,8 @@ describeIntegration('tenancy isolation: cross-workspace matrix', () => {
     expect((await call(alice, 'GET', `/api/responses/poll/${publishedA._id}/list`, undefined, wsA)).status).toBe(200);
     expect((await call(alice, 'GET', `/api/workspaces/${wsA}/members`)).status).toBe(200);
     expect((await call(alice, 'GET', `/api/shares?resourceType=presentation&resourceId=${deckA._id}`, undefined, wsA)).status).toBe(200);
+    expect((await call(alice, 'POST', `${deck}/duplicate`, undefined, wsA)).status).toBe(201);
+    expect((await call(alice, 'POST', `/api/polls/${draftA._id}/duplicate`, undefined, wsA)).status).toBe(201);
   });
 
   it('keeps Alpha out of Beta’s lists, library and audit log, and Beta out of Alpha’s', async () => {

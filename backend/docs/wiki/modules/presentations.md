@@ -1,7 +1,7 @@
 ---
 summary: Live presentation decks (Mentimeter-style) — slide type registry, sessions (one per run), scored and interactive slides, join codes, speed scoring, leaderboard, Redis-first hot path.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-01
 ---
 
 # Presentations Module (`src/modules/presentations/`)
@@ -27,7 +27,7 @@ feature in `modules/polls` — see `modules/polls.md`.
 |---|---|
 | `presentations.service.ts` | **Facade** (`PresentationService` + `publishPresentationEvent`, `computeSlideDistributionHelper`). The stable API for the socket, MCP, AI, worker and controllers; delegates only. Methods take an `actor`: the request (policy context) or a bare user id (sockets, scripts, tests). |
 | `access.ts` | `getPresentationById` (404 for trashed decks), `authorizeDeck(id, actor, action)` (`assertCan`), `canActOnDeck` (socket yes/no), `actorContext` (a bare user id resolves its membership in the deck's workspace). |
-| `crud.service.ts` | Create (in the request's workspace, on its default theme), workspace-scoped list, update (settings patched field by field, theme fields checked and replaced), delete (with sessions and their Redis keys). |
+| `crud.service.ts` | Create (in the request's workspace, on its default theme), workspace-scoped list, update (settings patched field by field, theme fields checked and replaced), delete (with sessions and their Redis keys), duplicate (below). |
 | `live/session.service.ts` | The session engine: `openLobby`, `startSession`, `gotoSlide`/`advanceSlide`, `closeCurrentSlide`, `reopenCurrentSlide`, `revealCurrentSlide`, `endPresentation`, `getHostState`, `listSessions`, `getPresentationByCode`. Only writer of the deck mirror. |
 | `live/state.ts` | Slide states and phases, the Redis **answer windows** (`loadAnswerWindow`, rebuilt from the session document on a miss), live-session lookup, `StoredAnswerResult`. |
 | `live/answer.service.ts` | `submitAnswer` hot path: window lookup, registry `accept`/`score` in JS, then ONE Redis script call; replays by `clientAnswerId`; metrics. |
@@ -302,6 +302,15 @@ Public (participants):
 
 Creator (JWT + workspace context):
 - `POST /`, `GET /` (current workspace), `GET /:id`, `PATCH /:id` (draft/ended only), `DELETE /:id`
+- `POST /:id/duplicate` — per-user rate limit (30/min), then `deck:create` in the current workspace
+  and `deck:read` on the source (`authorizeDeck`: share grants count, but a share never grants
+  create; the source must be in the selected workspace). `201` with the new deck, as create; audit
+  `presentation.duplicate` (`meta: {sourceId, title}`). The copy (`crud.duplicatePresentation`)
+  keeps every slide with new slide and option ids (type, content, config, notes, media
+  references), `pace`, `settings`, `theme` and `folderId`; title `Copy of <title>` (≤120). It is a
+  `draft` with a new join code, the caller as creator, no sessions, participants or answers, no
+  `legacy` mark. A pre-workspace deck (creator only) has its media checked against the new
+  workspace and drops its brand kit and folder.
 - Host controls: `GET /:id/host/state`, `POST /:id/host/{open-lobby,start,goto,advance,close,reopen,reveal,end}`,
   `GET /:id/sessions`
 - AI drafts: `POST /api/ai/generate-quiz` — `{ topic, slideCount, slideTypes[], tone }` →
@@ -323,6 +332,8 @@ See `realtime/presentations.md` for the event contract.
   built-in types, written before the registry refactor (in-memory Redis fake + model stubs in
   `tests/presentations/harness.ts`). Changes made by the session engine are marked in place.
 - `tests/presentations/routes.test.ts` — route table snapshot (order + middleware count).
+- `tests/integration/duplicate.test.ts` — duplicate decks and polls through `createApp()`: copy
+  fidelity, sessions/answers/responses left behind, roles and shares, other-workspace refusal.
 - `tests/presentations/registry.test.ts` — registry contract, content lifecycle via a
   test-only type, additive fields, generic payload, `lpush_trim`, exports.
 - `tests/presentations/answerPath.test.ts` — replays, grace and tickets, channels and metrics,
