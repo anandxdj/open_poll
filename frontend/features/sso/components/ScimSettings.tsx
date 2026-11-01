@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { createScimToken, listScimTokens, revokeScimToken } from "../api/sso.api";
 import type { ScimToken } from "../types";
 import { CopyValue } from "@/features/workspaces/settings/CopyValue";
+import { ConfirmDialog } from "@/features/workspaces/members/components/ConfirmDialog";
 import { useSsoGate } from "./SsoSettings";
 import { SectionUnavailable } from "@/features/workspaces/settings/SectionUnavailable";
 
@@ -33,6 +34,8 @@ export function ScimSettings() {
   const [label, setLabel] = useState("Okta");
   const [issued, setIssued] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [revoking, setRevoking] = useState<ScimToken | null>(null);
+  const [revokeBusy, setRevokeBusy] = useState(false);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -130,16 +133,7 @@ export function ScimSettings() {
                   variant="ghost"
                   size="sm"
                   className="text-destructive hover:text-destructive"
-                  onClick={async () => {
-                    if (!window.confirm(`Revoke ${token.label}? Provisioning with it stops at once.`)) return;
-                    try {
-                      await revokeScimToken(workspaceId!, token.id);
-                      setData({ ...data, tokens: data.tokens.filter((t) => t.id !== token.id) });
-                      toast.success("Token revoked");
-                    } catch (err) {
-                      toast.error(getApiErrorMessage(err) ?? "The token could not be revoked.");
-                    }
-                  }}
+                  onClick={() => setRevoking(token)}
                 >
                   <Trash2 className="size-4" /> Revoke
                 </Button>
@@ -150,6 +144,29 @@ export function ScimSettings() {
           <p className="text-sm text-muted-foreground">No tokens yet.</p>
         )}
       </section>
+      <ConfirmDialog
+        open={revoking !== null}
+        title={`Revoke ${revoking?.label ?? "token"}?`}
+        description="Provisioning with it stops at once."
+        confirmLabel="Revoke"
+        destructive
+        busy={revokeBusy}
+        onCancel={() => setRevoking(null)}
+        onConfirm={async () => {
+          if (!revoking) return;
+          setRevokeBusy(true);
+          try {
+            await revokeScimToken(workspaceId!, revoking.id);
+            setData((current) => current && { ...current, tokens: current.tokens.filter((t) => t.id !== revoking.id) });
+            toast.success("Token revoked");
+          } catch (err) {
+            toast.error(getApiErrorMessage(err) ?? "The token could not be revoked.");
+          } finally {
+            setRevokeBusy(false);
+            setRevoking(null);
+          }
+        }}
+      />
     </div>
   );
 }

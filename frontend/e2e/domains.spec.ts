@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { e2eEnv } from "./env";
-import { expect, test } from "./fixtures";
+import { dismissNativeDialogs, expect, test } from "./fixtures";
 
 /**
  * Custom domains (W4-E) as an admin sees them on an Enterprise workspace: add
@@ -33,7 +33,7 @@ async function openAs(browser: Browser, contexts: BrowserContext[], account: Acc
     { user: account.user, accessToken: account.accessToken },
   );
   const page = await context.newPage();
-  page.on("dialog", (dialog) => void dialog.accept());
+  dismissNativeDialogs(page);
   await page.goto(p);
   return page;
 }
@@ -70,6 +70,7 @@ test("an admin adds a custom domain, sees the DNS records to publish and removes
   await page.screenshot({ path: "test-results/domains-settings.png", fullPage: true });
 
   await row.getByRole("button", { name: `Remove ${hostname}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
   await expect(page.getByText(`${hostname} removed`)).toBeVisible();
   await expect(row).toHaveCount(0);
 });

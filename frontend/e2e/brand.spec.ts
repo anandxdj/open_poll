@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { e2eEnv } from "./env";
-import { expect, joinAsParticipant, openLobby, test } from "./fixtures";
+import { dismissNativeDialogs, expect, joinAsParticipant, openLobby, test } from "./fixtures";
 
 /**
  * Brand kits (W3-A) as an admin and the room see them: on a Pro workspace,
@@ -56,7 +56,7 @@ async function openAs(browser: Browser, contexts: BrowserContext[], account: Acc
     document.documentElement.appendChild(style);
   });
   const page = await context.newPage();
-  page.on("dialog", (dialog) => void dialog.accept());
+  dismissNativeDialogs(page);
   await page.goto(path);
   return page;
 }

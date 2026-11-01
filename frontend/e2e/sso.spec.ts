@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { e2eEnv } from "./env";
-import { expect, test } from "./fixtures";
+import { dismissNativeDialogs, expect, test } from "./fixtures";
 
 /**
  * Single sign-on and SCIM (W3-D) as an admin and a colleague see them: on an
@@ -60,7 +60,7 @@ async function openAs(browser: Browser, contexts: BrowserContext[], account: Acc
     document.documentElement.appendChild(style);
   });
   const page = await context.newPage();
-  page.on("dialog", (dialog) => void dialog.accept());
+  dismissNativeDialogs(page);
   await page.goto(p);
   return page;
 }
@@ -146,6 +146,7 @@ test("an admin sets up SAML sign-in and SCIM; a colleague's SSO sign-in goes to 
   expect(config.status).toBe(200);
   await page.screenshot({ path: "test-results/scim-settings.png", fullPage: true });
   await page.getByRole("button", { name: "Revoke" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Revoke" }).click();
   await expect(page.getByText("Token revoked")).toBeVisible();
   expect((await fetch(`${e2eEnv.apiOrigin}/scim/v2/Users`, { headers: { Authorization: `Bearer ${token}` } })).status).toBe(401);
 });

@@ -12,6 +12,7 @@ import { createLiveStore, LiveStoreProvider, useLive } from "../../live/store";
 import { useAfterDelay } from "../../live/useAfterDelay";
 import { LiveDeckTheme } from "@/features/themes/LiveDeckTheme";
 import { Stage } from "../stage/Stage";
+import { EndSessionDialog } from "./EndSessionDialog";
 import { HostControls } from "./HostControls";
 import { HostHeader } from "./HostHeader";
 import { LeaderboardModal } from "./LeaderboardModal";
@@ -48,6 +49,7 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [confirmingEnd, setConfirmingEnd] = useState(false);
   const isLive = status === "lobby" || status === "active";
   const showReconnecting = useAfterDelay(isLive && !connected, 1500);
 
@@ -68,6 +70,7 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
   // Arrow keys / PageUp/PageDown move between slides (both ways), F toggles fullscreen.
   const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    if (confirmingEnd) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === "ArrowRight" || e.key === "PageDown") {
       void session.next();
@@ -156,7 +159,7 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
             </Button>
             <Button
               variant="outline"
-              onClick={() => void session.end()}
+              onClick={() => setConfirmingEnd(true)}
               disabled={busy}
               className={`h-12 px-6 text-sm ${outlineButton}`}
             >
@@ -205,8 +208,10 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
         onCloseVoting={() => void session.closeVoting()}
         onReopenVoting={() => void session.reopenVoting()}
         onReveal={() => void session.reveal()}
-        onEnd={() => void session.end()}
+        onEnd={() => setConfirmingEnd(true)}
       />
+
+      <EndSessionDialog open={confirmingEnd} onOpenChange={setConfirmingEnd} onConfirm={() => void session.end()} />
     </div>
   );
 }
