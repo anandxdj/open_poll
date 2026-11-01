@@ -21,6 +21,7 @@ import {
   buildDraftStorageKey,
   clearDraft,
   draftIsNewer,
+  firstSlide,
   isDeckDirty,
   isSlideDirty,
   loadDraft,
@@ -50,7 +51,7 @@ export function useDeckBuilder() {
   const seedMode = searchParams.get("mode");
 
   const [title, setTitle] = useState(seedName ?? "");
-  const [slides, setSlides] = useState<PresentationSlide[]>([blankSlide()]);
+  const [slides, setSlides] = useState<PresentationSlide[]>([firstSlide()]);
   const [theme, setTheme] = useState<DeckThemeRef | null>(null);
   const [active, setActive] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -84,7 +85,7 @@ export function useDeckBuilder() {
       // and again whenever the draft key changes (e.g. ?id= is set after a save).
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTitle(saved.title);
-      setSlides(saved.slides.length > 0 ? saved.slides : [blankSlide()]);
+      setSlides(saved.slides.length > 0 ? saved.slides : [firstSlide()]);
       setActive(Math.min(saved.active, Math.max(0, saved.slides.length - 1)));
     }
     draftHydratedRef.current = true;
@@ -182,7 +183,7 @@ export function useDeckBuilder() {
     draftStateRef.current = { title: deck.title, slides: deck.slides, editId: deck._id };
     skipNextLoadIdRef.current = deck._id;
     setTitle(deck.title);
-    setSlides(deck.slides.length > 0 ? deck.slides : [blankSlide()]);
+    setSlides(deck.slides.length > 0 ? deck.slides : [firstSlide()]);
     setActive(0);
     setAiOpen(false);
 

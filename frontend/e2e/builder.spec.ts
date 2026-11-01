@@ -58,17 +58,19 @@ test("BLD-39: a deck built by hand from Home saves and opens in the host console
   await expect(page.getByLabel("Deck title")).toHaveValue(title);
   await expect(railItems(page)).toHaveCount(1);
 
-  // --- Slide 1: the starter multiple-choice slide, with Mars marked correct ---
+  // --- Slide 1: the starter slide is a plain poll; make it a quiz with Mars correct ---
   await page.getByLabel("Question or title").fill(QUESTION);
   await page.getByPlaceholder("Option 1", { exact: true }).fill("Venus");
   await page.getByPlaceholder("Option 2", { exact: true }).fill("Mars");
   await page.getByRole("button", { name: "Add option" }).click();
   await page.getByPlaceholder("Option 3", { exact: true }).fill("Jupiter");
-  // A new slide marks its first option; move the mark to Mars.
+  const graded = page.getByRole("switch", { name: "Graded" });
+  await expect(graded).toHaveAttribute("aria-checked", "false");
+  await graded.click();
+  await expect(graded).toHaveAttribute("aria-checked", "true");
   const markVenus = page.getByRole("button", { name: "Mark option 1 correct" });
   const markMars = page.getByRole("button", { name: "Mark option 2 correct" });
-  await expect(markVenus).toHaveAttribute("aria-pressed", "true");
-  await markVenus.click();
+  await expect(markVenus).toHaveAttribute("aria-pressed", "false");
   await markMars.click();
   await expect(markVenus).toHaveAttribute("aria-pressed", "false");
   await expect(markMars).toHaveAttribute("aria-pressed", "true");
