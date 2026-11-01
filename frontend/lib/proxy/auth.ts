@@ -1,20 +1,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { HOME_PATH } from "@/lib/routes";
+import { HOME_PATH, isProtectedRoute } from "@/lib/routes";
 
 import type { ProxyStep } from "./types";
+
+export { isProtectedRoute };
 
 /** Cookie the API sets on login. Its presence is a hint only; the API still checks the JWT. */
 export const AUTH_COOKIE = "auth_session";
 
 const AUTH_ROUTES = ["/login", "/signup"];
-const PROTECTED_PREFIXES = ["/home", "/polls", "/create", "/settings", "/analytics"];
 
 export const isAuthRoute = (pathname: string) => AUTH_ROUTES.includes(pathname);
-
-export const isProtectedRoute = (pathname: string) =>
-  PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
 /**
  * Sends signed-out visitors on protected pages to /login and signed-in

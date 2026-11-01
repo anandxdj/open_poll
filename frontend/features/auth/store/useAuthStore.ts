@@ -29,9 +29,12 @@ function setSessionCookie(active: boolean) {
     : 'auth_session=; path=/; max-age=0; samesite=lax';
 }
 
+const hasSessionCookie = () =>
+  typeof document !== 'undefined' && document.cookie.split('; ').includes('auth_session=1');
+
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       accessToken: null,
       isAuthenticated: false,
@@ -55,6 +58,13 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
+        // Never signed in here (no token, no session cookie): skip /auth/me, which would
+        // fail into refresh-token and logout calls. Audiences on shared Wi-Fi share one IP,
+        // and those calls count against the per-IP auth rate limits.
+        if (!get().accessToken && !hasSessionCookie()) {
+          set({ user: null, isAuthenticated: false, isLoading: false });
+          return false;
+        }
         try {
           set({ isLoading: true });
           const response = await axios.get('/auth/me');

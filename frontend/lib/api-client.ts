@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getApiBaseUrl } from './env';
+import { isProtectedRoute } from './routes';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { WORKSPACE_HEADER, workspaceHeaderValue } from '@/features/workspaces/store/selection';
 import { useWorkspaceStore } from '@/features/workspaces/store/useWorkspaceStore';
@@ -25,6 +26,13 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+/**
+ * A 401 from login, register, reset and the other auth endpoints means bad
+ * credentials, not an expired session: refreshing there would replace the real
+ * error (and could sign in a different session). /auth/me is the exception.
+ */
+export const isCredentialCall = (url: string | undefined) => /\/auth\/(?!me(\?|$))/.test(url ?? '');
+
 // Response interceptor: handle token refresh
 apiClient.interceptors.response.use(
   (response) => response,
@@ -47,7 +55,7 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       }
     }
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && !isCredentialCall(originalRequest?.url)) {
       originalRequest._retry = true;
       try {
         const res = await axios.post(`${getApiBaseUrl()}/auth/refresh-token`, {}, { withCredentials: true });
@@ -56,7 +64,11 @@ apiClient.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return apiClient(originalRequest);
       } catch (refreshError) {
-        useAuthStore.getState().logout();
+        await useAuthStore.getState().logout();
+        // The session is gone: an app page would only show load errors from here on.
+        if (typeof window !== 'undefined' && isProtectedRoute(window.location.pathname)) {
+          window.location.assign('/login');
+        }
         return Promise.reject(refreshError);
       }
     }
