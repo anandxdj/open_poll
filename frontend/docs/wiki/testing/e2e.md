@@ -98,6 +98,11 @@ lookup's HTTP status (404 until a session was opened).
   audit log. Seeds the second user with `scripts/seed-e2e-user.ts` and upgrades the new workspace
   with `scripts/set-plan.ts` (a free team has one seat). ~30 s.
 
+- `e2e/profile.spec.ts` — `/settings/profile` for a freshly seeded account: logs in through the UI,
+  renames (empty name refused; the account menu, a reload and the Home greeting show the new name),
+  changes the password (show/hide, mismatch and a wrong current password shown under their fields),
+  logs out, then the old password fails and the new one signs in. ~15 s.
+
 - `e2e/ai-deck.spec.ts` - AI whole-deck authoring in mock mode (the e2e backend has no AI key): the
   AI dialog's "Whole deck" tab, outline review and editing, the written deck with speaker notes,
   the "Generated with mock data (no AI key configured)" label in the dialog and the builder banner,

@@ -194,6 +194,9 @@ ROUTER /api/library
 GET /api/library
 POST /api/library/convert/poll/:pollId
 ROUTER /api/me
+PATCH /api/me
+POST /api/me/password
+ROUTER /api/me
 GET /api/me/privacy
 POST /api/me/export
 POST /api/me/reauth

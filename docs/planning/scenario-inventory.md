@@ -145,7 +145,6 @@ Per-resource shares can grant editor, presenter or viewer, but only for shareabl
 **Product gaps found while building the inventory.** These are scenarios the brief expects but the code does not support.
 - **No way to remove a participant.** There is no host route or UI to kick someone. The server and the phone already handle `PARTICIPANT_KICKED`.
 - **No duplicate in the library.** Decks and polls cannot be duplicated from the library; only a slide can be duplicated, inside the builder.
-- **Profile is read-only.** There is no API to update the profile or change the password; a password change goes through the reset flow.
 - **Unused deck settings.** `nickname` (optional or off), `showResultsOnDevices` and `audienceLocale` are stored on the deck, but the builder has no control for them and the phone ignores them.
 - **No self-paced runtime.** Converted polls become "Self-paced deck"s (`pace: audience`), but no audience-paced runtime exists in the UI.
 - **No speaker notes on the host console.** Speaker notes appear only in the builder.
@@ -507,7 +506,7 @@ Per-resource shares can grant editor, presenter or viewer, but only for shareabl
 | ID | Scenario | Expected result | Coverage | Pri |
 |---|---|---|---|---|
 | SET-01 | `/settings` and the section nav | Redirects to `/settings/profile`; gated entries show one-line reasons (capability, team only, plan, role) | unit:settings.sections.test.ts | P1 |
-| SET-02 | Profile | Name, email and avatar (initials fallback), read only | NONE | P2 |
+| SET-02 | Profile | Name editable (1–80 characters, sidebar and Home follow), email read only, avatar (initials fallback); change password with the current one (other devices signed out), or why not for Google/SSO-only accounts | e2e:profile.spec.ts, int:account.test.ts | P1 |
 | SET-03 | Appearance Light, Dark or System (profile) and the sidebar theme toggle | Applies at once; persists on the device; System follows the OS | NONE | P1 |
 | SET-04 | MCP: create a token (shown once), list, copy the client config, revoke | Token works until revoked; revoke has no confirm | be:integration/tenancy-isolation.test.ts (route guard only) | P1 |
 | SET-05 | MCP client calls tools with the token | Scopes and workspace role enforced; rate limited | be:mcp.tools.test.ts, be:mcp.rateLimit.test.ts, be:mcp.publicUrl.test.ts | P2 |

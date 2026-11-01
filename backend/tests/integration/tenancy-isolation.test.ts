@@ -54,8 +54,9 @@ const ALLOWED: readonly Allowed[] = [
   { path: '/api/sso/*', reason: 'pre-sign-in SSO flow (discover, login redirect, ACS, metadata, callback)' },
 
   // Credentials of their own.
-  { path: '/api/me/*', reason: 'the signed-in user’s own account (privacy page, data export, re-auth); content only from workspaces they still belong to' },
+  { path: '/api/me/*', reason: 'the signed-in user’s own account (privacy page, data export, re-auth, password change); content only from workspaces they still belong to' },
   { path: '/api/me', methods: ['DELETE'], reason: 'the signed-in user deletes their own account' },
+  { path: '/api/me', methods: ['PATCH'], reason: 'the signed-in user renames themselves; touches only their own user document' },
   { path: '/api/mcp/tokens*', reason: 'MCP tokens belong to the user; tools act in the owner’s default workspace through the policy' },
   { methods: ['POST'], path: '/api/ai/generate', reason: 'authenticated and rate limited; stores nothing' },
   { methods: ['POST'], path: '/api/ai/generate-quiz', reason: 'authenticated and rate limited; stores nothing' },

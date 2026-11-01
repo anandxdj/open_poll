@@ -8,6 +8,8 @@ import { env } from '../../common/config/env';
 import type { AuthRequest } from './auth.middleware';
 import { OidcService, type OidcTransaction } from './oidc.service';
 import { SSO_REQUIRED } from '../sso/requireSso';
+import type { ChangePasswordInput } from './dto/change-password.schema';
+import type { UpdateProfileInput } from './dto/update-profile.schema';
 
 export const sessionCookieOptions = {
   httpOnly: true,
@@ -241,6 +243,32 @@ export class AuthController {
       }
       const user = await AuthService.getMe(req.user.id);
       return ApiResponse.ok(res, 'User profile fetched', user);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** PATCH /api/me: returns the updated user in the GET /api/auth/me shape. */
+  static async updateMe(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { name } = req.body as UpdateProfileInput;
+      const user = await AuthService.updateName(req, name);
+      return ApiResponse.ok(res, 'Profile updated', user);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/me/password: every other session ends; this one continues with
+   * a new access token and refresh cookie.
+   */
+  static async changePassword(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { currentPassword, newPassword } = req.body as ChangePasswordInput;
+      const { user, accessToken, refreshToken } = await AuthService.changePassword(req, currentPassword, newPassword);
+      res.cookie('refreshToken', refreshToken, sessionCookieOptions);
+      return ApiResponse.ok(res, 'Password changed', { user, accessToken });
     } catch (error) {
       next(error);
     }
