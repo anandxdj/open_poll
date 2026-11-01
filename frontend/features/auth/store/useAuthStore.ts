@@ -2,11 +2,16 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import axios from '@/lib/api-client';
 
-interface User {
+/** The signed-in user as GET /api/auth/me (and PATCH /api/me, the login response) sends it. */
+export interface User {
   _id: string;
   email: string;
   name: string;
   picture?: string;
+  /** False for accounts that sign in only with Google or SSO; absent on sessions stored before it existed. */
+  hasPassword?: boolean;
+  /** Linked sign-in providers (`google`, `oidc`, `saml`, `oidc_ws`). */
+  identities?: { provider: string }[];
 }
 
 interface AuthState {

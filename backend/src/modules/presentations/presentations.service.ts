@@ -4,6 +4,7 @@ import * as session from './live/session.service';
 import * as answers from './live/answer.service';
 import * as participants from './live/participant.service';
 import type { Actor } from './access';
+import type { PolicyContext } from '../../common/tenancy/policy';
 import type { ListContext } from './crud.service';
 import type { IPresentation } from './presentations.model';
 import type {
@@ -71,6 +72,11 @@ export class PresentationService {
 
   static deletePresentation(presentationId: string, actor: Actor) {
     return crud.deletePresentation(presentationId, actor);
+  }
+
+  /** A draft copy of the deck in the request's workspace (`deck:read` on it, `deck:create` there). */
+  static duplicatePresentation(presentationId: string, ctx: PolicyContext) {
+    return crud.duplicatePresentation(presentationId, ctx);
   }
 
   // ---------- Host session controls ----------

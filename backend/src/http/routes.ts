@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import { redisClient } from '../common/config/redis';
 import aiRouter from '../modules/ai/ai.route';
 import auditRouter from '../modules/audit/audit.route';
-import authRouter, { oidcCallbackHandlers } from '../modules/auth/auth.route';
+import authRouter, { accountRouter, oidcCallbackHandlers } from '../modules/auth/auth.route';
 import billingRouter, { billingWebhookRouter, plansRouter } from '../modules/billing/billing.route';
 import capabilitiesRouter from '../modules/capabilities/capabilities.route';
 import domainsRouter, { publicDomainsRouter } from '../modules/domains/domains.route';
@@ -74,6 +74,7 @@ const MOUNTS: readonly Mount[] = [
   ['/api/insights', insightsRouter],
   ['/api/invites', invitesRouter],
   ['/api/library', libraryRouter],
+  ['/api/me', accountRouter], // Profile and password (auth module); the rest of /api/me is privacy's.
   ['/api/me', privacyRouter],
   ['/api/oauth', mcpOAuthConsentRouter],
   ['/api/oembed', oembedRouter],

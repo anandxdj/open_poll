@@ -11,6 +11,7 @@ import {
   type IPresentationSession,
   type ISessionEntitlements,
   type ISlideState,
+  type SessionEndReason,
 } from '../models/session.model';
 import { isSlideScored, requireSlideType, toParticipantSlide } from '../slides';
 import { actorUserId, authorizeDeck, getPresentationById, type Actor } from '../access';
@@ -52,6 +53,7 @@ import { buildSessionSnapshot } from './snapshot';
 import { issueSlideTicket } from './ticket';
 import { flushDirty } from './coalescer';
 import { AUTO_REVEAL_DELAY_MS } from './autoReveal';
+import { idleEndReason, type IdleEndReason, type IdleThresholds } from './activity';
 import { autoReveals } from '../../../common/observability/metrics';
 
 export { loadAnswerWindow, type AnswerWindow } from './state';
@@ -61,8 +63,8 @@ export { loadAnswerWindow, type AnswerWindow } from './state';
  * keeps a mirror of its live session (status, current slide, timing) that only
  * this file writes. Host commands load the deck (policy `deck:host`) and its
  * live session, change the session document (optimistic concurrency guards
- * double clicks), mirror the deck, refresh the Redis answer windows, then
- * publish one event.
+ * double clicks; the change also stamps `lastActivityAt`), mirror the deck,
+ * refresh the Redis answer windows, then publish one event.
  */
 
 export interface HostCommandResult {
@@ -141,6 +143,7 @@ const createSession = async (presentation: IPresentation, actor: Actor): Promise
     sessionEntitlements(presentation, actor),
   ]);
   const runNumber = (presentation.sessionCount ?? 0) + 1;
+  const startedAt = new Date();
   let session: IPresentationSession;
   try {
     session = await PresentationSessionModel.create({
@@ -152,7 +155,8 @@ const createSession = async (presentation: IPresentation, actor: Actor): Promise
       status: 'lobby',
       isLive: true,
       joinCode: presentation.joinCode,
-      startedAt: new Date(),
+      startedAt,
+      lastActivityAt: startedAt,
       currentSlideId: null,
       currentSlideIndex: -1,
       deckSnapshot: presentation.slides.map((slide) =>
@@ -217,12 +221,17 @@ const retainUntilFor = (session: IPresentationSession, endedAt: Date) => {
  * stores the snapshot and retention, keeps the Redis keys readable for final
  * screens, and publishes `session:ended` (+ legacy `quiz:ended`).
  */
-const finishSession = async (presentation: IPresentation, session: IPresentationSession) => {
+const finishSession = async (
+  presentation: IPresentation,
+  session: IPresentationSession,
+  reason: SessionEndReason = 'host'
+) => {
   const now = new Date();
   const closed = closeCurrentIfOpen(session, now);
   session.status = 'ended';
   session.isLive = false;
   session.endedAt = now;
+  session.endReason = reason;
   session.retainUntil = retainUntilFor(session, now);
   await saveSession(session);
 
@@ -249,6 +258,12 @@ const finishSession = async (presentation: IPresentation, session: IPresentation
     participantCount: snapshot.participantCount,
     answerCount: snapshot.answerCount,
   });
+};
+
+/** Ends the live session and mirrors the deck: the host's End Session, and the idle-session job's. */
+const endLiveSession = async (presentation: IPresentation, session: IPresentationSession, reason: SessionEndReason) => {
+  await finishSession(presentation, session, reason);
+  await mirrorDeck(presentation, session);
 };
 
 const requireLiveSession = async (presentationId: string) => {
@@ -403,6 +418,7 @@ const moveTo = async (
   session.status = 'active';
   session.currentSlideId = slide._id as mongoose.Types.ObjectId;
   session.currentSlideIndex = index;
+  session.lastActivityAt = now;
   await saveSession(session);
   await mirrorDeck(presentation, session);
 
@@ -541,7 +557,9 @@ export const closeCurrentSlide = async (presentationId: string, actor: Actor): P
   const { slide, index, slideId, state } = currentResponseSlide(session, 'close');
   if (!isOpenState(state)) return result(presentation, session);
 
-  writeSlideState(session, slideId, { closedAt: new Date(), pausedRemainingMs: null });
+  const now = new Date();
+  writeSlideState(session, slideId, { closedAt: now, pausedRemainingMs: null });
+  session.lastActivityAt = now;
   await saveSession(session);
   await mirrorDeck(presentation, session);
   await cacheClosedWindow(session, slideId);
@@ -560,7 +578,9 @@ export const reopenCurrentSlide = async (presentationId: string, actor: Actor): 
   const { slide, index, slideId, state } = currentResponseSlide(session, 'reopen');
   if (slidePhase('response', state) === 'open') return result(presentation, session);
 
-  writeSlideState(session, slideId, openState(slide, new Date()));
+  const now = new Date();
+  writeSlideState(session, slideId, openState(slide, now));
+  session.lastActivityAt = now;
   await saveSession(session);
   await mirrorDeck(presentation, session);
   const opened = readSlideState(session, slideId)!;
@@ -586,6 +606,7 @@ export const revealCurrentSlide = async (presentationId: string, actor: Actor): 
       revealedAt: now,
       pausedRemainingMs: null,
     });
+    session.lastActivityAt = now;
     await saveSession(session);
     await mirrorDeck(presentation, session);
     await cacheClosedWindow(session, slideId);
@@ -647,9 +668,30 @@ export const endPresentation = async (presentationId: string, actor: Actor): Pro
     if (!latest) throw ApiError.badRequest('Presentation has not been started');
     return result(presentation, latest);
   }
-  await finishSession(presentation, live);
-  await mirrorDeck(presentation, live);
+  await endLiveSession(presentation, live, 'host');
   return result(presentation, live);
+};
+
+/**
+ * Ends a live session nobody has used for too long (the idle-session job,
+ * `idleSessions.ts`), the way the host's End Session does, without a host. The
+ * session is read again and must still be idle at `now`, so a host or
+ * participant who came back since the job's query wins. Returns the ended
+ * session and why, or null when it was left alone.
+ */
+export const endIdleSession = async (
+  sessionId: string,
+  now: Date,
+  thresholds: IdleThresholds
+): Promise<{ session: IPresentationSession; reason: IdleEndReason } | null> => {
+  const session: IPresentationSession | null = await PresentationSessionModel.findById(sessionId);
+  const reason = session ? idleEndReason(session, now, thresholds) : null;
+  if (!session || !reason) return null;
+  // Not getPresentationById: a deck in the trash must not keep its session live either.
+  const presentation = await PresentationModel.findById(session.presentationId);
+  if (!presentation) return null;
+  await endLiveSession(presentation, session, reason);
+  return { session, reason };
 };
 
 // ---------------------------------------------------------------------------

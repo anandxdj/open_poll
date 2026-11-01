@@ -297,7 +297,13 @@ function RecentWork({ library }: { library: ReturnType<typeof useHomeLibrary> })
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {library.recent.slice(0, RECENT_LIMIT).map((card) => (
-        <LibraryCard key={cardKey(card)} card={card} onRemoved={library.remove} onChanged={library.replace} />
+        <LibraryCard
+          key={cardKey(card)}
+          card={card}
+          onRemoved={library.remove}
+          onChanged={library.replace}
+          onDuplicated={library.refresh}
+        />
       ))}
     </div>
   );

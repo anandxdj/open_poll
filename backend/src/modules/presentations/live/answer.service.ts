@@ -13,13 +13,15 @@ import { kickedError, verifyParticipant } from './participant.service';
 import { loadAnswerWindow, resolveLiveSessionId, type AnswerWindow, type StoredAnswerResult } from './state';
 import { verifySlideTicket } from './ticket';
 import { enqueueAnswerWrite } from './writeBehind';
+import { noteSessionActivity } from './activity';
 
 /**
  * HOT PATH. One answer = grade in JS (the slide type owns grading), then ONE
  * Redis script call (`lua/answer.lua`: window and grace, participant auth,
  * rate limit, dedup, the type's ops, scores, stored result, coalescer mark).
  * Mongo is filled by batched write-behind, host updates go out through the
- * coalescer, so nothing here waits on the database or on a publish.
+ * coalescer, and session activity is recorded at most every few minutes
+ * (`activity.ts`), so nothing here waits on the database or on a publish.
  *
  * Used by `POST /:id/answer` (`via: 'rest'`) and the socket `answer:submit`
  * (`via: 'socket'`); clients replaying an offline queue send `offline: true`.
@@ -169,6 +171,7 @@ const processAnswer = async (
           via,
         });
         if (reply.ownsDirtyWindow) scheduleDirtyFlush(presentationId, sessionId);
+        void noteSessionActivity(sessionId); // throttled: no Mongo write per answer
         return {
           accepted: true,
           replay: false,

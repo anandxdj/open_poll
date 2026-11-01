@@ -47,9 +47,13 @@ Everything lives in `features/workspaces/`. Backend contract: `backend/docs/wiki
 `app/(dashboard)/settings/layout.tsx` renders the title and `SettingsNav` beside the page (`lg`; above it
 on smaller screens, as one scrolling row of chips whose disabled reasons are read to assistive tech only).
 `/settings` redirects to `SETTINGS_HOME` (`/settings/profile`). Pages render only their own sections:
-`settings/profile` (profile: name and email read-only, there is no update API; appearance: Light / Dark /
-System; security: "Reset password" links to `/forgot-password`, the only password flow the API has. The
-old notification switches and "Change password" button did nothing and were removed), `settings/mcp`
+`settings/profile` (`features/profile/components/ProfileSettings.tsx`: the name, saved with
+`PATCH /api/me` into the auth store so the sidebar and the Home greeting follow, email read-only;
+appearance: Light / Dark / System; security: `ChangePasswordForm` with current, new and confirm
+(show/hide, errors under each field: a wrong current password is `WRONG_PASSWORD`), which
+`POST /api/me/password` then swaps in the returned access token, every other device being signed
+out. Accounts with `hasPassword: false` (from `/auth/me`) see why instead, with a link to
+`/forgot-password`. Rules mirrored in `features/profile/account.ts`), `settings/mcp`
 (`McpSettingsSection`, below), `settings/privacy` (`PrivacySettings`, below), `settings/workspace` (`WorkspaceSettings`:
 name, plan, **data retention** for owners and admins (`#retention`, `PATCH settings.retentionDays`; applies to
 sessions that end afterwards), team workspaces), `settings/billing` (`BillingSettings`).

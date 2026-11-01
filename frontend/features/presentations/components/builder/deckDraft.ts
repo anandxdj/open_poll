@@ -1,5 +1,5 @@
 import type { PresentationDraftInput } from "../../api/crud";
-import { normalizeSlideForDraft, validateSlide } from "../../slides/editor";
+import { blankSlide, normalizeSlideForDraft, validateSlide } from "../../slides/editor";
 import { slideTypeMeta } from "../../slides/meta";
 import type { PresentationSlide } from "../../types/deck";
 import type { DeckThemeRef } from "@/features/themes/types";
@@ -13,6 +13,16 @@ export interface DeckDraft {
   /** The saved deck's theme; the Theme tab saves it on its own (not part of drafts). */
   theme?: DeckThemeRef | null;
 }
+
+/**
+ * The first slide of a new deck: a plain poll question (0 points, no correct
+ * option), so a deck can be presented without marking an answer. "Graded" in
+ * the inspector turns it into a quiz question.
+ */
+export const firstSlide = (): PresentationSlide => {
+  const slide = blankSlide("select_answer");
+  return { ...slide, points: 0, options: slide.options.map((o) => ({ ...o, isCorrect: false })) };
+};
 
 // ---------- Local (browser) draft ----------
 

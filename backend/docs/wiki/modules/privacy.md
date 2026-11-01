@@ -12,7 +12,13 @@ delete what is due. Compliance view of the same: `docs/compliance/{data-inventor
 ## Routes (mounted at `/api/me`)
 
 User-level, no workspace context (allow-listed in the tenancy test). All `authenticate()` and a
-per-user rate limit.
+per-user rate limit. The auth module's `accountRouter` shares the mount: `PATCH /` (`{name}`, 1–80
+characters trimmed; returns the user as `GET /api/auth/me`, audited `account.name_update`) and
+`POST /password` (`{currentPassword, newPassword}`, reset-password rules; 400 `WRONG_PASSWORD`, 409
+`NO_PASSWORD` with `details.ssoRequired` for Google/SSO-only accounts; replaces the stored refresh
+token so other sessions end, returns `{user, accessToken}` with a new refresh cookie, audits
+`account.password_change`, emails `sendPasswordChangedEmail`; limited 10 per 15 minutes per user).
+`GET /api/auth/me` carries `hasPassword` (never the hash).
 
 | Route | What |
 | --- | --- |

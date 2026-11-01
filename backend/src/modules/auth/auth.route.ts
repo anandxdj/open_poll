@@ -1,23 +1,29 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { AuthController } from './auth.controller';
-import { authenticate } from './auth.middleware';
+import { authenticate, type AuthRequest } from './auth.middleware';
 import { validate } from '../../common/middlewares/validate.middleware';
 import { registerSchema } from './dto/register.schema';
 import { loginSchema } from './dto/login.schema';
 import { forgotPasswordSchema } from './dto/forgot-password.schema';
 import { resendVerificationSchema } from './dto/resend-verification.schema';
 import { resetPasswordSchema } from './dto/reset-password.schema';
+import { updateProfileSchema } from './dto/update-profile.schema';
+import { changePasswordSchema } from './dto/change-password.schema';
 import { rateLimit } from '../../common/middlewares/rateLimit.middleware';
 import { requireTrustedOrigin } from '../../common/middlewares/origin.middleware';
 
 const router = Router();
 
+/** Limit key for signed-in account routes: the user, so it must run after authenticate(). */
+const byUser = (req: Request) => (req as AuthRequest).user?.id;
+
 /**
  * Every auth route is limited, and a Redis outage falls back to per-instance
  * in-memory windows instead of dropping brute-force protection. Routes that
- * take an email are also limited per account across all IPs.
+ * take an email are also limited per account across all IPs; signed-in
+ * account routes are limited per user (`byUser`).
  */
-const authLimit = (prefix: string, windowSec: number, max: number, keyBy: 'ip' | 'email' = 'ip') =>
+const authLimit = (prefix: string, windowSec: number, max: number, keyBy: 'ip' | 'email' | typeof byUser = 'ip') =>
   rateLimit({ prefix, windowSec, max, keyBy, onStoreError: 'memory' });
 
 /** Cookie-authenticated, state-changing endpoints only accept our own frontends. */
@@ -70,5 +76,29 @@ router.get('/me', authenticate() as any, AuthController.me as any);
 router.get('/google', authLimit('auth-google', 300, 30), AuthController.googleLogin as any);
 router.get('/google/callback', authLimit('auth-google-callback', 300, 30), AuthController.externalOAuthCallback as any);
 router.post('/oauth/exchange', authLimit('auth-oauth-exchange', 300, 20), AuthController.exchangeOAuthCode as any);
+
+/**
+ * Mounted at /api/me by src/http/routes.ts, beside the privacy module's
+ * router: the signed-in user's own profile and password, no workspace context.
+ *
+ * - PATCH /          `{ name }`, returns the user as GET /api/auth/me does
+ * - POST  /password  `{ currentPassword, newPassword }`, ends every other session
+ */
+export const accountRouter = Router();
+
+accountRouter.patch(
+  '/',
+  authenticate() as any,
+  authLimit('auth-update-profile', 300, 30, byUser),
+  validate(updateProfileSchema),
+  AuthController.updateMe as any,
+);
+accountRouter.post(
+  '/password',
+  authenticate() as any,
+  authLimit('auth-change-password', 900, 10, byUser),
+  validate(changePasswordSchema),
+  AuthController.changePassword as any,
+);
 
 export default router;

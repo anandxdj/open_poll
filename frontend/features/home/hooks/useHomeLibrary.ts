@@ -18,6 +18,18 @@ interface Loaded {
   error: boolean;
 }
 
+async function loadSlices(): Promise<Omit<Loaded, "key" | "error">> {
+  const [recent, live] = await Promise.all([
+    fetchLibraryPage(DEFAULT_FILTERS, null, RECENT_LIMIT),
+    fetchLibraryPage({ type: "presentation", status: "live", q: "" }, null, 3),
+  ]);
+  return {
+    recent: recent.items,
+    live: live.items.filter((card): card is PresentationLibraryCard => card.entityType === "presentation"),
+    counts: recent.counts ?? null,
+  };
+}
+
 /**
  * The library slices Home shows: the latest edited items (any kind, any status)
  * and the decks that are live right now (lobby open or presenting).
@@ -30,19 +42,10 @@ export function useHomeLibrary() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      fetchLibraryPage(DEFAULT_FILTERS, null, RECENT_LIMIT),
-      fetchLibraryPage({ type: "presentation", status: "live", q: "" }, null, 3),
-    ]).then(
-      ([recent, live]) => {
+    loadSlices().then(
+      (slices) => {
         if (cancelled) return;
-        setLoaded({
-          key,
-          recent: recent.items,
-          live: live.items.filter((card): card is PresentationLibraryCard => card.entityType === "presentation"),
-          counts: recent.counts ?? null,
-          error: false,
-        });
+        setLoaded({ key, ...slices, error: false });
       },
       (error: unknown) => {
         if (cancelled) return;
@@ -56,6 +59,14 @@ export function useHomeLibrary() {
   }, [key]);
 
   const current = loaded?.key === key ? loaded : null;
+
+  /** Loads the slices again in place (no skeletons), e.g. after a duplicate added an item. */
+  const refresh = useCallback(() => {
+    loadSlices().then(
+      (slices) => setLoaded((prev) => (prev && prev.key === key ? { ...prev, ...slices, error: false } : prev)),
+      (error: unknown) => console.error(error),
+    );
+  }, [key]);
 
   const remove = useCallback((card: LibraryCard) => {
     setLoaded((prev) =>
@@ -79,6 +90,7 @@ export function useHomeLibrary() {
     live: current?.live ?? [],
     counts: current?.counts ?? null,
     retry: () => setAttempt((n) => n + 1),
+    refresh,
     remove,
     replace,
   };

@@ -1,0 +1,629 @@
+<title>Open Poll Launch Readiness</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Instrument+Serif:ital@1&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: Graph paper status board. Summary first (verdict, three meters, the pipeline),
+   then detail (checklist, testing, bugs, decisions, what we need). */
+:root {
+  --paper: #f6f6f3;
+  --sheet: #ffffff;
+  --raised: #efeee9;
+  --rule: #e2e0d9;
+  --grid: rgba(23, 23, 23, 0.045);
+  --ink: #171717;
+  --graphite: #5c5a55;
+  --ember: #cf460c;
+  --ember-ink: #b93d0b;
+  --ember-soft: rgba(207, 70, 12, 0.1);
+  --ok: #15803d;
+  --ok-soft: rgba(21, 128, 61, 0.11);
+  --run: #1d4ed8;
+  --run-soft: rgba(29, 78, 216, 0.1);
+  --warn: #a14a06;
+  --warn-soft: rgba(161, 74, 6, 0.11);
+  --bad: #c81e1e;
+  --bad-soft: rgba(200, 30, 30, 0.1);
+  --idle-soft: rgba(92, 90, 85, 0.12);
+  --bar-e2e: #15803d;
+  --bar-unit: #8fb3e8;
+  --bar-none: #d9534f;
+  --font-sans: "Inter Tight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0d0d0c; --sheet: #161615; --raised: #1f1f1d; --rule: #2b2a27; --grid: rgba(242, 241, 236, 0.05);
+    --ink: #f2f1ec; --graphite: #a7a49c; --ember: #f97316; --ember-ink: #fb923c; --ember-soft: rgba(249, 115, 22, 0.14);
+    --ok: #22c55e; --ok-soft: rgba(34, 197, 94, 0.14); --run: #60a5fa; --run-soft: rgba(96, 165, 250, 0.14);
+    --warn: #f59e0b; --warn-soft: rgba(245, 158, 11, 0.14); --bad: #f87171; --bad-soft: rgba(248, 113, 113, 0.14);
+    --idle-soft: rgba(167, 164, 156, 0.14); --bar-e2e: #22c55e; --bar-unit: #3b6fb8; --bar-none: #e05252;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0d0d0c; --sheet: #161615; --raised: #1f1f1d; --rule: #2b2a27; --grid: rgba(242, 241, 236, 0.05);
+  --ink: #f2f1ec; --graphite: #a7a49c; --ember: #f97316; --ember-ink: #fb923c; --ember-soft: rgba(249, 115, 22, 0.14);
+  --ok: #22c55e; --ok-soft: rgba(34, 197, 94, 0.14); --run: #60a5fa; --run-soft: rgba(96, 165, 250, 0.14);
+  --warn: #f59e0b; --warn-soft: rgba(245, 158, 11, 0.14); --bad: #f87171; --bad-soft: rgba(248, 113, 113, 0.14);
+  --idle-soft: rgba(167, 164, 156, 0.14); --bar-e2e: #22c55e; --bar-unit: #3b6fb8; --bar-none: #e05252;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { font-weight: 600; letter-spacing: -0.025em; text-wrap: balance; margin: 0; }
+h2 { font-size: 1.55rem; line-height: 1.2; }
+h3 { font-size: 1.02rem; line-height: 1.3; letter-spacing: -0.01em; }
+p { margin: 0; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--graphite);
+}
+.muted { color: var(--graphite); }
+a { color: var(--ember-ink); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; border-radius: 4px; }
+
+/* ---------- Hero ---------- */
+.hero {
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  border-bottom: 1px solid var(--rule);
+}
+.hero .wrap { padding-block: 44px 36px; display: grid; gap: 28px; }
+.hero h1 { font-size: clamp(2.1rem, 5.4vw, 3.5rem); line-height: 1.04; letter-spacing: -0.04em; max-width: 16ch; }
+.hero h1 em { font-family: var(--font-serif); font-style: italic; font-weight: 400; color: var(--ember); letter-spacing: -0.01em; }
+.lede { font-size: 1.07rem; max-width: 66ch; color: var(--graphite); }
+.lede strong { color: var(--ink); font-weight: 600; }
+
+.meters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.meter {
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  padding: 18px 18px 16px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+}
+.meter .big { font-family: var(--font-mono); font-size: 2.05rem; font-weight: 500; letter-spacing: -0.03em; line-height: 1; }
+.meter .big small { font-size: 0.95rem; color: var(--graphite); letter-spacing: 0; margin-left: 4px; }
+.meter p { font-size: 0.86rem; color: var(--graphite); }
+.track { height: 10px; border-radius: 999px; background: var(--raised); overflow: hidden; display: flex; }
+.track span { display: block; height: 100%; }
+.seg-done { background: var(--ok); }
+.seg-run { background: var(--run); }
+.seg-block { background: var(--bad); }
+.seg-decide { background: var(--ember); }
+.seg-idle { background: transparent; }
+.keys { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 0.76rem; color: var(--graphite); }
+.keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+
+/* ---------- Sections ---------- */
+section.block { padding-block: 40px 8px; }
+.section-head { display: grid; gap: 6px; margin-bottom: 18px; max-width: 72ch; }
+.section-head p { color: var(--graphite); }
+
+/* Pipeline */
+.pipeline { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.stage {
+  position: relative;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 14px 12px 12px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+}
+.stage .n { font-family: var(--font-mono); font-size: 0.72rem; color: var(--graphite); }
+.stage h3 { font-size: 0.93rem; }
+.stage p { font-size: 0.8rem; color: var(--graphite); }
+.stage.here { border-color: var(--run); box-shadow: 0 0 0 3px var(--run-soft); }
+.here-tag {
+  position: absolute; top: -10px; right: 10px;
+  font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--run); color: var(--sheet); padding: 2px 7px; border-radius: 999px;
+}
+
+/* Chips */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em;
+  padding: 3px 9px; border-radius: 999px; white-space: nowrap; justify-self: start;
+}
+.chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.c-done { color: var(--ok); background: var(--ok-soft); }
+.c-run { color: var(--run); background: var(--run-soft); }
+.c-part { color: var(--warn); background: var(--warn-soft); }
+.c-block { color: var(--bad); background: var(--bad-soft); }
+.c-decide { color: var(--ember-ink); background: var(--ember-soft); }
+.c-idle { color: var(--graphite); background: var(--idle-soft); }
+
+/* Checklist */
+.tracks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.trackcard { background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; min-width: 0; }
+.trackcard header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--rule); }
+.trackcard header .mono { font-size: 0.8rem; color: var(--graphite); }
+.items { list-style: none; margin: 0; padding: 0; }
+.items li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 12px 16px; border-bottom: 1px solid var(--rule); align-items: start; }
+.items li:last-child { border-bottom: 0; }
+.items .what { font-weight: 500; }
+.items .why { grid-column: 1 / -1; font-size: 0.84rem; color: var(--graphite); }
+
+/* Testing */
+.verdict-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; padding: 18px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.panel.yes { border-top: 3px solid var(--ok); }
+.panel.no { border-top: 3px solid var(--bad); }
+.ticks { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ticks li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; font-size: 0.92rem; }
+.ticks li::before { font-family: var(--font-mono); font-weight: 600; line-height: 1.55; }
+.panel.yes .ticks li::before { content: "✓"; color: var(--ok); }
+.panel.no .ticks li::before { content: "✗"; color: var(--bad); }
+.ticks small { display: block; color: var(--graphite); font-size: 0.8rem; }
+
+.coverage { margin-top: 14px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; padding: 18px; display: grid; gap: 16px; }
+.cov-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 20px; align-items: end; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.8rem; color: var(--graphite); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.l-e2e { background: var(--bar-e2e); } .l-unit { background: var(--bar-unit); } .l-none { background: var(--bar-none); }
+.totals { display: grid; gap: 8px; }
+.totrow { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 12px; align-items: center; }
+.totrow .lbl { font-family: var(--font-mono); font-size: 0.78rem; color: var(--graphite); }
+.stack { display: flex; height: 22px; border-radius: 6px; overflow: hidden; background: var(--raised); }
+.stack span { display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 0.7rem; color: #fff; min-width: 0; overflow: hidden; white-space: nowrap; }
+.s-e2e { background: var(--bar-e2e); } .s-unit { background: var(--bar-unit); color: #0d1b2e !important; } .s-none { background: var(--bar-none); }
+.areas { display: grid; gap: 7px; }
+.arow { display: grid; grid-template-columns: 150px minmax(0, 1fr) 92px; gap: 12px; align-items: center; font-size: 0.86rem; }
+.arow .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arow .stack { height: 14px; border-radius: 4px; }
+.arow .num { font-family: var(--font-mono); font-size: 0.76rem; color: var(--graphite); text-align: right; white-space: nowrap; }
+.arow.changed .name::after { content: " ▲"; color: var(--ok); font-size: 0.7rem; }
+.note { font-size: 0.8rem; color: var(--graphite); }
+
+/* Bugs */
+.bugcols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.bugcol { background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.bugcol header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.bugcol .count { font-family: var(--font-mono); font-size: 1.5rem; font-weight: 500; }
+.bugcol.sev-1 { border-top: 3px solid var(--bad); }
+.bugcol.sev-2 { border-top: 3px solid var(--warn); }
+.bugcol.sev-3 { border-top: 3px solid var(--graphite); }
+.buglist { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.buglist li { font-size: 0.88rem; display: grid; gap: 2px; }
+.buglist li span { color: var(--graphite); font-size: 0.8rem; }
+
+/* Decisions */
+.decisions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.decision { background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; padding: 16px 18px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.decision .top { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.decision p { font-size: 0.9rem; color: var(--graphite); }
+.rec { border-left: 2px solid var(--ember); padding-left: 10px; font-size: 0.88rem; }
+.rec b { font-weight: 600; color: var(--ember-ink); }
+.decided { background: var(--raised); }
+
+/* Needs */
+.needs { list-style: none; margin: 0; padding: 0; background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; }
+.needs li { display: grid; grid-template-columns: 36px minmax(0, 1fr) minmax(0, 0.9fr); gap: 4px 14px; padding: 14px 16px; border-bottom: 1px solid var(--rule); align-items: start; }
+.needs li:last-child { border-bottom: 0; }
+.needs .idx { font-family: var(--font-mono); color: var(--ember-ink); font-size: 0.85rem; padding-top: 1px; }
+.needs .what { font-weight: 500; }
+.needs .unlocks { font-size: 0.84rem; color: var(--graphite); }
+
+footer.src { padding-block: 40px 56px; }
+footer.src .wrap > div { border-top: 1px solid var(--rule); padding-top: 16px; display: grid; gap: 6px; font-size: 0.8rem; color: var(--graphite); }
+footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
+
+@media (max-width: 980px) {
+  .pipeline { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .bugcols { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .meters, .tracks, .verdict-split, .decisions { grid-template-columns: minmax(0, 1fr); }
+  .pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .arow { grid-template-columns: 104px minmax(0, 1fr) 70px; gap: 8px; font-size: 0.8rem; }
+  .needs li { grid-template-columns: 28px minmax(0, 1fr); }
+  .needs .unlocks { grid-column: 2; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .track span, .stack span { transition: width 600ms cubic-bezier(0.32, 0.72, 0, 1); }
+}
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Open Poll · release status · Sun 1 Nov 2026</p>
+    <h1>Built and tested. Not <em>shipped</em> yet.</h1>
+    <p class="lede">
+      The product is <strong>feature-complete for a first release</strong>, and its core flows now pass
+      end-to-end tests after <strong>18 bugs were fixed today</strong>. Your decisions are built too:
+      duplicating decks and polls, editing your profile, idle sessions that end on their own, and new decks that
+      start with a plain poll question. None of it is live yet: production still runs code from before the
+      roadmap work. A few launch basics are also missing: legal text, error tracking, backups and payments.
+    </p>
+
+    <div class="meters">
+      <div class="meter">
+        <p class="eyebrow">Product built</p>
+        <div class="big">19<small>/ 26 work packages</small></div>
+        <div class="track" role="img" aria-label="19 of 26 roadmap work packages built">
+          <span class="seg-done" style="width:73.1%"></span>
+        </div>
+        <p>The 7 left can wait until after launch: presenter remote, audience pace, folders and templates, an accessibility pass, Spanish, embeds and offline answers.</p>
+      </div>
+      <div class="meter">
+        <p class="eyebrow">Launch checklist</p>
+        <div class="big">5<small>/ 19 done</small></div>
+        <div class="track" role="img" aria-label="5 done, 4 in progress, 1 waiting on you, 9 not started">
+          <span class="seg-done" style="width:26.3%"></span>
+          <span class="seg-run" style="width:21.1%"></span>
+          <span class="seg-block" style="width:5.3%"></span>
+        </div>
+        <div class="keys">
+          <span><i class="seg-done"></i>5 done</span>
+          <span><i class="seg-run"></i>4 in progress</span>
+          <span><i class="seg-block"></i>1 waiting on you</span>
+          <span><i style="background:var(--raised)"></i>9 not started</span>
+        </div>
+      </div>
+      <div class="meter">
+        <p class="eyebrow">Critical scenarios without an end-to-end test</p>
+        <div class="big">3<small>of 24 left</small></div>
+        <div class="track" role="img" aria-label="21 of 24 critical scenarios now covered end to end">
+          <span class="seg-done" style="width:87.5%"></span>
+          <span class="seg-block" style="width:12.5%"></span>
+        </div>
+        <p>Left: the presenter role in the UI, and a host or phone losing its connection mid-session (unit-tested only).</p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="block">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Where we are</p>
+        <h2>From built to live, in seven steps</h2>
+        <p>Steps 1 and 2 are done. We are on step 3: the new work is merged and tested locally, and it needs to be pushed and the release commit rebuilt.</p>
+      </div>
+      <ol class="pipeline">
+        <li class="stage">
+          <span class="n">01</span><h3>Build features</h3>
+          <span class="chip c-done">Done</span>
+          <p>Decks, live sessions, Q&amp;A, quick polls, reports, teams, imports, AI, brand, SSO, domains, privacy, MCP.</p>
+        </li>
+        <li class="stage">
+          <span class="n">02</span><h3>Test and fix</h3>
+          <span class="chip c-done">Done</span>
+          <p>423 scenarios mapped, 9 new e2e spec files, 18 bugs fixed, your decisions built.</p>
+        </li>
+        <li class="stage here">
+          <span class="here-tag">You are here</span>
+          <span class="n">03</span><h3>Release commit and CI</h3>
+          <span class="chip c-run">Rebuild</span>
+          <p>18 new commits are tested locally and waiting to be pushed. Then R gets rebuilt and goes through CI.</p>
+        </li>
+        <li class="stage">
+          <span class="n">04</span><h3>Rehearse migrations</h3>
+          <span class="chip c-block">Your OK</span>
+          <p>Needs a copy of the production database. Its address is in your backup <span class="mono">.env</span>.</p>
+        </li>
+        <li class="stage">
+          <span class="n">05</span><h3>Release window</h3>
+          <span class="chip c-idle">Not started</span>
+          <p>Deploy the backend, merge 9 PRs, Vercel builds. About 30 minutes.</p>
+        </li>
+        <li class="stage">
+          <span class="n">06</span><h3>Launch basics</h3>
+          <span class="chip c-idle">Not started</span>
+          <p>Legal text, error tracking, backups, support channel, one domain.</p>
+        </li>
+        <li class="stage">
+          <span class="n">07</span><h3>Payments</h3>
+          <span class="chip c-idle">Separate track</span>
+          <p>Stripe is built; it needs live keys and a tax decision.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Launch checklist · 19 items</p>
+        <h2>What is done and what is left</h2>
+      </div>
+      <div class="tracks">
+        <div class="trackcard">
+          <header><h3>Build</h3><span class="mono">2 of 4 done</span></header>
+          <ul class="items">
+            <li><span class="what">Product features built</span><span class="chip c-done">Done</span><span class="why">19 of 26 roadmap packages plus MCP, and today: duplicate decks and polls, profile editing, idle sessions ending on their own.</span></li>
+            <li><span class="what">Bugs from the test pass fixed</span><span class="chip c-done">Done</span><span class="why">18 fixed, plus an edited name that Google sign-in used to overwrite.</span></li>
+            <li><span class="what">Release commit R rebuilt</span><span class="chip c-run">Next</span><span class="why">The last R (<span class="mono">8ee828e</span>) predates today's 18 new commits. They need a push, then a rebuild.</span></li>
+            <li><span class="what">CI green on R</span><span class="chip c-run">After rebuild</span><span class="why">The previous R passed every job except Playwright, which was still running. GitGuardian only flagged test passwords; an ignore file is added.</span></li>
+          </ul>
+        </div>
+        <div class="trackcard">
+          <header><h3>Test</h3><span class="mono">2 of 6 done</span></header>
+          <ul class="items">
+            <li><span class="what">Automated suites pass</span><span class="chip c-done">Done</span><span class="why">On the merged branch: backend 1,455 unit tests and 369 integration tests, frontend 721 unit tests, all with no failures. Playwright: 80 tests across 26 spec files; one timing fix, then a clean re-run.</span></li>
+            <li><span class="what">Core flow clicked by hand</span><span class="chip c-done">Done</span><span class="why">Build, present, join from a phone, answer, reveal, end. Chromium only, desktop and phone width.</span></li>
+            <li><span class="what">Every critical scenario covered end to end</span><span class="chip c-run">21 of 24</span><span class="why">Presenter role in the UI, and a host or phone dropping its connection, are left.</span></li>
+            <li><span class="what">Load at conference size</span><span class="chip c-part">Partial</span><span class="why">Synthetic answer storm only: 500 answers/s in CI, 2,000/s locally. No real crowd yet.</span></li>
+            <li><span class="what">Safari, Firefox, real phones</span><span class="chip c-idle">Not started</span><span class="why">Everything so far ran in Chromium.</span></li>
+            <li><span class="what">Real third-party services</span><span class="chip c-idle">Not started</span><span class="why">Google login, a real SSO provider, Stripe, PowerPoint through Gotenberg, Google Drive.</span></li>
+          </ul>
+        </div>
+        <div class="trackcard">
+          <header><h3>Ship</h3><span class="mono">1 of 4 done</span></header>
+          <ul class="items">
+            <li><span class="what">Rehearse migrations on a copy of production</span><span class="chip c-block">Your OK</span><span class="why">Migrations 001–200 have never run on real data. The production database address is in <span class="mono">backend/.env.user-backup</span>; I need your go-ahead to copy it.</span></li>
+            <li><span class="what">Production settings</span><span class="chip c-idle">Not started</span><span class="why">VPS and Vercel values, starting with <span class="mono">NEXT_PUBLIC_SITE_URL=https://open-poll.anands.dev</span>. Today the live site tells search engines its address is <span class="mono">localhost:3000</span>.</span></li>
+            <li><span class="what">Release window</span><span class="chip c-idle">Not started</span><span class="why">Backend first, then merge #8 → #16 and #13, then Vercel. The plan is written, rollback included.</span></li>
+            <li><span class="what">App and API on one site</span><span class="chip c-done">Done</span><span class="why"><span class="mono">open-poll.anands.dev</span> already serves the app and shares the site with the API, so Safari keeps people signed in.</span></li>
+          </ul>
+        </div>
+        <div class="trackcard">
+          <header><h3>Operate</h3><span class="mono">0 of 5 done</span></header>
+          <ul class="items">
+            <li><span class="what">Terms of use and privacy policy</span><span class="chip c-idle">Not started</span><span class="why">Both pages hold placeholder text.</span></li>
+            <li><span class="what">Error tracking and alerts</span><span class="chip c-idle">Not started</span><span class="why">Errors only reach the server log today; nobody would be told.</span></li>
+            <li><span class="what">Database backups</span><span class="chip c-idle">Not started</span><span class="why">No scheduled backup or tested restore.</span></li>
+            <li><span class="what">Support and contact channel</span><span class="chip c-idle">Not started</span><span class="why">There is no contact link anywhere in the product.</span></li>
+            <li><span class="what">Payments live</span><span class="chip c-idle">Not started</span><span class="why">Separate track: Stripe keys, prices and tax.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Did we test it end to end?</p>
+        <h2>Yes for the core product, in one browser. Not on real devices or with real services.</h2>
+        <p>"Tested" here means a real click or a Playwright step against a running app, with no stubs. That rule came from the End Session bug, which earlier testing had hidden.</p>
+      </div>
+      <div class="verdict-split">
+        <div class="panel yes">
+          <h3>Tested</h3>
+          <ul class="ticks">
+            <li><span>Host flow: build a deck, present, open the lobby, phones join, answer, reveal, end, open the report<small>By hand in the browser pane and in Playwright</small></span></li>
+            <li><span>The audience on a 375 px phone with touch: join by typing the code, answer three slide types, reach the end<small>Playwright, with no sideways scroll and 44 px buttons checked</small></span></li>
+            <li><span>Sign up, verify the email, log in, reset the password, stay signed in, log out<small>Playwright</small></span></li>
+            <li><span>Quick polls: build, draft, publish, vote anonymously and with a name, one vote per person, close, publish results<small>Playwright</small></span></li>
+            <li><span>Library, sessions and exports, Q&amp;A and reactions, CSV imports, brand kits, members and roles, SSO and SCIM (test provider), custom domains, privacy<small>Playwright</small></span></li>
+            <li><span>Today's additions: duplicate a deck and a poll; rename yourself and change your password; idle lobbies and sessions ending on their own<small>Playwright for the first two; the idle job in integration tests, including two servers sharing one lock</small></span></li>
+            <li><span>Vote integrity, workspace isolation, billing webhooks, migrations, load smoke<small>Backend unit and integration tests</small></span></li>
+          </ul>
+        </div>
+        <div class="panel no">
+          <h3>Not tested yet</h3>
+          <ul class="ticks">
+            <li><span>Safari and iPhone, Firefox, real Android phones<small>Only Chromium so far</small></span></li>
+            <li><span>Google login, a real SSO provider (Okta, Entra), Stripe checkout<small>No keys in this environment</small></span></li>
+            <li><span>Real PowerPoint files through Gotenberg, Google Drive import<small>Disabled mode only</small></span></li>
+            <li><span>A room of hundreds of real phones<small>Only a synthetic answer storm</small></span></li>
+            <li><span>The production deployment itself<small>Never deployed; first comes the migration rehearsal</small></span></li>
+            <li><span>The presenter role in the UI, and a host or phone losing its connection in a real browser<small>Unit and backend tests only</small></span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="coverage">
+        <div class="cov-head">
+          <div>
+            <h3>423 scenarios, and how each is tested</h3>
+            <p class="note">One bar per area of the product. ▲ marks areas that gained end-to-end tests today.</p>
+          </div>
+          <div class="legend">
+            <span><i class="l-e2e"></i>End to end (Playwright)</span>
+            <span><i class="l-unit"></i>Backend or unit tests only</span>
+            <span><i class="l-none"></i>No test</span>
+          </div>
+        </div>
+        <div class="totals">
+          <div class="totrow"><span class="lbl">Before</span>
+            <div class="stack" role="img" aria-label="Before: 148 end to end, 198 backend or unit only, 77 none">
+              <span class="s-e2e" style="width:35.0%">148</span><span class="s-unit" style="width:46.8%">198</span><span class="s-none" style="width:18.2%">77</span>
+            </div>
+          </div>
+          <div class="totrow"><span class="lbl">Now</span>
+            <div class="stack" role="img" aria-label="Now: 180 end to end, 182 backend or unit only, 61 none">
+              <span class="s-e2e" style="width:42.6%">180</span><span class="s-unit" style="width:43.0%">182</span><span class="s-none" style="width:14.4%">61</span>
+            </div>
+          </div>
+        </div>
+        <div class="areas" id="areas"></div>
+        <p class="note">Most remaining "no test" rows are lower priority (P1 and P2): error states, empty states, Home details, accessibility. Every area and scenario is listed in <span class="mono">docs/planning/scenario-inventory.md</span>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Found and fixed today · 18</p>
+        <h2>What the test pass caught</h2>
+        <p>All fixed and committed. The new end-to-end tests now guard each one.</p>
+      </div>
+      <div class="bugcols">
+        <div class="bugcol sev-1">
+          <header><h3>Data or security</h3><span class="count">5</span></header>
+          <ul class="buglist">
+            <li>A wrong password could sign in another session<span>The token-refresh logic ran on a failed login.</span></li>
+            <li>One email could vote twice on a named poll<span>Typing a different name counted as a new person.</span></li>
+            <li>Assessment retries could be reset<span>Same loophole: a new name gave fresh attempts.</span></li>
+            <li>Unsaved deck edits were lost on reload<span>The saved copy overwrote the newer local draft.</span></li>
+            <li>Builder and host pages opened while signed out<span>They are now behind the login.</span></li>
+          </ul>
+        </div>
+        <div class="bugcol sev-2">
+          <header><h3>Broken in real use</h3><span class="count">7</span></header>
+          <ul class="buglist">
+            <li>End Session and Close lobby did nothing<span>In embedded browsers, like the Claude app pane, the native confirm box answered "no".</span></li>
+            <li>Three settings buttons had the same problem<span>Remove domain, revoke SCIM token, delete SSO connection.</span></li>
+            <li>The tests auto-accepted those boxes<span>That is why CI was green. They now fail if a native box appears.</span></li>
+            <li>The audience join page used up the login rate limit<span>On shared conference Wi-Fi this caused "too many requests" errors.</span></li>
+            <li>A lost session showed a page of errors<span>It now goes to the login page.</span></li>
+            <li>A short join code did nothing<span>Now it says to enter the 6-digit code.</span></li>
+            <li>An imported deck opened with an empty title<span>A regression from the reload fix, caught by the tests the same day.</span></li>
+          </ul>
+        </div>
+        <div class="bugcol sev-3">
+          <header><h3>Polish</h3><span class="count">6</span></header>
+          <ul class="buglist">
+            <li>Phone buttons too small<span>Word-cloud remove (18 px) and rating sliders (8 px) are 44 px now.</span></li>
+            <li>Wrong text on an ended session<span>It said "waiting for the first answers".</span></li>
+            <li>Signup said SSO was "coming soon"<span>SSO works; signup now offers it.</span></li>
+            <li>Internal <span class="mono">/test</span> pages were public<span>They return 404 in production builds.</span></li>
+            <li>App pages showed the landing page's tab title<span>Each page has its own title now.</span></li>
+            <li>Home cut deck titles short<span>"Q4 all-hands pulse" showed as "Q4 …".</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Your decisions · 7 of 8 settled</p>
+        <h2>What you decided, and what was built</h2>
+        <p>You asked for the recommended option on each. Everything that could be done in code is done and tested; the release date still waits for the rehearsal.</p>
+      </div>
+      <div class="decisions">
+        <article class="decision decided">
+          <div class="top"><h3>Plan limits</h3><span class="chip c-done">Kept</span></div>
+          <p>Free stays at 100 people per session or poll, 5 AI decks and 5 imports a month, results kept 365 days.</p>
+          <p class="rec"><b>Built:</b> a read-only report, <span class="mono">scripts/plan-impact.ts</span>, that shows during the rehearsal exactly which existing polls and sessions these limits hit.</p>
+        </article>
+        <article class="decision decided">
+          <div class="top"><h3>Domain</h3><span class="chip c-done">Settled</span></div>
+          <p><span class="mono">open-poll.anands.dev</span> already serves the app, on the same site as the API (<span class="mono">openpoll-backend.anands.dev</span>), so Safari keeps people signed in.</p>
+          <p class="rec"><b>Left:</b> set it as <span class="mono">NEXT_PUBLIC_SITE_URL</span> in Vercel and <span class="mono">FRONTEND_URL</span> on the server, and redirect <span class="mono">open-poll.vercel.app</span> to it.</p>
+        </article>
+        <article class="decision decided">
+          <div class="top"><h3>Abandoned sessions</h3><span class="chip c-done">Built</span></div>
+          <p>A lobby ends after 6 hours without activity, a presented session after 12. They end the same way as the host's End Session, and both times can be changed.</p>
+          <p class="rec"><b>Tested:</b> integration tests, including two servers sharing one job lock; migration 200 backfills activity times.</p>
+        </article>
+        <article class="decision decided">
+          <div class="top"><h3>First slide of a new deck</h3><span class="chip c-done">Built</span></div>
+          <p>A new deck starts with an unscored multiple-choice question. "Graded" turns it into a quiz question.</p>
+        </article>
+        <article class="decision decided">
+          <div class="top"><h3>Anonymous poll in two tabs</h3><span class="chip c-done">Kept</span></div>
+          <p>Anonymous polls stay an honour system. Publish settings now say so and point to named polls for strict counts.</p>
+        </article>
+        <article class="decision decided">
+          <div class="top"><h3>Launch scope</h3><span class="chip c-done">Built</span></div>
+          <p>Duplicate a deck or a poll from the library or Home. Rename yourself and change your password; other devices are signed out and you get an email.</p>
+          <p class="rec"><b>After launch:</b> removing a participant from a session.</p>
+        </article>
+        <article class="decision decided">
+          <div class="top"><h3>MCP in this release</h3><span class="chip c-done">Decided</span></div>
+          <p>Connecting Claude and ChatGPT ships with this release.</p>
+        </article>
+        <article class="decision">
+          <div class="top"><h3>Release date</h3><span class="chip c-decide">After the rehearsal</span></div>
+          <p>The release needs a 30-minute window with no live sessions, a fresh database backup, and you at the VPS.</p>
+          <p class="rec"><b>Recommend:</b> set the date once the rehearsal passes.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">What we actually need</p>
+        <h2>Things only you can provide</h2>
+        <p>Everything else I can do from here.</p>
+      </div>
+      <ol class="needs">
+        <li><span class="idx">01</span><span class="what">Your OK to push today's 18 commits and rebuild the release commit</span><span class="unlocks">Then CI runs on the new R.</span></li>
+        <li><span class="idx">02</span><span class="what">Your OK to copy the production database for the rehearsal</span><span class="unlocks">Its address is in <span class="mono">backend/.env.user-backup</span> (MongoDB Atlas). The copy holds real user data; I delete it after the rehearsal.</span></li>
+        <li><span class="idx">03</span><span class="what">Production settings on the VPS and in Vercel</span><span class="unlocks">Site address <span class="mono">https://open-poll.anands.dev</span>, signing and encryption secrets, the public API address, a real storage bucket.</span></li>
+        <li><span class="idx">04</span><span class="what">Terms of use and privacy policy text</span><span class="unlocks">Required before inviting real users.</span></li>
+        <li><span class="idx">05</span><span class="what">An error-tracking account (for example Sentry)</span><span class="unlocks">No key exists in either <span class="mono">.env</span>; once there is one, I wire it in.</span></li>
+        <li><span class="idx">06</span><span class="what">Stripe live keys and a tax decision</span><span class="unlocks">Payments track: checkout, plans and invoices are already built.</span></li>
+      </ol>
+    </div>
+  </section>
+</main>
+
+<footer class="src">
+  <div class="wrap">
+    <div>
+      <p>Sources: <code>docs/planning/06-merge-and-deploy.md</code>, <code>docs/planning/07-product-test-plan.md</code>, <code>docs/planning/scenario-inventory.md</code>, <code>docs/planning/05-handoff.md</code>.</p>
+      <p>Branches: <code>feat/editor-v2</code> is 18 commits (this page included) ahead of PR #16 and not pushed; <code>feat/mcp-agents</code> at <code>8ee828e</code> (PR #13, the previous release commit R).</p>
+      <p>Coverage counts: 423 scenarios from the inventory. "Before" is the start of the 1 Nov test pass; "Now" adds the 32 scenarios the new specs cover (30 from the test pass, plus duplicate and profile).</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Per-area coverage after the 1 Nov pass: [area, end-to-end, backend/unit only, none, gained e2e today]
+  const AREAS = [
+    ["Participant flow", 28, 13, 2, true],
+    ["Host console", 22, 5, 7, false],
+    ["Deck builder", 20, 22, 2, true],
+    ["Auth", 15, 19, 5, true],
+    ["Settings", 15, 25, 4, true],
+    ["Sessions", 13, 8, 1, false],
+    ["Library", 10, 9, 5, true],
+    ["Quick polls", 9, 10, 4, true],
+    ["Q&A and reactions", 9, 9, 0, false],
+    ["Public and SEO", 9, 5, 7, false],
+    ["Imports", 6, 11, 0, false],
+    ["Phone, theme, a11y", 6, 3, 6, true],
+    ["Roles and access", 4, 11, 2, false],
+    ["Plan limits", 3, 11, 0, false],
+    ["Analytics", 3, 6, 2, false],
+    ["Errors and edge cases", 3, 11, 5, false],
+    ["Native dialogs", 3, 0, 3, false],
+    ["Home", 2, 4, 6, false],
+  ];
+  const host = document.getElementById("areas");
+  const max = Math.max(...AREAS.map(([, a, b, c]) => a + b + c));
+  for (const [name, e2e, unit, none, gained] of AREAS) {
+    const total = e2e + unit + none;
+    const row = document.createElement("div");
+    row.className = "arow" + (gained ? " changed" : "");
+    const pct = (n) => (n / max) * 100 + "%";
+    row.innerHTML =
+      `<span class="name" title="${name}">${name}</span>` +
+      `<div class="stack" style="width:${pct(total)}" role="img" aria-label="${name}: ${e2e} end to end, ${unit} backend or unit only, ${none} no test">` +
+      `<span class="s-e2e" style="width:${(e2e / total) * 100}%"></span>` +
+      `<span class="s-unit" style="width:${(unit / total) * 100}%"></span>` +
+      `<span class="s-none" style="width:${(none / total) * 100}%"></span></div>` +
+      `<span class="num">${e2e} · ${unit} · ${none}</span>`;
+    host.appendChild(row);
+  }
+</script>

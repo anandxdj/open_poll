@@ -202,7 +202,11 @@ export function PublishSettingsModal({
                       </div>
                       <div>
                         <p className="text-sm font-medium text-foreground">Anonymous responses</p>
-                        <p className="text-xs text-muted-foreground">No voter identity stored</p>
+                        <p className="text-xs text-muted-foreground">
+                          {isAnonymous
+                            ? "No names. Someone could answer twice from another tab or device; turn this off for strict counts."
+                            : "People give a name and email first, and each person answers once."}
+                        </p>
                       </div>
                     </div>
                     <Switch
@@ -244,7 +248,7 @@ export function PublishSettingsModal({
                     <div>
                       <p className="text-sm font-medium text-foreground">Response visibility</p>
                       <p className="text-xs text-muted-foreground">
-                        {isAnonymous ? "Responses are fully anonymous" : "Creator can see device IDs"}
+                        {isAnonymous ? "Responses are fully anonymous" : "You see each voter's name and email"}
                       </p>
                     </div>
                   </div>

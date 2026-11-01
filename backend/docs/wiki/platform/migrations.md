@@ -1,7 +1,7 @@
 ---
 summary: Numbered idempotent migrations (bun run migrate), the migrations collection and lock, number ranges, and index ownership.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-01
 ---
 
 # Migrations (`src/migrations/`)
@@ -61,3 +61,9 @@ export default migration;
 Moves each deck's stored run into legacy session #1, backfills `sessionId`/`slideId`, ends
 decks left live, swaps the per-deck unique indexes for session-scoped ones. Details and the
 deploy runbook (no live sessions during the deploy): `modules/presentations-live.md`.
+
+## 200-session-activity
+
+Creates the idle-session job's index on `presentationsessions` (`live_sessions_by_activity`:
+`{status, lastActivityAt}`, partial on `isLive: true`) and backfills `lastActivityAt` of live
+sessions from `updatedAt` (else `startedAt`). See `modules/presentations-live.md` → Idle sessions.

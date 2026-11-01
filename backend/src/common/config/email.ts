@@ -106,6 +106,33 @@ export const sendWorkspaceInviteEmail = async (
   return Boolean(delivered);
 };
 
+/**
+ * After POST /api/me/password: tells the owner their password changed and the
+ * other devices were signed out, with a way back in if it wasn't them.
+ */
+export const sendPasswordChangedEmail = async (email: string, changedAt: Date) => {
+  const resetUrl = `${env.FRONTEND_URL}/forgot-password`;
+  const when = changedAt.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'UTC',
+    timeZoneName: 'short',
+  });
+  await sendEmail(
+    email,
+    'Your Open Poll password was changed',
+    emailLayout({
+      heading: 'Your password was changed',
+      body: `<p style="margin: 0;">The password for your Open Poll account was changed on ${when}. Every other device signed in to your account was signed out.</p>`,
+      button: { href: resetUrl, label: 'Reset my password' },
+      footer: "If this was you, you don't need to do anything. If it wasn't, reset your password now.",
+    })
+  );
+};
+
 /** After DELETE /api/me: when the account goes, and that signing in keeps it. */
 export const sendAccountDeletionEmail = async (email: string, purgeAt: Date) => {
   const loginUrl = `${env.FRONTEND_URL}/login`;

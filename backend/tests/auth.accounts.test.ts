@@ -10,6 +10,7 @@ mock.module('../src/common/config/email', () => ({
   // mock.module is process-wide: keep every export other suites import.
   sendWorkspaceInviteEmail: async () => false,
   sendAccountDeletionEmail: async (to: string) => void sent.push({ kind: 'account-deletion', to }),
+  sendPasswordChangedEmail: async (to: string) => void sent.push({ kind: 'password-changed', to }),
 }));
 
 const { UserModel } = await import('../src/modules/auth/auth.model');

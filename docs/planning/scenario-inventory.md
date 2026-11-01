@@ -145,7 +145,6 @@ Per-resource shares can grant editor, presenter or viewer, but only for shareabl
 **Product gaps found while building the inventory.** These are scenarios the brief expects but the code does not support.
 - **No way to remove a participant.** There is no host route or UI to kick someone. The server and the phone already handle `PARTICIPANT_KICKED`.
 - **No duplicate in the library.** Decks and polls cannot be duplicated from the library; only a slide can be duplicated, inside the builder.
-- **Profile is read-only.** There is no API to update the profile or change the password; a password change goes through the reset flow.
 - **Unused deck settings.** `nickname` (optional or off), `showResultsOnDevices` and `audienceLocale` are stored on the deck, but the builder has no control for them and the phone ignores them.
 - **No self-paced runtime.** Converted polls become "Self-paced deck"s (`pace: audience`), but no audience-paced runtime exists in the UI.
 - **No speaker notes on the host console.** Speaker notes appear only in the builder.
@@ -265,7 +264,7 @@ Per-resource shares can grant editor, presenter or viewer, but only for shareabl
 | LIB-16 | Convert a poll to a presentation | New self-paced deck of `select_answer` slides opens in the builder; responses not copied; poll keeps working | be:integration/library.test.ts, be:library.convert.test.ts | P1 |
 | LIB-17 | Convert again (force) versus a repeat convert ("Open converted deck") | Repeat returns the same deck; force makes a new one; races make exactly one | be:integration/library.test.ts | P2 |
 | LIB-18 | Convert a poll a deck cannot represent | Refused, naming the question | be:library.convert.test.ts, be:integration/library.test.ts | P2 |
-| LIB-19 | Duplicate a deck or poll from the library | Not implemented (only slide duplicate exists); product gap | NONE | P2 |
+| LIB-19 | Duplicate a deck or poll from the library (or Home) | "Copy of <title>": a draft deck with every slide, notes and theme, or an unpublished poll; no sessions or responses copied; viewers and presenters refused | e2e:duplicate.spec.ts, int:duplicate.test.ts | — |
 | LIB-20 | Badges and status pills (Assessment, Self-paced deck, From poll or quiz; Draft, Lobby open, Live, Ended) | Correct labels | unit:library.query.test.ts | P2 |
 | LIB-21 | Library scoped to the selected workspace; switching changes the list | No cross-workspace items | be:integration/library.test.ts, be:integration/tenancy-isolation.test.ts | P1 |
 | LIB-22 | `/presentations` | Redirects to `/polls?type=presentation` | NONE | P2 |
@@ -507,7 +506,7 @@ Per-resource shares can grant editor, presenter or viewer, but only for shareabl
 | ID | Scenario | Expected result | Coverage | Pri |
 |---|---|---|---|---|
 | SET-01 | `/settings` and the section nav | Redirects to `/settings/profile`; gated entries show one-line reasons (capability, team only, plan, role) | unit:settings.sections.test.ts | P1 |
-| SET-02 | Profile | Name, email and avatar (initials fallback), read only | NONE | P2 |
+| SET-02 | Profile | Name editable (1–80 characters, sidebar and Home follow), email read only, avatar (initials fallback); change password with the current one (other devices signed out), or why not for Google/SSO-only accounts | e2e:profile.spec.ts, int:account.test.ts | P1 |
 | SET-03 | Appearance Light, Dark or System (profile) and the sidebar theme toggle | Applies at once; persists on the device; System follows the OS | NONE | P1 |
 | SET-04 | MCP: create a token (shown once), list, copy the client config, revoke | Token works until revoked; revoke has no confirm | be:integration/tenancy-isolation.test.ts (route guard only) | P1 |
 | SET-05 | MCP client calls tools with the token | Scopes and workspace role enforced; rate limited | be:mcp.tools.test.ts, be:mcp.rateLimit.test.ts, be:mcp.publicUrl.test.ts | P2 |

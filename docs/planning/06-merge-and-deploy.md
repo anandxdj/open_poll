@@ -48,23 +48,27 @@ migrations on a copy of production.
   - `frontend/e2e/domains.spec.ts` (#12)
 
 **Production.**
-- **Frontend:** Vercel, `open-poll.vercel.app`. It deploys `main` automatically, and `NEXT_PUBLIC_*` values are baked in at build time.
+- **Frontend:** Vercel, at `open-poll.anands.dev` (custom domain) and `open-poll.vercel.app`. It deploys `main` automatically, and `NEXT_PUBLIC_*` values are baked in at build time.
   `NEXT_PUBLIC_SITE_URL` is unset there today, so canonical, `og:url`, `robots.txt` and `sitemap.xml` all
   say `http://localhost:3000`.
 - **Backend:** VPS, `docker-compose.yml` + Traefik, `openpoll-backend.anands.dev`. It runs pre-Wave-0 code
   (`GET /api/plans` → 404). The container command is `bun run start:prod` = `bun scripts/migrate.ts && bun src/app.ts`,
   so migrations run on every start.
-- **Migrations to apply on production:** all of `001`–`190` (the runner did not exist in the deployed code).
+- **Migrations to apply on production:** all of `001`–`200` (the runner did not exist in the deployed code).
 
 ## Decisions for the owner (before Phase 1)
 
 1. **#13 (MCP): decided, this release.** Phase 0 builds one release commit that holds the whole stack plus #13.
    CI tests that commit before the window.
-2. **Plan limits** in `backend/src/common/plans/plans.ts`. Free means 100 participants per session or poll,
-   and 365 days of session data. The deploy enforces both on existing data (see the checks in Phase 1).
-3. **Frontend URL for this release.** Recommendation: keep `open-poll.vercel.app` and set
-   `NEXT_PUBLIC_SITE_URL` to it now. Moving app and API to one domain (`app.` / `api.`) is a separate step;
-   it also fixes the `SameSite=None` refresh cookie that Safari drops.
+2. **Plan limits: decided, keep the defaults** in `backend/src/common/plans/plans.ts`. Free is 100 participants
+   per session or poll and 365 days of session data. The deploy enforces both on existing data, and
+   `scripts/plan-impact.ts` reports exactly what that hits during the rehearsal (Phase 1). Raise a plan per
+   owner where needed.
+3. **Domain: decided, `open-poll.anands.dev`.** It already serves the frontend, and the API is at
+   `openpoll-backend.anands.dev`.
+   - Both are on `anands.dev`, so they are the same site and the refresh cookie survives Safari.
+   - Use this address everywhere: `NEXT_PUBLIC_SITE_URL`, `FRONTEND_URL`, and the redirect target for
+     `open-poll.vercel.app` (Vercel → Domains → redirect).
 4. **Window.** About 30 minutes with no live sessions. Migration `030` changes the Redis keys, and it marks any
    deck still in `lobby`/`active` as `ended`.
 
@@ -150,6 +154,8 @@ it at the end.
      db.responses.aggregate([{$group: {_id: "$pollId", n: {$sum: 1}}}, {$match: {n: {$gte: 100}}}, {$sort: {n: -1}}])
      ```
      For each, either accept it or raise that owner's plan (`bun scripts/set-plan.ts <owner-email> pro`).
+   - **One report for both checks:** `MONGO_URI="$R" bun scripts/plan-impact.ts`. It is read-only and resolves
+     each workspace's real cap, overrides included.
 7. **Boot the rehearsal backend and click through.** Start it with the same environment on a spare port
    (`PORT=5099 bun src/app.ts`). Point a local frontend at it with `NEXT_PUBLIC_API_URL` and
    `NEXT_PUBLIC_SOCKET_URL` set to `http://localhost:5099`.
@@ -171,7 +177,7 @@ it at the end.
 
 **VPS `.env`** (the root `.env` that compose reads). The backend refuses to boot when a required value is missing.
 
-- **Required:** `MONGO_URI`, `FRONTEND_URL=https://open-poll.vercel.app`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`,
+- **Required:** `MONGO_URI`, `FRONTEND_URL=https://open-poll.anands.dev`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`,
   `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `PORT=8080`. Compose sets `NODE_ENV` and `REDIS_URL`.
 - **New, set them:**
   - `ID_SIGNING_SECRET`: a random value of its own. Without it, ballots fall back to the access secret.
@@ -182,11 +188,13 @@ it at the end.
   - `S3_*`: a real bucket. Without it, uploads and PPTX/PDF imports stay off.
   - The LLM keys.
   - `METRICS_TOKEN`: optional.
+  - `SESSION_IDLE_LOBBY_HOURS` and `SESSION_IDLE_LIVE_HOURS`: optional, default 6 and 12. The job ends
+    lobbies and presented sessions that idle longer (migration `200` backfills their activity time).
 - **Leave Stripe unset.** Billing then answers `503 BILLING_DISABLED`, and pricing shows "Pricing soon".
 
 **Vercel, Production environment.** Set these **before** merging: the first `main` build bakes them in.
 - `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL`: `https://openpoll-backend.anands.dev`
-- `NEXT_PUBLIC_SITE_URL=https://open-poll.vercel.app`, or the real domain once it exists
+- `NEXT_PUBLIC_SITE_URL=https://open-poll.anands.dev`
 - `NEXT_PUBLIC_STORAGE_PUBLIC_URL`: the bucket's public URL
 - `NEXT_PUBLIC_SALES_EMAIL`: optional; "Contact sales" stays disabled without it
 - `NEXT_PUBLIC_CUSTOM_DOMAINS`: unset (off)
@@ -232,8 +240,8 @@ new backend for the few minutes between steps 3 and 5, so keep that gap short.
    `git -C <checkout> checkout main && git -C <checkout> pull`.
 7. **Frontend.** Wait for the Vercel production build of `main`, then:
    ```bash
-   curl -s https://open-poll.vercel.app/ | grep -o '<link rel="canonical"[^>]*>'   # must not say localhost
-   curl -s https://open-poll.vercel.app/sitemap.xml | head
+   curl -s https://open-poll.anands.dev/ | grep -o '<link rel="canonical"[^>]*>'   # must not say localhost
+   curl -s https://open-poll.anands.dev/sitemap.xml | head
    ```
 8. **Smoke the whole path on production (15 minutes).**
    - Signup, and the verification email arrives (real Resend).

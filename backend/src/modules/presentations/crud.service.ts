@@ -1,9 +1,15 @@
 import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { ApiError } from '../../common/utils/ApiError';
+import { copyTitle } from '../../common/utils/copyTitle';
 import { redisClient } from '../../common/config/redis';
 import { assertCan, type PolicyContext } from '../../common/tenancy/policy';
-import { PresentationModel, type IPresentationSlide } from './models/presentation.model';
+import {
+  PresentationModel,
+  type IPresentation,
+  type IPresentationSlide,
+  type IPresentationSlideOption,
+} from './models/presentation.model';
 import { PresentationParticipantModel } from './models/participant.model';
 import { PresentationAnswerModel } from './models/answer.model';
 import { PresentationSessionModel } from './models/session.model';
@@ -44,20 +50,71 @@ export const createPresentation = async (data: CreatePresentationInput, actor: A
   const defaultTheme = (workspace as { settings?: { defaultTheme?: ThemeChoice | null } } | null)?.settings?.defaultTheme;
   const themeChoice: ThemeChoice | undefined = data.theme ?? (defaultTheme ? { ...defaultTheme } : undefined);
   const theme = themeChoice ? await assertThemeChoice(themeChoice, workspace as Parameters<typeof assertThemeChoice>[1]) : undefined;
+  return createWithJoinCode({
+    ...data,
+    ...(theme ? { theme: theme as Record<string, unknown> } : {}),
+    creatorId,
+    ...(workspaceId ? { workspaceId } : {}),
+  });
+};
+
+/** Saves a new deck under a fresh join code, retrying the rare collision. */
+const createWithJoinCode = async (deck: Record<string, unknown>) => {
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
-      return await PresentationModel.create({
-        ...data,
-        ...(theme ? { theme: theme as Record<string, unknown> } : {}),
-        creatorId,
-        ...(workspaceId ? { workspaceId } : {}),
-        joinCode: generateJoinCode(),
-      });
+      return await PresentationModel.create({ ...deck, joinCode: generateJoinCode() });
     } catch (error: any) {
       if (error?.code !== 11000) throw error;
     }
   }
   throw ApiError.internal('Could not allocate a unique join code, please retry');
+};
+
+/** createPresentationSchema's title limit. */
+const MAX_DECK_TITLE = 120;
+
+type StoredSlide = IPresentationSlide & { options?: Array<IPresentationSlideOption & { _id?: unknown }> };
+
+/** A stored slide as a new one: no `_id` (on the slide or its options), everything else as is. */
+const copySlide = ({ _id, ...slide }: StoredSlide) => ({
+  ...slide,
+  options: (slide.options ?? []).map(({ text, isCorrect }) => ({ text, isCorrect })),
+});
+
+/**
+ * Copies a deck into the caller's current workspace as a new draft with its
+ * own join code: title "Copy of …", every slide (new slide ids; settings,
+ * speaker notes and media references kept), pace, deck settings, theme and
+ * folder. Sessions, participants and answers stay with the original.
+ *
+ * Needs `deck:read` on the source (share grants count) and `deck:create` in
+ * the current workspace. The policy keeps the source in that workspace, except
+ * a deck from before workspaces, which only its creator reaches: its media is
+ * checked against the new workspace and it keeps no brand kit or folder.
+ */
+export const duplicatePresentation = async (presentationId: string, ctx: PolicyContext) => {
+  assertCan(ctx, 'deck:create');
+  const source = (await authorizeDeck(presentationId, ctx, 'deck:read')).toObject() as IPresentation;
+  // assertCan('deck:create') only passes with an active membership of a workspace.
+  const workspaceId = String(ctx.workspace!._id);
+  const sameWorkspace = source.workspaceId != null && String(source.workspaceId) === workspaceId;
+
+  const slides = (source.slides as StoredSlide[]).map(copySlide);
+  if (!sameWorkspace) await assertContentMediaInWorkspace(slides, workspaceId);
+  const theme = source.theme ?? null;
+
+  return createWithJoinCode({
+    title: copyTitle(source.title, MAX_DECK_TITLE),
+    slides,
+    pace: source.pace,
+    settings: source.settings,
+    ...(theme
+      ? { theme: { presetId: theme.presetId, brandKitId: sameWorkspace ? theme.brandKitId : null, overrides: theme.overrides } }
+      : {}),
+    folderId: sameWorkspace ? source.folderId : null,
+    creatorId: ctx.user!.id,
+    workspaceId,
+  });
 };
 
 /**

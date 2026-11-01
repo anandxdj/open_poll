@@ -144,10 +144,12 @@ export class OidcService {
     }
     // Linking a verified local account is safe; an unverified one may have been
     // pre-registered by someone else, so it must not keep their password.
-    if (!user.isVerified) resetUnverifiedAccount(user);
+    const wasUnverified = !user.isVerified;
+    if (wasUnverified) resetUnverifiedAccount(user);
     linkIdentity(user, identity);
     user.email = email;
-    user.name = name;
+    // Keep a name the person set themselves (see AuthService Google sign-in).
+    if (wasUnverified || !user.name?.trim()) user.name = name;
     user.isVerified = true;
     user.lastLogin = new Date();
     return user;

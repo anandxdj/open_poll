@@ -347,10 +347,9 @@ test("POLL-09: on an identified poll, the same email under another name still co
   await expect(again.getByRole("heading", { name: "Your answers are in" })).toHaveCount(0);
 });
 
-test("POLL-09: on an anonymous poll, a second tab of the same device is refused", async ({ browser, contexts, host }) => {
-  // Open product decision, not fixed: anonymous votes are deduped per ballot plus a per-IP cap
-  // (responses.service.ts); the device id is a hint only, so two tabs of one browser both count.
-  test.fail();
+test("POLL-09: an anonymous poll is an honour system across tabs; reopening shows results", async ({ browser, contexts, host }) => {
+  // Owner decision (2026-11-01): anonymous votes are deduped per ballot plus a per-network cap,
+  // never per device, so two tabs open at once can both answer. Strict counts use named polls.
   const poll = await createPoll(host.accessToken, `E2E anonymous two tabs ${Date.now()}`);
 
   // Both tabs load the form before either answers.
@@ -364,6 +363,11 @@ test("POLL-09: on an anonymous poll, a second tab of the same device is refused"
   await expect(tabA.getByRole("heading", { name: "Your answers are in" })).toBeVisible();
 
   await tabB.getByRole("button", { name: /Coffee/ }).click();
-  await expect(tabB.getByText("You have already voted on this poll.")).toBeVisible();
-  await expect(tabB.getByRole("heading", { name: "Your answers are in" })).toHaveCount(0);
+  await expect(tabB.getByRole("heading", { name: "Your answers are in" })).toBeVisible();
+
+  // A tab opened after answering gets the results, not the form.
+  const tabC = await newTab(tabA);
+  await tabC.goto(`/p/${poll._id}`);
+  await expect(tabC.getByText("You've answered this poll. These are the results so far.")).toBeVisible();
+  await expect(tabC.getByRole("button", { name: /Tea/ })).toHaveCount(0);
 });

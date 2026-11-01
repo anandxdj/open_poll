@@ -67,7 +67,7 @@ One line per entry.
 | `/api/insights` | `modules/insights/insights.route.ts` | W3-G |
 | `/api/invites` | `invitesRouter` (`modules/workspaces/invites.route.ts`) | W3-B1 |
 | `/api/library` | `modules/library/library.route.ts` | W1-C |
-| `/api/me` | `modules/privacy/privacy.route.ts` | W4-C |
+| `/api/me` | `accountRouter` (`modules/auth/auth.route.ts`: `PATCH /`, `POST /password`), then default (`modules/privacy/privacy.route.ts`) | auth, W4-C |
 | `/api/oauth` | default (`modules/mcp/oauth/oauth.consent.route.ts`) | MCP agents |
 | `/api/oembed` | `oembedRouter` (`modules/embeds/embeds.route.ts`) | W4-D |
 | `/api/plans` | `plansRouter` (`modules/billing/billing.route.ts`) | W3-C |

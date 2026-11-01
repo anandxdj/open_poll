@@ -17,15 +17,22 @@ interface FieldProps extends Omit<React.ComponentProps<"input">, "id"> {
   hint?: string;
   /** Content on the label row's right edge, e.g. a "Forgot password?" link. */
   aside?: React.ReactNode;
+  /** Problem with the value, shown under the field (and announced) with the input marked invalid. */
+  error?: string | null;
 }
+
+/** aria-describedby for a field: its hint and its error, when present. */
+const describedBy = (id: string, hint?: string, error?: string | null) =>
+  [hint ? `${id}-hint` : null, error ? `${id}-error` : null].filter(Boolean).join(" ") || undefined;
 
 function FieldFrame({
   id,
   label,
   hint,
   aside,
+  error,
   children,
-}: Pick<FieldProps, "id" | "label" | "hint" | "aside"> & { children: React.ReactNode }) {
+}: Pick<FieldProps, "id" | "label" | "hint" | "aside" | "error"> & { children: React.ReactNode }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
@@ -40,28 +47,40 @@ function FieldFrame({
           {hint}
         </p>
       ) : null}
+      {error ? (
+        <p id={`${id}-error`} role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
 
-export function AuthField({ id, label, hint, aside, className, ...props }: FieldProps) {
+export function AuthField({ id, label, hint, aside, error, className, ...props }: FieldProps) {
   return (
-    <FieldFrame id={id} label={label} hint={hint} aside={aside}>
-      <Input id={id} aria-describedby={hint ? `${id}-hint` : undefined} className={cn(fieldClass, className)} {...props} />
+    <FieldFrame id={id} label={label} hint={hint} aside={aside} error={error}>
+      <Input
+        id={id}
+        aria-describedby={describedBy(id, hint, error)}
+        aria-invalid={error ? true : undefined}
+        className={cn(fieldClass, className)}
+        {...props}
+      />
     </FieldFrame>
   );
 }
 
 /** A password field with a show/hide toggle (44px target on phones, state exposed with aria-pressed). */
-export function PasswordField({ id, label, hint, aside, className, ...props }: FieldProps) {
+export function PasswordField({ id, label, hint, aside, error, className, ...props }: FieldProps) {
   const [visible, setVisible] = useState(false);
   return (
-    <FieldFrame id={id} label={label} hint={hint} aside={aside}>
+    <FieldFrame id={id} label={label} hint={hint} aside={aside} error={error}>
       <div className="relative">
         <Input
           id={id}
           type={visible ? "text" : "password"}
-          aria-describedby={hint ? `${id}-hint` : undefined}
+          aria-describedby={describedBy(id, hint, error)}
+          aria-invalid={error ? true : undefined}
           className={cn(fieldClass, "pr-12", className)}
           {...props}
         />

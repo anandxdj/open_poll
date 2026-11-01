@@ -1,7 +1,7 @@
 ---
 summary: Live session engine contract — sessions, slide phases, host commands, participant resync, events, Redis keys, error codes.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-01
 ---
 
 # Presentations live sessions (contract)
@@ -29,6 +29,8 @@ participants, answers, scores and a final snapshot. At most one session per deck
 | `deckSnapshot`, `settingsSnapshot`, `themeSnapshot`, `entitlementsSnapshot` | Frozen at open; the engine runs from `deckSnapshot`, so slide ids and answer keys never shift under a session |
 | `participantCount`, `answerCount`, `finalLeaderboard` (≤100), `slideStats[]` | Written by `end` |
 | `retainUntil` | `endedAt` + workspace retention (setting capped by the plan); null = no limit |
+| `endReason` | `host` (End Session, or a new lobby replacing it), `lobby_idle` / `live_idle` (ended by the idle-session job); null for sessions ended before it was recorded |
+| `lastActivityAt` | Last host command, join or answer while live; see [Idle sessions](#idle-sessions-end-on-their-own) |
 | `share` | Result-sharing link (token, `includeNames`, `expiresAt`); see [sessions](./sessions.md) |
 
 The deck keeps a **mirror** of its live session — `status` (`draft` before the first run, `ended`
@@ -271,6 +273,40 @@ dropped; reconciliation restores it from `results` at the end.
    `retentionDays`; decks without a workspace use the free plan).
 4. Redis keys stay readable for final screens (TTL refreshed), `presentation:{pid}:active` is
    removed, and the deck mirror becomes `ended`.
+
+### Idle sessions end on their own
+
+A host who walks away would otherwise leave the session live for good: the deck keeps showing
+"Lobby open", keeps its join code, and `retainUntil` never starts. So:
+
+- a **lobby** with no activity for `SESSION_IDLE_LOBBY_HOURS` (default **6**) ends;
+- a **presented** (`active`) session with no activity for `SESSION_IDLE_LIVE_HOURS` (default
+  **12**) ends.
+
+Both are hours, 1–8760, validated at boot (`env.sessionIdle`; `backend/.env.example`).
+
+**Activity** is a host command (open lobby, start, goto/advance, close, reopen, reveal), a
+participant joining, or an accepted answer, kept as the session's `lastActivityAt`
+(`live/activity.ts`). Host commands set it on the session document they save anyway (a command
+that changes nothing, such as closing a closed slide, does not count). Joins and answers never
+write the session document, so `noteSessionActivity` writes `$max: {lastActivityAt}` at most
+once per session every 5 minutes per instance (in-process throttle): never a Mongo write per
+answer. Sessions opened before the field existed are judged by `updatedAt` (every host command
+saves the session); migration 200 also backfills them. Q&A and reactions do not count.
+
+**The job** `presentations-idle-session-end` (`live/idleSessions.ts`, registered through
+`registerJob`, see [jobs](../platform/jobs.md)) runs every 10 minutes on one instance at a
+time (the scheduler's tick and run locks). It looks up live sessions past their threshold
+through the partial index `live_sessions_by_activity` (`{status, lastActivityAt}`, live
+sessions only, migration 200), and for each calls `endIdleSession`, which re-reads the session,
+checks it is still idle (a host or participant who came back meanwhile wins; a host command
+racing it surfaces as `SESSION_BUSY` and is skipped), then ends it through the **same code as
+`end`** (`finishSession` + deck mirror): current slide closed, reconciliation, final
+leaderboard, `retainUntil`, Redis cleanup, `session:ended` (+ `quiz:ended`) to connected
+sockets. An open host console therefore shows the normal ended screen. `endReason` records
+`lobby_idle` or `live_idle`, and each session gets a `session.auto_ended` audit event
+(`actorType: system`, target `session`, in the deck's workspace) with `meta: {reason,
+presentationId, runNumber, lastActivityAt, idleHours}`.
 
 ## Redis keys
 

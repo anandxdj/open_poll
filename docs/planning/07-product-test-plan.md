@@ -57,7 +57,7 @@ The whole quick-poll product (`/create`, `/p/[id]`, `/analytics/[id]`) had no fr
 
 ## Results of the 2026-11-01 pass
 
-### Bugs found and fixed (uncommitted on `feat/editor-v2`)
+### Bugs found and fixed (committed on `feat/editor-v2`)
 
 | # | Bug | Found by | Fix |
 | --- | --- | --- | --- |
@@ -118,29 +118,31 @@ The whole quick-poll product (`/create`, `/p/[id]`, `/analytics/[id]`) had no fr
 | Full e2e #5 | 24 spec files, all fixes | 77 passed, 1 failed. The tap-target test measured the word chip mid scale-in animation (42.98 of 44 px); the helper now waits for the size to settle. The anonymous two-tab test is an expected failure (open decision). No native dialog came up and there were 0 "Logout failed" lines |
 | Phone spec re-run | after the helper fix | 2 passed |
 
-### Open (not fixed in this pass)
+### Owner decisions acted on (1 Nov 2026, second round)
 
-- **Abandoned sessions never end.** No job closes a lobby or live session the host left. A lobby opened two
-  days earlier still shows "Lobby open" on Home, keeps its join code and counts as live. Retention only starts
-  at `end`, so these are never purged either. This needs an idle timeout (product decision: how long).
-- **Anonymous polls: two tabs of one browser both count.** By design today: votes are deduped per server ballot
-  plus 50 per IP per poll, and the device id is only a hint. Decide whether a second tab should be refused
-  (`quick-poll.spec.ts` keeps this as an expected failure).
+| Decision | Outcome |
+| --- | --- |
+| Plan limits | Kept as they are. `backend/scripts/plan-impact.ts` reports on the rehearsal copy which polls and sessions they hit |
+| Domain | `open-poll.anands.dev` (already live, same site as `openpoll-backend.anands.dev`): no cross-site cookie problem. Use it for `NEXT_PUBLIC_SITE_URL` and `FRONTEND_URL` |
+| Abandoned sessions | **Built:** lobbies end after 6 h idle and presented sessions after 12 h idle (`SESSION_IDLE_*_HOURS`), through the host's own end path. `lastActivityAt` + migration `200`; audit `session.auto_ended` |
+| New deck's first slide | **Built:** an unscored multiple-choice question; "Graded" makes it a quiz question |
+| Anonymous two tabs | Kept by design; publish settings explain it and point to named polls. The spec asserts the decided behaviour |
+| Launch scope | **Built:** duplicate decks and polls from the library and Home (`POST /api/presentations/:id/duplicate`, `POST /api/polls/:id/duplicate`); edit your name and change your password on `/settings/profile` (`PATCH /api/me`, `POST /api/me/password`, other sessions signed out, email sent). An edited name survives Google/OIDC sign-in. Removing a participant stays after launch |
+| Release date | After the rehearsal |
+
+### Still open
+
 - **Library search:** clicking a card within 300 ms of typing can lose the navigation, because the delayed search
   update calls `replaceState` (`LibraryView.tsx`).
 - **Analytics** offers "Publish results" while a poll is open, and it fails with a generic error.
 - **Builder:** Present appears only after the first save, and questions in a quick poll cannot be reordered.
-- **A new deck starts with a scored quiz slide.** Anyone making a plain poll hits "mark a correct option"
-  before they can present. Consider an ungraded multiple-choice slide as the default.
 - **Host view after a backend restart (seen once, needs a repro test).** A session open across a restart
   kept the host's answered count at 0 and showed a final score of 0 while the phone showed 834. A reload
   corrected it, and a clean run was fine.
-- **Product gaps found by the inventory:**
-  - no kick-participant control for the host;
-  - no duplicate for decks or polls;
-  - read-only profile (no name or password change);
-  - the deck settings for nickname mode, results on phones and audience language have no builder control;
-  - the host console does not show speaker notes.
+- **Password change:** other devices keep working until their access token expires (up to 15 minutes);
+  MCP tokens are not revoked by it.
+- **Still not built:** a kick-participant control; builder controls for the nickname mode, results on phones and
+  audience language; speaker notes in the host console.
 - **Not testable here:**
   - Google OAuth and real SSO identity providers: no keys.
   - Stripe checkout: no keys; billing has a disabled-mode spec.

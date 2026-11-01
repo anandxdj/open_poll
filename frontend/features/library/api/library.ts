@@ -21,6 +21,20 @@ export const convertPollToPresentation = async (pollId: string, options: { force
     })
   ).data.data;
 
+/** The new document a duplicate returns (the same shape as create; only these fields are read). */
+export interface DuplicatedItem {
+  _id: string;
+  title: string;
+}
+
+/** "Duplicate": a draft copy of a deck or poll in the current workspace, without its runs or responses. */
+export const duplicateLibraryItem = async (card: Pick<LibraryCard, "entityType" | "id">) =>
+  (
+    await apiClient.post<ApiOk<DuplicatedItem>>(
+      card.entityType === "poll" ? `/polls/${card.id}/duplicate` : `/presentations/${card.id}/duplicate`,
+    )
+  ).data.data;
+
 export const deleteLibraryItem = async (card: Pick<LibraryCard, "entityType" | "id">) => {
   await apiClient.delete(card.entityType === "poll" ? `/polls/${card.id}` : `/presentations/${card.id}`);
 };

@@ -9,6 +9,7 @@ import {
   BarChart3,
   Check,
   Copy,
+  CopyPlus,
   ExternalLink,
   FileBarChart,
   Lock,
@@ -48,8 +49,8 @@ import { ShareDialog } from "@/features/workspaces/sharing/components/ShareDialo
 import { useCanShareDecks } from "@/features/workspaces/sharing/useCanShare";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
-import { closePoll, convertPollToPresentation, deleteLibraryItem } from "../api/library";
-import { cardLinks, deckBuilderPath, kindLabel, statusLabel } from "../query";
+import { closePoll, convertPollToPresentation, deleteLibraryItem, duplicateLibraryItem } from "../api/library";
+import { cardLinks, deckBuilderPath, duplicateOpenPath, kindLabel, statusLabel } from "../query";
 import type { LibraryCard as LibraryCardData, PollLibraryCard, PresentationLibraryCard } from "../types";
 
 /** Status pill dot: live pulses green, drafts are faint, ended is quiet. */
@@ -66,6 +67,8 @@ interface LibraryCardProps {
   card: LibraryCardData;
   onRemoved: (card: LibraryCardData) => void;
   onChanged: (card: LibraryCardData) => void;
+  /** A copy of this card's item was made; the list loads it. */
+  onDuplicated?: () => void;
 }
 
 type Confirm = "delete" | "close" | null;
@@ -79,7 +82,7 @@ async function copyText(text: string, success: string) {
   }
 }
 
-export function LibraryCard({ card, onRemoved, onChanged }: LibraryCardProps) {
+export function LibraryCard({ card, onRemoved, onChanged, onDuplicated }: LibraryCardProps) {
   const router = useRouter();
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
@@ -115,6 +118,22 @@ export function LibraryCard({ card, onRemoved, onChanged }: LibraryCardProps) {
     } finally {
       setBusy(false);
       setConfirm(null);
+    }
+  }
+
+  async function handleDuplicate() {
+    setBusy(true);
+    try {
+      const copy = await duplicateLibraryItem(card);
+      const href = duplicateOpenPath(card.entityType, copy._id);
+      toast.success(isPoll ? "Poll duplicated." : "Deck duplicated.", {
+        action: { label: "Open", onClick: () => router.push(href) },
+      });
+      onDuplicated?.();
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err) ?? `Couldn't duplicate the ${noun}.`);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -194,6 +213,9 @@ export function LibraryCard({ card, onRemoved, onChanged }: LibraryCardProps) {
                   ) : null}
                 </>
               )}
+              <DropdownMenuItem onSelect={() => void handleDuplicate()}>
+                <CopyPlus /> Duplicate
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onSelect={() => setConfirm("delete")}>
                 <Trash2 /> Delete {noun}

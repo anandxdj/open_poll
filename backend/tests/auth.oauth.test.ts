@@ -152,6 +152,16 @@ describe('OIDC account linking', () => {
     expect(oidcSubjects(user)).toEqual(['idp|victim']);
   });
 
+  it('keeps a name the person chose; replaces the name on a pre-registered account', async () => {
+    findBy(localAccount({ isVerified: true, role: 'user', name: 'Vic (edited on profile)' }));
+    const kept: any = await OidcService.findOrLinkUser(claims);
+    expect(kept.name).toBe('Vic (edited on profile)');
+
+    findBy(localAccount({ isVerified: false }));
+    const replaced: any = await OidcService.findOrLinkUser(claims);
+    expect(replaced.name).toBe('Victim');
+  });
+
   it('refuses an email already linked to a different OIDC subject', async () => {
     findBy(localAccount({ isVerified: true, role: 'user', identities: [{ provider: 'oidc', subject: 'idp|other' }] }));
     await expect(OidcService.findOrLinkUser(claims)).rejects.toMatchObject({ statusCode: 409 });

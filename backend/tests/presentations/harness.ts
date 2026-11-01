@@ -553,6 +553,19 @@ export function installModelStubs() {
     ),
     patch(PresentationSessionModel, 'find', (filter: any) => query(() => sessions.filter((s) => matches(s, filter)))),
     patch(PresentationSessionModel, 'deleteMany', (filter: any) => query(() => removeWhere(sessions, filter))),
+    // Session activity (`live/activity.ts`): `$max` on one live session.
+    patch(PresentationSessionModel, 'updateOne', (filter: any, update: any) =>
+      query(() => {
+        const doc = sessions.find((s) => matches(s, filter));
+        if (doc) {
+          if (update.$set) Object.assign(doc, update.$set);
+          for (const [field, value] of Object.entries(update.$max ?? {})) {
+            if (doc[field] == null || (value as any) > doc[field]) doc[field] = value;
+          }
+        }
+        return { acknowledged: true, matchedCount: doc ? 1 : 0 };
+      }),
+    ),
     patch(PresentationParticipantModel, 'findOneAndUpdate', (filter: any, update: any) =>
       query(() => {
         let participant = participants.find((p) => matches(p, filter));
