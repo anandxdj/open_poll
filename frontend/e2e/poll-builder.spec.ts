@@ -169,7 +169,7 @@ test("POLL-03: publish an identified poll from the publish settings; the library
   await expect(page.getByText("Responses are fully anonymous")).toBeVisible();
   await anonymous.click();
   await expect(anonymous).not.toBeChecked();
-  await expect(page.getByText("Creator can see device IDs")).toBeVisible();
+  await expect(page.getByText("You see each voter's name and email")).toBeVisible();
 
   await expect(settingSwitch(page, "Publish immediately")).toBeChecked();
   await expect(page.getByText("Poll will go live immediately after publishing")).toBeVisible();
