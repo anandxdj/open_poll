@@ -419,11 +419,14 @@ export class AuthService {
       });
     }
 
-    if (!user.isVerified) resetUnverifiedAccount(user);
+    const wasUnverified = !user.isVerified;
+    if (wasUnverified) resetUnverifiedAccount(user);
     // Google vouches for the address, so a different Google account now holding
     // it replaces the previous Google link (as matching by email always did).
     linkIdentity(user, identity);
-    user.name = name;
+    // A name the person set on /settings/profile survives sign-in; an unverified
+    // account's name may have been chosen by whoever pre-registered the address.
+    if (wasUnverified || !user.name?.trim()) user.name = name;
     user.picture = profile.picture;
     user.isVerified = true;
     user.lastLogin = new Date();
