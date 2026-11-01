@@ -11,6 +11,7 @@ import { AuthDivider, AuthField, AuthSubmit, PasswordField, authSecondaryClass }
 import axios from "@/lib/api-client";
 import { toast } from "sonner";
 import { getGoogleAuthUrl } from "@/lib/env";
+import { SsoDiscovery } from "@/features/sso/components/SsoDiscovery";
 
 const GoogleIcon = (props: JSX.IntrinsicAttributes & SVGProps<SVGSVGElement>) => (
   <svg fill="currentColor" viewBox="0 0 24 24" {...props}>
@@ -155,11 +156,7 @@ export function SignupForm() {
             Continue with Google
           </a>
         </Button>
-        <Button variant="outline" className={authSecondaryClass} disabled={true} title="Coming soon">
-          <SSOIcon className="size-4" aria-hidden={true} />
-          Continue with SSO
-          <span className="sr-only">(coming soon)</span>
-        </Button>
+        <SsoDiscovery email={email} Icon={SSOIcon} />
       </div>
     </AuthShell>
   );
