@@ -21,6 +21,7 @@ import { k, touchTtls } from './keys';
 import { issueSlideTicket } from './ticket';
 import { computeSlideDistributionHelper, getLeaderboard, getParticipantCount } from './distribution';
 import { publishParticipantJoined } from './events';
+import { noteSessionActivity } from './activity';
 import {
   findLiveSession,
   isOpenState,
@@ -167,6 +168,7 @@ export const joinPresentation = async (presentationId: string, data: JoinPresent
   ]).catch((error) => console.error('[Presentation] Failed to mirror participant to Redis:', error));
   await touchTtls([k.names(sessionId), k.tokens(sessionId), k.scores(sessionId), k.correct(sessionId)]);
 
+  void noteSessionActivity(sessionId);
   const participantCount = await getParticipantCount(sessionId);
 
   await publishParticipantJoined(presentationId, sessionId, {

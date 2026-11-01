@@ -1,7 +1,7 @@
 ---
 summary: Cluster-wide periodic jobs with a Redis SET NX PX lock per tick (registerJob / startScheduler).
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-01
 ---
 
 # Scheduled jobs (`common/jobs/scheduler.ts`)
@@ -29,7 +29,9 @@ await stopScheduler();     // stops timers, aborts `signal`, waits for running j
   deterministically in tests; `redisLockStore(client)` adapts any node-redis client.
 
 Registered jobs: `billing-seat-sync` (`modules/billing/seatSync.ts`), `privacy-account-purge` and
-`privacy-retention-purge` (`modules/privacy/privacy.purge.ts`, see `modules/privacy.md`).
+`privacy-retention-purge` (`modules/privacy/privacy.purge.ts`, see `modules/privacy.md`),
+`presentations-idle-session-end` (every 10 min, `modules/presentations/live/idleSessions.ts`, see
+`modules/presentations-live.md` → Idle sessions).
 
 Needs a long-lived process (not serverless). `startJobs()` (`common/jobs/start.ts`, called by
 `app.ts` after Redis connects) calls `startScheduler()`, so a job only has to be registered by a
