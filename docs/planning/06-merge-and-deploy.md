@@ -54,7 +54,7 @@ migrations on a copy of production.
 - **Backend:** VPS, `docker-compose.yml` + Traefik, `openpoll-backend.anands.dev`. It runs pre-Wave-0 code
   (`GET /api/plans` → 404). The container command is `bun run start:prod` = `bun scripts/migrate.ts && bun src/app.ts`,
   so migrations run on every start.
-- **Migrations to apply on production:** all of `001`–`190` (the runner did not exist in the deployed code).
+- **Migrations to apply on production:** all of `001`–`200` (the runner did not exist in the deployed code).
 
 ## Decisions for the owner (before Phase 1)
 
@@ -188,6 +188,8 @@ it at the end.
   - `S3_*`: a real bucket. Without it, uploads and PPTX/PDF imports stay off.
   - The LLM keys.
   - `METRICS_TOKEN`: optional.
+  - `SESSION_IDLE_LOBBY_HOURS` and `SESSION_IDLE_LIVE_HOURS`: optional, default 6 and 12. The job ends
+    lobbies and presented sessions that idle longer (migration `200` backfills their activity time).
 - **Leave Stripe unset.** Billing then answers `503 BILLING_DISABLED`, and pricing shows "Pricing soon".
 
 **Vercel, Production environment.** Set these **before** merging: the first `main` build bakes them in.
