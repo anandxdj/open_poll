@@ -3,11 +3,20 @@
 import { createContext, createElement, useContext, type ReactNode } from "react";
 import { createStore, useStore, type StoreApi } from "zustand";
 
-import { getApiErrorMessage, getApiErrorStatus } from "@/lib/api-error";
+import { getApiErrorStatus } from "@/lib/api-error";
 import { getParticipantLiveState, getParticipantState, submitAnswer as postAnswer } from "../api/participant";
-import type { AnswerPayload } from "../types";
+import type { AnswerPayload, AnswerRequest } from "../types";
+import { deliverAnswer, type AnswerDelivery, type AnswerSocketTransport } from "./answerDelivery";
 import { newClientAnswerId } from "./answerId";
-import { getApiErrorCode, isRetryableAnswerFailure, LIVE_ERROR_CODES } from "./errors";
+import { getApiErrorCode, LIVE_ERROR_CODES } from "./errors";
+import {
+  createAnswerSync,
+  defaultAnswerQueueStorage,
+  queueRetryDelayMs,
+  type AnswerQueueStorage,
+  type QueuedAnswer,
+  type SettledDelivery,
+} from "./offline";
 import {
   createInitialLiveState,
   liveReducer,
@@ -26,6 +35,12 @@ export type SubmitAnswerResult =
   | { status: "accepted"; replay: boolean; clientAnswerId: string }
   /** The server already had a different answer for this slide (409 `ALREADY_ANSWERED`) — counts as submitted. */
   | { status: "duplicate" }
+  /**
+   * The server could not be reached (offline, timeouts, 5xx, rate limited):
+   * the answer is saved in the offline queue and sent when the connection is
+   * back (`pendingAnswers` shows "Saved — will sync" until then).
+   */
+  | { status: "queued"; clientAnswerId: string }
   | { status: "skipped" }
   /**
    * `message` is the API's error text when it sent one; the caller supplies the
@@ -38,14 +53,30 @@ export interface LiveStore extends LiveState {
   dispatch: (action: LiveAction) => void;
   /**
    * Participant: submit an answer for the slide on screen, then refresh `me`.
-   * The one place answers leave the client (the socket ack and offline queue
-   * plug in here). Each call is one **attempt** with its own `clientAnswerId`;
-   * transient failures (network, 5xx, 429) are sent again with the same id, so
-   * the server counts the answer once. The slide's `slideTicket` goes along.
-   * After `NOT_ACCEPTING` or `TIME_UP` the participant's state is re-read — the
+   * The one place answers leave the client, for every slide type. Each call is
+   * one **attempt** with its own `clientAnswerId`, sent with the slide's
+   * `slideTicket`: `answer:submit` over the joined socket (3 s ack timeout) →
+   * `POST /:id/answer` (re-sent after transient failures) → the offline queue
+   * (IndexedDB), which keeps sending it with backoff and on every reconnect.
+   * Every send reuses the id, so the server counts the answer once. After
+   * `NOT_ACCEPTING` or `TIME_UP` the participant's state is re-read — the
    * window closed while the phone was not looking.
    */
   submitAnswer: (payload: AnswerPayload) => Promise<SubmitAnswerResult>;
+  /**
+   * Participant: starts sending the offline queue (now, with backoff, and on
+   * `online` / tab visible / socket rejoined) and restores "saved" for
+   * queued answers after a reload. Returns the stop function (effect cleanup).
+   */
+  startAnswerSync: () => () => void;
+  /** Sends the queued answers now (`force`, the default: ignore their backoff). Resolves when the queue is quiet. */
+  flushAnswerQueue: (force?: boolean) => Promise<void>;
+  /**
+   * The live socket hook registers the socket here once `live:join` acked as
+   * this participant, and clears it on disconnect; registering flushes the
+   * queue (the connection is back).
+   */
+  setAnswerTransport: (transport: AnswerSocketTransport | null) => void;
   /** Participant: refresh own score/rank/last answer. Failures keep the old value. */
   loadMe: () => Promise<void>;
   /**
@@ -63,23 +94,50 @@ export interface LiveStore extends LiveState {
 export type LiveStoreApi = StoreApi<LiveStore>;
 
 export interface LiveStoreOptions {
-  /** Waits before each re-send of a transiently failed answer (default 400 ms, then 1.2 s). */
+  /** Waits before each REST re-send of a transiently failed answer (default 400 ms, then 1.2 s), before it is queued. */
   answerRetryDelaysMs?: readonly number[];
+  /** Where the offline queue lives (default: IndexedDB, else memory). */
+  answerQueue?: AnswerQueueStorage;
+  /** Backoff of queued answers (default `QUEUE_RETRY_DELAYS_MS`: 1 s … 30 s). */
+  queueRetryDelaysMs?: readonly number[];
+  /** Whether the device may be online (default `navigator.onLine`; false sends nothing and queues at once). */
+  isOnline?: () => boolean;
 }
 
 const DEFAULT_ANSWER_RETRY_DELAYS_MS = [400, 1200] as const;
 
-const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const browserOnline = () => typeof navigator === "undefined" || navigator.onLine !== false;
 
-/** Maps a participant API failure to the reason the credentials stopped working, if it is one. */
-export function participantLostReason(err: unknown): ParticipantLostReason | null {
-  const code = getApiErrorCode(err);
+/** The reason the credentials stopped working, from a failed call's status and live code, if it is one. */
+export function lostReasonFor(status: number | undefined, code: string | undefined): ParticipantLostReason | null {
   if (code === LIVE_ERROR_CODES.participantKicked) return "kicked";
   if (code === LIVE_ERROR_CODES.participantStale) return "stale";
-  const status = getApiErrorStatus(err);
   if (status === 404 || status === 401) return "missing";
   return null;
 }
+
+/** Maps a participant API failure to the reason the credentials stopped working, if it is one. */
+export function participantLostReason(err: unknown): ParticipantLostReason | null {
+  return lostReasonFor(getApiErrorStatus(err), getApiErrorCode(err));
+}
+
+/** 409 `ALREADY_ANSWERED` (or a bare 409): the server has an answer from this participant — counts as answered. */
+const isAlreadyAnswered = (status: number | undefined, code: string | undefined) =>
+  code === LIVE_ERROR_CODES.alreadyAnswered || (!code && status === 409);
+
+/**
+ * Actions replayed over a REST snapshot that loaded while they happened: the
+ * snapshot may have been read before them (an answer accepted after the
+ * `live-state` read started must stay answered).
+ */
+const REPLAYED_OVER_SNAPSHOT = new Set<LiveAction["type"]>([
+  "live/event",
+  "host/command",
+  "participant/submitted",
+  "participant/answer-queued",
+  "participant/answer-synced",
+  "participant/answer-refused",
+]);
 
 /**
  * One store per mounted live surface (host console, participant shell), so a
@@ -92,23 +150,117 @@ export function createLiveStore(
   options: LiveStoreOptions = {}
 ): LiveStoreApi {
   const retryDelays = options.answerRetryDelaysMs ?? DEFAULT_ANSWER_RETRY_DELAYS_MS;
+  const isOnline = options.isOnline ?? browserOnline;
   // Event actions recorded while a resync request is in flight, per request.
   const recorders = new Set<LiveAction[]>();
   let resyncToken = 0;
+  // The joined socket (participant), set by the live socket hook after the `live:join` ack.
+  let transport: AnswerSocketTransport | null = null;
 
   return createStore<LiveStore>()((set, get) => {
     const apply = (action: LiveAction) => set((state) => liveReducer(state, action));
+
+    const deliver = (presentationId: string, body: AnswerRequest, restRetryDelaysMs: readonly number[]) =>
+      deliverAnswer(presentationId, body, { transport, restRetryDelaysMs, isOnline, post: postAnswer });
+
+    /** A queued answer of the identity and session on screen (others are leftovers: sent, but silent). */
+    const ownsEntry = (entry: QueuedAnswer) => {
+      const { self, sessionId } = get();
+      return Boolean(self) && entry.participantId === self?.participantId && (entry.sessionId ?? null) === sessionId;
+    };
+
+    /**
+     * A final refusal of a live answer. `PARTICIPANT_KICKED` / `_STALE` / 401 /
+     * 404 mean the credentials are gone; `ALREADY_ANSWERED` counts as answered.
+     */
+    const refusedLive = (delivery: Extract<AnswerDelivery, { kind: "refused" }>, slideIndex: number): SubmitAnswerResult => {
+      const { dispatch, loadMe, loadLiveState } = get();
+      const { status, code, message } = delivery;
+      const reason = lostReasonFor(status, code);
+      if (reason) {
+        dispatch({ type: "participant/lost", reason });
+        return { status: "error", message, code };
+      }
+      if (isAlreadyAnswered(status, code)) {
+        dispatch({ type: "participant/submitted", slideIndex });
+        void loadMe();
+        return { status: "duplicate" };
+      }
+      // The window closed (or was left) without this phone hearing about it.
+      if (code === LIVE_ERROR_CODES.notAccepting || code === LIVE_ERROR_CODES.timeUp) void loadLiveState();
+      return { status: "error", message, code };
+    };
+
+    /** A queued answer left the queue: accepted, already there, or refused for good. */
+    const settleQueued = (entry: QueuedAnswer, outcome: SettledDelivery) => {
+      if (!ownsEntry(entry)) return;
+      const { dispatch, loadMe, loadLiveState } = get();
+      const ref = { slideId: entry.slideId, slideIndex: entry.slideIndex, clientAnswerId: entry.clientAnswerId };
+      if (outcome.kind === "accepted" || isAlreadyAnswered(outcome.status, outcome.code)) {
+        dispatch({ type: "participant/answer-synced", ...ref });
+        void loadMe();
+        return;
+      }
+      dispatch({ type: "participant/answer-refused", ...ref, code: outcome.code ?? null, message: outcome.message ?? null });
+      const reason = lostReasonFor(outcome.status, outcome.code);
+      if (reason) dispatch({ type: "participant/lost", reason });
+      else if (outcome.code === LIVE_ERROR_CODES.notAccepting || outcome.code === LIVE_ERROR_CODES.timeUp) void loadLiveState();
+    };
+
+    const sync = createAnswerSync({
+      storage: options.answerQueue ?? defaultAnswerQueueStorage(),
+      presentationId: () => get().presentationId,
+      // Same id, flagged as held offline; the queue's backoff replaces the quick REST re-sends.
+      send: (entry) => deliver(entry.presentationId, { ...entry.body, offline: true }, []),
+      onPending: (entry) => {
+        if (!ownsEntry(entry)) return;
+        get().dispatch({
+          type: "participant/answer-queued",
+          slideId: entry.slideId,
+          slideIndex: entry.slideIndex,
+          clientAnswerId: entry.clientAnswerId,
+        });
+      },
+      onSettled: settleQueued,
+      isOnline,
+      retryDelaysMs: options.queueRetryDelaysMs,
+    });
 
     return {
       ...createInitialLiveState(role, init),
 
       dispatch: (action) => {
-        // What happens while a snapshot loads is replayed on top of it: envelopes, and the
-        // host's own command responses (a `goto` answered while an older read is in flight).
-        if (action.type === "live/event" || action.type === "host/command") {
+        // What happens while a snapshot loads is replayed on top of it: envelopes, the host's
+        // own command responses (a `goto` answered while an older read is in flight), and the
+        // participant's answers settling.
+        if (REPLAYED_OVER_SNAPSHOT.has(action.type)) {
           for (const buffer of recorders) buffer.push(action);
         }
         apply(action);
+      },
+
+      startAnswerSync: () => {
+        sync.start();
+        if (typeof window === "undefined") return () => sync.stop();
+        // The connection is (probably) back: send what is queued without waiting for its backoff.
+        const onOnline = () => void sync.flush(true);
+        const onVisible = () => {
+          if (document.visibilityState === "visible") void sync.flush(true);
+        };
+        window.addEventListener("online", onOnline);
+        document.addEventListener("visibilitychange", onVisible);
+        return () => {
+          window.removeEventListener("online", onOnline);
+          document.removeEventListener("visibilitychange", onVisible);
+          sync.stop();
+        };
+      },
+
+      flushAnswerQueue: (force = true) => sync.flush(force),
+
+      setAnswerTransport: (next) => {
+        transport = next;
+        if (next) void sync.flush(true);
       },
 
       resync: async (load) => {
@@ -143,12 +295,12 @@ export function createLiveStore(
       },
 
       submitAnswer: async (payload) => {
-        const { presentationId, sessionId, self, slide, slideId, slideTicket, dispatch, loadMe, loadLiveState } = get();
+        const { presentationId, sessionId, self, slide, slideId, slideTicket, dispatch, loadMe } = get();
         if (!presentationId || !self || !slide) return { status: "skipped" };
         const slideIndex = slide.slideIndex;
-        // One attempt = one id, however many times it is sent.
+        // One attempt = one id, however many times (and over whichever channel) it is sent.
         const clientAnswerId = newClientAnswerId();
-        const body = {
+        const body: AnswerRequest = {
           participantId: self.participantId,
           participantToken: self.token,
           slideIndex,
@@ -159,38 +311,33 @@ export function createLiveStore(
           ...payload,
         };
 
-        for (let attempt = 0; ; attempt++) {
-          try {
-            const result = await postAnswer(presentationId, body);
-            dispatch({ type: "participant/submitted", slideIndex });
-            // Scored slides show green/red on the participant's own pick right
-            // away; the correct answer itself stays hidden until reveal.
-            void loadMe();
-            return { status: "accepted", replay: result.replay, clientAnswerId };
-          } catch (err: unknown) {
-            if (isRetryableAnswerFailure(err) && attempt < retryDelays.length) {
-              await wait(retryDelays[attempt]);
-              continue;
-            }
-            const code = getApiErrorCode(err);
-            const message = getApiErrorMessage(err);
-            const reason = participantLostReason(err);
-            if (reason) {
-              dispatch({ type: "participant/lost", reason });
-              return { status: "error", message, code };
-            }
-            if (code === LIVE_ERROR_CODES.alreadyAnswered || (!code && getApiErrorStatus(err) === 409)) {
-              dispatch({ type: "participant/submitted", slideIndex });
-              void loadMe();
-              return { status: "duplicate" };
-            }
-            if (code === LIVE_ERROR_CODES.notAccepting || code === LIVE_ERROR_CODES.timeUp) {
-              // The window closed (or was left) without this phone hearing about it.
-              void loadLiveState();
-            }
-            return { status: "error", message, code };
-          }
+        const delivery = await deliver(presentationId, body, retryDelays);
+        if (delivery.kind === "accepted") {
+          dispatch({ type: "participant/submitted", slideIndex });
+          // Scored slides show green/red on the participant's own pick right
+          // away; the correct answer itself stays hidden until reveal.
+          void loadMe();
+          return { status: "accepted", replay: delivery.result.replay, clientAnswerId };
         }
+        if (delivery.kind === "refused") return refusedLive(delivery, slideIndex);
+
+        // Unreachable: keep it on the device and send it when the connection is back.
+        const queuedAt = Date.now();
+        const entry: QueuedAnswer = {
+          clientAnswerId,
+          presentationId,
+          sessionId,
+          participantId: self.participantId,
+          slideId,
+          slideIndex,
+          body,
+          queuedAt,
+          attempts: 0,
+          nextAttemptAt: queuedAt + queueRetryDelayMs(1, options.queueRetryDelaysMs),
+        };
+        dispatch({ type: "participant/answer-queued", slideId, slideIndex, clientAnswerId });
+        await sync.enqueue(entry);
+        return { status: "queued", clientAnswerId };
       },
 
       loadMe: async () => {

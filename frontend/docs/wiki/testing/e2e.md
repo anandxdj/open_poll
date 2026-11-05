@@ -84,6 +84,13 @@ lookup's HTTP status (404 until a session was opened).
   console mid-question, after answering, after the reveal and on a content slide (per-session
   credentials in `localStorage`, `live-state` resync, the console resumes); a finished deck shows
   "Present again" instead of auto-opening a lobby.
+- `e2e/offline-answers.spec.ts` — offline answers (W2-D phase 2): a phone picks an option, goes
+  offline (`context.setOffline(true)`) and submits — "Saved — will sync", not counted — stays
+  offline for more than 10 s, comes back and the answer is locked in and counted exactly once (host
+  counter, reveal, the run's `answerCount`); a queued answer survives closing the tab while
+  offline and is sent when the deck opens again in that browser (IndexedDB); a queued answer that
+  arrives after the host closed voting is refused with "Voting closed before your answer arrived".
+  ~35 s.
 - `e2e/content-slides.spec.ts` — content slides: a deck of all eight content types presented
   fullscreen **without a lobby or any participant** (F key, arrow-key and button navigation, each
   stage layout, end; the run is on record with 0 participants), and a mixed deck (heading → word

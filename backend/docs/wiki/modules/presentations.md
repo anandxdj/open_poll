@@ -327,8 +327,8 @@ Creator (JWT + workspace context):
 
 Every state change goes through `live/events.ts` → `publishLiveEvent` (Redis channel
 `live:event`) with the session's id on the envelope; each instance delivers `live:event` to
-the `live:{presentationId}` rooms and the legacy `quiz:event` copy to `quiz_{presentationId}`
-(`answer:received` only to the host rooms). Socket handlers live in `presentations.socket.ts`
+the `live:{presentationId}` rooms (`answer:received` only to the host room). The legacy
+`quiz:join` / `quiz:event` protocol was removed in W2-D phase 2. Socket handlers live in `presentations.socket.ts`
 (`answer:submit`, `live:resync` included).
 See `realtime/presentations.md` for the event contract.
 

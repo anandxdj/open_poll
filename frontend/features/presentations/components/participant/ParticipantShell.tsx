@@ -22,6 +22,7 @@ import {
   ParticipantSessionClosed,
 } from "./ParticipantNotices";
 import { ParticipantSlide } from "./ParticipantSlide";
+import { useAnswerSyncNotices } from "./useAnswerSyncNotices";
 import { useParticipantSession } from "./useParticipantSession";
 
 /**
@@ -42,6 +43,7 @@ export function ParticipantShell({ code }: { code: string }) {
 function ParticipantScreen({ code }: { code: string }) {
   const t = useTranslations("live.participant");
   const { load, self, lost, rejoin, newerSessionId, joinNewerSession } = useParticipantSession(code);
+  useAnswerSyncNotices();
 
   const status = useLive((s) => s.status);
   const title = useLive((s) => s.title);

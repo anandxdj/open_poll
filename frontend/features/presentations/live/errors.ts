@@ -33,14 +33,32 @@ export const LIVE_ERROR_CODES = {
 export type LiveErrorCode = (typeof LIVE_ERROR_CODES)[keyof typeof LIVE_ERROR_CODES];
 
 /**
+ * What the client does with a failed answer (the server's client rule, same
+ * for REST and the socket ack): `retry` with the same `clientAnswerId` — no
+ * response at all, a 5xx, or the per-participant rate limit; `rejoin` — the
+ * socket has not joined as this participant (`NOT_JOINED`, socket only), so
+ * send it another way; `final` — anything else is the server's last word
+ * (`NOT_ACCEPTING`, `TIME_UP`, `ALREADY_ANSWERED`, a malformed answer, 401,
+ * `PARTICIPANT_KICKED`, `PARTICIPANT_STALE`).
+ */
+export type AnswerFailureVerdict = "retry" | "rejoin" | "final";
+
+/** Verdict for a failed answer from its HTTP status (undefined = no response) and live code. */
+export function answerFailureVerdict(status: number | undefined, code?: string): AnswerFailureVerdict {
+  if (status === undefined) return "retry";
+  if (status === 403 && code === LIVE_ERROR_CODES.notJoined) return "rejoin";
+  if (status >= 500 || status === 429) return "retry";
+  return "final";
+}
+
+/**
  * An answer attempt worth repeating with the same `clientAnswerId`: no response
- * at all (network), a 5xx, or the per-participant rate limit. Everything else
- * is the server's final word.
+ * at all (network, timeout), a 5xx, or the per-participant rate limit.
+ * Everything else is the server's final word.
  */
 export function isRetryableAnswerFailure(err: unknown): boolean {
   if (!axios.isAxiosError(err)) return false;
-  if (!err.response) return true;
-  return err.response.status >= 500 || err.response.status === 429;
+  return answerFailureVerdict(err.response?.status, getApiErrorCode(err)) === "retry";
 }
 
 /** The API's `code` for a failed request, if it sent one. */

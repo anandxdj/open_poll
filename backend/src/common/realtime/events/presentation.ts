@@ -32,10 +32,7 @@ export type QuizRealtimeEventType = PresentationEventType;
 export type LiveRole = 'host' | 'participant';
 
 export const PRESENTATION_SOCKET_EVENTS = {
-  // Legacy protocol: `quiz:join` joins both the `quiz_*` and the `live:*` rooms.
-  quizJoin: 'quiz:join',
-  quizLeave: 'quiz:leave',
-  quizEvent: 'quiz:event',
+  // The legacy `quiz:join` / `quiz:leave` / `quiz:event` protocol is gone (W2-D phase 2).
   liveJoin: 'live:join',
   liveLeave: 'live:leave',
   // Participant answers over the socket, acked with the REST result shape (W2-D).
