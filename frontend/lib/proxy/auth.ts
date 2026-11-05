@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { HOME_PATH } from "@/lib/routes";
+
 import type { ProxyStep } from "./types";
 
 /** Cookie the API sets on login. Its presence is a hint only; the API still checks the JWT. */
 export const AUTH_COOKIE = "auth_session";
 
 const AUTH_ROUTES = ["/login", "/signup"];
-const PROTECTED_PREFIXES = ["/polls", "/create", "/settings", "/analytics"];
+const PROTECTED_PREFIXES = ["/home", "/polls", "/create", "/settings", "/analytics"];
 
 export const isAuthRoute = (pathname: string) => AUTH_ROUTES.includes(pathname);
 
@@ -16,7 +18,7 @@ export const isProtectedRoute = (pathname: string) =>
 
 /**
  * Sends signed-out visitors on protected pages to /login and signed-in
- * visitors on /login or /signup to /polls.
+ * visitors on /login or /signup to /home.
  */
 export const authProxy: ProxyStep = (request: NextRequest) => {
   // JWT lives on the API host (localhost:5000); the proxy runs on the Next host.
@@ -33,7 +35,7 @@ export const authProxy: ProxyStep = (request: NextRequest) => {
 
   // Redirect authenticated users away from auth pages
   if (isAuthRoute(pathname) && token) {
-    return NextResponse.redirect(new URL("/polls", request.url));
+    return NextResponse.redirect(new URL(HOME_PATH, request.url));
   }
 
   return undefined;

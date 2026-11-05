@@ -135,7 +135,7 @@ function MembersPanel({ detail }: { detail: WorkspaceDetail }) {
     else if (await run(member, () => removeMember(workspaceId, member.userId), "You left the workspace")) {
       // The selection is gone with the membership: reload from the default workspace.
       useWorkspaceStore.getState().clearSelection();
-      window.location.assign("/polls");
+      window.location.assign("/home");
     }
     setPending(null);
   };

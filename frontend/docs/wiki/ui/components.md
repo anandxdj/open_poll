@@ -12,10 +12,14 @@ described in [`design-system.md`](./design-system.md#primitives-componentsui).
 ## Layout Components
 
 ### `Sidebar` (`components/layouts/Sidebar.tsx`)
-- Icon-only below `lg`, full label above `lg`.
-- Nav items: Dashboard (`/polls`), New Poll (`/create`), Analytics (`/analytics`).
-- Footer: theme toggle (Button-in-Button pattern) + user avatar + role label.
-- Active indicator: Framer Motion `layoutId="activeNav"` gradient overlay.
+- Desktop rail (`md` and up) 248px, collapses to 64px icons; below `md` the same content in a drawer.
+- Brand (links to `/home`), `WorkspaceSwitcher`, then places only, in two groups from `components/layouts/nav.ts`:
+  `MAIN_NAV` Home, Library, Analytics; `WORKSPACE_NAV` (under a `meta-label` "Workspace") Members, Settings.
+  Creating is a page action (Home, Library), never a nav item.
+- Active item: `activeNavHref` picks the link with the longest matching prefix (builders and a deck's
+  sessions mark Library; `/settings/members` marks Members, other settings pages Settings). It is a white
+  sheet with a 1px rule and `shadow-xs`, its icon in `accent-ink`.
+- Footer: account menu (Profile, Theme, Log out).
 
 ### `Navbar` (`components/layouts/Navbar.tsx`)
 - Displays route-scoped page title (no duplicate brand name).

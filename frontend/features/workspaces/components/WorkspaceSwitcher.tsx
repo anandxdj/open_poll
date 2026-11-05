@@ -77,8 +77,8 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
             aria-label={`Workspace: ${current.name}. Switch workspace`}
             title={collapsed ? current.name : undefined}
             className={cn(
-              "flex w-full items-center gap-2.5 rounded-lg p-1.5 text-left text-foreground transition-colors hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
-              collapsed && "w-auto justify-center p-1",
+              "flex w-full items-center gap-2.5 rounded-xl border border-border bg-card p-2 text-left text-foreground transition-colors hover:border-input focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
+              collapsed && "w-auto justify-center border-transparent bg-transparent p-1 hover:border-transparent hover:bg-sidebar-accent",
             )}
           >
             <WorkspaceTile workspace={current} />
@@ -87,7 +87,7 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold leading-tight">{current.name}</span>
                   <span className="mt-0.5 block truncate text-xs leading-tight text-muted-foreground">
-                    {current.type === "personal" ? "Personal" : "Team"} · {PLAN_NAMES[current.plan]}
+                    {current.type === "personal" ? "Personal, " : ""}{PLAN_NAMES[current.plan]} plan
                   </span>
                 </span>
                 <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />

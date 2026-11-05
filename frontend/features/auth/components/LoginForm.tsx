@@ -16,6 +16,7 @@ import { getGoogleAuthUrl } from "@/lib/env";
 import { SsoDiscovery, ssoLoginUrl } from "@/features/sso/components/SsoDiscovery";
 import { discoverSso } from "@/features/sso/api/sso.api";
 import { takeInviteRedirect } from "@/features/workspaces/invites/pendingInvite";
+import { HOME_PATH } from "@/lib/routes";
 
 const GoogleIcon = (props: JSX.IntrinsicAttributes & SVGProps<SVGSVGElement>) => (
   <svg fill="currentColor" viewBox="0 0 24 24" {...props}>
@@ -79,7 +80,7 @@ export function LoginForm() {
       // `restored`: this sign-in cancelled the account's scheduled deletion.
       toast.success(restored ? "Welcome back. Your account will not be deleted." : "Welcome back!");
       // Back to an invitation the user opened before signing in, else the dashboard.
-      router.push(takeInviteRedirect(searchParams.get("next")) ?? "/polls");
+      router.push(takeInviteRedirect(searchParams.get("next")) ?? HOME_PATH);
     } catch (err) {
       // The organization requires single sign-on: go there with the email filled in.
       if (isAxiosError(err) && err.response?.data?.code === "SSO_REQUIRED") {

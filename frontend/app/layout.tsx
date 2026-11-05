@@ -71,7 +71,7 @@ export const viewport: Viewport = {
   // Browser chrome takes the page colour: paper in light, warm graphite in dark.
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f6f6f3" },
-    { media: "(prefers-color-scheme: dark)", color: "#141413" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d0d0c" },
   ],
 };
 

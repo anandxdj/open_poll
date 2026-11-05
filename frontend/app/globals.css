@@ -79,14 +79,15 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Radius: 6 inputs and small buttons, 8 buttons and chips, 12 cards and dialogs, 16 large panels */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
-  --radius-3xl: 20px;
-  --radius-4xl: 24px;
+  /* Radius (Graph paper 2.0): 10 fields and small controls, 12 menus, chips and nav items,
+     16 cards, 20 panels and dialogs. Buttons are pills (`rounded-full`), set in Button. */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+  --radius-4xl: 28px;
 
   /* Motion */
   --ease-brand: cubic-bezier(0.32, 0.72, 0, 1);
@@ -159,12 +160,12 @@
 .dark {
   color-scheme: dark;
 
-  /* Warm graphite, the same paper family after dark */
-  --background: #141413;
+  /* Near-black graphite, the same paper family after dark; sheets step up from it */
+  --background: #0d0d0c;
   --foreground: #f2f1ec;
-  --card: #1b1b1a;
+  --card: #161615;
   --card-foreground: #f2f1ec;
-  --popover: #1f1f1d;
+  --popover: #1a1a19;
   --popover-foreground: #f2f1ec;
 
   --primary: #f97316;
@@ -174,12 +175,12 @@
   --brand: #f97316;
   --device: #2b2a27;
 
-  --secondary: #242422;
+  --secondary: #1f1f1d;
   --secondary-foreground: #f2f1ec;
-  --muted: #242422;
+  --muted: #1f1f1d;
   --muted-foreground: #a7a49c;
   --faint: #75726b;
-  --accent: #2a2a27;
+  --accent: #262624;
   --accent-foreground: #f2f1ec;
 
   --destructive: #ef4444;
@@ -188,13 +189,13 @@
   --warning: #f59e0b;
   --info: #60a5fa;
 
-  --border: #31302d;
-  --border-subtle: #262624;
-  /* Form-field boundary, 3.4:1 on the page */
+  --border: #2b2a27;
+  --border-subtle: #222220;
+  /* Form-field boundary, 3.6:1 on the page, 3.4:1 on a sheet */
   --input: #6d6b65;
   --ring: #fb923c;
 
-  /* Same hues, steps chosen for the dark card (validated the same way against #1b1b1a) */
+  /* Same hues, steps chosen for the dark card: 4.2:1 or better against the #161615 sheet */
   --chart-1: #ea580c;
   --chart-2: #3b82f6;
   --chart-3: #16a34a;
@@ -202,13 +203,13 @@
   --chart-5: #ec4899;
   --chart-6: #0891b2;
 
-  --sidebar: #141413;
+  --sidebar: #0d0d0c;
   --sidebar-foreground: #f2f1ec;
   --sidebar-primary: #f97316;
   --sidebar-primary-foreground: #1a0d04;
-  --sidebar-accent: #242422;
+  --sidebar-accent: #1f1f1d;
   --sidebar-accent-foreground: #f2f1ec;
-  --sidebar-border: #31302d;
+  --sidebar-border: #2b2a27;
   --sidebar-ring: #fb923c;
 }
 
@@ -279,6 +280,12 @@
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* Meta label (Graph paper 2.0): mono caps for a date, a section number or a
+   small fact beside a heading. Never a heading, a button or anything you act on. */
+@utility meta-label {
+  @apply font-mono text-xs leading-snug font-normal tracking-[0.06em] uppercase text-muted-foreground;
 }
 
 /* ── Shared patterns (kept names; restyled flat) ────────────────────────── */

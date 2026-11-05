@@ -125,7 +125,7 @@ export function Navbar() {
                       {user?.email ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{user.email}</p> : null}
                     </div>
                     <DropdownMenuItem asChild>
-                      <Link href="/polls" className={menuItem}>
+                      <Link href="/home" className={menuItem}>
                         <LayoutDashboard className="size-4" aria-hidden="true" />
                         Dashboard
                       </Link>
@@ -152,7 +152,7 @@ export function Navbar() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Link href="/polls" className={cn(linkButton({ size: "sm" }), pill, "px-4")}>
+                <Link href="/home" className={cn(linkButton({ size: "sm" }), pill, "px-4")}>
                   Dashboard
                 </Link>
               </>
@@ -225,7 +225,7 @@ export function Navbar() {
                 {authed ? (
                   <>
                     <Link
-                      href="/polls"
+                      href="/home"
                       onClick={() => closeMenu()}
                       className={cn(linkButton({ size: "xl" }), pill, "w-full")}
                     >

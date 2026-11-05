@@ -28,7 +28,7 @@ export function FinalCta() {
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row lg:col-span-5 lg:justify-end">
-          <Link href={authed ? "/polls" : "/signup"} className={cn(linkButton({ size: "xl" }), pill, "w-full sm:w-auto")}>
+          <Link href={authed ? "/home" : "/signup"} className={cn(linkButton({ size: "xl" }), pill, "w-full sm:w-auto")}>
             {authed ? "Open your dashboard" : "Start for free"}
           </Link>
           <Link

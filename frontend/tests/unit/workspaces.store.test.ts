@@ -82,12 +82,12 @@ describe("workspaceHeaderValue", () => {
 });
 
 describe("pathAfterSwitch", () => {
-  test("reloads settings pages in place and sends everything else to the dashboard", () => {
+  test("reloads settings pages in place and sends everything else to Home", () => {
     expect(pathAfterSwitch("/settings/workspace")).toBe("/settings/workspace");
     expect(pathAfterSwitch("/settings")).toBe("/settings");
-    expect(pathAfterSwitch("/analytics/123")).toBe("/polls");
-    expect(pathAfterSwitch("/settingsx")).toBe("/polls");
-    expect(pathAfterSwitch(null)).toBe("/polls");
+    expect(pathAfterSwitch("/analytics/123")).toBe("/home");
+    expect(pathAfterSwitch("/settingsx")).toBe("/home");
+    expect(pathAfterSwitch(null)).toBe("/home");
   });
 });
 

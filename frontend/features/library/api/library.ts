@@ -4,8 +4,8 @@ import type { LibraryCard, LibraryFilters, LibraryPage } from "../types";
 
 type ApiOk<T> = { success: boolean; message: string; data: T };
 
-export const fetchLibraryPage = async (filters: LibraryFilters, cursor: string | null = null) =>
-  (await apiClient.get<ApiOk<LibraryPage>>("/library", { params: libraryRequestParams(filters, cursor) })).data.data;
+export const fetchLibraryPage = async (filters: LibraryFilters, cursor: string | null = null, limit?: number) =>
+  (await apiClient.get<ApiOk<LibraryPage>>("/library", { params: libraryRequestParams(filters, cursor, limit) })).data.data;
 
 export interface ConvertedPoll {
   /** False when the poll had been converted before and that deck was returned. */
