@@ -418,6 +418,12 @@ audience window and room screens; the host console and presenter view show the d
 progress per question from the slice's `host` view — never a name, an answer or a result ("Answers are
 closed" once closed). Room screens get a counts-only `audience` view (`frontend/docs/wiki/features/embeds.md`).
 
+**Theme.** The own-pace phone screens, the dashboard and `StageAudience` sit inside the same
+`LiveDeckTheme` scopes as the rest and use only deck and app tokens, so they follow the deck's light or
+dark theme (the dashboard's QR on `qr-bg`, its date field taking the scope's `color-scheme`);
+`e2e/deck-themes.spec.ts` checks a light audience-paced deck on the dashboard (host console and presenter
+view) and the phone.
+
 **i18n:** `live.audience.*` (phone), `live.participant.nickname{Optional,Off}*` (join form),
 `presenter.audiencePace.*` and `presenter.errors.{openAudience,closeAudience}` (dashboard).
 

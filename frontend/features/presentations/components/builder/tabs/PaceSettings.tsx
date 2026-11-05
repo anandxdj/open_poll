@@ -127,7 +127,7 @@ function PacePanel() {
   }
   if (!value) {
     return error ? (
-      <p role="alert" className="text-xs text-red-400">
+      <p role="alert" className="text-sm text-destructive">
         {error}
       </p>
     ) : (
@@ -355,7 +355,7 @@ function PacePanel() {
         {saving ? "Saving…" : "Changes save as you make them and apply to the next session you start."}
       </p>
       {error && (
-        <p role="alert" className="text-xs text-red-400">
+        <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       )}

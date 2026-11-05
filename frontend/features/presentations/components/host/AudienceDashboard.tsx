@@ -175,7 +175,7 @@ export function AudienceDashboard({ presentationId, session }: { presentationId:
               </p>
             </div>
             {join.playUrl ? (
-              <div className="rounded-lg bg-white p-2">
+              <div className="rounded-lg bg-deck-qr-bg p-2">
                 <QRCodeSVG value={join.playUrl} size={88} aria-label={join.playUrl} />
               </div>
             ) : null}
@@ -194,7 +194,7 @@ export function AudienceDashboard({ presentationId, session }: { presentationId:
                 setClosesInput(e.target.value);
                 setEditedFor(currentCloses ?? "");
               }}
-              className="h-11 rounded-lg border border-deck-stage-fg/20 bg-deck-stage-bg px-3 text-deck-stage-fg [color-scheme:dark]"
+              className="h-11 rounded-lg border border-deck-stage-fg/20 bg-deck-stage-bg px-3 text-deck-stage-fg"
             />
             <span className="text-xs text-deck-stage-fg/60">
               {state !== "open" && closeAfterMinutes ? t("closesAtDefault", { minutes: closeAfterMinutes }) : t("closesAtHint")}

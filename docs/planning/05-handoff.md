@@ -276,6 +276,10 @@ Owner request: decks were all dark while the app is light-first.
   theme in its data); the landing samples keep the `:root` dark stage. A running session cannot be
   restyled (the API refuses deck edits while live, theme included). The workspace default theme stays
   preset + kit; light or dark is each creator's.
+- Merged `feat/audience-pace` (migration 230 stays before 240; host and screen state carry both
+  `deckTheme` and `audience`). The own-pace phone screens, the audience dashboard (host console and
+  presenter view), `StageAudience` and the Pace tab follow the deck theme too (dashboard QR on `qr-bg`,
+  no forced dark `color-scheme`, the Pace tab's errors in `text-destructive`).
 - Likely merge conflicts: `frontend/features/library/components/LibraryCard.tsx`,
   `frontend/features/presentations/theme/tokens.css`, `backend/src/modules/presentations/crud.service.ts`,
   migration ids.

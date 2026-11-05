@@ -1,4 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
+import { e2eEnv } from "./env";
 import { expect, joinAsParticipant, openLobby, endSession, test, type Host } from "./fixtures";
 
 /**
@@ -248,6 +249,63 @@ test("a light deck runs light on the stage and the phone: content, quiz reveal, 
   await hostPage.waitForTimeout(600);
   await hostPage.screenshot({ path: "test-results/deck-themes-end-light.png" });
   await ada.page.screenshot({ path: "test-results/deck-themes-phone-end-light.png", fullPage: true });
+});
+
+test("an audience-paced light deck is light on the host dashboard and the phone's own-pace screens", async ({
+  host,
+  browser,
+  contexts,
+}) => {
+  const res = await fetch(`${e2eEnv.apiOrigin}/api/presentations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${host.accessToken}` },
+    body: JSON.stringify({
+      title: `E2E light own pace ${Date.now()}`,
+      pace: "audience",
+      slides: [
+        { type: "select_answer", question: "Which floor is the kitchen on?", timeLimit: 30, points: 0, options: [{ text: "Second", isCorrect: false }, { text: "Third", isCorrect: false }] },
+        { type: "select_answer", question: "Coffee or tea?", timeLimit: 30, points: 0, options: [{ text: "Coffee", isCorrect: false }, { text: "Tea", isCorrect: false }] },
+      ],
+    }),
+  });
+  const body = (await res.json()) as { data: { _id: string; joinCode: string } };
+  expect(res.status, JSON.stringify(body)).toBe(201);
+  const deck = body.data;
+  expect(await storedMode(host, deck._id)).toBe("light");
+
+  // Host console: the audience dashboard instead of the stage, on paper with white panels.
+  const hostPage = await host.open(`/presentation/host/${deck._id}`);
+  const dashboard = hostPage.getByTestId("audience-dashboard");
+  await expect(dashboard.getByText("Not open yet")).toBeVisible();
+  await expect.poll(() => surfaceColor(dashboard)).toBe(PAPER);
+  await dashboard.getByRole("button", { name: "Open lobby first" }).click();
+  await expect(hostPage.getByTestId("audience-join-code")).toHaveText(deck.joinCode);
+  await expect.poll(() => surfaceColor(hostPage.getByTestId("audience-join-code"))).toBe("rgb(255, 255, 255)");
+
+  const ada = await joinAsParticipant(browser, contexts, deck.joinCode, "Ada");
+  await expect(ada.page.getByText("Then you go through them at your own pace.")).toBeVisible();
+  await expect.poll(() => surfaceColor(ada.page.getByText("Then you go through them at your own pace."))).toBe(PAPER);
+
+  // Open: the phone's own-pace question screen and the dashboard's progress stay light.
+  await dashboard.getByRole("button", { name: "Open to participants" }).click();
+  await expect(ada.page.getByRole("heading", { name: "Which floor is the kitchen on?" })).toBeVisible();
+  await expect.poll(() => surfaceColor(ada.page.getByRole("heading", { name: "Which floor is the kitchen on?" }))).toBe(PAPER);
+  await ada.page.getByRole("button", { name: /Third/ }).click();
+  await ada.page.getByRole("button", { name: "Submit Answer" }).click();
+  await expect(ada.page.getByText(/Answer (locked in|saved)/)).toBeVisible();
+  await expect.poll(() => surfaceColor(ada.page.getByText(/Answer (locked in|saved)/))).not.toBe(PHONE_DARK);
+  await expect(dashboard.getByTestId("audience-participant-row").filter({ hasText: "Ada" })).toBeVisible();
+  await expect.poll(() => surfaceColor(dashboard)).toBe(PAPER);
+  await hostPage.waitForTimeout(600);
+  await hostPage.screenshot({ path: "test-results/deck-themes-audience-dashboard-light.png", fullPage: true });
+  await ada.page.screenshot({ path: "test-results/deck-themes-audience-phone-light.png", fullPage: true });
+
+  // The presenter view's dashboard follows too.
+  const presenter = await host.open(`/presentation/${deck._id}/presenter`);
+  const presenterDashboard = presenter.getByTestId("audience-dashboard");
+  await expect(presenterDashboard).toBeVisible();
+  await expect.poll(() => surfaceColor(presenterDashboard)).toBe(PAPER);
+  await presenter.close();
 });
 
 test("a deck made outside the builder without a mode is light, and a template used in the light app is light", async ({
