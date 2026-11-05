@@ -28,6 +28,14 @@ export const LIVE_ERROR_CODES = {
   rateLimited: "RATE_LIMITED",
   /** 403 on a socket answer: the socket has not joined the deck as this participant (socket only). */
   notJoined: "NOT_JOINED",
+  /** 409 on answers: the host paused the timer (W2-A); send it again (same id) once it resumes. */
+  slidePaused: "SLIDE_PAUSED",
+  /** 400 on timer commands: the current slide has no timer, or voting is closed. */
+  noTimer: "NO_TIMER",
+  /** 400/409 on timer commands: not paused / already paused. */
+  timerState: "TIMER_STATE",
+  /** 404 on kick: no such participant in the live session. */
+  participantNotFound: "PARTICIPANT_NOT_FOUND",
 } as const;
 
 export type LiveErrorCode = (typeof LIVE_ERROR_CODES)[keyof typeof LIVE_ERROR_CODES];
@@ -35,7 +43,8 @@ export type LiveErrorCode = (typeof LIVE_ERROR_CODES)[keyof typeof LIVE_ERROR_CO
 /**
  * What the client does with a failed answer (the server's client rule, same
  * for REST and the socket ack): `retry` with the same `clientAnswerId` — no
- * response at all, a 5xx, or the per-participant rate limit; `rejoin` — the
+ * response at all, a 5xx, the per-participant rate limit, or a paused timer
+ * (`SLIDE_PAUSED`, sent again once it resumes); `rejoin` — the
  * socket has not joined as this participant (`NOT_JOINED`, socket only), so
  * send it another way; `final` — anything else is the server's last word
  * (`NOT_ACCEPTING`, `TIME_UP`, `ALREADY_ANSWERED`, a malformed answer, 401,
@@ -48,6 +57,8 @@ export function answerFailureVerdict(status: number | undefined, code?: string):
   if (status === undefined) return "retry";
   if (status === 403 && code === LIVE_ERROR_CODES.notJoined) return "rejoin";
   if (status >= 500 || status === 429) return "retry";
+  // The timer is paused: the same answer goes through once the host resumes (the queue keeps it).
+  if (code === LIVE_ERROR_CODES.slidePaused) return "retry";
   return "final";
 }
 

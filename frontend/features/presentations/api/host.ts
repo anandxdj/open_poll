@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api-client";
-import type { HostCommandResponse, HostState } from "../types";
+import type { HostCommandResponse, HostState, KickResponse, RemoteStatus, RemoteTokenCreated } from "../types";
 
 type ApiOk<T> = { success: boolean; message: string; data: T };
 
@@ -33,3 +33,26 @@ export const reopenVoting = (id: string) => command(id, "reopen");
 export const revealResults = (id: string) => command(id, "reveal");
 
 export const endSession = (id: string) => command(id, "end");
+
+// ---------- Presenter tools (W2-A) ----------
+
+/** Pauses, resumes or extends (by `seconds`, 5–600, default 30) the current slide's timer. */
+export const timerCommand = (id: string, action: "pause" | "resume" | "extend", seconds?: number) =>
+  command(id, "timer", seconds === undefined ? { action } : { action, seconds });
+
+/** Time's up now on the current slide (its grace and auto-reveal follow). */
+export const skipTimer = (id: string) => command(id, "skip");
+
+/** Removes a participant from the live session: no answers, no rejoin. */
+export const kickParticipant = async (id: string, participantId: string) =>
+  (await apiClient.post<ApiOk<KickResponse>>(`/presentations/${id}/host/participants/${participantId}/kick`)).data.data;
+
+export const getRemoteStatus = async (id: string) =>
+  (await apiClient.get<ApiOk<RemoteStatus>>(`/presentations/${id}/host/remote-token`)).data.data;
+
+/** A new phone-remote pairing (the previous one is revoked). The token is returned once. */
+export const createRemoteToken = async (id: string) =>
+  (await apiClient.post<ApiOk<RemoteTokenCreated>>(`/presentations/${id}/host/remote-token`)).data.data;
+
+export const revokeRemoteToken = async (id: string) =>
+  (await apiClient.delete<ApiOk<RemoteStatus>>(`/presentations/${id}/host/remote-token`)).data.data;

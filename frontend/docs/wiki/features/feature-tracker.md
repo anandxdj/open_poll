@@ -80,7 +80,10 @@ This document tracks the features we have already implemented and the features w
   (type picker grid in builder, per-type play inputs, host reveal renderers).
 - **Phase 4**: advanced scored types — Guess the Number, 100 Points, 2x2 Grid, Pin on Image.
 - **Phase 5**: presenter UX — slide images, reorder/duplicate, pause/extend timer,
-  kick participant, sounds, themes, nickname profanity filter.
+  kick participant, sounds, themes, nickname profanity filter. (W2-A built the presenter view,
+  audience window, phone remote, pause/resume/extend/skip, kick, start countdown, sound cues and a
+  profanity filter for word clouds and open answers: `features/live-surfaces.md` "Presenter view".
+  A nickname filter at join is not built.)
 - **Phase 6**: socket-based answer submission + multi-instance socket adapter,
   coalesced broadcasts, load-test CI.
 - **Phase 7**: session history per run, per-question reports, CSV export,

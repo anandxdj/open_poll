@@ -1,9 +1,9 @@
 /**
- * Minimal profanity mask for audience questions, until W2-A lands the shared
- * `common/utils/profanity.ts` (switch this module to it then). Whole words
- * only, case-insensitive, with simple letter-for-digit substitutions; a match
- * is replaced by asterisks of the same length, so the question stays readable
- * and the list never shows up in an error message.
+ * Minimal profanity filter shared by audience Q&A (always on) and, behind the
+ * deck setting `settings.profanityFilter` (W2-A), word-cloud and open-ended
+ * answers. Whole words only, case-insensitive, with simple letter-for-digit
+ * substitutions; a match is replaced by asterisks of the same length, so the
+ * text stays readable and the list never shows up in an error message.
  */
 
 const WORDS = [

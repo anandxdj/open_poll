@@ -4,3 +4,4 @@ import './polls.socket';
 import '../../modules/presentations/editor.socket';
 import '../../modules/presentations/presentations.socket';
 import '../../modules/reactions/reactions.socket';
+import '../../modules/remote/remote.socket';

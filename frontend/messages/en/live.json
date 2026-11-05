@@ -60,7 +60,9 @@
     "syncRefusedHint": "It was not counted.",
     "syncRefusedSlideTimeUp": "Your saved answer to slide {slide} arrived after time ran out, so it was not counted.",
     "syncRefusedSlideClosed": "Voting on slide {slide} closed before your saved answer arrived, so it was not counted.",
-    "syncRefusedSlideOther": "Your saved answer to slide {slide} could not be sent."
+    "syncRefusedSlideOther": "Your saved answer to slide {slide} could not be sent.",
+    "pausedTitle": "Timer paused",
+    "pausedHint": "The presenter paused the timer. You can send your answer when it resumes."
   },
   "leaderboard": {
     "title": "Leaderboard",
@@ -71,7 +73,8 @@
   },
   "timer": {
     "timeLeft": "Time left",
-    "seconds": "{seconds}s"
+    "seconds": "{seconds}s",
+    "paused": "Paused"
   },
   "slides": {
     "selectAnswer": {

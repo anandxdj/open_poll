@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Copy, Maximize2, Minimize2, Trophy, Users } from "lucide-react";
+import Link from "next/link";
+import { Check, Copy, Maximize2, Minimize2, PanelsTopLeft, Trophy, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useLive } from "../../live/store";
@@ -50,6 +51,14 @@ export function HostHeader({
       </div>
       <div className="flex shrink-0 items-center gap-2.5">
         <SlotOutlet name="hostToolbar" props={{ presentationId }} />
+        <Link
+          href={`/presentation/${presentationId}/presenter`}
+          title={t("openPresenterViewHint")}
+          className="flex h-8 items-center gap-1.5 rounded-full border border-deck-stage-fg/15 px-3 text-sm font-medium text-deck-stage-fg transition-colors hover:bg-deck-stage-fg/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-deck-accent/50"
+        >
+          <PanelsTopLeft className="size-4" aria-hidden="true" />
+          <span className="hidden sm:inline">{t("openPresenterView")}</span>
+        </Link>
         {isLive && (
           <>
             <div className="flex items-center gap-1.5 text-sm text-deck-stage-fg/70" title={t("joined", { count: participantCount })}>

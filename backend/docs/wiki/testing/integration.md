@@ -41,7 +41,10 @@ W2-D suites: `answerScript.test.ts` runs `lua/answer.lua` on the real Redis and 
 through the JS port the unit tests use (replies and state must be identical), plus burst atomicity,
 the rate limit and `EVALSHA` recovery after `SCRIPT FLUSH`; `liveScale.test.ts` (socket answers and
 acks, resync, replays, auto-reveal, score race on Mongo), `multiInstance.test.ts` (two instances,
-adapter on/off), `metrics.test.ts` (`/metrics` auth and content). The load test is not part of
+adapter on/off), `metrics.test.ts` (`/metrics` auth and content). W2-A: `presenter.test.ts` (kick and the
+refused rejoin, timer pause/resume/extend/skip with fair scoring, the phone remote's bind, redeem,
+commands, revoke and other workspaces, the profanity filter, speaker notes absent from every
+participant payload). The load test is not part of
 `bun test`: `backend/loadtest/answer-storm.ts`, run by the `loadtest-smoke` CI job
 ([`../platform/observability.md`](../platform/observability.md#load-test)).
 

@@ -176,6 +176,8 @@ const sub = <T>(definition: Record<string, unknown>) => new Schema<T>(definition
 
 const DeckSettingsSchema = sub<DeckSettings>({
   audienceLocale: { type: String, default: 'en', maxlength: 10 },
+  // W2-A: mask profanity in word-cloud and open-ended answers.
+  profanityFilter: { type: Boolean, default: false },
   nickname: { type: String, enum: NICKNAME_MODES, default: 'required' },
   showResultsOnDevices: { type: Boolean, default: true },
   qna: {

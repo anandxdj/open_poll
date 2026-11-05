@@ -143,7 +143,7 @@ Per-resource shares can grant editor, presenter or viewer, but only for shareabl
 | enterprise | 10,000 | unlimited | unlimited | unlimited | adds SSO, SCIM, custom domains, white-label |
 
 **Product gaps found while building the inventory.** These are scenarios the brief expects but the code does not support.
-- **No way to remove a participant.** There is no host route or UI to kick someone. The server and the phone already handle `PARTICIPANT_KICKED`.
+- ~~**No way to remove a participant.**~~ W2-A adds `POST /:id/host/participants/:pid/kick` and Remove in the presenter view (HOST-31).
 - **No duplicate in the library.** Decks and polls cannot be duplicated from the library; only a slide can be duplicated, inside the builder.
 - **Unused deck settings.** `nickname` (optional or off), `showResultsOnDevices` and `audienceLocale` are stored on the deck, but the builder has no control for them and the phone ignores them.
 - **No self-paced runtime.** Converted polls become "Self-paced deck"s (`pace: audience`), but no audience-paced runtime exists in the UI.
@@ -354,7 +354,7 @@ Per-resource shares can grant editor, presenter or viewer, but only for shareabl
 | HOST-28 | A second host window or tab drives the same deck | Other window toasts `SESSION_ALREADY_LIVE` or `NO_LIVE_SESSION` and resyncs | unit:live.host-commands.test.ts | P1 |
 | HOST-29 | Double click or held key on Next or Reveal | One command at a time; `SESSION_BUSY` retried once | unit:live.host-commands.test.ts | P2 |
 | HOST-30 | Host page for a missing deck, or one the user may not host | "Presentation deck not found." or "You are not authorized to host this deck." | be:presentations/sessions.test.ts, be:integration/tenancy-isolation.test.ts | P1 |
-| HOST-31 | Remove (kick) a participant | Not implemented (no route or UI); product gap | NONE | P1 |
+| HOST-31 | Remove (kick) a participant | Presenter view Remove (app dialog); the phone shows it was removed, cannot answer or rejoin; out of the count and standings (W2-A) | e2e:presenter.spec.ts, int:presenter.test.ts, unit:presenter.test.tsx | P1 |
 | HOST-32 | Speaker notes while presenting | Not shown on the host console; product gap | NONE | P2 |
 | HOST-33 | Copy join code or link from the lobby or header | Clipboard has the code or `/live/<code>`; toast | NONE | P2 |
 | HOST-34 | Brand kit or theme on the stage | Deck tokens applied | e2e:brand.spec.ts | — |
@@ -395,7 +395,7 @@ Per-resource shares can grant editor, presenter or viewer, but only for shareabl
 | PART-30 | Same device rejoins (new tab, or after clearing session credentials) | Same seat via the device token | be:presentations/registry.golden.test.ts, unit:live.participant-session.test.ts | P1 |
 | PART-31 | Host presents again while the phone is on the old run | "A new session is live" with "Join the new session" (nickname pre-filled) | e2e:live-session.spec.ts | — |
 | PART-32 | Stale or missing credentials (storage cleared, session over) | Credentials forgotten; rejoin form with "That session is over" hint | unit:live.reducer.test.ts, unit:live.store-and-slots.test.tsx | P1 |
-| PART-33 | Kicked participant | "You were removed from this session", cannot rejoin (only reachable through data today) | be:presentations/answerPath.test.ts, be:presentations/sessions.test.ts, unit:live.store-and-slots.test.tsx | P2 |
+| PART-33 | Kicked participant | "You were removed from this session" at once (`participant:kicked`), after a reload and after a rejoin attempt; cannot rejoin | e2e:presenter.spec.ts, int:presenter.test.ts, be:presentations/answerPath.test.ts, be:presentations/sessions.test.ts, unit:live.store-and-slots.test.tsx | P2 |
 | PART-34 | Phone network drop | "Reconnecting…"; answers retried with the same id (400 ms, 1.2 s); resync on reconnect or foreground | unit:live.store-and-slots.test.tsx | P0 |
 | PART-35 | Answer rate limit (429) | Retried, then "Too many attempts" | be:presentations/answerPath.test.ts, be:integration/answerScript.test.ts, unit:live.store-and-slots.test.tsx | P2 |
 | PART-36 | End screen | "That's a wrap!", final rank and score, "See my results" link | e2e:live-flow.spec.ts, unit:sessions.components.test.tsx (link) | — |

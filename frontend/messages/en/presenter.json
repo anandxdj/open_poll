@@ -6,7 +6,10 @@
     "copyJoinLink": "Click to copy join link",
     "leaderboard": "Leaderboard",
     "toggleLeaderboard": "Toggle Leaderboard",
-    "toggleFullscreen": "Toggle Fullscreen (F)"
+    "toggleFullscreen": "Toggle Fullscreen (F)",
+    "presenterView": "Presenter view",
+    "openPresenterView": "Presenter view",
+    "openPresenterViewHint": "Notes, next slide, participants and the phone remote"
   },
   "load": {
     "notFound": "Presentation deck not found.",
@@ -63,7 +66,13 @@
     "closeVoting": "Close voting",
     "reopen": "Reopen",
     "reveal": "Reveal",
-    "position": "{current} / {total}"
+    "position": "{current} / {total}",
+    "pause": "Pause timer",
+    "resume": "Resume timer",
+    "extend": "+30 s",
+    "extendLabel": "Add 30 seconds",
+    "skip": "Skip timer",
+    "skipLabel": "Time's up now"
   },
   "endDialog": {
     "title": "End this session?",
@@ -87,7 +96,9 @@
     "linkCopied": "Join link copied to clipboard!",
     "codeCopied": "Join code copied to clipboard!",
     "linkCopyFailed": "Failed to copy link.",
-    "codeCopyFailed": "Failed to copy code."
+    "codeCopyFailed": "Failed to copy code.",
+    "kicked": "{name} was removed from the session.",
+    "remoteRevoked": "Phone remote unpaired."
   },
   "errors": {
     "start": "Failed to start the presentation.",
@@ -99,6 +110,76 @@
     "end": "Failed to end session.",
     "alreadyLive": "A session is already live for this deck. Showing it now.",
     "noLiveSession": "There is no live session any more. Start presenting to begin a new one.",
-    "busy": "Another change was in progress. Try again."
+    "busy": "Another change was in progress. Try again.",
+    "timer": "Failed to change the timer.",
+    "skip": "Failed to skip the timer.",
+    "noTimer": "This slide has no running timer.",
+    "kick": "Failed to remove the participant.",
+    "remote": "Could not pair the phone remote."
+  },
+  "console": {
+    "badge": "Presenter view",
+    "currentSlide": "Current slide",
+    "nextSlide": "Next slide",
+    "noNextSlide": "This is the last slide.",
+    "notes": "Speaker notes",
+    "noNotes": "No notes for this slide.",
+    "notesHint": "Only you see these. They never reach the audience.",
+    "clock": "Session clock",
+    "elapsed": "Elapsed",
+    "localTime": "Local time",
+    "notStarted": "Not started",
+    "responses": "Responses",
+    "responsesOf": "{answered} of {total}",
+    "noResponses": "No question on screen",
+    "participants": "Participants",
+    "participantsCount": "{count} joined",
+    "noParticipants": "Nobody has joined yet.",
+    "kick": "Remove",
+    "kickLabel": "Remove {name}",
+    "simpleView": "Simple view",
+    "simpleViewHint": "Back to the host console",
+    "openAudience": "Open audience window",
+    "audienceOpen": "Audience window open",
+    "audienceHint": "Drag it to the projector and press F there for fullscreen.",
+    "audienceBlocked": "The browser blocked the window. Allow pop-ups for this site and try again.",
+    "soundOn": "Sound cues on",
+    "soundOff": "Sound cues off",
+    "soundLabel": "Sound cues for start, reveal and the timer",
+    "timerPaused": "Timer paused",
+    "timerLeft": "{seconds}s left",
+    "untimed": "No time limit",
+    "countdown": "Starting in",
+    "countdownToggle": "Countdown before the first slide"
+  },
+  "kickDialog": {
+    "title": "Remove {name}?",
+    "body": "They leave the session at once, their phone shows that they were removed, and they cannot answer or join this session again. Answers they already gave stay in the results.",
+    "cancel": "Keep them",
+    "confirm": "Remove"
+  },
+  "remote": {
+    "title": "Phone remote",
+    "hint": "Scan with your phone to change slides, reveal results and control the timer from anywhere in the room.",
+    "pair": "Pair a phone",
+    "repair": "New pairing code",
+    "unpair": "Unpair",
+    "copyLink": "Copy link",
+    "copied": "Link copied",
+    "qrLabel": "Phone remote link",
+    "statusNone": "Not paired",
+    "statusWaiting": "Waiting for a phone to scan",
+    "statusConnected": "Phone connected",
+    "statusOffline": "Paired phone offline",
+    "oneDevice": "The first phone to open the link is the only one that can use it.",
+    "codeHidden": "The pairing code is shown once. Make a new one to pair another phone."
+  },
+  "audience": {
+    "waitingTitle": "Waiting for the presenter view",
+    "waitingHint": "Open this window from the presenter view with “Open audience window”.",
+    "presenterClosed": "The presenter view was closed. This window shows the last slide until it comes back.",
+    "fullscreen": "Fullscreen (F)",
+    "exitFullscreen": "Exit fullscreen (F)",
+    "fullscreenHint": "Press F for fullscreen"
   }
 }

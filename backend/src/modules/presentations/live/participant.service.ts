@@ -31,6 +31,7 @@ import {
   sessionSlides,
   slideIdOf,
   slidePhase,
+  timerBudgetMs,
   windowEnd,
   type StoredAnswerResult,
 } from './state';
@@ -138,6 +139,10 @@ export const joinPresentation = async (presentationId: string, data: JoinPresent
   const sessionId = String(session._id);
 
   const rejoinDeviceId = verifySignedId(data.deviceToken);
+  // A removed participant's device stays out, before it could take a seat back.
+  if (rejoinDeviceId && (await PresentationParticipantModel.exists({ sessionId, deviceId: rejoinDeviceId, kickedAt: { $ne: null } }))) {
+    throw kickedError();
+  }
   const deviceId = rejoinDeviceId ?? newRandomId();
   await claimSeat(sessionId, deviceId, session.entitlementsSnapshot?.audienceCap ?? null);
 
@@ -331,6 +336,8 @@ export const getParticipantLiveState = async (
       slide: toParticipantSlide(slide, session.currentSlideIndex, slides.length),
       startedAt: def.lifecycle === 'response' && state?.openedAt ? state.openedAt.toISOString() : null,
       endsAt: def.lifecycle === 'response' ? (windowEnd(state)?.toISOString() ?? null) : null,
+      pausedRemainingMs: def.lifecycle === 'response' && isOpenState(state) ? (state?.pausedRemainingMs ?? null) : null,
+      durationMs: def.lifecycle === 'response' ? timerBudgetMs(state) : null,
       // Handed out while the window is open (the host has not closed or revealed it), even past the timer.
       slideTicket:
         def.lifecycle === 'response' && session.isLive && isOpenState(state) && state?.openedAt

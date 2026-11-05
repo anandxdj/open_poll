@@ -1,7 +1,7 @@
 ---
 summary: Audience Q&A (questions, upvotes, moderation, highlight, the qna board slide) and emoji reactions — API, settings, events, Redis keys, limits, tests.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-05
 ---
 
 # Q&A and reactions (`src/modules/{qna,reactions}/`)
@@ -19,7 +19,7 @@ session of [`presentations-live.md`](./presentations-live.md): questions belong 
 | `qna/qna.service.ts` | All rules: session context, `settingsView`, ask / list / upvote, host list / update / highlight, event publishing. |
 | `qna/qna.model.ts` | `QnaQuestion` (`qnaquestions`), `QnaUpvote` (`qnaupvotes`). |
 | `qna/qna.contract.ts` | Wire types, statuses, error codes. The frontend mirrors it in `features/qna/types.ts`. |
-| `qna/qna.schema.ts`, `qna.controller.ts`, `qna.keys.ts`, `profanity.ts` | Zod schemas, thin handlers, Redis keys, word-list mask. |
+| `qna/qna.schema.ts`, `qna.controller.ts`, `qna.keys.ts` | Zod schemas, thin handlers, Redis keys. The word-list mask is the shared `common/utils/profanity.ts` (W2-A; also behind the deck setting `profanityFilter` for word clouds and open answers). |
 | `qna/coalescer.ts` | Cross-instance coalescing (`setCoalescer` for `qna:votes`, `hashCoalescer` for `reaction:burst`). |
 | `reactions/reactions.service.ts`, `reactions.socket.ts` | `reaction:send` handler and limits. |
 | `presentations/slides/types/qna.ts` | The `qna` slide type (`board` lifecycle). |

@@ -10,8 +10,12 @@ export interface ISlideState {
   openedAt: Date | null;
   /** Answer deadline; null when untimed or for slides without an answer window. */
   endsAt: Date | null;
-  /** Remaining time while a timer is paused (presenter tools). */
+  /** Remaining time while the timer is paused (W2-A); `endsAt` is null meanwhile. */
   pausedRemainingMs: number | null;
+  /** When the running pause began; null while the timer runs (or was never paused). */
+  pausedAt: Date | null;
+  /** Total time spent paused in finished pauses of this window (ms); excluded from speed scoring. */
+  pausedMs: number;
   closedAt: Date | null;
   revealedAt: Date | null;
 }
@@ -97,6 +101,8 @@ const SlideStateSchema = new Schema<ISlideState>(
     openedAt: { type: Date, default: null },
     endsAt: { type: Date, default: null },
     pausedRemainingMs: { type: Number, default: null },
+    pausedAt: { type: Date, default: null },
+    pausedMs: { type: Number, default: 0 },
     closedAt: { type: Date, default: null },
     revealedAt: { type: Date, default: null },
   },

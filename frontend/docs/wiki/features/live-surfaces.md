@@ -1,13 +1,15 @@
 ---
-summary: Live deck surfaces — host console, participant shell, stage — their session-aware flows, and their extension points: live store/reducer, slots, slide runtime registry, deck theme tokens, live i18n.
+summary: Live deck surfaces — host console, presenter view and audience window, phone remote, participant shell, stage — their session-aware flows, and their extension points: live store/reducer, slots, slide runtime registry, deck theme tokens, live i18n.
 status: active
 last_updated: 2026-11-05
 ---
 
 # Live Surfaces
 
-Routes: `/presentation/host/[id]` (host console), `/live/[code]` (participant), `/live` (code
-entry). Code lives in `features/presentations/`. The realtime wire protocol is in
+Routes: `/presentation/host/[id]` (host console), `/presentation/[id]/presenter` (presenter view,
+W2-A), `/presentation/[id]/present` (audience window, W2-A), `/remote/[token]` (phone remote, W2-A),
+`/live/[code]` (participant), `/live` (code entry). Code lives in `features/presentations/`, plus
+`features/presenter/` and `features/remote/` for the W2-A surfaces ([Presenter view](#presenter-view-w2-a)). The realtime wire protocol is in
 [`../data/realtime.md`](../data/realtime.md); the builder side in
 [`presentation-builder.md`](./presentation-builder.md). The server contract these surfaces follow
 is `backend/docs/wiki/modules/presentations-live.md`: every presentation is a **session**
@@ -21,7 +23,7 @@ is `backend/docs/wiki/modules/presentations-live.md`: every presentation is a **
 | Host console | `components/host/HostConsole.tsx` | Own live store + `DeckThemeProvider`; header, Stage, controls, leaderboard modal, keyboard (←/→, PageUp/Down, F). A workspace template (`deck.isTemplate`, W3-B2) gets "This is a template" with Use template / Back to templates instead (`presenter.template.*`; the API refuses to present it, see `templates.md`). |
 | Host session | `components/host/useHostSession.ts` | Reads host state on mount (never opens anything), follows the socket, resyncs, runs one host command at a time, timer-driven reveal. |
 | Host commands | `components/host/hostCommands.ts` | `sendHostCommand`: one retry on `SESSION_BUSY`, flags `SESSION_ALREADY_LIVE`/`NO_LIVE_SESSION` as "console out of date". |
-| Host chrome | `components/host/{HostHeader,HostControls,LeaderboardModal,useJoinLink}.tsx` | Top bar (+ `hostToolbar` slot), bottom bar (back/forward, voting phase controls), standings overlay, join link copy. |
+| Host chrome | `components/host/{HostHeader,HostControls,LeaderboardModal,useJoinLink}.tsx` | Top bar (+ `hostToolbar` slot, a link to the presenter view), bottom bar (back/forward, voting phase controls), standings overlay, join link copy. |
 | Stage | `components/stage/Stage.tsx` | What the audience sees: ready, lobby, running slide, end. Controls come in as props (`readyActions`, `lobbyActions`, `endActions`, `overlays`) so a screen-only surface can reuse it. |
 | Stage parts | `components/stage/{StageReady,StageLobby,StageSlide,StageEnd,ResponseCounter,StageView,Leaderboard,Timer}.tsx` | `StageView` looks the slide type up in the runtime registry; `Leaderboard` and `Timer` are shared with the participant. |
 | Participant shell | `components/participant/ParticipantShell.tsx` | Own live store; nickname gate, notices, slots, slide body. |
@@ -30,6 +32,10 @@ is `backend/docs/wiki/modules/presentations-live.md`: every presentation is a **
 | Answer delivery | `live/answerDelivery.ts` | `deliverAnswer`: socket `answer:submit` (3 s ack) → REST; `createSocketAnswerTransport`. |
 | Offline queue | `live/offline/{types,storage,sync,index}.ts` | IndexedDB queue of answers keyed by `clientAnswerId` (memory fallback), the backoff sender `createAnswerSync`. |
 | Sync notices | `components/participant/useAnswerSyncNotices.ts` | Toasts a queued answer refused for a slide no longer on screen. |
+| Presenter view | `features/presenter/components/{PresenterConsole,PresenterControls,NotesPanel,NextSlidePreview,SessionClock,ResponseCounter,ParticipantList,RemotePairing,StartCountdown}.tsx` | W2-A: the host's second screen, see [Presenter view](#presenter-view-w2-a). |
+| Audience window | `features/presenter/{components/AudienceWindow.tsx,audienceChannel.ts,useFullscreen.ts}` | The stage only, mirrored from the presenter view over a BroadcastChannel. |
+| Presenter extras | `features/presenter/{soundCues.ts,remoteState.ts,module.ts,register.ts}` | Optional sound cues; the `remote` live slice (phone remote presence). |
+| Phone remote | `features/remote/{RemoteConsole.tsx,useRemote.ts,api.ts}` | `/remote/<token>`: big buttons over its own socket. |
 
 Both surfaces import `features/registrations.ts` first, so every module registration has run
 before their first render.
@@ -71,6 +77,10 @@ visited response slide (`results`, by slide id) so revisits show them.
   socket down it polls every 3 s.
 - Keyboard: ArrowLeft/ArrowRight/PageUp/PageDown only while `active`; ignored with a modifier or
   inside inputs.
+- **Timer tools (W2-A).** `useHostSession` also runs `pauseTimer`, `resumeTimer`, `extendTimer(seconds)`
+  and `skip` (time's up now) through the same one-command-at-a-time `run`, and `kick(participantId,
+  name)` outside it (it is not a slide command). A paused window never triggers the timer-driven
+  reveal (`countdown.paused`, no deadline).
 
 ## Participant flow
 
@@ -98,7 +108,10 @@ visited response slide (`results`, by slide id) so revisits show them.
    marks it answered, which is how a revisit of an answered slide shows its result.
 
 Credential failures are mapped by `participantLostReason` (store): `PARTICIPANT_KICKED` → `kicked`
-(the credentials are forgotten and a "you were removed" screen replaces the shell),
+(the credentials are forgotten and a "you were removed" screen replaces the shell; the
+`participant:kicked` envelope in the phone's own room does the same at once, and so does a join
+refused with `PARTICIPANT_KICKED`; the device record keeps `kickedSessionId`, so a reload of that
+session goes straight back to the removed screen instead of the nickname form),
 `PARTICIPANT_STALE` (answer from an ended session's participant) and any 404/401 → `stale` /
 `missing`: the credentials are forgotten, the code is looked up again and the nickname form
 (pre-filled, with a "that session is over" hint) rejoins the live session. `SESSION_FULL` on join
@@ -109,7 +122,8 @@ reducer; the shell looks the code up once per foreign session and, when the foll
 over, shows a "A new session is live" notice with a **Join the new session** button.
 
 Phase on the phone (`ParticipantSlide`): `open` — answer form, timer only when the window is
-timed; `closed` and not answered — "Voting is closed"; answered — locked in / response received;
+timed (a paused timer shows "Paused" with the frozen time and a "Timer paused" notice; the form keeps
+the pick and Submit only toasts until the host resumes); `closed` and not answered — "Voting is closed"; answered — locked in / response received;
 `revealed` — the result card from this slide's `lastAnswer`, or "Time's up!" (timed) / "Voting is
 closed" (untimed) for a participant who did not answer. An answer in the offline queue shows
 **"Saved — will sync"** (any phase before the reveal; it may still count within the slide ticket's
@@ -197,11 +211,13 @@ Scored timed slides are also auto-revealed by the server 1.5 s after their timer
 own timer-driven reveal still covers unscored slides and a reveal being repeated is harmless.
 
 `LiveState` (see `reducer.ts`): `role`, `presentationId`, `connected` (socket joined), `sessionId`,
-`runNumber`, `status` (`draft` = never presented, host only; `lobby`, `active`, `ended`), `title`,
+`runNumber`, `sessionStartedAt` (host: when the session opened, for the presenter's clock), `status` (`draft` = never presented, host only; `lobby`, `active`, `ended`), `title`,
 `joinCode`, `totalSlides`, `currentSlideIndex`, `slideId`, `phase` (`shown | open | closed |
 revealed`, null in the lobby and once ended), `isLastSlide`, `deck` (host only, answer keys
 included), `slide` (participant, sanitized; a leaderboard slide is synthesized), `timing
-{startedAt, endsAt, clockOffsetMs}` (only while `open`; `endsAt` null = untimed), `clockOffsetMs`
+{startedAt, endsAt, clockOffsetMs, pausedRemainingMs?, durationMs?}` (only while `open`; `endsAt`
+null = untimed, or paused when `pausedRemainingMs` is set; `durationMs` = the timer's budget with
+extensions), `clockOffsetMs`
 (latest sample), `reveal`, `distribution` (host only), `answeredCount`, `participants`,
 `leaderboard`, `results` (host: stored results of visited response slides, by slide id),
 `slideTicket` (participant), `settings` (participant, from `live-state`), `self`, `me`, `submittedSlideIndex`,
@@ -225,7 +241,11 @@ Events handled (host and participant): `session:lobby`, `slide:shown`, `question
 `question:revealed` (`revisit`), `leaderboard:shown`, `session:ended`, `participant:joined`,
 `answer:received` (host only, coalesced by the server to one per dirty slide per 250 ms with the
 slide's counts and distribution; counts only grow on the slide on screen and fill the per-slide
-`results`). The legacy copies `lobby:opened` / `quiz:ended` are ignored.
+`results`), `slide:timing` (W2-A: replaces the open window's timing — same slide and `startedAt`
+only; a host command response with a newer deadline or frozen time wins over timing kept from
+events), `participant:kicked` (host: drops the participant from the list and the standings;
+participant: its own id → `lost: "kicked"`, identity forgotten). The legacy copies `lobby:opened` /
+`quiz:ended` are ignored.
 `planEnvelope(state, event)` decides per envelope: `foreign`, `duplicate`, or `apply` with an
 optional resync (`gap` for the host only, `reset` for everyone).
 
@@ -253,9 +273,12 @@ with the window it belongs to (`timing.clockOffsetMs`; falls back to the latest 
 message has no `serverNow`). The old code kept the `serverNow` of the page load and paired it with
 "now" at each question, so a participant who waited in the lobby saw a countdown that ran long by
 the wait (plan §0 item 12; reproduced in `tests/unit/live.clock.test.ts`).
-`useCountdown(timing, totalSeconds)` ticks from one shared 100 ms clock and returns `{timed,
-secondsLeft, progress, expired}`; untimed windows report `timed: false` and never expire; the value
-is capped at the slide's own time budget.
+`useCountdown(timing, totalSeconds)` ticks from one shared 100 ms clock and returns `{timed, paused,
+secondsLeft, progress, expired}`; untimed windows report `timed: false` and never expire; a paused
+window (`pausedRemainingMs` set) reports `paused: true`, its frozen time and never expires; the value
+is capped at the window's budget — `timing.durationMs` (time limit plus extensions) when known, else
+the slide's own time limit. `Timer` takes `paused` and a `tone` (`audience` for the phone, `stage` for
+the always-dark projected stage).
 
 ## Slots (`live/slots.ts`)
 
@@ -274,7 +297,7 @@ getSlotEntries(slot, props?)
 | `endScreen` | `{role, presentationId}` | After the standings on the host and participant end screens. |
 | `stageOverlays` | `{surface: 'host' \| 'screen', presentationId}` | Inside the stage `<main>` (absolutely positioned layers), every status. |
 | `hostToolbar` | `{presentationId}` | Start of the host header's right-hand group. |
-| `presenterPanels` | `{presentationId}` | Reserved for the presenter console (W2-A). |
+| `presenterPanels` | `{presentationId}` | Under the presenter view's side panels (W2-A; Q&A registers its panel here). |
 
 Same `id` again replaces the entry. Slot components read anything else from `useLive` — e.g.
 `useLive((s) => s.sessionId)` is the session the surface follows (host: the live or latest one;
@@ -286,6 +309,54 @@ they have their own registry (`components/builder/inspectorTabs.ts`).
 **Adding a module:** put its registrations in e.g. `features/qna/register.ts`
 (`registerLiveReducer('qna', …)`, `registerSlot('participantTabs', …)`) and add one line to
 `features/registrations.ts` (alphabetical).
+
+## Presenter view (W2-A)
+
+`/presentation/<id>/presenter` — `PresenterConsole`, its own host live store and `useHostSession`
+(the same reads, socket and commands as the host console, which links to it; "Simple view" goes back).
+
+- **Left:** the stage (`Stage surface="host"`, with the ready / lobby / end actions), then the
+  controls (`PresenterControls`): Prev / Next (or End Session on the last slide); Close voting /
+  Reveal / Reopen; on an open timed slide **Pause timer** or **Resume timer**, **+30 s** and **Skip
+  timer** (time's up now). Optional "Countdown before the first slide" (a 3-2-1 over the stage and the
+  audience window, then `start`).
+- **Right:** session clock (elapsed since the session opened, on the server clock, and local time) and
+  responses ("N of M", the timer state); **speaker notes** of the current slide (the first slide
+  before the run; never in a participant payload, never on the audience window); the **next slide**
+  (`SlideThumbnail`); **participants** with **Remove** (confirmed in the app's own `AlertDialog`,
+  never `confirm()`); **phone remote** pairing; the `presenterPanels` slot.
+- **Header:** live badge, participants, join code (copies the link), **Open audience window**
+  (shows "Audience window open" once one answered), **Sound cues** on/off (muted by default,
+  remembered in localStorage `openpoll_presenter_sound`), Simple view, fullscreen. Keys:
+  ←/→/PageUp/PageDown while presenting, F fullscreen.
+
+**Audience window** — `/presentation/<id>/present` (`AudienceWindow`), opened with
+`window.open(path, "openpoll-audience-<id>", "popup,…")` (a blocked pop-up shows a hint). It has **no
+socket**: the presenter view mirrors its live store over `BroadcastChannel("openpoll-presenter-<id>")`
+(`audienceChannel.ts`): the audience says `hello` on load (again every 2 s until answered), the
+presenter sends `state` (the store's data fields, no functions; at most every 50 ms on change and every
+2 s as a heartbeat) with `ui {sound, countdown}`, and `bye` when it closes (the window keeps the last
+slide and says the presenter view was closed). It renders `Stage surface="screen"` without controls,
+the start countdown and the `stageOverlays` (Q&A highlight, reactions: they are store slices, so they
+travel with the snapshot). Fullscreen with F or the corner button (`useFullscreen`: the Fullscreen API
+needs a gesture in that window). Sound cues play in the audience window when one is open, else in the
+presenter view (`soundCues.ts`: Web Audio chirp on a question opening, chime on the reveal, ticks in
+the last three seconds).
+
+**Phone remote pairing** (`RemotePairing`): **Pair a phone** → `POST /host/remote-token`, a QR code of
+`<origin>/remote/<token>` (shown once; after a reload the panel shows the status and offers **New
+pairing code**), **Copy link**, **Unpair**. Status (Not paired / Waiting for a phone to scan / Phone
+connected / Paired phone offline) from `GET /host/remote-token` and the `remote` live slice
+(`remote:connected` / `remote:disconnected`, `live/module remote/status`).
+
+**Phone remote** — `/remote/<token>` (`RemoteConsole`, `useRemote`): a device key (48 hex characters,
+localStorage `openpoll_remote_device`) binds the pairing on first use. The page joins with `remote:join`
+on every (re)connect, re-reads `GET /api/remote/:token/state` (debounced) on slide events and every 3 s
+in the lobby or while voting is open (answer counts are host-only events), and sends `remote:command`
+with a 5 s ack: **Previous**, **Next** (starts slide 1 from the lobby), **Reveal**, **Close voting**,
+**+30 s**, **Pause** / **Resume**. It shows the slide position and title, phase, timer, "N of M
+answered", up next and the speaker notes. Final screens: the link no longer works (unpaired, replaced,
+expired), the pairing belongs to another phone, the presenter unpaired it (`remote:revoked`).
 
 ## Slide runtime registry (`slides/runtime.ts`)
 
@@ -414,8 +485,9 @@ has a runtime.
 
 ## i18n (live routes only)
 
-- `next-intl`, client-side only: `app/live/layout.tsx` and `app/presentation/host/layout.tsx` wrap
-  pages in `i18n/LiveIntlProvider.tsx` (no request config, no `next.config` plugin).
+- `next-intl`, client-side only: `app/live/layout.tsx`, `app/presentation/host/layout.tsx`,
+  `app/presentation/[id]/layout.tsx` (presenter view, audience window) and `app/remote/[token]/layout.tsx`
+  wrap pages in `i18n/LiveIntlProvider.tsx` (no request config, no `next.config` plugin).
 - Messages: `messages/<locale>/<feature>.json`, one file per feature; `i18n/messages.ts` is the
   append-only namespace list and types every key (`i18n/global.d.ts`). Locales: `i18n/config.ts`
   (`en` only for now).
@@ -423,10 +495,12 @@ has a runtime.
   voting closed, reconnecting, session full, removed, ended, new session —, slide answer forms,
   leaderboard, timer, content slides: `slides.content.lookAtScreen*`,
   `slides.{image,video,instructions}.*`). `presenter.json` holds the host console and stage
-  (`presenter.header|ready|lobby|slide|controls|end|toasts|errors|load|connection`).
+  (`presenter.header|ready|lobby|slide|controls|end|toasts|errors|load|connection`) and the W2-A
+  presenter view (`presenter.console|kickDialog|remote|audience`). `remote.json` (namespace `remote`)
+  holds the phone remote page.
   `slides-advanced.json` (namespace `slidesAdvanced`) holds the strings of the advanced slide views
-  (`slidesAdvanced.guessNumber|hundredPoints|grid2x2|pinOnImage`). `LiveIntlProvider` ships all three
-  namespaces (`live`, `presenter`, `slidesAdvanced`): a package that adds a namespace used on live
+  (`slidesAdvanced.guessNumber|hundredPoints|grid2x2|pinOnImage`). `LiveIntlProvider` ships `live`,
+  `presenter`, `qna`, `remote` and `slidesAdvanced`: a package that adds a namespace used on live
   surfaces appends it there.
 
 ## Tests
@@ -441,7 +515,11 @@ has a runtime.
   (host controls / stage / participant slide per phase, saved offline and refused), `slides.runtime.test.tsx`,
   `slides.content.test.tsx`, `slides.advanced.test.tsx` (the four advanced types: settings readers
   and validation mirroring the backend, editors, board / pin / points helpers, views),
-  `media.test.tsx`, `theme.tokens.test.ts`. Shared fixtures: `tests/unit/live.fixtures.ts`.
+  `media.test.tsx`, `theme.tokens.test.ts`, `presenter.test.tsx` (W2-A: `slide:timing` and
+  `participant:kicked` in the reducer, paused countdowns, `SLIDE_PAUSED` retried, the remote presence
+  slice, the audience snapshot, presenter view and paused phone markup). Shared fixtures:
+  `tests/unit/live.fixtures.ts`.
 - E2E (`bun run test:e2e`): `e2e/live-flow.spec.ts`, `e2e/live-session.spec.ts`, `e2e/offline-answers.spec.ts`,
+  `e2e/presenter.spec.ts`,
   `e2e/content-slides.spec.ts`, `e2e/select-answer.spec.ts`, `e2e/advanced-slides.spec.ts` — see
   [`../testing/e2e.md`](../testing/e2e.md).

@@ -18,7 +18,7 @@
 --
 -- Replies: {'OK', answeredCount, ownsDirtyWindow(0|1)}, {'DUP', storedJson,
 -- answeredCount} or {REASON} with REASON one of CLOSED, NO_WINDOW, STALE,
--- NO_TOKEN, BAD_TOKEN, KICKED, RATE_LIMITED, TIME_UP, BAD_OP.
+-- NO_TOKEN, BAD_TOKEN, KICKED, RATE_LIMITED, PAUSED, TIME_UP, BAD_OP.
 
 local pid = ARGV[1]
 local slideId = ARGV[3]
@@ -58,6 +58,12 @@ end
 --    slide ticket stretches that grace.
 if redis.call('HGET', KEYS[1], 'status') == 'ended' then return {'CLOSED'} end
 if not window.open then return {'CLOSED'} end
+-- A paused timer takes no answers (W2-A), except those already on their way
+-- when the pause began (the same grace as the deadline's).
+local pausedAt = window.pausedAtMs
+if pausedAt ~= nil and pausedAt ~= cjson.null then
+  if now > pausedAt + tonumber(ARGV[16]) then return {'PAUSED'} end
+end
 local endsAt = window.endsAtMs
 if endsAt ~= nil and endsAt ~= cjson.null then
   local grace = tonumber(ARGV[16])

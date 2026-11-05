@@ -3,7 +3,8 @@ import { PresentationHostController } from '../controllers/host.controller';
 import { validate } from '../../../common/middlewares/validate.middleware';
 import { workspaceContext } from '../../../common/tenancy/workspaceContext.middleware';
 import { authenticate } from '../../auth/auth.middleware';
-import { advanceSlideSchema, gotoSlideSchema } from '../presentations.schema';
+import { rateLimit } from '../../../common/middlewares/rateLimit.middleware';
+import { advanceSlideSchema, gotoSlideSchema, timerCommandSchema } from '../presentations.schema';
 // Registers the job that ends idle lobbies and presented sessions.
 import '../live/idleSessions';
 
@@ -31,6 +32,38 @@ router.post('/:id/host/close', authenticate(), workspaceContext(), PresentationH
 router.post('/:id/host/reopen', authenticate(), workspaceContext(), PresentationHostController.reopen);
 router.post('/:id/host/reveal', authenticate(), workspaceContext(), PresentationHostController.reveal);
 router.post('/:id/host/end', authenticate(), workspaceContext(), PresentationHostController.end);
+
+// Presenter tools (W2-A): the current slide's timer, removing participants, the phone remote.
+router.post(
+  '/:id/host/timer',
+  authenticate(),
+  workspaceContext(),
+  validate(timerCommandSchema),
+  PresentationHostController.timer
+);
+router.post('/:id/host/skip', authenticate(), workspaceContext(), PresentationHostController.skip);
+router.post(
+  '/:id/host/participants/:participantId/kick',
+  authenticate(),
+  workspaceContext(),
+  PresentationHostController.kick
+);
+const remoteTokenLimit = rateLimit({ prefix: 'remote-token', windowSec: 60, max: 20 });
+router.get('/:id/host/remote-token', authenticate(), workspaceContext(), PresentationHostController.remoteStatus);
+router.post(
+  '/:id/host/remote-token',
+  remoteTokenLimit,
+  authenticate(),
+  workspaceContext(),
+  PresentationHostController.createRemoteToken
+);
+router.delete(
+  '/:id/host/remote-token',
+  remoteTokenLimit,
+  authenticate(),
+  workspaceContext(),
+  PresentationHostController.revokeRemoteToken
+);
 router.get('/:id/sessions', authenticate(), workspaceContext(), PresentationHostController.sessions);
 
 export default router;

@@ -14,6 +14,8 @@ own sockets with `io.local`.
 | `live:event` | `publishLiveEvent` (`common/realtime/publish.ts`), via `publishPresentationEvent` | live envelope v1 ([`envelope.md`](./envelope.md)) | `live:event` to `live:*` rooms ([`presentations.md`](./presentations.md)) |
 | `analytics:update` | `publishPollAnalytics`, from `responses/analytics.worker.ts` | `{ pollId, analytics }` | `analytics:update` to `poll_{pollId}` ([`polls.md`](./polls.md)) |
 | `editor:presence` | `presentations/editor.socket.ts` (an editor opens or leaves a deck in the builder) | `{ presentationId }` | `presence:update {presentationId, editors}` to `editor:{presentationId}` ([`editor.md`](./editor.md)) |
+| `presentations:control` | `requestParticipantRoomsLeave` (`presentations/live/control.ts`), after a kick | `{ kind: 'participant-leave', presentationId, participantId }` | that participant's sockets leave the deck's rooms |
+| `remote:control` | the remote service on revoke / re-pair | `{ kind: 'revoke', presentationId }` | the deck's remote sockets leave its rooms and get `remote:revoked` |
 
 The `quiz:event` **channel** is gone: deck events are published once, on `live:event`. The
 `quiz:event` **socket event** (the legacy copy to `quiz_*` rooms) is gone too since W2-D phase 2.
@@ -28,7 +30,8 @@ With `SOCKET_REDIS_ADAPTER=on` the Socket.io adapter adds its own pub/sub channe
 operations only; live events still use `live:event`.
 
 Live answer keys (`psess:{sid}:dirty`, `:dirty:slides`, `:rate:{participantId}`, the global
-`live:autoreveal` ZSET) are listed in [`../modules/presentations-live.md`](../modules/presentations-live.md#redis-keys).
+`live:autoreveal` ZSET) and the phone remote's presence set (`remote:{<pid>}:sockets`) are listed in
+[`../modules/presentations-live.md`](../modules/presentations-live.md#redis-keys).
 
 Poll analytics path:
 1. Responses service writes buffered counters to Redis keys, adds the question id to the poll's

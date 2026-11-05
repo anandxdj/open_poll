@@ -28,7 +28,7 @@ const QNA_TOGGLES: { key: QnaKey; label: string; hint: string }[] = [
   { key: "upvotes", label: "Allow upvotes", hint: "Participants vote for the questions they want answered." },
 ];
 
-/** Deck-level audience settings: Q&A and reactions. Each change saves on its own. */
+/** Deck-level audience settings: Q&A, reactions and the answers' profanity filter. Each change saves on its own. */
 function AudiencePanel() {
   const deckId = useSearchParams()?.get("id") ?? null;
   const [settings, setSettings] = useState<AudienceSettings | null>(null);
@@ -157,6 +157,25 @@ function AudiencePanel() {
               );
             })}
           </div>
+        </div>
+      </fieldset>
+
+      <fieldset className="space-y-4">
+        <legend className={labelClass}>Answers</legend>
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-0.5">
+            <Label htmlFor="audience-profanity-filter" className="text-sm font-semibold">
+              Filter bad words
+            </Label>
+            <p className="text-xs text-muted-foreground/50">
+              Word clouds and open answers show offensive words as asterisks. Questions in Q&amp;A are always filtered.
+            </p>
+          </div>
+          <Switch
+            id="audience-profanity-filter"
+            checked={settings.profanityFilter}
+            onCheckedChange={(value) => void apply({ ...settings, profanityFilter: value }, { profanityFilter: value })}
+          />
         </div>
       </fieldset>
 

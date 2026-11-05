@@ -35,6 +35,7 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/quiz-roadmap.md` (phases / what to build next)
 - Add `backend/docs/wiki/realtime/presentations.md` only if touching events.
 - Answer hot path (Lua script, replays, grace/tickets, coalescer, write-behind, auto-reveal, socket `answer:submit`/`live:resync`): the "Answer path" section of `modules/presentations-live.md`.
+- Presenter tools (timer pause/resume/extend/skip, kick, phone remote `modules/remote`, deck profanity filter): the "Presenter tools (W2-A)" section of `modules/presentations-live.md`.
 
 ### MCP server for AI agents (deck, live and results tools, resources, prompts, personal tokens, OAuth connectors)
 - `backend/docs/wiki/modules/mcp.md`

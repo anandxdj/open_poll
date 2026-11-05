@@ -86,13 +86,13 @@ describe('computeSlideDistributionHelper', () => {
     }
   });
 
-  it("falls back to counting the session's participants in Mongo when the Redis names hash is gone", async () => {
+  it("falls back to counting the session's participants (not the removed ones) in Mongo when the Redis names hash is gone", async () => {
     const stub = stubRedis({}, 0, 0);
     try {
       const result = await computeSlideDistributionHelper(SESSION_ID, SLIDE_ID, slide);
 
       expect(result.participantCount).toBe(7);
-      expect(stub.countFilter()).toEqual({ sessionId: SESSION_ID });
+      expect(stub.countFilter()).toEqual({ sessionId: SESSION_ID, kickedAt: null });
     } finally {
       stub.restore();
     }

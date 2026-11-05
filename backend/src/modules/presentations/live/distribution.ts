@@ -12,7 +12,7 @@ export const getParticipantCount = (sessionId: string): Promise<number> =>
   redisClient
     .hLen(k.names(sessionId))
     .catch(() => 0)
-    .then((n) => (n > 0 ? n : PresentationParticipantModel.countDocuments({ sessionId })));
+    .then((n) => (n > 0 ? n : PresentationParticipantModel.countDocuments({ sessionId, kickedAt: null })));
 
 /**
  * Live answer distribution for one slide of a session, built from the hot-path
@@ -37,7 +37,7 @@ export const computeSlideDistributionHelper = async (
   ]);
 
   const participantCount =
-    nameCount > 0 ? nameCount : await PresentationParticipantModel.countDocuments({ sessionId });
+    nameCount > 0 ? nameCount : await PresentationParticipantModel.countDocuments({ sessionId, kickedAt: null });
 
   const distribution = def?.distribution ? def.distribution(slide, { dist, disp, feed }) : {};
   return { distribution, answeredCount, participantCount };
@@ -71,9 +71,9 @@ export const getLeaderboard = async (sessionId: string, limit = LEADERBOARD_SIZE
   return getStoredLeaderboard(sessionId, limit);
 };
 
-/** Leaderboard from the participant documents (durable totals). */
+/** Leaderboard from the participant documents (durable totals). Participants the host removed are left out. */
 export const getStoredLeaderboard = async (sessionId: string, limit: number): Promise<LeaderboardEntry[]> => {
-  const participants = await PresentationParticipantModel.find({ sessionId })
+  const participants = await PresentationParticipantModel.find({ sessionId, kickedAt: null })
     .sort({ score: -1, joinedAt: 1 })
     .limit(limit)
     .lean();
