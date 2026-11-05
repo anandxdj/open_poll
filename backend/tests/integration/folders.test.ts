@@ -165,6 +165,16 @@ describeIntegration('folders and templates over HTTP', () => {
       expect(res.status).toBe(404);
       expect((await PresentationModel.findById(deck._id).lean())!.folderId).toBeNull();
       expect((await move(alice, String(new mongoose.Types.ObjectId()), [{ entityType: 'presentation', id: deck._id }])).status).toBe(404);
+
+      // A poll from before workspaces: its creator learns why, anyone else that it does not exist.
+      const legacy = await PollModel.create({
+        creatorId: alice.id,
+        title: 'Before workspaces',
+        expiresAt: new Date(Date.now() + 86_400_000),
+        questions: [{ text: 'Old?', options: ['Yes', 'No'] }],
+      });
+      expect((await move(alice, folder.id, [{ entityType: 'poll', id: String(legacy._id) }])).body.code).toBe('NOT_MOVABLE');
+      expect((await move(erin, folder.id, [{ entityType: 'poll', id: String(legacy._id) }])).status).toBe(404);
     });
 
     it('lets viewers see folders but not create, rename, file or delete', async () => {

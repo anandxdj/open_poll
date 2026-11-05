@@ -197,7 +197,9 @@ export class FoldersService {
     }
     for (const item of [...decks, ...polls]) {
       // Items from before workspaces (only their creator reaches them) cannot join a workspace folder.
+      // Anyone else is told nothing more than that it does not exist.
       if (!item.workspaceId) {
+        if (String(item.creatorId) !== ctx.user.id) throw ApiError.notFound('Some of these items no longer exist');
         throw new ApiError(409, "This item doesn't belong to a workspace yet, so it can't go in a folder", 'NOT_MOVABLE');
       }
       assertCan(ctx, 'deck:share', item);
