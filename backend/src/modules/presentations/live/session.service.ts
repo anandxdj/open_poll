@@ -47,6 +47,7 @@ import {
   slidePhase,
   timerBudgetMs,
   windowEnd,
+  windowOptions,
   writeSlideState,
   type Slide,
 } from './state';
@@ -201,7 +202,7 @@ const cacheClosedWindow = async (session: IPresentationSession, slideId: string)
   const index = slides.findIndex((slide) => slideIdOf(slide) === slideId);
   const state = readSlideState(session, slideId);
   if (index < 0 || !state?.openedAt || lifecycleOf(slides[index]!.type) !== 'response') return;
-  await cacheAnswerWindow(String(session._id), buildAnswerWindow(slides[index]!, index, state, false));
+  await cacheAnswerWindow(String(session._id), buildAnswerWindow(slides[index]!, index, state, false, windowOptions(session)));
 };
 
 /** Closes the current slide when it is an open response slide. Returns its id when it did. */
@@ -443,7 +444,7 @@ const moveTo = async (
     await flushDirty(pid, sid); // the host sees the last counts of the slide it leaves, before the move
   }
   if (def.lifecycle === 'response') {
-    await cacheAnswerWindow(sid, buildAnswerWindow(slide, index, state, true));
+    await cacheAnswerWindow(sid, buildAnswerWindow(slide, index, state, true, windowOptions(session)));
   }
 
   const slides = sessionSlides(session);
@@ -589,7 +590,7 @@ export const reopenCurrentSlide = async (presentationId: string, actor: Actor): 
   await saveSession(session);
   await mirrorDeck(presentation, session);
   const opened = readSlideState(session, slideId)!;
-  await cacheAnswerWindow(String(session._id), buildAnswerWindow(slide, index, opened, true));
+  await cacheAnswerWindow(String(session._id), buildAnswerWindow(slide, index, opened, true, windowOptions(session)));
   await publishOpened(String(presentation._id), session, slide, index, opened, true);
   return result(presentation, session);
 };

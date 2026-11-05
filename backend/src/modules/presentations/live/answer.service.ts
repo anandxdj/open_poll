@@ -1,4 +1,5 @@
 import { ApiError } from '../../../common/utils/ApiError';
+import { maskProfanity } from '../../../common/utils/profanity';
 import { redisClient } from '../../../common/config/redis';
 import { answerDuration, answersAccepted, answersRejected } from '../../../common/observability/metrics';
 import { timeRedis } from '../../../common/observability/redisTiming';
@@ -69,6 +70,16 @@ const answerPayloadOf = (data: SubmitPresentationAnswerInput): Record<string, un
   return legacy;
 };
 
+/** The deck's profanity filter (W2-A): the text fields of a word-cloud or open answer, masked. */
+export const maskAnswerText = (payload: Record<string, unknown>): Record<string, unknown> => {
+  const masked: Record<string, unknown> = { ...payload };
+  if (typeof masked.text === 'string') masked.text = maskProfanity(masked.text);
+  if (Array.isArray(masked.entries)) {
+    masked.entries = masked.entries.map((entry) => (typeof entry === 'string' ? maskProfanity(entry) : entry));
+  }
+  return masked;
+};
+
 /** Validates and grades the payload. Throws 400 for a malformed or ungradeable answer; writes nothing. */
 const grade = (
   def: SlideTypeDef,
@@ -76,7 +87,7 @@ const grade = (
   data: SubmitPresentationAnswerInput,
   elapsedMs: number
 ) => {
-  let payload: unknown = answerPayloadOf(data);
+  let payload: unknown = window.profanityFilter ? maskAnswerText(answerPayloadOf(data)) : answerPayloadOf(data);
   if (def.answerSchema) {
     const parsed = def.answerSchema.safeParse(payload);
     if (!parsed.success) {

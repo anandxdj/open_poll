@@ -32,6 +32,8 @@ export interface DeckSettings {
     assessment: { enabled: boolean; passingScorePercentage: number; maxAttempts: number | null };
   };
   embed: { allowed: boolean };
+  /** Mask profanity in word-cloud and open-ended answers (W2-A); off by default. Q&A is always masked. */
+  profanityFilter: boolean;
 }
 
 export interface DeckThemeRef {

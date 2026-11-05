@@ -19,6 +19,7 @@ import {
   isPausedState,
   readSlideState,
   timerBudgetMs,
+  windowOptions,
   writeSlideState,
 } from './state';
 
@@ -126,7 +127,7 @@ const runTimerAction = async (
   const sid = String(session._id);
   const pid = String(presentation._id);
   const next = readSlideState(session, slideId)!;
-  await cacheAnswerWindow(sid, buildAnswerWindow(slide, index, next, true));
+  await cacheAnswerWindow(sid, buildAnswerWindow(slide, index, next, true, windowOptions(session)));
   // A pause stops answers: the host gets the last counts before the timing event.
   if (action === 'pause' || action === 'skip') await flushDirty(pid, sid);
   await publishSlideTiming(pid, sid, {

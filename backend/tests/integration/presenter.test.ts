@@ -456,6 +456,45 @@ describeIntegration('presenter tools (W2-A)', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Profanity filter (deck setting)
+  // -------------------------------------------------------------------------
+
+  it('masks profanity in word-cloud and open answers when the deck turns the filter on, and only then', async () => {
+    const OPEN = { type: 'open_ended', question: 'Thoughts?', timeLimit: 0 };
+    const run = async (profanityFilter: boolean) => {
+      const res = await call('POST', '/', {
+        user: host,
+        body: { title: 'Filtered deck', slides: [CLOUD, OPEN], settings: { profanityFilter } },
+      });
+      expect(res.status).toBe(201);
+      const pid = res.body.data._id as string;
+      await hostCommand(pid, 'open-lobby');
+      const ada = (await join(pid, 'Ada')).body.data;
+      await hostCommand(pid, 'start');
+      expect((await answer(pid, ada, 0, { entries: ['shit', 'sunny'] })).status).toBe(200);
+      await hostCommand(pid, 'reveal');
+      const cloud = (await call('GET', `/${pid}/host/state`, { user: host })).body.data.liveDistribution;
+      await hostCommand(pid, 'goto', { slideIndex: 1 });
+      expect((await answer(pid, ada, 1, { text: 'what the fuck' })).status).toBe(200);
+      await hostCommand(pid, 'reveal');
+      const open = (await call('GET', `/${pid}/host/state`, { user: host })).body.data.liveDistribution;
+      await settleLiveEngine();
+      const stored = await PresentationAnswerModel.find({ presentationId: pid }).sort({ slideIndex: 1 }).lean();
+      return { cloud, open, stored };
+    };
+
+    const filtered = await run(true);
+    expect(filtered.cloud.words.map((w: any) => w.text).sort()).toEqual(['****', 'sunny']);
+    expect(filtered.open.responses.map((r: any) => r.text)).toEqual(['what the ****']);
+    // The raw words are not stored either.
+    expect(JSON.stringify(filtered.stored)).not.toMatch(/shit|fuck/);
+
+    const unfiltered = await run(false);
+    expect(unfiltered.cloud.words.map((w: any) => w.text).sort()).toEqual(['shit', 'sunny']);
+    expect(unfiltered.open.responses.map((r: any) => r.text)).toEqual(['what the fuck']);
+  });
+
+  // -------------------------------------------------------------------------
   // Speaker notes
   // -------------------------------------------------------------------------
 

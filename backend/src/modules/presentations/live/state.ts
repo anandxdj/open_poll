@@ -139,15 +139,31 @@ export interface AnswerWindow {
   pausedAtMs: number | null;
   /** Time spent in finished pauses (ms): speed scoring counts only the time the timer ran. */
   pausedMs: number;
+  /** Mask profanity in this window's text answers (deck setting `profanityFilter`, word clouds and open answers). */
+  profanityFilter: boolean;
   /** The slide type's `acceptConfig(slide)` snapshot (answer keys, counts, points). */
   cfg: unknown;
 }
+
+/** Slide types whose free-text answers the deck's profanity filter masks. */
+export const PROFANITY_FILTERED_TYPES = new Set(['wordcloud', 'open_ended']);
+
+export interface AnswerWindowOptions {
+  /** The session's `settingsSnapshot.profanityFilter`. */
+  profanityFilter?: boolean;
+}
+
+/** Window options from the session's settings snapshot. */
+export const windowOptions = (session: Pick<IPresentationSession, 'settingsSnapshot'>): AnswerWindowOptions => ({
+  profanityFilter: Boolean(session.settingsSnapshot?.profanityFilter),
+});
 
 export const buildAnswerWindow = (
   slide: Slide,
   slideIndex: number,
   state: ISlideState,
-  presenting: boolean
+  presenting: boolean,
+  options: AnswerWindowOptions = {}
 ): AnswerWindow => {
   const def = requireSlideType(slide.type);
   return {
@@ -162,6 +178,7 @@ export const buildAnswerWindow = (
     pausedRemainingMs: state.pausedRemainingMs,
     pausedAtMs: state.pausedAt ? state.pausedAt.getTime() : null,
     pausedMs: state.pausedMs ?? 0,
+    profanityFilter: Boolean(options.profanityFilter) && PROFANITY_FILTERED_TYPES.has(def.type),
     cfg: def.acceptConfig ? def.acceptConfig(slide) : null,
   };
 };
@@ -221,7 +238,7 @@ export const loadAnswerWindow = async (sessionId: string, slideIdHint?: string):
   if (!found || lifecycleOf(found.slide.type) !== 'response') return null;
   const state = readSlideState(session, targetId!);
   if (!state?.openedAt) return null;
-  const window = buildAnswerWindow(found.slide, found.index, state, isPresenting(session));
+  const window = buildAnswerWindow(found.slide, found.index, state, isPresenting(session), windowOptions(session));
   await cacheAnswerWindow(sessionId, window, true);
   return window;
 };

@@ -48,6 +48,7 @@ const objectIdString = z.string().regex(/^[a-f0-9]{24}$/i, 'Invalid id');
 export const deckSettingsPatchSchema = z
   .object({
     audienceLocale: z.string().min(2).max(10),
+    profanityFilter: z.boolean(),
     nickname: z.enum(NICKNAME_MODES),
     showResultsOnDevices: z.boolean(),
     qna: z
