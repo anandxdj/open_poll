@@ -59,7 +59,7 @@ Result states (sent, verified, expired, invalid) are the same shell with `icon` 
 | `/auth/complete` | `app/auth/complete/page.tsx` (loading state; then a remembered invitation, `/settings/privacy` or MCP consent request, else `/polls`) |
 | `/invites/[token]` | `features/workspaces/invites/components/AcceptInvite.tsx` (only its `Shell` and class names changed) |
 | `/oauth/consent` | `features/mcp/components/OAuthConsent.tsx`: an AI app's connection request (MCP OAuth); details in `workspaces.md` |
-| `/privacy`, `/terms` | `app/privacy`, `app/terms` via `features/landing/components/legal/LegalPage.tsx` (header, footer, placeholder notice). `/privacy` keeps the owner's placeholder paragraph and adds what the product does with data (export, account deletion, participants removing their answers, retention), which stays accurate as written. |
+| `/privacy`, `/terms` | `app/privacy`, `app/terms` via `features/landing/components/legal/LegalPage.tsx` (header, footer, "Last updated" date, a closing Contact section). The full text for launch (2026-11-05): an individual operator in India, contact `SUPPORT_EMAIL` from `lib/contact.ts` (`NEXT_PUBLIC_SUPPORT_EMAIL` overrides it). Privacy lists what is kept for accounts, participants and named-poll voters, the processors (Atlas, Vercel, Cloudflare, Resend, the AI provider), retention and the self-service controls; keep it in step when data handling changes. The footer's Legal column and the app's account menu ("Help and support") link to the same address. |
 
 Behaviour notes: errors still surface as toasts; the signup and reset hints state the API's real
 password rule (8+ characters, one uppercase letter, one digit) and the reset page checks 8 instead of

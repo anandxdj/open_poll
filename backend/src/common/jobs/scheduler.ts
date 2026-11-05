@@ -73,6 +73,8 @@ export interface SchedulerOptions {
   instanceId?: string;
   now?: () => number;
   log?: Pick<Console, 'error' | 'log'>;
+  /** Called with a job's error after it is logged (the server passes the email alert). */
+  onJobError?: (jobName: string, error: unknown) => void;
 }
 
 export const tickLockKey = (name: string, tick: number) => `jobs:{${name}}:tick:${tick}`;
@@ -84,6 +86,7 @@ export class Scheduler {
   private readonly instanceId: string;
   private readonly now: () => number;
   private readonly log: Pick<Console, 'error' | 'log'>;
+  private readonly onJobError?: (jobName: string, error: unknown) => void;
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly running = new Map<string, Promise<boolean>>();
   private readonly abort = new AbortController();
@@ -95,6 +98,7 @@ export class Scheduler {
     this.instanceId = options.instanceId ?? randomUUID();
     this.now = options.now ?? Date.now;
     this.log = options.log ?? console;
+    this.onJobError = options.onJobError;
   }
 
   /**
@@ -131,6 +135,11 @@ export class Scheduler {
         await job.run({ name: job.name, tick, signal: this.abort.signal });
       } catch (error) {
         this.log.error(`[Jobs] ${job.name} tick ${tick} failed:`, error);
+        try {
+          this.onJobError?.(job.name, error);
+        } catch {
+          // An alerting failure must not break the scheduler.
+        }
       }
       return true;
     } catch (error) {

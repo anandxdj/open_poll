@@ -2,6 +2,7 @@ import { startAutoRevealWorker } from '../../modules/presentations/live/autoReve
 import { startImportWorker } from '../../workers/import.worker';
 import { startAnalyticsWorker } from '../../modules/responses/analytics.worker';
 import { startScheduler } from './scheduler';
+import { notifyError } from '../observability/alerts';
 
 /**
  * Starts the in-process interval workers and the cluster-wide job scheduler
@@ -14,5 +15,5 @@ export const startJobs = () => {
   startAutoRevealWorker();
   // Imports run here unless IMPORT_WORKER_INPROCESS=0 (then `bun run worker:import` does).
   startImportWorker();
-  startScheduler();
+  startScheduler({ onJobError: (name, error) => void notifyError(`job:${name}`, error) });
 };

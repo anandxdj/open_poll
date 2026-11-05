@@ -1,7 +1,15 @@
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import type { Download } from "@playwright/test";
 import { e2eEnv } from "./env";
 import { expect, test, type Host } from "./fixtures";
+
+/** A download's bytes; saveAs works with local and remote (E2E_PW_SERVER) browsers, path() only locally. */
+async function downloadBytes(download: Download): Promise<Buffer> {
+  const target = test.info().outputPath(download.suggestedFilename());
+  await download.saveAs(target);
+  return readFile(target);
+}
 
 /**
  * Session history and reports: a deck is run through the real join and answer
@@ -144,7 +152,7 @@ test("history, report, exports, sharing, participant results and deletion", asyn
     page.getByRole("menuitem", { name: /CSV/ }).click(),
   ]);
   expect(csv.suggestedFilename()).toMatch(/-run-1\.csv$/);
-  const csvText = (await readFile((await csv.path())!, "utf8")).replace(/^﻿/, "");
+  const csvText = (await downloadBytes(csv)).toString("utf8").replace(/^﻿/, "");
   const csvRows = csvText.trim().split("\r\n");
   expect(csvRows[0]).toContain("Participant");
   expect(csvRows).toHaveLength(1 + 3 * 2);
@@ -278,7 +286,7 @@ test("Excel and PDF download on a plan that includes them", async ({ host }) => 
         page.getByRole("menuitem", { name: new RegExp(label) }).click(),
       ]);
       expect(download.suggestedFilename()).toMatch(new RegExp(`-run-1\\.${extension}$`));
-      const bytes = await readFile((await download.path())!);
+      const bytes = await downloadBytes(download);
       expect(bytes.length).toBeGreaterThan(500);
       expect(bytes.subarray(0, 4).toString("latin1")).toBe(extension === "pdf" ? "%PDF" : "PK\u0003\u0004");
     }

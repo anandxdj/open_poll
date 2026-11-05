@@ -1,6 +1,6 @@
 ---
 summary: How to merge the open PR stack (#8–#16 and #13) into main and ship it in one release. The migration rehearsal on a copy of production passed on 2026-11-05.
-status: draft
+status: done
 last_updated: 2026-11-05
 ---
 
@@ -9,6 +9,42 @@ last_updated: 2026-11-05
 Production runs `main` (#6, #7) on both sides since 2026-11-05. Nothing from the open stack is live. This plan
 gets the stack onto `main`, the backend onto the VPS and the frontend onto Vercel in one short window. The
 remaining database migrations (`160`–`200`) were proven on a copy of production on 2026-11-05.
+
+## Released (2026-11-05)
+
+The release ran on 2026-11-05 between 08:53 and 09:01 UTC with no live sessions.
+
+- **Backend:** R (`8785a6c`) built natively on the VPS and started with migrations `160`–`200`
+  (`Applied 5`, then `Applied 0` on boot). The rollback image is `openpoll-backend:arm64-pre-release` (the
+  `main` image from earlier that morning). A pre-release dump is at
+  `~/backups/openpoll/openpoll-prod-20261105T085320Z-pre-release.gz` on the VPS.
+- **Merge:** #8–#12, #14–#16 and #13 merged bottom-up with merge commits. `main` = `beb3a57`, the same
+  tree as R. Vercel built it.
+- **Smoke:** `/health`, `/ready`, `/api/plans`, the socket handshake, OAuth metadata (issuer
+  `https://openpoll-backend.anands.dev`), SCIM and MCP refusing without a token, the join page and its
+  messages, no auth calls while signed out. A signed-in pass (deck, Present, phone) is the owner's to do.
+- **Left:** `NEXT_PUBLIC_SITE_URL` is set in Vercel and takes effect with the next production build (canonical
+  and sitemap still say `localhost` until then). The `open-poll.vercel.app` 308 redirect is filled in on
+  Vercel → Domains and needs the owner's Save. R2 storage is not configured yet.
+
+### How production is actually laid out (differs from the repo's compose file)
+
+Production does not use the repo's `docker-compose.yml`. Read `~/infra/AGENTS.md` on the VPS first.
+
+- Checkout `~/infra/apps/open_poll`, tracking `main`, with two local edits that must survive pulls:
+  `backend/Dockerfile` (port 5000, no healthcheck) and `docker-compose.yml` (the production stack), plus an
+  untracked `docker-compose.backend-only.yml` override.
+- The image is built on the box (arm64, `pull_policy: never`):
+  `docker build -t openpoll-backend:arm64 ~/infra/apps/open_poll/backend`. Then:
+  `docker compose -f docker-compose.yml -f docker-compose.backend-only.yml up -d openpoll-backend`.
+- The env file is `backend/.env` (the compose `.env` holds only `DOMAIN`). Compose sets `NODE_ENV`,
+  `FRONTEND_URL=https://open-poll.anands.dev` and `REDIS_URL=redis://honcho-redis:6379`: Redis is shared
+  with the Honcho stack (128 MiB, about 14 MiB used).
+- Traefik routes by path. Added in this release, on both `openpoll.anands.dev` and
+  `openpoll-backend.anands.dev`: `/oauth`, `/.well-known` and `/scim` (MCP connectors, OAuth metadata,
+  SCIM). Any new top-level path the backend mounts needs a router there too.
+- `mem_limit` raised from 256m to 512m (the R backend idles at about 155 MiB). Backups of the edited files:
+  `docker-compose.yml.bak-20261105`, `backend/.env.bak-20261105`.
 
 ## Where things stand (2026-11-05)
 

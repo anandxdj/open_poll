@@ -148,3 +148,8 @@ export const sendAccountDeletionEmail = async (email: string, purgeAt: Date) => 
     })
   );
 };
+
+/** Operator alert about an unhandled server error (common/observability/alerts.ts builds the body). */
+export const sendAlertEmail = async (to: string, subject: string, html: string) => {
+  await sendEmail(to, subject, html);
+};

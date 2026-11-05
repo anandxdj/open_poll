@@ -74,9 +74,12 @@ async function expectTapTarget(target: Locator, name: string, { soft = false } =
 
 test("UX-02: a participant joins, answers three slide types and reaches the end on a phone", async ({
   browser,
+  browserName,
   contexts,
   host,
 }) => {
+  // Playwright's Firefox has no touch emulation (no taps, maxTouchPoints 0). WebKit covers phones.
+  test.skip(browserName === "firefox", "Firefox has no touch emulation");
   const deck = await host.createDeck(`E2E phone ${Date.now()}`, [SELECT, CLOUD, SCALES]);
   const hostPage = await host.open(`/presentation/host/${deck._id}`, DESKTOP);
   const stage = hostPage.locator("main");
@@ -91,7 +94,10 @@ test("UX-02: a participant joins, answers three slide types and reaches the end 
   await phone.goto("/live");
   await expect(phone.getByRole("heading", { name: "Join a live deck" })).toBeVisible();
   // A touch phone whose layout viewport is the device width (the page's viewport meta works).
-  expect(await phone.evaluate(() => [window.innerWidth, navigator.maxTouchPoints > 0])).toEqual([375, true]);
+  // WebKit exposes emulated touch through touch events, not maxTouchPoints.
+  expect(
+    await phone.evaluate(() => [window.innerWidth, navigator.maxTouchPoints > 0 || "ontouchstart" in window]),
+  ).toEqual([375, true]);
   await expectNoHorizontalOverflow(phone, "join page");
   const code = phone.getByPlaceholder("000000");
   await expectTapTarget(code, "code field");

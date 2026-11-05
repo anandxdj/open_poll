@@ -1,7 +1,7 @@
 ---
 summary: Playwright end-to-end suite — services it boots, environment overrides, the seeded host, and how to run it.
 status: active
-last_updated: 2026-11-01
+last_updated: 2026-11-05
 ---
 
 # End-to-End Tests (Playwright)
@@ -34,6 +34,24 @@ Mongo `mongodb://127.0.0.1:27117/openpoll_w0c1?directConnection=true`, Redis
 `E2E_REDIS_URL`, `E2E_HOST_EMAIL`, `E2E_HOST_PASSWORD`, `E2E_CHROMIUM_PATH`. The system Chromium at
 `/usr/bin/chromium` is used when present (no browser download); otherwise Playwright's bundled
 one (`bun x playwright install chromium`).
+
+## Other browsers
+
+`E2E_BROWSERS` picks the engines: unset runs Chromium only (CI), `all` or a comma list adds
+`firefox` and `webkit` (`bun x playwright install firefox webkit`). WebKit needs Ubuntu libraries
+(ICU 74, libxml2, flite) that other distributions lack; run it through the official image instead
+and point `E2E_PW_SERVER` at it:
+
+```bash
+docker run -d --name openpoll-pw-server --network host --init --ipc=host \
+  mcr.microsoft.com/playwright:v1.64.1-noble \
+  /bin/sh -c "cd /tmp && npx -y playwright@1.64.1 run-server --port 3333 --host 127.0.0.1"
+E2E_BROWSERS=webkit E2E_PW_SERVER=ws://127.0.0.1:3333/ bun run test:e2e
+```
+
+Keep the image tag equal to `@playwright/test` in `package.json`. Playwright's Firefox has no touch
+emulation, so the tap-driven phone spec (`participant-mobile` UX-02) skips itself there; WebKit
+runs it. Results of the 2026-11-05 run are in `docs/planning/07-product-test-plan.md`.
 
 ## Host account
 

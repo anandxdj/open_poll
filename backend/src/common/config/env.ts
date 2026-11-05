@@ -132,6 +132,7 @@ const rawEnvSchema = z.object({
   SOCKET_REDIS_ADAPTER: optional(z.enum(['on', 'off'], { error: 'must be on or off' })),
   SESSION_IDLE_LOBBY_HOURS: optional(idleHours),
   SESSION_IDLE_LIVE_HOURS: optional(idleHours),
+  ALERT_EMAIL: optional(z.email()),
 });
 
 type RawEnv = z.infer<typeof rawEnvSchema>;
@@ -222,6 +223,8 @@ export interface AppEnv {
   } | null;
   /** Bearer token for /metrics; null disables the endpoint. */
   metricsToken: string | null;
+  /** ALERT_EMAIL: where unhandled server errors are emailed (common/observability/alerts.ts); null = off. */
+  alertEmail: string | null;
   /** SOCKET_REDIS_ADAPTER=on: link Socket.io servers through Redis (multi-instance rooms and fetchSockets). */
   socketRedisAdapter: boolean;
   /**
@@ -495,6 +498,7 @@ export function parseEnv(source: Record<string, string | undefined> = process.en
     googleDriveImport,
     domains,
     metricsToken,
+    alertEmail: raw.ALERT_EMAIL ?? null,
     socketRedisAdapter: raw.SOCKET_REDIS_ADAPTER === 'on',
     sessionIdle: {
       lobbyHours: raw.SESSION_IDLE_LOBBY_HOURS ?? 6,

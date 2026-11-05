@@ -66,6 +66,8 @@ test("sign up, verify the email, then log in", async ({ browser, contexts }) => 
   await page.goto(`/verify-email/${issueToken(email, "verify")}`);
   await expect(page.getByText("Email verified")).toBeVisible();
   await page.getByRole("link", { name: "Continue to login" }).click();
+  // Let the link's own navigation land first: a goto racing it is aborted (NS_BINDING_ABORTED in Firefox).
+  await expect(page).toHaveURL(/\/login/);
 
   await logIn(page, email, password);
   await expect(page).toHaveURL(/\/home/);

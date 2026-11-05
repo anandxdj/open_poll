@@ -24,4 +24,14 @@ export const e2eEnv = {
     process.env.E2E_CHROMIUM_PATH ??
     (existsSync("/usr/bin/chromium") ? "/usr/bin/chromium" : undefined),
   backendDir: path.resolve(__dirname, "../../backend"),
+  /** Engines to run: "chromium" (default), "all", or a comma list of chromium, firefox, webkit. */
+  browsers: parseBrowsers(process.env.E2E_BROWSERS),
+  /** ws:// endpoint of a `playwright run-server` for Firefox and WebKit, when set. */
+  playwrightServer: process.env.E2E_PW_SERVER || undefined,
 };
+
+function parseBrowsers(value: string | undefined): string[] {
+  if (!value) return ["chromium"];
+  if (value.trim() === "all") return ["chromium", "firefox", "webkit"];
+  return value.split(",").map((name) => name.trim()).filter(Boolean);
+}

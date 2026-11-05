@@ -15,6 +15,11 @@ const ease = [0.32, 0.72, 0, 1] as const;
 export function CreatePresentationModal({ open, onClose }: CreatePresentationModalProps) {
   const router = useRouter();
   const [deckName, setDeckName] = useState("");
+  // Bumped when the modal closes by navigating to the builder: a new key remounts AnimatePresence,
+  // so the modal is removed at once instead of waiting for its exit animation. This provider lives
+  // in the dashboard layout, which survives the navigation; an exit animation that never finishes
+  // (seen in WebKit) would otherwise leave an invisible dialog catching clicks over the builder.
+  const [generation, setGeneration] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -34,6 +39,7 @@ export function CreatePresentationModal({ open, onClose }: CreatePresentationMod
   function go(mode: "manual" | "ai") {
     if (!deckName.trim()) return;
     const params = new URLSearchParams({ name: deckName.trim(), mode });
+    setGeneration((value) => value + 1);
     onClose();
     router.push(`/presentation/create?${params.toString()}`);
   }
@@ -41,7 +47,7 @@ export function CreatePresentationModal({ open, onClose }: CreatePresentationMod
   const valid = deckName.trim().length >= 2;
 
   return (
-    <AnimatePresence>
+    <AnimatePresence key={generation}>
       {open && (
         <>
           {/* Backdrop */}

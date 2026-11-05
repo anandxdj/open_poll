@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ThemeSwitch } from "@/components/unlumen-ui/theme-switch";
+import { supportMailto } from "@/lib/contact";
 import { BrandMark } from "../shared/BrandMark";
 import { NAV_LINKS } from "../shared/nav-links";
 import { container } from "../shared/styles";
@@ -24,6 +25,7 @@ const COLUMNS = [
     links: [
       { label: "Privacy", href: "/privacy" },
       { label: "Terms of use", href: "/terms" },
+      { label: "Contact", href: supportMailto("Open Poll") },
     ],
   },
 ];
