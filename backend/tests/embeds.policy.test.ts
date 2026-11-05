@@ -2,6 +2,8 @@ import { describe, expect, it } from 'bun:test';
 import { normalizeOrigins, parseOrigin } from '../src/modules/embeds/origins';
 import { embedPageUrl, fitSize, iframeHtml, parseEmbedPath } from '../src/modules/embeds/policy.service';
 import { updateWorkspaceSchema } from '../src/modules/workspaces/workspaces.schema';
+import { isEmbedOnlyPatch } from '../src/modules/presentations/crud.service';
+import { updatePresentationSchema } from '../src/modules/presentations/presentations.schema';
 
 const DECK = '64b7f0c2a1b2c3d4e5f60718';
 const RESULTS = 'abcdefghijklmnopqrstuvwxyz012345';
@@ -107,5 +109,25 @@ describe('embedding sites', () => {
       settings: { embedAllowedOrigins: Array.from({ length: 21 }, (_, i) => `https://s${i}.example.com`) },
     });
     expect(tooMany.success).toBe(false);
+  });
+});
+
+describe('deck edits while a session is live', () => {
+  const parsed = (body: unknown) => updatePresentationSchema.parse(body);
+
+  it('allow only the embedding switch', () => {
+    expect(isEmbedOnlyPatch(parsed({ settings: { embed: { allowed: true } } }))).toBe(true);
+    expect(isEmbedOnlyPatch(parsed({ settings: { embed: { allowed: false } } }))).toBe(true);
+    for (const body of [
+      {},
+      { title: 'x' },
+      { settings: {} },
+      { settings: { qna: { enabled: true } } },
+      { settings: { embed: { allowed: true }, qna: { enabled: true } } },
+      { settings: { embed: { allowed: true } }, title: 'x' },
+      { settings: { embed: { allowed: true } }, pace: 'audience' },
+    ]) {
+      expect(isEmbedOnlyPatch(parsed(body))).toBe(false);
+    }
   });
 });

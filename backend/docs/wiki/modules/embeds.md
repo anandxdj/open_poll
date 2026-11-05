@@ -15,11 +15,17 @@ Three things can be shown outside Open Poll, each a chromeless page of the front
 | `results` | `/embed/results/<token>` (also `/r/<token>`) | a public results link (`sessions.md`) | `GET /api/public/results/:token` |
 | `stage` | `/embed/stage/<deckId>?token=<screen token>` | a screen token of that deck | `GET /api/embeds/stage` and the `screen` socket role |
 
-**Embedding is off by default** (`settings.embed.allowed`, deck setting, `deck:edit`). While it is off,
-oEmbed refuses the deck (403 `EMBED_DISABLED`), the embed policy says `allowed: false` (so the
-frontend never lets another site frame the page and the page shows "Embedding is turned off"),
-and screen tokens stop working (stage read 403, socket join `FORBIDDEN`). Creating screen tokens
-works either way. The deck's workspace may limit which sites may frame its embeds
+**Embedding is off by default** (`settings.embed.allowed`, deck setting, `deck:edit`). It is the one
+deck setting that may change **while a session is live** (`isEmbedOnlyPatch` in
+`presentations/crud.service.ts`: a patch of `settings.embed` alone, written with one atomic `$set`
+so it never races the host commands' deck mirror; any other field in the same patch is still the
+400 of the live freeze). While it is off, oEmbed refuses the deck (403 `EMBED_DISABLED`), the
+embed policy says `allowed: false` (so the frontend never lets another site frame the page and the
+page shows "Embedding is turned off"), and screen tokens stop working at once (stage read 403,
+socket join and resync `FORBIDDEN`: every check reads the deck). Turning it off also **sends the
+deck's connected screens away** on every instance (`embeds:screen-revoked` without a token, reason
+`embed_disabled`, see Screen tokens). The tokens themselves stay: turning embedding back on makes
+the same links work again. Creating screen tokens works either way. The deck's workspace may limit which sites may frame its embeds
 (`settings.embedAllowedOrigins`, `PATCH /api/workspaces/:id`, `workspace:manage`, up to 20); an empty
 list means any site. Entries are origins (`https://example.com`, a port allowed, `http://` outside
 production) or every subdomain of a domain (`https://*.example.com`), normalised by `origins.ts`
@@ -66,7 +72,7 @@ reasons (public by design; the screen token is the credential).
 ## Screen tokens
 
 `ScreenToken {workspaceId, presentationId, label, tokenHash, prefix, last4, createdBy, lastUsedAt,
-revokedAt}`; indexes `tokenHash` unique, `{presentationId, createdAt}`, `workspaceId` (migration 210).
+revokedAt}`; indexes `tokenHash` unique, `{presentationId, createdAt}`, `workspaceId` (migration 220).
 
 - Token: `scr_` + 32 random bytes base64url (47 characters). Only `sha256(token)` is stored;
   `prefix` (8) and `last4` tell tokens apart in lists.
@@ -75,10 +81,12 @@ revokedAt}`; indexes `tokenHash` unique, `{presentationId, createdAt}`, `workspa
   policy's 403/404, revokes a plain 404.
 - A token reads one deck only, and only while the deck is not in the trash, still in the token's
   workspace and allows embedding. `lastUsedAt` is written at most every 5 minutes.
-- **Revoke** sets `revokedAt` and publishes `embeds:screen-revoked {tokenId, presentationId}` on Redis.
-  Every instance (socket module `embeds`) removes its own sockets that joined that deck with that
-  token from the deck's rooms and emits `screen:revoked {presentationId}` to them. The next stage
-  read, join or resync with the token is refused anyway.
+- **Revoke** sets `revokedAt` and publishes `embeds:screen-revoked {presentationId, tokenId, reason:
+  'revoked'}` on Redis (`announceScreensRevoked`). Every instance (socket module `embeds`) removes
+  its own sockets that joined that deck with that token from the deck's rooms and emits
+  `screen:revoked {presentationId, reason}` to them. The same message **without** `tokenId` (reason
+  `embed_disabled`, published by `updatePresentation` when a patch sets `settings.embed.allowed:
+  false`) removes every screen of the deck. The next stage read, join or resync is refused anyway.
 - Audit: `embed.screen_token_create`, `embed.screen_token_revoke` (target `screen_token`, meta
   `{presentationId, label}`).
 
@@ -103,6 +111,11 @@ shape (`HostStateResponse`, `presentations-live.md`), built by the same code
   (`tests/embeds.stageSafe.test.ts` runs every registered response type and fails until its
   fixture exists).
 - `session.hostUserId` is null.
+- `qna`: the followed session's **public Q&A** (`listForScreen` in `qna.service.ts`: visible and
+  answered questions, `highlightedId`, the Q&A settings view; the participant list's shape with
+  `mine`/`upvoted` false; never pending questions, never participant ids), so a screen that joins
+  mid-session shows what is already approved and on screen, then follows the `qna:*` events. Null
+  without a session.
 
 ## The `screen` socket role
 
@@ -141,4 +154,8 @@ public participant API). Embedding must be on for the deck.
   tokens (hash at rest, list without secret, presenter and other-workspace refusals, stage refused
   while embedding is off then stage-safe, a live session followed over the socket with the key
   stripped until the reveal, resync, no answering, wrong deck/token refused, revoke with the
-  connected screen kicked and another token kept); the policy per kind and the workspace's sites.
+  connected screen kicked and another token kept); embedding turned off kicks every screen of the
+  deck (not another deck's) and refuses at once, back on works again; the embed switch accepted
+  mid-session (mirror untouched) while every other edit stays refused; the screen state's Q&A
+  (pending left out, approved and highlighted in, also over `live:resync`); the policy per kind and
+  the workspace's sites. Unit: `isEmbedOnlyPatch` in `tests/embeds.policy.test.ts`.

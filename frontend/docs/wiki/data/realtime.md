@@ -32,7 +32,8 @@ last_updated: 2026-10-19
   `{ role: "participant", participantId, participantToken }` (from the session's stored
   credentials) or `{ role: "screen", screenToken }` (W4-D, the read-only stage of
   `features/embeds.md`; joins `live:{pid}` + `live:{pid}:screen`, gets host events only as their
-  stage-safe screen views, and `screen:revoked` → `onScreenRevoked` when its link is turned off). The server rejects the room join without valid credentials, so pass `undefined` to
+  stage-safe screen views, and `screen:revoked {presentationId, reason}` → `onScreenRevoked(reason)`
+  when its link is turned off (`revoked`) or the deck stops allowing embedding (`embed_disabled`)). The server rejects the room join without valid credentials, so pass `undefined` to
   skip joining until a participant has actually joined (before the nickname gate resolves).
 - **Event**: envelope `live:event` → `{ v, presentationId, sessionId, seq, type, audience, payload,
   emittedAt }`, typed as `PresentationRealtimeEvent`, per-type payloads in `RealtimePayloads`

@@ -333,6 +333,31 @@ export const listForParticipant = async (
   };
 };
 
+/**
+ * A read-only screen's Q&A (W4-D, `modules/embeds`): what every participant
+ * sees of the session — visible and answered questions, the highlighted one —
+ * and never a pending one. Same shape as the participant list (nothing is
+ * `mine`, nothing `upvoted`). Null when the session is gone.
+ */
+export const listForScreen = async (sessionId: string): Promise<QnaParticipantListResponse | null> => {
+  const ctx = await loadSessionContext(sessionId);
+  if (!ctx) return null;
+  const [questions, highlighted] = await Promise.all([
+    QnaQuestionModel.find({ sessionId: ctx.sessionId, status: { $in: QNA_PUBLIC_STATUSES } })
+      .sort({ pinned: -1, upvoteCount: -1, createdAt: -1 })
+      .limit(PARTICIPANT_LIST_LIMIT)
+      .lean<QuestionLean[]>(),
+    highlightedQuestion(ctx.sessionId),
+  ]);
+  return {
+    sessionId: ctx.sessionId,
+    qna: settingsView(ctx),
+    reactions: reactionSettingsOf(ctx.settings),
+    highlightedId: highlighted ? String(highlighted._id) : null,
+    questions: questions.map((q) => ({ ...toQuestionView(q), mine: false, upvoted: false })),
+  };
+};
+
 const isDuplicateKey = (error: unknown) => (error as { code?: number } | null)?.code === 11000;
 
 /**

@@ -16,7 +16,7 @@ export const LIVE_SOCKET_EVENTS = {
   join: "live:join",
   leave: "live:leave",
   event: "live:event",
-  /** To a screen whose token was revoked (W4-D); it has left the deck's rooms. */
+  /** To a screen whose link was turned off or whose deck stopped allowing embedding (W4-D); it has left the deck's rooms. */
   screenRevoked: "screen:revoked",
 } as const;
 
@@ -155,6 +155,9 @@ export type LiveSocketAuth =
   | { role: "participant"; participantId: string; participantToken: string }
   /** A read-only stage (W4-D): a screen token of the deck. */
   | { role: "screen"; screenToken: string };
+
+/** Why a screen was sent away (`screen:revoked {presentationId, reason}`, W4-D). */
+export type ScreenRevokeReason = "revoked" | "embed_disabled";
 
 /** `live:join` ack. */
 export type LiveJoinAck =

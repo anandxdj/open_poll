@@ -3,6 +3,8 @@ import type { IPresentation } from '../presentations/models/presentation.model';
 import type { IPresentationSession } from '../presentations/models/session.model';
 import type { HostStateResponse, SlideResultsView } from '../presentations/live/contract';
 import { buildDeckLiveState } from '../presentations/live/session.service';
+import type { QnaParticipantListResponse } from '../qna/qna.contract';
+import { listForScreen } from '../qna/qna.service';
 import { readSlideState } from '../presentations/live/state';
 import { authorizeScreen, resolveScreenToken, isEmbedAllowed } from './screenTokens.service';
 import { isRevealed, stageSafeSlide, stripAnswerKeys } from './stageSafe';
@@ -30,7 +32,14 @@ export interface ScreenDeck {
  * counts but lose their answer key (`stripAnswerKeys`); the host's user id is
  * not sent.
  */
-export type ScreenStateResponse = HostStateResponse<ScreenDeck>;
+export type ScreenStateResponse = HostStateResponse<ScreenDeck> & {
+  /**
+   * The followed session's public Q&A (visible and answered questions, the
+   * highlighted one; never pending ones), so a screen that joins mid-session
+   * shows what is already approved. Null without a session.
+   */
+  qna: QnaParticipantListResponse | null;
+};
 
 const EMBED_DISABLED = () =>
   new ApiError(403, 'Embedding is turned off for this presentation', 'EMBED_DISABLED');
@@ -44,6 +53,7 @@ export function toScreenState(
   presentation: IPresentation,
   state: HostStateResponse<IPresentation>,
   session: IPresentationSession | null,
+  qna: QnaParticipantListResponse | null = null,
 ): ScreenStateResponse {
   const plain = presentation.toObject({ depopulate: true }) as unknown as {
     slides: Parameters<typeof stageSafeSlide>[0][];
@@ -83,12 +93,14 @@ export function toScreenState(
     leaderboard: state.leaderboard,
     slideStates: state.slideStates,
     distributions,
+    qna,
   };
 }
 
 async function screenStateOf(presentation: IPresentation): Promise<ScreenStateResponse> {
   const { state, session } = await buildDeckLiveState(presentation);
-  return toScreenState(presentation, state, session);
+  const qna = session ? await listForScreen(String(session._id)) : null;
+  return toScreenState(presentation, state, session, qna);
 }
 
 /**

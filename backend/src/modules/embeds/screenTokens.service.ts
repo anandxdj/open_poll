@@ -22,8 +22,28 @@ export const MAX_SCREEN_TOKENS_PER_DECK = 20;
 /** `scr_` + 32 random bytes, base64url (43 characters). */
 const TOKEN_PATTERN = /^scr_[A-Za-z0-9_-]{43}$/;
 
-/** Redis channel every instance listens to, so a revoked token's screens leave the deck at once. */
+/**
+ * Redis channel every instance listens to, so screens leave the deck at once:
+ * one token's (revoked) or every screen of the deck (embedding turned off).
+ */
 export const SCREEN_REVOKED_CHANNEL = 'embeds:screen-revoked';
+
+/** Why screens were sent away (`screen:revoked` payload). */
+export type ScreenRevokeReason = 'revoked' | 'embed_disabled';
+
+export interface ScreenRevokedMessage {
+  presentationId: string;
+  /** Only this token's screens; every screen of the deck when absent. */
+  tokenId?: string;
+  reason: ScreenRevokeReason;
+}
+
+/** Tells every instance to send the screens away. Best-effort: a missed message still leaves the next read or join refused. */
+export async function announceScreensRevoked(message: ScreenRevokedMessage): Promise<void> {
+  await redisClient
+    .publish(SCREEN_REVOKED_CHANNEL, JSON.stringify(message))
+    .catch((error) => console.error('[Embeds] Could not announce revoked screens:', error));
+}
 
 /** `lastUsedAt` is written at most this often per token (a screen resyncs often). */
 const LAST_USED_WRITE_MS = 5 * 60 * 1000;
@@ -103,9 +123,7 @@ export async function revokeScreenToken(req: WorkspaceRequest, id: string): Prom
     { returnDocument: 'after' },
   );
   if (!token) throw notFound();
-  await redisClient
-    .publish(SCREEN_REVOKED_CHANNEL, JSON.stringify({ tokenId: String(token._id), presentationId: String(token.presentationId) }))
-    .catch((error) => console.error('[Embeds] Could not announce a revoked screen token:', error));
+  await announceScreensRevoked({ presentationId: String(token.presentationId), tokenId: String(token._id), reason: 'revoked' });
   void audit(req, 'embed.screen_token_revoke', { type: 'screen_token', id: token._id }, {
     presentationId: String(token.presentationId),
     label: token.label,

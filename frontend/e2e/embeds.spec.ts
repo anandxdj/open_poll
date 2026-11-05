@@ -155,6 +155,58 @@ test("a participant answers inside an iframe on another site; the host sees it; 
   await expect(stage.getByText("100%")).toBeVisible();
 });
 
+test("mid-session: embedding turned on from the Embed dialog, and a new screen shows the approved Q&A at once", async ({
+  browser,
+  contexts,
+  host,
+}) => {
+  const deck = await api<{ _id: string; joinCode: string; title: string }>(host, "POST", "/presentations", {
+    title: `E2E embed mid-session ${Date.now()}`,
+    slides: [SELECT],
+    settings: { qna: { enabled: true, moderation: true } },
+  });
+  const hostPage = await host.open(`/presentation/host/${deck._id}`);
+  await openLobby(hostPage, deck.joinCode);
+
+  // A question asked and approved, then put on screen, before any screen exists.
+  const ada = await api<{ participantId: string; token: string }>(host, "POST", `/presentations/${deck._id}/join`, { name: "Ada" });
+  const askRes = await fetch(`${e2eEnv.apiOrigin}/api/presentations/${deck._id}/qna`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Participant-Id": ada.participantId, "X-Participant-Token": ada.token },
+    body: JSON.stringify({ text: "Will the slides be shared?" }),
+  });
+  const asked = ((await askRes.json()) as { data: { id: string } }).data;
+  await api(host, "PATCH", `/presentations/${deck._id}/host/qna/${asked.id}`, { status: "visible" });
+  await api(host, "POST", `/presentations/${deck._id}/host/qna/${asked.id}/highlight`, { highlighted: true });
+
+  // The session is live: the switch still works (only this setting may change mid-session).
+  const builder = await host.open(`/presentation/create?id=${deck._id}`);
+  await builder.getByRole("button", { name: "Embed", exact: true }).click();
+  const dialog = builder.getByRole("dialog");
+  const embedSwitch = dialog.getByRole("switch", { name: "Allow embedding" });
+  await expect(embedSwitch).not.toBeChecked();
+  await embedSwitch.click();
+  await expect(embedSwitch).toBeChecked();
+  await expect(builder.getByText("Embedding turned on")).toBeVisible();
+  await dialog.getByLabel("Screen name").fill("Second screen");
+  await dialog.getByRole("button", { name: "Create screen link" }).click();
+  const screenUrl = await dialog.getByRole("textbox", { name: "Screen link", exact: true }).inputValue();
+
+  const { page: site } = await openHostSite(
+    contexts,
+    browser,
+    `<iframe src="${screenUrl}" width="960" height="540" style="border:0"></iframe>`,
+    "/mid-session"
+  );
+  const screen = site.frameLocator("iframe");
+  await expect(screen.getByText(deck.joinCode, { exact: true })).toBeVisible();
+  // Loaded with the stage, not waiting for the next Q&A event.
+  await expect(screen.getByText("Will the slides be shared?")).toBeVisible();
+  // The host console is undisturbed: still the lobby, with its participant.
+  await expect(hostPage.locator("main").getByText("1 JOINED")).toBeVisible();
+  await expect(hostPage.getByRole("button", { name: "Start", exact: true })).toBeEnabled();
+});
+
 test("the stage embed follows the session live, from a screen link made in the Embed dialog", async ({
   browser,
   contexts,

@@ -67,11 +67,15 @@ reducer is reused; nothing on this surface can send a host command.
   `question:started`, `slide:closed` and `question:revealed` (a revealed slide's answer key only
   comes with the state). A `seq` gap is **not** a reason: a screen does not get every host event.
 - Problems: 404 → "This embed isn't available"; 403 → "Embedding is turned off"; the socket's
-  `screen:revoked` → "This screen link was turned off"; a failed first load → retry button. A token of
-  another deck than the URL's is treated as not found.
+  `screen:revoked` → "This screen link was turned off" (`reason: revoked`) or "Embedding is turned off"
+  (`reason: embed_disabled`, the deck stopped allowing embedding: every screen goes at once); a failed
+  first load → retry button. A token of another deck than the URL's is treated as not found.
+- The state carries the session's public Q&A (`qna`): after each load it is dispatched into the Q&A
+  slice (`qnaActions.loadedForParticipant`), so a screen that joins mid-session shows the approved and
+  highlighted questions at once, then follows the `qna:*` events.
 - Stage differences on a screen: `StageReady` without actions says "Waiting for the presenter to
   begin."; `StageEnd` shows no `endScreen` slot entries (their host links lead to signed-in pages).
-  Q&A on a screen shows what arrives over `all` events (no host list is loaded).
+  Q&A on a screen comes from the screen state (public questions only) plus the `all` events.
 
 ## Embed dialog (`components/EmbedDialog.tsx`)
 
@@ -79,9 +83,10 @@ From the library card menu of a deck (**Embed…**) and the builder header (**Em
 for roles that may manage it (`useCanEmbedDecks`: owner, admin, editor of the selected workspace,
 personal ones included; the API decides anyway).
 
-- **Allow embedding** switch (`PATCH /api/presentations/:id {settings: {embed: {allowed}}}`; refused
-  while a session is live — the toast says so), with which sites may embed when the workspace detail
-  is loaded and a link to Settings → Workspace → Embedding.
+- **Allow embedding** switch (`PATCH /api/presentations/:id {settings: {embed: {allowed}}}`; it works
+  while a session is live too, the one deck setting that does; turning it off blanks every connected
+  screen at once), with which sites may embed when the workspace detail is loaded and a link to
+  Settings → Workspace → Embedding.
 - **Participant view**: embed code (`iframeSnippet`, the same markup oEmbed returns), page link,
   oEmbed URL, and the optional resize script.
 - **Stage for screens** (`ScreenLinks.tsx`): create a screen link with a name (its URL, stage embed

@@ -231,8 +231,10 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   `GET|POST /api/embeds/screen-tokens`, `DELETE /api/embeds/screen-tokens/:id` (`deck:share`, sha256 at
   rest, shown once, revoke kicks connected screens via Redis `embeds:screen-revoked`),
   `GET /api/embeds/stage` (`X-Screen-Token`) and the socket `screen` role (stage-safe: no notes, answer
-  keys only after the reveal; host events only through `common/realtime/screenViews.ts`). Workspace
-  `PATCH settings.embedAllowedOrigins`. Migration `210-screen-tokens`. `buildDeckLiveState` was split out
+  keys only after the reveal; host events only through `common/realtime/screenViews.ts`; the screen
+  state carries the session's public Q&A). Turning `settings.embed.allowed` off sends every
+  connected screen away at once (same Redis path as a revoke); it is the one deck setting allowed
+  while a session is live. Workspace `PATCH settings.embedAllowedOrigins`. Migration `220-screen-tokens`. `buildDeckLiveState` was split out
   of `getHostState` (shared with the screen state).
 - Frontend (`frontend/docs/wiki/features/embeds.md`): `/embed/{live/[code], results/[token],
   stage/[id]}` (chromeless, postMessage resize), `lib/proxy/embeds.ts` (per-deck `frame-ancestors`;
@@ -248,7 +250,7 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   Teams JS CDN version (`2.22.0`, `features/embeds/addins/loadScript.ts`) should be checked then.
 - Likely merge conflicts: `backend/tests/http.routes.snapshot.txt`, `frontend/i18n/messages.ts`,
   `backend/tests/integration/tenancy-isolation.test.ts`, `frontend/lib/proxy/index.ts`,
-  `frontend/features/library/components/LibraryCard.tsx`, migration ids (210).
+  `frontend/features/library/components/LibraryCard.tsx`, migration ids (220; 210 is the folders package's).
 
 ## Left to do (nothing is half-merged)
 

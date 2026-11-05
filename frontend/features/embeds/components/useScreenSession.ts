@@ -7,6 +7,7 @@ import { useLive, useLiveStore } from "@/features/presentations/live/store";
 import { useCountdown } from "@/features/presentations/live/useCountdown";
 import { useLiveSocket, type ResyncReason } from "@/features/presentations/live/useLiveSocket";
 import type { LiveSocketAuth } from "@/features/presentations/types";
+import { qnaActions } from "@/features/qna/state";
 import { getScreenState } from "../api";
 
 /** Why a screen shows a notice instead of the stage. */
@@ -20,7 +21,9 @@ const RESYNC_MIN_INTERVAL_MS = 1_000;
  * follows the events (the stage-safe `answer:received` included), and re-reads
  * the state on every (re)join, return to the tab, `seq` reset, and when a
  * response slide opens, closes or is revealed (the revealed slide's answer key
- * only comes with the state). A `seq` gap is normal for a screen (it does not
+ * only comes with the state). The state also carries the session's public Q&A,
+ * loaded into the Q&A slice. When the link is turned off or the deck stops
+ * allowing embedding, the server sends the screen away (`screen:revoked`). A `seq` gap is normal for a screen (it does not
  * get every host event), so it is not a reason to re-read. Never sends a command.
  */
 export function useScreenSession(presentationId: string, screenToken: string) {
@@ -52,6 +55,9 @@ export function useScreenSession(presentationId: string, screenToken: string) {
             continue;
           }
           await store.getState().resync(async () => ({ type: "host/state-loaded", state, receivedAt: Date.now() }));
+          // The session's public Q&A as it is now: a screen that joins mid-session shows
+          // the approved and highlighted questions, then follows the qna:* events.
+          if (state.qna) store.getState().dispatch(qnaActions.loadedForParticipant(state.qna));
           setProblem(null);
         } catch (err: unknown) {
           const status = getApiErrorStatus(err);
@@ -109,7 +115,7 @@ export function useScreenSession(presentationId: string, screenToken: string) {
     onJoinError: (error) => {
       if (error === "FORBIDDEN") void refresh();
     },
-    onScreenRevoked: () => setProblem("revoked"),
+    onScreenRevoked: (reason) => setProblem(reason === "embed_disabled" ? "disabled" : "revoked"),
   });
 
   const countdown = useCountdown(timing, currentSlide?.timeLimit ?? 30);

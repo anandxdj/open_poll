@@ -12,8 +12,9 @@ Three things can be put on another site, a room screen or an intranet page:
 
 1. **Turn embedding on for the deck.** Library → the deck's menu → **Embed…** (or **Embed** in the
    builder) → **Allow embedding**. It is off for every deck by default. While it is off, embeds show
-   "Embedding is turned off" and other sites cannot frame them at all. (Deck settings cannot change
-   while a session is live.)
+   "Embedding is turned off" and other sites cannot frame them at all. This switch works during a
+   live session too (the only deck setting that does), so you can add a second screen mid-session;
+   turning it off blanks every connected screen at once (their links work again once it is back on).
 2. **Optional: limit the sites.** Settings → Workspace → **Embedding**: list the sites allowed to frame
    your embeds (`https://intranet.example.com`, or `https://*.example.com` for every subdomain). With
    none listed, any site may. Owners and admins only.

@@ -19,6 +19,7 @@ import { allSessionKeys, k } from './live/keys';
 import { assertContentMediaInWorkspace } from './slides/types/content/media';
 import { assertThemeChoice, type ThemeChoice } from '../themes/themes.service';
 import { WorkspaceModel } from '../workspaces/workspace.model';
+import { announceScreensRevoked } from '../embeds/screenTokens.service';
 import type { CreatePresentationInput, UpdatePresentationInput } from './presentations.schema';
 
 const generateJoinCode = () => crypto.randomInt(100000, 1000000).toString();
@@ -145,6 +146,26 @@ const deckChanged = () =>
  * the slides into a compare-and-set: another save in between is a 409
  * instead of a silent lost update. Saves are versioned (optimisticConcurrency).
  */
+/**
+ * Whether a patch only switches embedding (`settings.embed`): the one deck
+ * setting a presenter may change while a session is live (W4-D), e.g. to put
+ * the stage on a second screen mid-session. It changes nothing the running
+ * session reads (that runs from its snapshot).
+ */
+export const isEmbedOnlyPatch = (data: UpdatePresentationInput): boolean => {
+  const fields = Object.entries(data).filter(([, value]) => value !== undefined);
+  if (fields.length !== 1 || fields[0]![0] !== 'settings') return false;
+  const settings = Object.entries(data.settings ?? {}).filter(([, value]) => value !== undefined);
+  return settings.length === 1 && settings[0]![0] === 'embed';
+};
+
+/** Turning embedding off sends the deck's connected screens away at once, on every instance (W4-D). */
+const afterUpdate = async (presentationId: string, data: UpdatePresentationInput) => {
+  if (data.settings?.embed?.allowed === false) {
+    await announceScreensRevoked({ presentationId, reason: 'embed_disabled' });
+  }
+};
+
 export const updatePresentation = async (
   presentationId: string,
   actor: Actor,
@@ -152,10 +173,20 @@ export const updatePresentation = async (
   options: { expectedVersion?: number } = {},
 ) => {
   const presentation = await authorizeDeck(presentationId, actor, 'deck:edit');
-  if (presentation.status !== 'draft' && presentation.status !== 'ended') {
+  const live = presentation.status !== 'draft' && presentation.status !== 'ended';
+  if (live && !isEmbedOnlyPatch(data)) {
     throw ApiError.badRequest('Cannot edit a presentation deck while a live session is running');
   }
   if (options.expectedVersion !== undefined && presentation.get('__v') !== options.expectedVersion) throw deckChanged();
+  if (live) {
+    // One atomic $set: the live session's deck mirror (status, current slide) is written by
+    // host commands at the same time, and a whole-document save could race them.
+    const $set = Object.fromEntries(toPaths(data.settings ?? {}, 'settings'));
+    const updated = await PresentationModel.findOneAndUpdate({ _id: presentation._id }, { $set }, { returnDocument: 'after' });
+    if (!updated) throw ApiError.notFound('Presentation deck not found');
+    await afterUpdate(presentationId, data);
+    return updated;
+  }
   if (data.slides !== undefined) {
     const workspaceId =
       presentation.workspaceId ?? (typeof actor !== 'string' && actor.workspace ? actor.workspace._id : undefined);
@@ -182,6 +213,7 @@ export const updatePresentation = async (
     if (error instanceof mongoose.Error.VersionError) throw deckChanged();
     throw error;
   }
+  await afterUpdate(presentationId, data);
   return presentation;
 };
 

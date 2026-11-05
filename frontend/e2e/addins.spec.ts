@@ -143,8 +143,11 @@ test("the Zoom app page sends Zoom's OWASP headers and shows the stage", async (
   await expect(page.getByRole("heading", { name: "Ready to present" })).toBeVisible();
   await expect(page.getByText(deck.title)).toBeVisible();
 
-  // Embedding turned off: the pane says so instead of showing the stage.
+  // Embedding turned off: the server sends the connected stage away at once, no reload needed.
   await api(host, "PATCH", `/presentations/${deck._id}`, { settings: { embed: { allowed: false } } });
+  await expect(page.getByText("Embedding is turned off")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ready to present" })).toHaveCount(0);
+  // And it stays refused after a reload.
   await page.reload();
   await expect(page.getByText("Embedding is turned off")).toBeVisible();
 });

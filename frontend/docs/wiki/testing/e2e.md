@@ -145,7 +145,8 @@ lookup's HTTP status (404 until a session was opened).
   than the app's `localhost`; a `page.route` page counts as public to Chromium, whose local-network
   protection would refuse to frame the local app at all) serves host pages that iframe the embeds. A
   participant joins and answers inside `/embed/live/<code>` (the iframe from oEmbed's `html`), the host
-  console sees it, and the frame takes the heights the page posts; the builder's Embed dialog turns
+  console sees it, and the frame takes the heights the page posts; mid-session, the Embed dialog's
+  switch still works and a new screen shows the already approved, highlighted Q&A question at once; the builder's Embed dialog turns
   embedding on and creates a screen link (real clicks), the stage embed follows lobby, joins, live
   counts, reveal and end, the results embed shows the shared run, and turning the link off (in-place
   confirmation, no `confirm()`) blanks the stage; `/live/<code>`, `/login` and the embed of a deck with
@@ -160,8 +161,8 @@ lookup's HTTP status (404 until a session was opened).
   frame-ancestors, a foreign link refused, a pasted screen link shows the stage, follows the lobby,
   is remembered after a reload, "Change screen link"); the Teams configuration page (tab address),
   side panel (share button disabled outside a meeting, an attendee joins and answers there) and stage
-  page (live counts); the Zoom page (OWASP headers, the stage, "Embedding is turned off" once the
-  deck stops allowing it). ~15 s.
+  page (live counts); the Zoom page (OWASP headers, the stage, "Embedding is turned off" at once,
+  without a reload, when the deck stops allowing it). ~15 s.
 
 - `e2e/landing-auth.spec.ts` — the landing and sign-in surfaces on public pages (no host needed): no
   horizontal overflow on a phone, tablet and desktop (landing, login, signup, forgot/reset password,

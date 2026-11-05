@@ -36,7 +36,8 @@ participants, answers, scores and a final snapshot. At most one session per deck
 The deck keeps a **mirror** of its live session — `status` (`draft` before the first run, `ended`
 between runs), `currentSlideIndex`, `questionStartedAt`, `questionEndsAt`, `activeSessionId`,
 `lastSessionAt`, `sessionCount`. Only `live/session.service.ts` writes them. Deck edits stay
-blocked while a session is live.
+blocked while a session is live, except the embedding switch `settings.embed.allowed` (W4-D,
+`modules/embeds.md`), which a presenter may need mid-session to put the stage on a second screen.
 
 Participants and answers carry `sessionId`; answers also carry `slideId` (plus `slideIndex` for
 exports), `clientAnswerId` and `via` (`rest` today; `socket`/`offline` from W2-D). A participant

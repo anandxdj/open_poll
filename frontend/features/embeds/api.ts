@@ -2,6 +2,7 @@ import axios from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getApiBaseUrl } from "@/lib/env";
 import type { DeckSettings, HostState } from "@/features/presentations/types";
+import type { QnaParticipantListResponse } from "@/features/qna/types";
 
 type ApiOk<T> = { success: boolean; message: string; data: T };
 
@@ -52,6 +53,9 @@ const publicClient = axios.create({ baseURL: getApiBaseUrl(), withCredentials: f
 
 export const SCREEN_TOKEN_HEADER = "X-Screen-Token";
 
-/** `GET /api/embeds/stage`: the host state's shape over a stage-safe deck. 404 dead link, 403 `EMBED_DISABLED`. */
+/** The screen state: the host state's shape over a stage-safe deck, plus the session's public Q&A. */
+export type ScreenState = HostState & { qna?: QnaParticipantListResponse | null };
+
+/** `GET /api/embeds/stage`. 404 dead link, 403 `EMBED_DISABLED`. */
 export const getScreenState = async (screenToken: string) =>
-  (await publicClient.get<ApiOk<HostState>>("/embeds/stage", { headers: { [SCREEN_TOKEN_HEADER]: screenToken } })).data.data;
+  (await publicClient.get<ApiOk<ScreenState>>("/embeds/stage", { headers: { [SCREEN_TOKEN_HEADER]: screenToken } })).data.data;

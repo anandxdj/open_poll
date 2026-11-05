@@ -6,6 +6,7 @@ import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import {
   LIVE_SOCKET_EVENTS,
   type LiveJoinAck,
+  type ScreenRevokeReason,
   type LiveSocketAuth,
   type PresentationRealtimeEvent,
 } from "../types/realtime";
@@ -36,8 +37,11 @@ export interface LiveSocketHandlers {
   onForeignSession?: (event: PresentationRealtimeEvent) => void;
   /** The room join was refused (`UNAUTHENTICATED`, `FORBIDDEN`, …). */
   onJoinError?: (error: string) => void;
-  /** Screens only: the screen token was revoked and the socket left the deck's rooms. */
-  onScreenRevoked?: () => void;
+  /**
+   * Screens only: the socket left the deck's rooms because its screen link was
+   * turned off (`revoked`) or the deck stopped allowing embedding (`embed_disabled`).
+   */
+  onScreenRevoked?: (reason: ScreenRevokeReason) => void;
 }
 
 /** Retry delay after the join budget (30/min per connection) was exceeded. */
@@ -89,7 +93,7 @@ export function useLiveSocket(
   const handleJoined = useEffectEvent(() => resolved.onResync?.("joined"));
   const handleVisible = useEffectEvent(() => resolved.onResync?.("visible"));
   const handleJoinError = useEffectEvent((error: string) => resolved.onJoinError?.(error));
-  const handleScreenRevoked = useEffectEvent(() => resolved.onScreenRevoked?.());
+  const handleScreenRevoked = useEffectEvent((reason: ScreenRevokeReason) => resolved.onScreenRevoked?.(reason));
 
   const role = auth?.role;
   const participantId = auth?.role === "participant" ? auth.participantId : undefined;
@@ -144,11 +148,11 @@ export function useLiveSocket(
     const handleVisibility = () => {
       if (document.visibilityState === "visible" && joined) handleVisible();
     };
-    const handleRevoked = (data: { presentationId?: string } | null) => {
+    const handleRevoked = (data: { presentationId?: string; reason?: string } | null) => {
       if (data?.presentationId !== presentationId) return;
       joined = false;
       setConnected(false);
-      handleScreenRevoked();
+      handleScreenRevoked(data.reason === "embed_disabled" ? "embed_disabled" : "revoked");
     };
 
     // The shared socket may already be connected — join now; later (re)connects

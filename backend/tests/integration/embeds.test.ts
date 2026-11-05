@@ -315,7 +315,7 @@ describeIntegration('embeds, oEmbed and screens', () => {
     expect(revoked.status).toBe(200);
     expect(revoked.body.data).toEqual({ id, revoked: true });
     await waitFor(() => screen.revoked.length === 1, 'screen:revoked');
-    expect(screen.revoked[0]).toEqual({ presentationId: deck._id });
+    expect(screen.revoked[0]).toEqual({ presentationId: deck._id, reason: 'revoked' });
 
     await host(deck._id, 'open-lobby');
     await waitFor(() => kept.events.some((e) => e.type === 'session:lobby'), 'the other screen still follows');
@@ -329,6 +329,126 @@ describeIntegration('embeds, oEmbed and screens', () => {
     expect((await call('DELETE', `/api/embeds/screen-tokens/${id}`, { user: alice, workspaceId: wsA })).status).toBe(404);
     const list = await call('GET', `/api/embeds/screen-tokens?presentationId=${deck._id}`, { user: alice, workspaceId: wsA });
     expect(list.body.data.map((t: { id: string }) => t.id)).toEqual([keep.id]);
+  });
+
+  it('turning embedding off sends every connected screen away at once; turning it on lets them back', async () => {
+    const deck = await createDeck([SELECT, HEADING]);
+    await allowEmbed(deck._id);
+    const hall = (await createToken(deck._id)).body.data;
+    const lobby = (await createToken(deck._id, alice, wsA, 'Lobby screen')).body.data;
+    const first = await screenSocket(deck._id, hall.token);
+    const second = await screenSocket(deck._id, lobby.token);
+    expect(first.ack).toEqual({ ok: true, role: 'screen' });
+    expect(second.ack).toEqual({ ok: true, role: 'screen' });
+    // Another deck's screen is not concerned.
+    const other = await createDeck();
+    await allowEmbed(other._id);
+    const otherToken = (await createToken(other._id)).body.data.token;
+    const bystander = await screenSocket(other._id, otherToken);
+
+    await allowEmbed(deck._id, false);
+    await waitFor(() => first.revoked.length === 1 && second.revoked.length === 1, 'screen:revoked on both screens');
+    expect(first.revoked[0]).toEqual({ presentationId: deck._id, reason: 'embed_disabled' });
+    expect(second.revoked[0]).toEqual({ presentationId: deck._id, reason: 'embed_disabled' });
+    // Refused at once, by REST and socket, for every token of the deck.
+    expect((await stage(hall.token)).body.code).toBe('EMBED_DISABLED');
+    expect((await stage(lobby.token)).status).toBe(403);
+    expect((await screenSocket(deck._id, hall.token)).ack).toEqual({ ok: false, error: 'FORBIDDEN' });
+
+    await host(deck._id, 'open-lobby');
+    await host(other._id, 'open-lobby');
+    await waitFor(() => bystander.events.some((e) => e.type === 'session:lobby'), 'the other deck still follows');
+    await Bun.sleep(100);
+    expect(first.events.some((e) => e.type === 'session:lobby')).toBe(false);
+    expect(bystander.revoked).toHaveLength(0);
+
+    // The tokens were not revoked: embedding back on, the same links work again.
+    await allowEmbed(deck._id, true);
+    expect((await stage(hall.token)).status).toBe(200);
+    expect((await screenSocket(deck._id, hall.token)).ack).toEqual({ ok: true, role: 'screen' });
+  });
+
+  it('lets embedding be switched while a session is live, and nothing else', async () => {
+    const deck = await createDeck([SELECT, HEADING]);
+    const { token } = (await createToken(deck._id)).body.data;
+    expect((await host(deck._id, 'open-lobby')).status).toBe(200);
+    expect((await host(deck._id, 'start')).status).toBe(200);
+    const patch = (body: unknown) => call('PATCH', `/api/presentations/${deck._id}`, { user: alice, workspaceId: wsA, body });
+
+    const on = await patch({ settings: { embed: { allowed: true } } });
+    expect(on.status).toBe(200);
+    expect(on.body.data.settings.embed.allowed).toBe(true);
+    // The live mirror is untouched.
+    expect(on.body.data).toMatchObject({ status: 'active', currentSlideIndex: 0 });
+    expect((await stage(token)).body.data.session.status).toBe('active');
+
+    for (const body of [
+      { title: 'Renamed mid-session' },
+      { settings: { embed: { allowed: false }, qna: { enabled: true } } },
+      { settings: { qna: { enabled: true } } },
+      { settings: { embed: { allowed: false } }, title: 'x' },
+    ]) {
+      const res = await patch(body);
+      expect({ body, status: res.status }).toEqual({ body, status: 400 });
+    }
+    // Still on, and the session still runs.
+    const state = await call('GET', `/api/presentations/${deck._id}/host/state`, { user: alice, workspaceId: wsA });
+    expect(state.body.data.presentation.settings.embed.allowed).toBe(true);
+    expect(state.body.data.session.status).toBe('active');
+    expect(state.body.data.presentation.title).toBe('Embed deck');
+
+    // A presenter (deck:host, not deck:edit) cannot switch it.
+    expect((await call('PATCH', `/api/presentations/${deck._id}`, { user: carol, workspaceId: wsA, body: { settings: { embed: { allowed: false } } } })).status).toBe(403);
+
+    const off = await patch({ settings: { embed: { allowed: false } } });
+    expect(off.status).toBe(200);
+    expect((await stage(token)).status).toBe(403);
+  });
+
+  it("gives a screen the session's approved and highlighted Q&A, never pending questions", async () => {
+    const res = await call('POST', '/api/presentations', {
+      user: alice,
+      workspaceId: wsA,
+      body: { title: 'Q&A deck', slides: [HEADING], settings: { qna: { enabled: true, moderation: true }, embed: { allowed: true } } },
+    });
+    expect(res.status).toBe(201);
+    const deck = res.body.data as { _id: string };
+    const { token } = (await createToken(deck._id)).body.data;
+    expect((await stage(token)).body.data.qna).toBeNull();
+
+    await host(deck._id, 'open-lobby');
+    const join = async (name: string) => (await call('POST', `/api/presentations/${deck._id}/join`, { body: { name } })).body.data as { participantId: string; token: string };
+    const ask = async (who: { participantId: string; token: string }, text: string) =>
+      call('POST', `/api/presentations/${deck._id}/qna`, {
+        headers: { 'x-participant-id': who.participantId, 'x-participant-token': who.token },
+        body: { text },
+      });
+    const ada = await join('Ada');
+    const asked = await ask(ada, 'Approved soon?');
+    expect(asked.status).toBe(201);
+    const approvedId = asked.body.data.id as string;
+    expect((await ask(ada, 'Stays pending')).status).toBe(201);
+
+    // Pending questions stay with the host.
+    let qna = (await stage(token)).body.data.qna;
+    expect(qna).toMatchObject({ questions: [], highlightedId: null, qna: { enabled: true, moderation: true } });
+
+    const hostQna = (path: string, method: string, body: unknown) =>
+      call(method, `/api/presentations/${deck._id}/host/qna${path}`, { user: alice, workspaceId: wsA, body });
+    expect((await hostQna(`/${approvedId}`, 'PATCH', { status: 'visible' })).status).toBe(200);
+    expect((await hostQna(`/${approvedId}/highlight`, 'POST', { highlighted: true })).status).toBe(200);
+
+    // A screen joining now gets them at once, without waiting for a later change.
+    qna = (await stage(token)).body.data.qna;
+    expect(qna.highlightedId).toBe(approvedId);
+    expect(qna.questions).toHaveLength(1);
+    expect(qna.questions[0]).toMatchObject({ id: approvedId, text: 'Approved soon?', status: 'visible', mine: false, upvoted: false });
+    expect(JSON.stringify(qna)).not.toContain('Stays pending');
+    expect(JSON.stringify(qna)).not.toContain(ada.participantId);
+
+    const screen = await screenSocket(deck._id, token);
+    const resync = await screen.socket.timeout(3000).emitWithAck('live:resync', { presentationId: deck._id, role: 'screen', screenToken: token });
+    expect(resync.state.qna.highlightedId).toBe(approvedId);
   });
 
   // ---------------------------------------------------------------------------
