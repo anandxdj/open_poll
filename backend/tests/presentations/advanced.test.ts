@@ -122,6 +122,8 @@ const POINTS = {
   config: { items: ['Docs', 'Tests', 'Speed'] },
 };
 
+const NO_QUADRANTS = { topLeft: '', topRight: '', bottomLeft: '', bottomRight: '' };
+
 const GRID = {
   type: 'grid_2x2',
   question: 'Rate the ideas',
@@ -161,7 +163,7 @@ describe('advanced slide registry entries', () => {
       };
     });
     expect(summary).toEqual([
-      { type: 'grid_2x2', kind: 'interactive', lifecycle: 'response', scored: false, perSlide: false, answers: true, exports: true, feedLength: null },
+      { type: 'grid_2x2', kind: 'interactive', lifecycle: 'response', scored: false, perSlide: false, answers: true, exports: true, feedLength: 200 },
       { type: 'guess_number', kind: 'interactive', lifecycle: 'response', scored: true, perSlide: true, answers: true, exports: true, feedLength: null },
       { type: 'hundred_points', kind: 'interactive', lifecycle: 'response', scored: false, perSlide: false, answers: true, exports: true, feedLength: null },
       { type: 'pin_on_image', kind: 'interactive', lifecycle: 'response', scored: true, perSlide: true, answers: true, exports: true, feedLength: 500 },
@@ -451,6 +453,7 @@ describe('grid_2x2', () => {
       items: ['A'],
       x: { label: 'Effort', min: 0, max: 10 },
       y: { label: 'Impact', min: -5, max: 5 },
+      quadrants: NO_QUADRANTS,
     });
     expect(issues({ type: 'grid_2x2', question: 'Q' })).toEqual([
       ['config.items', '2x2 grid slides need at least 1 item'],
@@ -467,11 +470,22 @@ describe('grid_2x2', () => {
     expect(parsed({ ...GRID, points: 1000 }).points).toBe(0);
   });
 
-  it('sends participants the items and axes only', () => {
+  it('names the corners optionally, up to 40 characters each', () => {
+    const named = { topLeft: 'Quick wins', topRight: 'Big bets', bottomLeft: ' Fill-ins ', bottomRight: '' };
+    expect(parsed({ ...GRID, config: { ...GRID.config, quadrants: named } }).config.quadrants).toEqual({
+      ...named,
+      bottomLeft: 'Fill-ins',
+    });
+    expect(issues({ ...GRID, config: { ...GRID.config, quadrants: { topLeft: 'x'.repeat(41) } } })).toEqual([
+      ['config.quadrants.topLeft', 'Keep corner names under 40 characters'],
+    ]);
+  });
+
+  it('sends participants the items, axes and corner names only', () => {
     expect(participantSlide({ ...parsed(GRID), notes: 'n' })).toEqual({
       question: GRID.question,
       timeLimit: 0,
-      config: GRID.config,
+      config: { ...GRID.config, quadrants: NO_QUADRANTS },
       slideIndex: 0,
       totalSlides: 1,
       type: 'grid_2x2',
@@ -506,6 +520,7 @@ describe('grid_2x2', () => {
         { op: 'hincrby', key: 'dist', field: 'i:1:y', by: 1000 },
         { op: 'hincrby', key: 'dist', field: 'i:1:n', by: 1 },
         { op: 'hincrby', key: 'dist', field: 'voters', by: 1 },
+        { op: 'lpush_trim', key: 'feed', value: '2.5,9;0,10', max: 200 },
       ],
       persist: { optionIndex: null, text: null, payload: { positions: [{ x: 2.5, y: 9 }, { x: 0, y: 10 }] } },
     });
@@ -521,11 +536,17 @@ describe('grid_2x2', () => {
       kind: 'grid_2x2',
       x: GRID.config.x,
       y: GRID.config.y,
+      quadrants: NO_QUADRANTS,
       items: [
         { text: 'Dark mode', x: 2.5, y: 8.5, count: 2 },
         { text: 'Offline', x: 8.25, y: 2.5, count: 2 },
       ],
       voters: 2,
+      // Each participant's own placements, newest first.
+      placements: [
+        [{ x: 3, y: 9 }, { x: 7.5, y: 2 }],
+        [{ x: 2, y: 8 }, { x: 9, y: 3 }],
+      ],
     });
     const signed = parsed({ ...GRID, config: { ...GRID.config, items: ['A'], x: { label: 'L', min: -5, max: 5 } } });
     expect(distributionOf(signed, [{ positions: [{ x: -4.5, y: 1 }] }, { positions: [{ x: -1, y: 2 }] }])).toMatchObject({

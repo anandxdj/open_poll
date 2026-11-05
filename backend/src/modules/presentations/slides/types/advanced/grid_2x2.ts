@@ -1,11 +1,15 @@
 import { z } from 'zod';
 import { defineSlideType, registerSlideType } from '../../registry';
 import { questionLabel } from '../../fields';
-import { hincrby, rejectAnswer } from '../../ops';
+import { hincrby, lpushTrim, rejectAnswer } from '../../ops';
 import type { RedisOp, Slide } from '../../types';
 import { configOf, finiteOr, payloadOf, recordOf, roundTo, textItems, textOr, unscoredSlideSchema } from './shared';
 
 export const MAX_GRID_ITEMS = 10;
+/** Newest participants whose placements the stage draws as dots (each one's positions for every item). */
+export const GRID_FEED_LENGTH = 200;
+/** Longest corner name. */
+export const MAX_QUADRANT_LABEL = 40;
 /** Largest absolute axis bound. */
 export const GRID_AXIS_LIMIT = 1000;
 /**
@@ -20,10 +24,19 @@ export interface GridAxis {
   max: number;
 }
 
+/** Optional names for the four corners of the board (e.g. "Quick wins"); empty = unnamed. */
+export interface GridQuadrants {
+  topLeft: string;
+  topRight: string;
+  bottomLeft: string;
+  bottomRight: string;
+}
+
 export interface Grid2x2Settings {
   items: string[];
   x: GridAxis;
   y: GridAxis;
+  quadrants: GridQuadrants;
 }
 
 const DEFAULT_AXIS = { min: 0, max: 10 };
@@ -42,6 +55,12 @@ const axisSchema = (name: 'Horizontal' | 'Vertical') =>
     })
     .prefault({});
 
+const quadrantLabel = z.string().trim().max(MAX_QUADRANT_LABEL, `Keep corner names under ${MAX_QUADRANT_LABEL} characters`).default('');
+
+const quadrantsSchema = z
+  .object({ topLeft: quadrantLabel, topRight: quadrantLabel, bottomLeft: quadrantLabel, bottomRight: quadrantLabel })
+  .prefault({});
+
 export const grid2x2SettingsSchema = z.object({
   items: z
     .array(z.string().trim().min(1, 'Item text is required').max(200))
@@ -50,6 +69,7 @@ export const grid2x2SettingsSchema = z.object({
     .prefault([]),
   x: axisSchema('Horizontal'),
   y: axisSchema('Vertical'),
+  quadrants: quadrantsSchema,
 });
 
 const axisOf = (value: unknown, fallbackLabel: string): GridAxis => {
@@ -62,10 +82,30 @@ const axisOf = (value: unknown, fallbackLabel: string): GridAxis => {
   };
 };
 
-/** Stored settings with defaults (malformed axes fall back to 0–10). */
+const quadrantsOf = (value: unknown): GridQuadrants => {
+  const q = recordOf(value);
+  const name = (v: unknown) => textOr(v, '').slice(0, MAX_QUADRANT_LABEL);
+  return { topLeft: name(q.topLeft), topRight: name(q.topRight), bottomLeft: name(q.bottomLeft), bottomRight: name(q.bottomRight) };
+};
+
+/** Stored settings with defaults (malformed axes fall back to 0–10; corners unnamed). */
 export const grid2x2Settings = (slide: Pick<Slide, 'config'>): Grid2x2Settings => {
   const c = configOf(slide);
-  return { items: textItems(c.items), x: axisOf(c.x, 'Horizontal'), y: axisOf(c.y, 'Vertical') };
+  return {
+    items: textItems(c.items),
+    x: axisOf(c.x, 'Horizontal'),
+    y: axisOf(c.y, 'Vertical'),
+    quadrants: quadrantsOf(c.quadrants),
+  };
+};
+
+/** A feed entry (one participant's `x,y` per item, `;`-separated) back to positions; null when malformed. */
+const parsePlacement = (entry: string, itemCount: number): { x: number; y: number }[] | null => {
+  const positions = entry.split(';').map((pair) => {
+    const [x, y] = pair.split(',').map(Number);
+    return Number.isFinite(x) && Number.isFinite(y) ? { x: x!, y: y! } : null;
+  });
+  return positions.length === itemCount && positions.every((p) => p !== null) ? (positions as { x: number; y: number }[]) : null;
 };
 
 interface Grid2x2Config {
@@ -90,8 +130,9 @@ const average = (sumHundredths: number, count: number) =>
 
 /**
  * Each participant places every item on two axes (e.g. effort × impact,
- * each with its own min…max); never scored. Results: the average position of
- * each item (+ how many placed it), drawn as a 2x2 scatter on the stage.
+ * each with its own min…max); never scored. The four corners may be named.
+ * Results: the average position of each item (+ how many placed it) and the
+ * newest participants' own placements, drawn as a 2x2 scatter on the stage.
  */
 export const grid2x2Slide = defineSlideType<Grid2x2Config, z.infer<typeof answerSchema>>({
   type: 'grid_2x2',
@@ -101,8 +142,8 @@ export const grid2x2Slide = defineSlideType<Grid2x2Config, z.infer<typeof answer
   scored: false,
   schema: unscoredSlideSchema('grid_2x2', grid2x2SettingsSchema.prefault({})),
   sanitize: (slide) => {
-    const { items, x, y } = grid2x2Settings(slide);
-    return { question: slide.question, timeLimit: slide.timeLimit, config: { items, x, y } };
+    const { items, x, y, quadrants } = grid2x2Settings(slide);
+    return { question: slide.question, timeLimit: slide.timeLimit, config: { items, x, y, quadrants } };
   },
   acceptConfig: (slide) => {
     const { items, x, y } = grid2x2Settings(slide);
@@ -124,14 +165,17 @@ export const grid2x2Slide = defineSlideType<Grid2x2Config, z.infer<typeof answer
       hincrby('dist', `i:${i}:n`),
     ]);
     ops.push(hincrby('dist', 'voters'));
+    ops.push(lpushTrim('feed', placed.map((p) => `${p.x},${p.y}`).join(';'), GRID_FEED_LENGTH));
     return { isCorrect: false, ops, persist: { optionIndex: null, text: null, payload: { positions: placed } } };
   },
-  distribution: (slide, { dist }) => {
-    const { items, x, y } = grid2x2Settings(slide);
+  feedLength: GRID_FEED_LENGTH,
+  distribution: (slide, { dist, feed }) => {
+    const { items, x, y, quadrants } = grid2x2Settings(slide);
     return {
       kind: 'grid_2x2',
       x,
       y,
+      quadrants,
       items: items.map((text, i) => {
         const count = Number(dist[`i:${i}:n`] ?? 0);
         return {
@@ -142,6 +186,10 @@ export const grid2x2Slide = defineSlideType<Grid2x2Config, z.infer<typeof answer
         };
       }),
       voters: Number(dist['voters'] ?? 0),
+      // Newest first, each one participant's positions in item order.
+      placements: feed
+        .map((entry) => parsePlacement(entry, items.length))
+        .filter((p): p is { x: number; y: number }[] => p !== null),
     };
   },
   exportColumns: (slide) => {

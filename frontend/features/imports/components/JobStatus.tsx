@@ -14,11 +14,11 @@ export function WarningList({ warnings }: { warnings: ImportWarning[] }) {
   const t = useTranslations("imports");
   if (warnings.length === 0) return null;
   return (
-    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
-      <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+    <div className="rounded-lg border border-warning/30 bg-warning/10 p-3">
+      <p className="flex items-center gap-1.5 text-sm font-medium text-warning">
         <AlertTriangle className="size-3.5" aria-hidden /> {t("job.warningsTitle", { count: warnings.length })}
       </p>
-      <p className="mt-1 text-[11px] text-muted-foreground">{t("job.warningsHint")}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{t("job.warningsHint")}</p>
       <ul className="mt-2 max-h-40 list-disc space-y-1 overflow-auto pl-4 text-xs text-foreground/80">
         {warnings.map((warning, index) => (
           <li key={`${warning.code}-${warning.slide ?? "x"}-${index}`}>{warning.message}</li>
@@ -92,8 +92,8 @@ export function JobStatus({
   const { job } = state;
   return (
     <div className="space-y-3">
-      <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4" role="status">
-        <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-500" aria-hidden />
+      <div className="flex items-start gap-3 rounded-lg border border-success/30 bg-success/10 p-4" role="status">
+        <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" aria-hidden />
         <p className="text-sm font-semibold">{job.title ? t("job.completed", { title: job.title }) : t("job.completedNoTitle")}</p>
       </div>
       <WarningList warnings={job.warnings} />

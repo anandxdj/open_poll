@@ -55,8 +55,8 @@ export function QuestionsPanel({ target }: { target: QuestionsTarget }) {
     const { result } = state;
     return (
       <div className="space-y-3">
-        <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4" role="status">
-          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-500" aria-hidden />
+        <div className="flex items-start gap-3 rounded-lg border border-success/30 bg-success/10 p-4" role="status">
+          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" aria-hidden />
           <div className="space-y-0.5 text-sm">
             <p className="font-semibold">{t("questions.imported", { count: result.imported })}</p>
             {result.skipped > 0 ? <p className="text-foreground/80">{t("questions.importedSkipped", { skipped: result.skipped })}</p> : null}
@@ -79,8 +79,8 @@ export function QuestionsPanel({ target }: { target: QuestionsTarget }) {
   if (added !== null) {
     return (
       <div className="space-y-3">
-        <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4" role="status">
-          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-500" aria-hidden />
+        <div className="flex items-start gap-3 rounded-lg border border-success/30 bg-success/10 p-4" role="status">
+          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" aria-hidden />
           <p className="text-sm font-semibold">{t("builder.added", { count: added })}</p>
         </div>
         <div className="flex justify-end">

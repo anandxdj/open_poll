@@ -1,93 +1,40 @@
 ---
-summary: Analytics pages, real-time WebSocket event contract, and aggregate metrics spec.
+summary: The analytics pages, /analytics (workspace insights + responses per poll) and /analytics/[id] (one poll's results and voters).
 status: active
-last_updated: 2026-10-25
+last_updated: 2026-10-26
 ---
 
-# Analytics Feature
+# Analytics (`app/(dashboard)/analytics`, `features/analytics/`)
 
-## Pages
+## `/analytics`: workspace overview
 
-Both pages follow the app-screen rules in `ui/design-system.md` (page header, hairline count strip,
-underline tabs, white sheets) and the dataviz rules below.
+Data: `GET /api/insights` (backend `modules/insights.md`) through `features/analytics/insights.ts`
+(`fetchInsights`, wire types) and `hooks/useInsights.ts` (keeps the last range's data while a new one
+loads, refetches on workspace change, `retry`). Days are counted in the viewer's time zone
+(`viewerTimeZone()`, sent as `tz`).
 
-### Analytics overview (`/analytics`)
-- **Route**: `app/(dashboard)/analytics/page.tsx`.
-- Polls of the current workspace from `useCreatorStore().fetchPolls()`, then each poll's
-  `GET /responses/poll/:id/summary` for its response count.
-- Count strip: Polls, Responses, Live now (published, not closed, not expired).
-- "Responses per poll": a ranked bar list (most answered first, one ember hue, the value at each bar's
-  tip, status dot and question count beside the title). Every row links to `/analytics/[id]`. Empty state
-  on graph paper with "New poll".
+Top to bottom (`components/InsightsOverview.tsx`):
 
-### Per-poll analytics (`/analytics/[id]`)
-- **Route**: `app/(dashboard)/analytics/[id]/page.tsx`.
-- Fetches the poll and its summary on mount, then follows `poll:{id}` over Socket.io for live counts.
-- Header: back link, title, "Results are public" when published; actions "Copy poll link" and
-  "Publish results" (`POST /polls/:id/publish-results`), or "Share on X" and "Copy poll link" once public.
-- `AnalyticsHeaderStats`: Responses, Status (Live / Closed / Expired, with when), Respondents (Anonymous /
-  Identified), Created.
-- Tabs **Results** and **Voters** (count). Results: `TopChoiceHighlight` (the leading answer as one
-  sentence), the `VisualizationPicker` (Bars by default, Columns, Donut, List; a segmented control of
-  `aria-pressed` buttons) and one `QuestionAnalytics` per question. Assessments (`pollType: TRIAL`) pass
-  `correctOptionIndices` and `explanation`, shown as a check, the word "Correct" and the success colour.
-- Voters: `GET /responses/poll/:id/list` on opening the tab; search by name or email, filter by type
-  (Everyone / Registered / Guests / Anonymous), a table with "View answers" per row.
+| Part | What it shows |
+| --- | --- |
+| Header | h1, one sentence, "N sessions and M polls live now" (`LiveNow`, hidden when nothing runs), the range switch (`RangeSwitch`: 7 / 30 / 90 days, a segmented control of pressed buttons) |
+| `HeadlineNumbers` | Sessions, Participants, Responses, Engagement as one hairline strip; under each the change against the previous period of the same length: a green/red/grey arrow, the amount in mono ink (`countChange`: a percentage, or the plain difference after an empty period; `rateChange`: percentage points), "vs previous N days"; "Nothing to compare yet" when both are empty |
+| `ActivityChart` | one series per day (Participants, Responses or Sessions, picked with a segmented control; one axis, one hue `--chart-1`), hover tooltip with the date and all three numbers (the picked one strong), the period total in the sentence above; a quiet line when the range is empty |
+| `TopContent` | up to 6 decks (by participants, link to the deck's sessions) and polls (by responses, link to `/analytics/[id]`) as ranked hairline rows with a thin share bar |
+| `RecentSessions` | the 6 latest sessions, link to the report; live ones carry the Live pill, ended ones their answered share |
+| Responses per poll | every poll, all time, ranked bar list (per-poll summaries); opens `/analytics/[id]` |
 
-### Chart rules (`QuestionAnalytics`)
-- One series per question: every bar in `--chart-1` (ember); bars at most 24px with a 4px rounded end;
-  hairline solid grid in `--border`; the count at each bar's tip in `--muted-foreground`; tooltips lead
-  with the value, then the option.
-- Donut: the categorical tokens `--chart-1..6` in fixed order, a 2px `--card` stroke between slices, a
-  legend with values beside it; options past the sixth fold into "Other".
-- The chart tokens were checked with the dataviz palette validator in both themes (lightness band,
-  chroma floor, colour-blind and normal-vision separation, 3:1 against the card).
+Loading shows placeholders in place; a failed first load shows a retry line. The design follows
+`ui/design-system.md` (App screens): flat bordered sheets, tabular numbers, one accent.
 
-## WebSocket Event Contract
+## `/analytics/[id]`: one poll
 
-Socket.io server (backend) emits events to rooms named `poll:{pollId}`.
+Header with copy-link / publish actions, a stat strip, Results / Voters underline tabs, the chart
+picker (`VisualizationPicker`), `TopChoiceHighlight` and one `QuestionAnalytics` card per question;
+counts update live over the socket (`hooks/useSocketListener.ts`).
 
-### `analytics:update` (server → client)
-Emitted whenever a new response is submitted.
+## Tests
 
-```ts
-type PollAnalyticsPayload = {
-  pollId: string;
-  totalResponses: number;
-  questionSummaries: {
-    questionId: string;
-    counts: number[];      // one count per option, index-aligned with poll.questions[i].options
-  }[];
-  emittedAt: string;       // ISO 8601
-};
-```
-
-### `poll:vote` (server → client) — future
-May be emitted for individual vote events (not yet used on frontend).
-
-## Hooks
-
-### `useSocketListener`
-Located: `features/analytics/hooks/useSocketListener.ts`
-
-Usage:
-```ts
-useSocketListener({
-  pollId: string | undefined,
-  enabled: boolean,
-  onUpdate: (payload: PollAnalyticsPayload) => void,
-});
-```
-Connects to the Socket.io server, joins `poll:{pollId}` room, and calls `onUpdate` on `analytics:update` events.
-
-## Components
-
-`features/analytics/components/`: `AnalyticsHeaderStats`, `TopChoiceHighlight`, `VisualizationPicker`,
-`QuestionAnalytics` (described above). `AnalyticsOverview.tsx` is not used by any page.
-
-## Data Fetching
-
-- Summary endpoint: `GET /responses/poll/:id/summary` → returns `PollAnalyticsPayload`
-- Voter list: `GET /responses/poll/:id/list` (authenticated, workspace members who can read the poll)
-- All polls: `useCreatorStore().fetchPolls()` (current workspace)
-- Publish results: `POST /polls/:id/publish-results`
+`tests/unit/analytics.insights.test.ts` (range, change, formatting helpers),
+`tests/unit/analytics.overview.test.tsx` (headline numbers and changes, links, live pill, empty
+states), `e2e/analytics.spec.ts` (the page against the real API, range and series switches).

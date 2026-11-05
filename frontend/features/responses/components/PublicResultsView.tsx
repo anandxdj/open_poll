@@ -1,24 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Zap, Trophy, BarChart3, Share2, Send, Download, Check, Copy, Link } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Check, Download, Link as LinkIcon, Send } from "lucide-react";
 import { toast } from "sonner";
 import type { Poll } from "@/features/polls/store/useCreatorStore";
 import { QuestionAnalytics } from "@/features/analytics/components/QuestionAnalytics";
 import { VisualizationPicker, type VisualizationType } from "@/features/analytics/components/VisualizationPicker";
 import { apiClient } from "@/lib/api-client";
 import { emptyPollAnalytics, type PollAnalyticsPayload } from "@/features/analytics/types";
+import { PublicPageShell } from "@/features/landing/components/shared/PublicPageShell";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type Props = {
   poll: Poll;
+  /** Shown above the title, e.g. that this visitor has already answered. */
+  notice?: ReactNode;
 };
 
 type ApiOk<T> = { success: boolean; message: string; data: T };
 
-const ease = [0.32, 0.72, 0, 1] as const;
-
-export function PublicResultsView({ poll }: Props) {
+export function PublicResultsView({ poll, notice }: Props) {
   const [analytics, setAnalytics] = useState<PollAnalyticsPayload | null>(null);
   const [visType, setVisType] = useState<VisualizationType>("bar-v");
   const [loading, setLoading] = useState(true);
@@ -45,16 +47,16 @@ export function PublicResultsView({ poll }: Props) {
     try {
       await navigator.clipboard.writeText(url);
       setCopiedLink(true);
-      toast.success("Poll link copied to clipboard!");
+      toast.success("Poll link copied.");
       setTimeout(() => setCopiedLink(false), 2000);
     } catch {
-      toast.error("Failed to copy link.");
+      toast.error("Couldn't copy the link.");
     }
   };
 
   const handleShareX = () => {
     const url = encodeURIComponent(`${window.location.origin}/p/${poll._id}`);
-    const text = encodeURIComponent(`Check out the results for "${poll.title}" on Open Poll!`);
+    const text = encodeURIComponent(`Results for "${poll.title}" on Open Poll`);
     window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, "_blank");
   };
 
@@ -99,161 +101,85 @@ export function PublicResultsView({ poll }: Props) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("CSV summary report downloaded!");
+    toast.success("CSV downloaded.");
   };
+
+  const isQuiz = poll.pollType === "TRIAL";
+  const label = isQuiz ? "Quiz results" : "Poll results";
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
-        <div className="size-10 rounded-xl bg-primary/20 flex items-center justify-center animate-pulse border border-primary/30">
-          <Zap className="size-5 text-primary fill-primary" />
+      <PublicPageShell label={label} width="wide">
+        <div role="status" aria-label="Loading results" className="space-y-6">
+          <div className="h-12 w-2/3 animate-pulse rounded-lg bg-muted" />
+          <div className="h-24 animate-pulse rounded-xl bg-muted" />
+          <div className="h-80 animate-pulse rounded-xl bg-muted" />
         </div>
-        <p className="mt-4 text-xs font-bold uppercase tracking-widest text-muted-foreground/40 animate-pulse">
-          Fetching results…
-        </p>
-      </div>
+      </PublicPageShell>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
-      {/* Ambient glow */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/[0.03] blur-[120px] rounded-full" />
-      </div>
+  const stats = [
+    { label: "Responses", value: analytics?.totalResponses ?? 0 },
+    { label: "Questions", value: poll.questions.length },
+  ];
 
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 py-5 border-b border-border bg-card/60 backdrop-blur-md">
-        <div className="flex items-center gap-2.5">
-          <div className="size-7 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-            <Zap className="size-4 text-primary-foreground fill-primary-foreground" />
-          </div>
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-            Open Poll
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleShare}
-            title="Click to copy poll link"
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer ${
-              copiedLink
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-border bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"
-            }`}
-          >
-            {copiedLink ? (
-              <>
-                <Check className="size-3 text-emerald-400" />
-                <span>Copied!</span>
-              </>
-            ) : (
-              <>
-                <Link className="size-3" />
-                <span>Link</span>
-              </>
-            )}
-          </button>
-          <button
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:bg-secondary hover:text-foreground transition-all"
-          >
-            <Download className="size-3" />
-            CSV Report
-          </button>
-          <button
-            onClick={handleShareX}
-            className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-sky-400 hover:bg-sky-500/20 transition-all"
-          >
-            <Send className="size-3 fill-sky-400" />
-            Share
-          </button>
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-            <div className="size-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-            Final Results
-          </div>
+  return (
+    <PublicPageShell label={label} width="wide" footer={{ note: "Made with Open Poll", cta: "Make your own poll" }}>
+      {notice ? <div className="mb-8">{notice}</div> : null}
+      <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <h1 className="text-balance text-4xl font-semibold leading-none tracking-[-0.04em] sm:text-5xl">{poll.title}</h1>
+        <div className="flex flex-wrap gap-2 md:shrink-0">
+          <Button variant="outline" className="bg-card" onClick={handleShare}>
+            {copiedLink ? <Check /> : <LinkIcon />} {copiedLink ? "Copied" : "Copy link"}
+          </Button>
+          <Button variant="outline" className="bg-card" onClick={handleExportCSV}>
+            <Download /> Export CSV
+          </Button>
+          <Button variant="outline" className="bg-card" onClick={handleShareX}>
+            <Send /> Share on X
+          </Button>
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-3xl px-6 py-12 space-y-12">
-        {/* Title & Header Metadata */}
-        <motion.div 
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-4 border-b border-border/60 pb-6"
-        >
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-primary shadow-sm">
-            <Trophy className="size-3 text-primary" />
-            <span>{poll.pollType === 'TRIAL' ? "Quiz Assessment Results" : "Poll Conclusion"}</span>
+      <dl className="mt-8 grid grid-cols-2 border-y border-border">
+        {stats.map((stat, i) => (
+          <div key={stat.label} className={cn("py-4 sm:py-5", i > 0 && "border-l border-border pl-4 sm:pl-6")}>
+            <dt className="text-sm text-muted-foreground">{stat.label}</dt>
+            <dd className="mt-1.5 text-3xl font-semibold leading-none tabular-nums tracking-[-0.03em] sm:text-4xl">
+              {stat.value}
+            </dd>
           </div>
+        ))}
+      </dl>
 
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground md:text-4xl leading-tight font-sans">
-            {poll.title}
-          </h1>
+      <div className="mt-8 flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3">
+        <h2 className="text-xl font-semibold tracking-[-0.02em]">Results by question</h2>
+        <VisualizationPicker value={visType} onChange={setVisType} />
+      </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
-            <div className="flex items-center gap-2.5">
-              <div className="inline-flex items-center gap-2 rounded-lg border border-border/80 bg-card/40 px-3 py-1.5 text-xs shadow-sm">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Total Responses</span>
-                <span className="font-mono font-extrabold text-primary text-sm">{analytics?.totalResponses ?? 0}</span>
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-lg border border-border/80 bg-card/40 px-3 py-1.5 text-xs shadow-sm">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Questions</span>
-                <span className="font-mono font-extrabold text-foreground text-sm">{poll.questions.length}</span>
-              </div>
-            </div>
+      <div className="mt-6 space-y-6">
+        {poll.questions.map((q) => {
+          const qid = String(q._id ?? "");
+          const summary = analytics?.questionSummaries.find((s) => s.questionId === qid);
+          const counts = summary?.counts ?? q.options.map(() => 0);
+          const data = q.options.map((optionLabel, i) => ({
+            label: optionLabel,
+            votes: counts[i] ?? 0,
+          }));
 
-            <VisualizationPicker value={visType} onChange={setVisType} />
-          </div>
-        </motion.div>
-
-        {/* Results Sections */}
-        <div className="space-y-8">
-          {poll.questions.map((q, idx) => {
-            const qid = String(q._id ?? "");
-            const summary = analytics?.questionSummaries.find((s) => s.questionId === qid);
-            const counts = summary?.counts ?? q.options.map(() => 0);
-            const data = q.options.map((label, i) => ({
-              label,
-              votes: counts[i] ?? 0,
-            }));
-
-            return (
-              <motion.div
-                key={qid || q.text}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-              >
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex size-6 items-center justify-center rounded-lg bg-secondary text-[10px] font-bold text-muted-foreground">
-                    {idx + 1}
-                  </div>
-                  <div className="h-px flex-1 bg-border" />
-                </div>
-                <QuestionAnalytics 
-                  title={q.text} 
-                  data={data} 
-                  type={visType} 
-                  correctOptionIndices={poll.pollType === 'TRIAL' ? q.correctOptionIndices : undefined}
-                  explanation={poll.pollType === 'TRIAL' ? q.explanation : undefined}
-                />
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {/* Closing */}
-        <footer className="pt-12 text-center">
-          <div className="inline-flex flex-col items-center gap-4">
-            <div className="h-px w-12 bg-border" />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">
-              Verified by Open Poll Protocol
-            </p>
-          </div>
-        </footer>
-      </main>
-    </div>
+          return (
+            <QuestionAnalytics
+              key={qid || q.text}
+              title={q.text}
+              data={data}
+              type={visType}
+              correctOptionIndices={isQuiz ? q.correctOptionIndices : undefined}
+              explanation={isQuiz ? q.explanation : undefined}
+            />
+          );
+        })}
+      </div>
+    </PublicPageShell>
   );
 }

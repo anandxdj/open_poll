@@ -38,6 +38,15 @@ and from the host end screen.
 | `register.ts` | Registers the `endScreen` slot entry `sessions:end-link`; imported by `features/registrations.ts`. |
 | `SessionsIntlProvider.tsx` | next-intl provider for these screens; strings in `messages/en/sessions.json` (namespace `sessions`, added to `i18n/messages.ts`). |
 
+## Look
+
+The signed-in pages follow the app screens (`../ui/design-system.md`): a back link, a 36/48px h1 with the
+run, its status pill and start time under it, actions on the right (Delete as a ghost destructive button,
+Export and Share as outline), the key numbers as one hairline strip (`StatStrip`), section titles at 20px and
+the leaderboard and participants as hairline rows in one card. `/r/[token]` and `/live/[code]/summary` use
+`PublicPageShell` (brand bar, one column). Shared blocks are in `components/ui.tsx` (`StatusBadge`,
+`StatStrip`, `BackLink`, `SectionTitle`, `LiveNotice`, `MessageCard`, `Skeleton`, `page`).
+
 ## Report
 
 - Per response slide the card draws the slide type's own `StageView` in `mode="report"` on a dark

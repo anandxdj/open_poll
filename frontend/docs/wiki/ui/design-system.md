@@ -109,6 +109,23 @@ deck screens and the builder's slide thumbnails keep its dark look (`<div classN
 dark tokens inside a light page; the recommended pricing card uses the same trick); the accent appears on one primary action, the lead
 data series and small check/step marks.
 
+**Shared-link pages** (a poll at `/p/[id]`, shared results `/r/[token]`, a participant's results
+`/live/[code]/summary`, the 404): `PublicPageShell` (`features/landing/components/shared/PublicPageShell.tsx`), a brand
+bar naming the page ("Poll", "Shared results"...), one column (`narrow` 512px or `wide` 896px) and, where the
+visitor isn't a customer yet, a footer "Made with Open Poll" with a pill link to `/signup`. Inside, the app's
+rules apply: a large left-aligned h1, a hairline count strip, 12px cards, sentence-case status pills in the
+`success` / `destructive` / `warning` tokens.
+
+**Error and loading pages**: `app/not-found.tsx` (the 404 on graph paper, noindex, links home and to `/live`),
+`app/error.tsx` (a card with Try again, `unstable_retry`, and the error reference), `app/global-error.tsx` (when
+the root layout fails; its own html/body, global tokens only) and `app/(dashboard)/loading.tsx` (header and
+block skeletons in their final places).
+
+**Brand assets**: `public/logo-openpoll.svg` (the favicon; ember `#ea580c`, `#f97316` under a dark colour
+scheme), `logo-openpoll.png` (500px, transparent) and `apple-touch-icon.png` (180px, the mark on paper). The
+backend's emails (`backend/src/common/config/emailLayout.ts`) and the PDF export use the same paper, ink,
+graphite and ember.
+
 ## App screens
 
 The creator shell, `/polls`, every `/settings` page, `/analytics`, both builders and the live surfaces

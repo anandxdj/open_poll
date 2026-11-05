@@ -45,19 +45,18 @@ export const SlideResultCard = memo(function SlideResultCard({
   return (
     <article
       aria-label={`${t("slideNumber", { number: slideIndex + 1 })}: ${label}`}
-      className="rounded-[2rem] border border-border bg-card p-1.5"
+      className="rounded-xl border border-border bg-card p-1.5 shadow-[0_1px_2px_rgb(23_23_23/0.06)]"
     >
-      <header className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
-          {t("slideNumber", { number: slideIndex + 1 })}
-          {typeName ? ` · ${typeName}` : ""}
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3.5 pb-2.5 pt-2">
+        <p className="flex items-center gap-2.5 text-sm">
+          <span className="font-medium text-foreground">{t("slideNumber", { number: slideIndex + 1 })}</span>
+          {typeName ? <span className="text-muted-foreground">{typeName}</span> : null}
         </p>
-        <p className="text-xs font-semibold tabular-nums text-foreground/70">
-          {t("responses", { count: answeredCount })}
-        </p>
+        <p className="text-sm text-muted-foreground">{t("responses", { count: answeredCount })}</p>
       </header>
-      <div className="rounded-[calc(2rem-0.375rem)] bg-deck-stage-bg px-4 py-6 text-deck-stage-fg sm:px-8">
-        <h3 className="mx-auto mb-4 max-w-3xl text-center text-xl font-extrabold leading-tight tracking-tight sm:text-2xl">
+      {/* The stage as the room saw it: always the dark deck stage, in either app theme. */}
+      <div className="rounded-lg bg-deck-stage-bg px-4 py-6 text-deck-stage-fg ring-inset dark:ring-1 dark:ring-border sm:px-8">
+        <h3 className="mx-auto mb-4 max-w-3xl text-balance text-center text-xl font-semibold leading-tight tracking-[-0.02em] text-deck-stage-fg sm:text-2xl">
           {label}
         </h3>
         <div className="mx-auto w-full max-w-3xl">

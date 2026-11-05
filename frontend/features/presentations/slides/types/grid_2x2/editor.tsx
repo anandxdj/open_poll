@@ -10,10 +10,15 @@ import {
   GRID_AXIS_LIMIT,
   MAX_AXIS_LABEL,
   MAX_GRID_ITEMS,
+  MAX_QUADRANT_LABEL,
   MIN_GRID_ITEMS,
+  NO_QUADRANTS,
+  QUADRANT_KEYS,
+  quadrantIssue,
   rawGridConfig,
   type Grid2x2Config,
   type GridAxis,
+  type GridQuadrants,
 } from "./config";
 import { meta } from "./meta";
 
@@ -51,6 +56,38 @@ function AxisFields({
   );
 }
 
+const QUADRANT_FIELDS: { key: keyof GridQuadrants; label: string; placeholder: string }[] = [
+  { key: "topLeft", label: "Top left", placeholder: "e.g. Quick wins" },
+  { key: "topRight", label: "Top right", placeholder: "e.g. Big bets" },
+  { key: "bottomLeft", label: "Bottom left", placeholder: "e.g. Fill-ins" },
+  { key: "bottomRight", label: "Bottom right", placeholder: "e.g. Money pits" },
+];
+
+/** Optional names for the four corners, laid out like the board itself. */
+function QuadrantFields({ quadrants, onChange }: { quadrants: GridQuadrants; onChange: (q: GridQuadrants) => void }) {
+  const id = useId();
+  return (
+    <fieldset className="space-y-3 rounded-lg border border-border bg-secondary/40 p-4">
+      <legend className="px-1 text-sm font-medium text-foreground">Corner names (optional)</legend>
+      <div className="grid grid-cols-2 gap-3">
+        {QUADRANT_FIELDS.map((field) => (
+          <div key={field.key} className="space-y-2">
+            <FieldLabel htmlFor={`${id}-${field.key}`}>{field.label}</FieldLabel>
+            <Input
+              id={`${id}-${field.key}`}
+              value={quadrants[field.key]}
+              maxLength={MAX_QUADRANT_LABEL}
+              placeholder={field.placeholder}
+              onChange={(event) => onChange({ ...quadrants, [field.key]: event.target.value })}
+              className={entryInputClass}
+            />
+          </div>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 function Grid2x2Editor({ slide, onChange }: SlideEditorProps) {
   const config = rawGridConfig(slide);
   const setConfig = (patch: Partial<Grid2x2Config>) => onChange({ config: { ...config, ...patch } });
@@ -80,15 +117,19 @@ function Grid2x2Editor({ slide, onChange }: SlideEditorProps) {
           onChange={(y) => setConfig({ y })}
         />
       </div>
+      <QuadrantFields quadrants={config.quadrants} onChange={(quadrants) => setConfig({ quadrants })} />
       <EditorNote>
         Each participant places every item on the grid by tapping it. The stage shows each item at the average position
-        the audience gave it. This slide is never scored.
+        the audience gave it, with a faint dot for every placement. This slide is never scored.
       </EditorNote>
     </div>
   );
 }
 
 const cleanItems = (items: string[]) => items.map((item) => item.trim()).filter(Boolean);
+
+const cleanQuadrants = (q: GridQuadrants): GridQuadrants =>
+  Object.fromEntries(QUADRANT_KEYS.map((key) => [key, q[key].trim().slice(0, MAX_QUADRANT_LABEL)])) as GridQuadrants;
 
 const cleanAxis = (axis: GridAxis): GridAxis => ({
   label: axis.label.trim(),
@@ -105,23 +146,27 @@ export const editor: SlideEditorDef = {
       items: ["", ""],
       x: { label: "", ...DEFAULT_AXIS_RANGE },
       y: { label: "", ...DEFAULT_AXIS_RANGE },
+      quadrants: NO_QUADRANTS,
     },
   }),
   Editor: Grid2x2Editor,
   validate: (slide) => {
     const missing = requireQuestion(slide);
     if (missing) return missing;
-    const { items, x, y } = rawGridConfig(slide);
+    const { items, x, y, quadrants } = rawGridConfig(slide);
     if (items.length < MIN_GRID_ITEMS) return "add at least one item.";
     if (items.length > MAX_GRID_ITEMS) return `use at most ${MAX_GRID_ITEMS} items.`;
-    return axisIssue(x, "horizontal") ?? axisIssue(y, "vertical");
+    return axisIssue(x, "horizontal") ?? axisIssue(y, "vertical") ?? quadrantIssue(quadrants);
   },
   clean: (slide) => {
-    const { items, x, y } = rawGridConfig(slide);
-    return { ...cleanBase(slide, meta), config: { items: cleanItems(items), x: cleanAxis(x), y: cleanAxis(y) } };
+    const { items, x, y, quadrants } = rawGridConfig(slide);
+    return {
+      ...cleanBase(slide, meta),
+      config: { items: cleanItems(items), x: cleanAxis(x), y: cleanAxis(y), quadrants: cleanQuadrants(quadrants) },
+    };
   },
   fillDraft: (slide) => {
-    const { items, x, y } = rawGridConfig(slide);
+    const { items, x, y, quadrants } = rawGridConfig(slide);
     const fill = (axis: GridAxis, fallback: string): GridAxis => {
       const min = Math.round(axis.min);
       const max = Math.round(axis.max);
@@ -137,6 +182,7 @@ export const editor: SlideEditorDef = {
         items: padTo(cleanItems(items), MIN_GRID_ITEMS, (i) => `Item ${i + 1}`).slice(0, MAX_GRID_ITEMS),
         x: fill(x, "Horizontal"),
         y: fill(y, "Vertical"),
+        quadrants: cleanQuadrants(quadrants),
       },
     };
   },

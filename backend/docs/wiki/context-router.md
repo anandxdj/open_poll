@@ -36,6 +36,9 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - Add `backend/docs/wiki/realtime/presentations.md` only if touching events.
 - Answer hot path (Lua script, replays, grace/tickets, coalescer, write-behind, auto-reveal, socket `answer:submit`/`live:resync`): the "Answer path" section of `modules/presentations-live.md`.
 
+### Workspace insights (the analytics overview's data: activity over a date range)
+- `backend/docs/wiki/modules/insights.md`
+
 ### Session history, reports, exports, public results links, participant take-home
 - `backend/docs/wiki/modules/sessions.md`
 - Add `backend/docs/wiki/modules/presentations-live.md` only if touching what the engine stores per session.

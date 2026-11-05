@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { env } from './env';
+import { BRAND, emailLayout, linkLine } from './emailLayout';
 
 const resend = env.mail.resendApiKey ? new Resend(env.mail.resendApiKey) : null;
 
@@ -30,20 +31,13 @@ export const sendVerificationEmail = async (email: string, token: string) => {
   const url = `${env.FRONTEND_URL}/verify-email/${token}`;
   await sendEmail(
     email,
-    'Verify your email - OpenPoll',
-    `
-    <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-      <h2 style="color: #d8ad87;">Welcome to OpenPoll!</h2>
-      <p>Thank you for signing up. Please click the button below to verify your email address:</p>
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${url}" style="background-color: #d8ad87; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Verify Email</a>
-      </div>
-      <p>Or copy and paste this link into your browser:</p>
-      <p style="word-break: break-all; color: #666;">${url}</p>
-      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-      <p style="font-size: 12px; color: #999;">If you didn't create an account, you can safely ignore this email.</p>
-    </div>
-    `
+    'Verify your email for Open Poll',
+    emailLayout({
+      heading: 'Verify your email',
+      body: `<p style="margin: 0;">Thanks for signing up for Open Poll. Confirm this is your email address to finish setting up your account.</p>${linkLine(url)}`,
+      button: { href: url, label: 'Verify email' },
+      footer: "If you didn't create an account, you can ignore this email.",
+    })
   );
 };
 
@@ -51,20 +45,13 @@ export const sendResetPasswordEmail = async (email: string, token: string) => {
   const url = `${env.FRONTEND_URL}/reset-password/${token}`;
   await sendEmail(
     email,
-    'Reset your password - OpenPoll',
-    `
-    <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-      <h2 style="color: #d8ad87;">Password Reset Request</h2>
-      <p>We received a request to reset your password. Click the button below to choose a new one:</p>
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${url}" style="background-color: #d8ad87; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset Password</a>
-      </div>
-      <p>This link will expire in 15 minutes.</p>
-      <p>If you didn't request a password reset, please ignore this email.</p>
-      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-      <p style="font-size: 12px; color: #999;">OpenPoll Platform</p>
-    </div>
-    `
+    'Reset your Open Poll password',
+    emailLayout({
+      heading: 'Reset your password',
+      body: `<p style="margin: 0;">We received a request to reset your password. Choose a new one with the button below. The link expires in 15 minutes.</p>${linkLine(url)}`,
+      button: { href: url, label: 'Choose a new password' },
+      footer: "If you didn't ask for this, you can ignore this email. Your password stays the same.",
+    })
   );
 };
 
@@ -77,19 +64,13 @@ export const sendAccountExistsEmail = async (email: string) => {
   const resetUrl = `${env.FRONTEND_URL}/forgot-password`;
   await sendEmail(
     email,
-    'You already have an OpenPoll account',
-    `
-    <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-      <h2 style="color: #d8ad87;">You already have an account</h2>
-      <p>Someone, hopefully you, tried to sign up for OpenPoll with this email address. An account already exists for it, so nothing was changed.</p>
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${loginUrl}" style="background-color: #d8ad87; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Log in</a>
-      </div>
-      <p>Forgot your password? <a href="${resetUrl}" style="color: #d8ad87;">Reset it here</a>.</p>
-      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-      <p style="font-size: 12px; color: #999;">If this wasn't you, you can safely ignore this email.</p>
-    </div>
-    `
+    'You already have an Open Poll account',
+    emailLayout({
+      heading: 'You already have an account',
+      body: `<p style="margin: 0;">Someone, hopefully you, tried to sign up for Open Poll with this email address. An account already exists for it, so nothing was changed.</p><p style="margin: 16px 0 0;">Forgot your password? <a href="${resetUrl}" style="color: ${BRAND.emberInk};">Reset it here</a>.</p>`,
+      button: { href: loginUrl, label: 'Log in' },
+      footer: "If this wasn't you, you can ignore this email.",
+    })
   );
 };
 
@@ -114,20 +95,13 @@ export const sendWorkspaceInviteEmail = async (
   const delivered = await sendEmail(
     email,
     // Names are user-supplied: keep the subject on one line.
-    `${invite.inviterName} invited you to ${invite.workspaceName} on OpenPoll`.replace(/\s+/g, ' ').slice(0, 200),
-    `
-    <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-      <h2 style="color: #d8ad87;">Join ${workspace} on OpenPoll</h2>
-      <p>${inviter} invited you to the <strong>${workspace}</strong> workspace as <strong>${role}</strong>.</p>
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${url}" style="background-color: #d8ad87; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Accept invitation</a>
-      </div>
-      <p>Sign in with this email address (${escapeHtml(email)}) to accept. The link works once and expires on ${invite.expiresAt.toUTCString()}.</p>
-      <p style="word-break: break-all; color: #666;">${url}</p>
-      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-      <p style="font-size: 12px; color: #999;">If you weren't expecting this invitation, you can ignore this email.</p>
-    </div>
-    `
+    `${invite.inviterName} invited you to ${invite.workspaceName} on Open Poll`.replace(/\s+/g, ' ').slice(0, 200),
+    emailLayout({
+      heading: `Join ${workspace} on Open Poll`,
+      body: `<p style="margin: 0;">${inviter} invited you to the <strong style="color: ${BRAND.ink};">${workspace}</strong> workspace as <strong style="color: ${BRAND.ink};">${role}</strong>.</p><p style="margin: 16px 0 0;">Sign in with this email address (${escapeHtml(email)}) to accept. The link works once and expires on ${invite.expiresAt.toUTCString()}.</p>${linkLine(url)}`,
+      button: { href: url, label: 'Accept invitation' },
+      footer: "If you weren't expecting this invitation, you can ignore this email.",
+    })
   );
   return Boolean(delivered);
 };

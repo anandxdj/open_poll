@@ -113,7 +113,11 @@ export function Capabilities() {
                 key={title}
                 className={cn(
                   "flex flex-col bg-card",
-                  featured ? "gap-6 p-5 sm:col-span-2 sm:p-7 lg:gap-8" : "gap-5 p-5 sm:p-6 lg:col-span-3",
+                  // Featured cells span the row between sm and lg: picture beside words there,
+                  // so the drawing doesn't stretch thin across the whole width.
+                  featured
+                    ? "gap-6 p-5 sm:col-span-2 sm:grid sm:grid-cols-2 sm:items-center sm:gap-8 sm:p-7 lg:flex lg:items-stretch"
+                    : "gap-5 p-5 sm:p-6 lg:col-span-3",
                   span,
                 )}
               >

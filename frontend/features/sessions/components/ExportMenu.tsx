@@ -59,27 +59,27 @@ export function ExportMenu({ report }: { report: SessionReport }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="rounded-xl font-bold" disabled={busy !== null}>
+          <Button variant="outline" className="bg-card" disabled={busy !== null}>
             {busy ? <Loader2 className="animate-spin" /> : <Download />}
             {busy ? t("preparing") : t("button")}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-72 rounded-2xl p-1">
+        <DropdownMenuContent align="end" className="w-72 p-1">
           {options.map((option) => {
             const Icon = ICONS[option.format];
             return (
               <DropdownMenuItem
                 key={option.format}
-                className="flex cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5"
+                className="flex cursor-pointer items-start gap-3 px-3 py-2.5"
                 onSelect={() => (option.included ? void run(option.format) : setLocked(option.format))}
               >
                 <Icon className={cn("mt-0.5 size-4 shrink-0", !option.included && "text-muted-foreground/50")} />
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5 text-xs font-bold">
+                  <span className="flex items-center gap-1.5 text-sm font-medium">
                     {formatLabel(option.format)}
                     {!option.included ? <Lock className="size-3 text-muted-foreground" aria-label={t("lockedTitle", { format: formatLabel(option.format), plan })} /> : null}
                   </span>
-                  <span className="block text-[11px] text-muted-foreground">{t(`${option.format}Hint`)}</span>
+                  <span className="block text-xs text-muted-foreground">{t(`${option.format}Hint`)}</span>
                 </span>
               </DropdownMenuItem>
             );
@@ -88,17 +88,17 @@ export function ExportMenu({ report }: { report: SessionReport }) {
       </DropdownMenu>
 
       <Dialog open={locked !== null} onOpenChange={(open) => !open && setLocked(null)}>
-        <DialogContent className="rounded-3xl">
+        <DialogContent>
           {locked ? (
             <>
               <DialogHeader>
-                <DialogTitle className="text-lg font-bold">
+                <DialogTitle className="text-lg font-semibold">
                   {t("lockedTitle", { format: formatLabel(locked), plan })}
                 </DialogTitle>
                 <DialogDescription>{t("lockedHint", { format: formatLabel(locked) })}</DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button asChild className="rounded-xl font-bold">
+                <Button asChild>
                   <Link href="/settings/workspace">{t("seePlan")}</Link>
                 </Button>
               </DialogFooter>

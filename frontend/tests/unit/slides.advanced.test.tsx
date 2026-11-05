@@ -591,17 +591,23 @@ describe("grid_2x2", () => {
   const def = SLIDE_EDITORS.grid_2x2;
   const X = { label: "Effort", min: 0, max: 10 };
   const Y = { label: "Impact", min: -5, max: 5 };
+  const Q0 = { topLeft: "", topRight: "", bottomLeft: "", bottomRight: "" };
   const grid = (config: Record<string, unknown>): PresentationSlide => ({
     ...GRID,
     config: { ...GRID.config, ...config },
   });
 
   test("settings read with labelled axes and fall back to 0–10 on a broken range", () => {
-    expect(gridConfig(GRID)).toEqual({ items: ["Dark mode", "Offline"], x: X, y: Y });
+    expect(gridConfig(GRID)).toEqual({ items: ["Dark mode", "Offline"], x: X, y: Y, quadrants: Q0 });
     expect(gridConfig({})).toEqual({
       items: [],
       x: { label: "Horizontal", min: 0, max: 10 },
       y: { label: "Vertical", min: 0, max: 10 },
+      quadrants: Q0,
+    });
+    expect(gridConfig(grid({ quadrants: { topLeft: " Quick wins ", topRight: 7 } })).quadrants).toEqual({
+      ...Q0,
+      topLeft: "Quick wins",
     });
     expect(gridConfig(grid({ x: { label: "  ", min: 5, max: 5 } })).x).toEqual({ label: "Horizontal", min: 0, max: 10 });
     expect(rawGridConfig(grid({ x: { label: "A", min: 5, max: 5 } })).x).toEqual({ label: "A", min: 5, max: 5 });
@@ -658,20 +664,29 @@ describe("grid_2x2", () => {
       kind: "grid_2x2",
       x: X,
       y: Y,
+      quadrants: { topLeft: "Quick wins" },
       items: [
         { text: "Dark mode", x: 3, y: 7, count: 2 },
         { text: "Offline", x: null, y: null, count: 0 },
       ],
       voters: 2,
+      placements: [
+        [{ x: 2, y: 8 }, { x: 9, y: 3 }],
+        [{ x: 4 }, { x: 1, y: 1 }],
+        "junk",
+      ],
     });
     expect(parsed).toEqual({
       x: X,
       y: Y,
+      quadrants: { ...Q0, topLeft: "Quick wins" },
       items: [
         { text: "Dark mode", x: 3, y: 7, count: 2 },
         { text: "Offline", x: null, y: null, count: 0 },
       ],
       voters: 2,
+      // Malformed placements are skipped.
+      placements: [[{ x: 2, y: 8 }, { x: 9, y: 3 }]],
     });
     expect(parseGridDistribution({ kind: "scales" })).toBeNull();
   });
@@ -693,6 +708,12 @@ describe("grid_2x2", () => {
       items: ["Dark mode"],
       x: { label: "Effort", min: 0, max: 10 },
       y: Y,
+      quadrants: Q0,
+    });
+    expect(validateSlide(cleanSlide(grid({ quadrants: { ...Q0, topLeft: " Quick wins " } })))).toBeNull();
+    expect(cleanSlide(grid({ quadrants: { ...Q0, topLeft: " Quick wins " } })).config?.quadrants).toEqual({
+      ...Q0,
+      topLeft: "Quick wins",
     });
     expect(cleaned.points).toBe(0);
     expect(validateSlide(cleaned)).toBeNull();
@@ -706,6 +727,7 @@ describe("grid_2x2", () => {
       items: ["Item 1"],
       x: { label: "Horizontal", min: 0, max: 10 },
       y: Y,
+      quadrants: Q0,
     });
     expect(normalizeSlideForDraft(blankSlide("grid_2x2")).config).toMatchObject({
       x: { label: "Horizontal" },
@@ -733,23 +755,33 @@ describe("grid_2x2", () => {
       kind: "grid_2x2",
       x: X,
       y: Y,
+      quadrants: { topLeft: "Quick wins", bottomRight: "Money pits" },
       items: [
         { text: "Dark mode", x: 2.5, y: 2.5, count: 2 },
         { text: "Offline", x: null, y: null, count: 0 },
       ],
       voters: 2,
+      placements: [
+        [{ x: 2, y: 2 }, { x: 8, y: -4 }],
+        [{ x: 3, y: 3 }, { x: 7, y: -3 }],
+      ],
     };
     const live = stage(GRID, "live", dist);
     expect(live).toContain("left:25%;top:25%");
     expect(live.match(/data-marker=/g)).toHaveLength(1);
+    // A faint dot for each placement: two participants, two items each.
+    expect(live.match(/size-1\.5 -translate-x-1\/2/g)).toHaveLength(4);
+    expect(live).toContain("Quick wins");
+    expect(live).toContain("Money pits");
     expect(live).toContain("Dark mode");
-    expect(live).toContain("2.5 · 2.5");
+    expect(live).toContain("2.5, 2.5");
     expect(live).toContain("Effort");
     expect(live).toContain("Impact");
     expect(live).toContain("2 participants answered");
     expect(stage(GRID, "reveal", dist).match(/data-marker=/g)).toHaveLength(1);
     const thumb = stage(GRID, "thumbnail", dist);
     expect(thumb).not.toContain("data-marker");
+    expect(thumb.match(/size-1\.5 -translate-x-1\/2/g)).toBeNull();
     expect(thumb).toContain("Offline");
   });
 });

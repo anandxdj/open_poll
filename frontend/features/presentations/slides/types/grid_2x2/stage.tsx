@@ -9,7 +9,8 @@ import { emptyGridDistribution, gridConfig, parseGridDistribution } from "./conf
 
 /**
  * A 2x2 scatter: each item sits at the average position the audience gave it,
- * numbered to match the legend beside the board.
+ * numbered to match the legend beside the board, over a faint dot for every
+ * placement (the newest participants'), so the spread of opinion shows too.
  */
 export function Grid2x2Stage({ slide, live, reveal, mode }: StageViewProps) {
   const t = useTranslations("slidesAdvanced.grid2x2");
@@ -20,12 +21,14 @@ export function Grid2x2Stage({ slide, live, reveal, mode }: StageViewProps) {
   const markers: BoardMarker[] = dist.items.flatMap((item, index) =>
     item.x !== null && item.y !== null ? [{ index, position: { x: item.x, y: item.y } }] : []
   );
+  const dots = thumbnail ? [] : dist.placements.flat();
+  const quadrants = thumbnail ? config.quadrants : dist.quadrants;
 
   return (
     <div className={`pt-2 font-sans ${thumbnail ? "" : "max-h-[55vh] overflow-y-auto"}`}>
       <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-5 sm:flex-row sm:items-start">
         <div className={`w-full shrink-0 ${thumbnail ? "max-w-[300px]" : "max-w-[min(28rem,50vh)]"}`}>
-          <GridBoard x={dist.x} y={dist.y} tone="stage" markers={markers} />
+          <GridBoard x={dist.x} y={dist.y} tone="stage" markers={markers} quadrants={quadrants} dots={dots} />
         </div>
         <div className="w-full min-w-0 flex-1 space-y-2">
           <ol className="space-y-2">
@@ -40,7 +43,7 @@ export function Grid2x2Stage({ slide, live, reveal, mode }: StageViewProps) {
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold text-deck-stage-fg">{item.text}</span>
                 {!thumbnail && item.x !== null && item.y !== null && (
                   <span className="shrink-0 font-mono text-xs tabular-nums text-deck-stage-fg/60">
-                    {formatNumber(item.x)} · {formatNumber(item.y)}
+                    {formatNumber(item.x)}, {formatNumber(item.y)}
                   </span>
                 )}
               </li>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Zap, ArrowRight, Lock, User, Mail, CheckCircle2, Target } from "lucide-react";
+import { Lock, CheckCircle2, Target } from "lucide-react";
 import { toast } from "sonner";
 
 import type { Poll } from "@/features/polls/store/useCreatorStore";
@@ -15,6 +15,7 @@ import { apiClient } from "@/lib/api-client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { PublicPageShell } from "@/features/landing/components/shared/PublicPageShell";
 
 type ApiOk<T> = { success: boolean; message: string; data: T };
 
@@ -98,57 +99,66 @@ export default function PublicPollPage() {
   const handleGuestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!guestName.trim() || !guestEmail.trim()) {
-      toast.error("Please fill in both name and email.");
+      toast.error("Enter your name and email.");
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(guestEmail)) {
-      toast.error("Please enter a valid email address.");
+      toast.error("Enter a valid email address.");
       return;
     }
 
     const info = { name: guestName.trim(), email: guestEmail.trim() };
     sessionStorage.setItem(`openpoll_guest_${pollId}`, JSON.stringify(info));
     setGuestInfo(info);
-    toast.success("Verification successful! You can now vote.");
+    toast.success("Thanks. You can answer now.");
   };
 
   if (!pollId) {
-    return <PollClosed title="Invalid poll link." />;
+    return <PollClosed title="This link isn't valid." hint="Check the link with the person who shared it." />;
   }
 
-  // Loading skeleton
+  const isQuiz = poll?.pollType === "TRIAL";
+  const shellLabel = isQuiz ? "Quiz" : "Poll";
+  const footer = { note: "Made with Open Poll", cta: "Make your own poll" };
+
   if (loading || !deviceId || isAuthLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="size-10 rounded-xl bg-primary/20 flex items-center justify-center animate-pulse border border-primary/30">
-            <Zap className="size-5 text-primary fill-primary" />
+      <PublicPageShell label="Poll">
+        <div role="status" aria-label="Loading poll" className="space-y-4">
+          <div className="h-10 w-3/4 animate-pulse rounded-lg bg-muted" />
+          <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+          <div className="mt-8 space-y-2.5">
+            {[0, 1, 2].map((key) => (
+              <div key={key} className="h-14 animate-pulse rounded-xl bg-muted" />
+            ))}
           </div>
-          <p className="text-sm text-primary/40 animate-pulse font-medium">Loading poll…</p>
         </div>
-      </div>
+      </PublicPageShell>
     );
   }
 
   if (notFound || !poll) {
-    return <PollClosed title="This link is not valid." />;
+    return <PollClosed title="This link isn't valid." hint="Check the link with the person who shared it." />;
   }
 
   // If results are published, or if the user has already voted, show results
   if (poll.isResultsPublished || hasVotedLocally) {
     return (
-      <div className="relative min-h-screen bg-background flex flex-col">
-        {hasVotedLocally && !poll.isResultsPublished && (
-          <div className="relative z-50 bg-primary/10 border-b border-primary/20 text-center py-2.5 text-xs font-semibold text-primary backdrop-blur-md select-none flex items-center justify-center gap-1.5">
-            <CheckCircle2 className="size-3.5" />
-            <span>You have already participated. Showing live results so far!</span>
-          </div>
-        )}
-        <div className="flex-1">
-          <PublicResultsView poll={poll} />
-        </div>
-      </div>
+      <PublicResultsView
+        poll={poll}
+        notice={
+          hasVotedLocally && !poll.isResultsPublished ? (
+            <p
+              role="status"
+              className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground"
+            >
+              <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
+              You&apos;ve answered this poll. These are the results so far.
+            </p>
+          ) : null
+        }
+      />
     );
   }
 
@@ -157,147 +167,99 @@ export default function PublicPollPage() {
   }
 
   const showGuestGate = !poll.isAnonymous && !isAuthenticated && !guestInfo;
+  const count = poll.questions.length;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary selection:text-primary-foreground">
-      {/* Ambient glow */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-64 bg-primary/[0.04] blur-[120px] rounded-full" />
-      </div>
-
-      {/* Main content */}
-      <main className="relative z-10 flex-1 flex items-start justify-center px-6 py-6">
-        <div className="w-full max-w-lg space-y-8">
-          {/* Poll title */}
-          <motion.div
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease }}
-            className="space-y-2"
-          >
-            {showGuestGate ? (
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/5 px-2.5 py-0.5 text-[10px] font-semibold text-primary select-none uppercase tracking-wider animate-pulse">
-                <Lock className="size-3" /> Verification Required
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 flex-wrap">
-                {poll.pollType === 'TRIAL' ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 uppercase tracking-widest">
-                    <Target className="size-3" /> Quiz Assessment
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary/60">
-                    Poll
-                  </span>
-                )}
-                {poll.pollType === 'TRIAL' && (
-                  <span className="rounded-full border border-border bg-secondary/40 px-2 py-0.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Pass: {poll.passingScorePercentage || 70}%
-                  </span>
-                )}
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                  · {poll.questions.length} Question{poll.questions.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-            )}
-            <h1 className="text-3xl font-bold tracking-tight text-foreground/90 leading-tight">
-              {poll.title}
-            </h1>
-            <p className="text-sm text-muted-foreground/60">
-              {showGuestGate
-                ? (poll.pollType === 'TRIAL'
-                    ? "This is an authenticated quiz assessment. Please verify your details to participate."
-                    : "This is an authenticated poll. Please verify your details to participate as a guest.")
-                : (poll.pollType === 'TRIAL'
-                    ? "Answer each question carefully — you will receive your scored results upon completion."
-                    : "Select one answer per question — questions appear one at a time.")}
-            </p>
-          </motion.div>
-
+    <PublicPageShell label={shellLabel} footer={footer}>
+      <motion.header
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease }}
+        className="space-y-3"
+      >
+        <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {showGuestGate ? (
-            /* Double Bezel Card for Guest Auth */
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease, delay: 0.1 }}
-              className="relative group w-full"
-            >
-              <div className="absolute -inset-px rounded-3xl bg-gradient-to-b from-border/50 to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="absolute inset-[1px] rounded-[23px] bg-background/50 backdrop-blur-2xl" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-0.5 text-xs text-foreground">
+              <Lock className="size-3.5" aria-hidden /> Not anonymous
+            </span>
+          ) : isQuiz ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-0.5 text-xs text-foreground">
+              <Target className="size-3.5 text-accent-ink" aria-hidden /> Pass mark{" "}
+              <span className="font-mono tabular-nums">{poll.passingScorePercentage || 70}%</span>
+            </span>
+          ) : null}
+          <span>
+            <span className="font-mono tabular-nums text-foreground">{count}</span> question{count !== 1 ? "s" : ""}
+          </span>
+        </p>
+        <h1 className="text-balance text-3xl font-semibold leading-tight tracking-[-0.035em] sm:text-4xl">{poll.title}</h1>
+        <p className="text-base text-muted-foreground">
+          {showGuestGate
+            ? "This poll records who answered. Add your name and email, or log in."
+            : isQuiz
+              ? "Answer each question. Your score shows when you finish."
+              : "Pick an answer for each question. Questions come one at a time."}
+        </p>
+      </motion.header>
 
-              <div className="relative p-6 md:p-8 space-y-6">
-                <form onSubmit={handleGuestSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="guestName" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex items-center gap-1.5">
-                      <User className="size-3.5 text-primary/70" /> Full Name
-                    </Label>
-                    <Input
-                      type="text"
-                      id="guestName"
-                      placeholder="Jane Doe"
-                      className="bg-secondary/15 border-border/40 focus:border-primary/50 focus:ring-primary/20 h-11 px-4 rounded-xl text-foreground text-sm placeholder:text-muted-foreground/30 transition-all"
-                      value={guestName}
-                      onChange={(e) => setGuestName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="guestEmail" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex items-center gap-1.5">
-                      <Mail className="size-3.5 text-primary/70" /> Email Address
-                    </Label>
-                    <Input
-                      type="email"
-                      id="guestEmail"
-                      placeholder="jane@example.com"
-                      className="bg-secondary/15 border-border/40 focus:border-primary/50 focus:ring-primary/20 h-11 px-4 rounded-xl text-foreground text-sm placeholder:text-muted-foreground/30 transition-all"
-                      value={guestEmail}
-                      onChange={(e) => setGuestEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full h-11 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-semibold shadow-lg shadow-primary/10 hover:shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-2"
-                  >
-                    <span>Verify & Access Poll</span>
-                    <ArrowRight className="size-4" />
-                  </Button>
-                </form>
-
-                <div className="relative flex items-center py-2">
-                  <div className="flex-grow border-t border-border/30"></div>
-                  <span className="flex-shrink mx-4 text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest">Or</span>
-                  <div className="flex-grow border-t border-border/30"></div>
-                </div>
-
-                <div className="text-center">
-                  <Button
-                    variant="link"
-                    className="text-xs font-medium text-primary hover:text-primary/80 transition-colors p-0 h-auto"
-                    onClick={() => router.push(`/login?redirect=/p/${pollId}`)}
-                  >
-                    Log in with a creator account instead
-                  </Button>
-                </div>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease, delay: 0.08 }}
+        className="mt-8"
+      >
+        {showGuestGate ? (
+          <div className="rounded-xl border border-border bg-card p-6 sm:p-8">
+            <form onSubmit={handleGuestSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="guestName">Full name</Label>
+                <Input
+                  type="text"
+                  id="guestName"
+                  autoComplete="name"
+                  placeholder="Jane Doe"
+                  className="h-11"
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  required
+                />
               </div>
-            </motion.div>
-          ) : (
-            /* Step form */
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease, delay: 0.1 }}
-            >
-              <StepByStepForm poll={poll} deviceId={deviceId} guestInfo={guestInfo} />
-            </motion.div>
-          )}
-        </div>
-      </main>
+              <div className="space-y-2">
+                <Label htmlFor="guestEmail">Email</Label>
+                <Input
+                  type="email"
+                  id="guestEmail"
+                  autoComplete="email"
+                  placeholder="jane@example.com"
+                  className="h-11"
+                  value={guestEmail}
+                  onChange={(e) => setGuestEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" size="lg" className="mt-2 w-full">
+                Continue to the {isQuiz ? "quiz" : "poll"}
+              </Button>
+            </form>
 
-      {/* Footer */}
-      <footer className="relative z-10 text-center py-4 text-[10px] font-medium text-muted-foreground/30 uppercase tracking-widest">
-        Powered by Open Poll
-      </footer>
-    </div>
+            <div className="my-6 flex items-center gap-4 text-sm text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              or
+              <span className="h-px flex-1 bg-border" />
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full bg-card"
+              onClick={() => router.push(`/login?redirect=/p/${pollId}`)}
+            >
+              Log in with your account
+            </Button>
+          </div>
+        ) : (
+          <StepByStepForm poll={poll} deviceId={deviceId} guestInfo={guestInfo} />
+        )}
+      </motion.div>
+    </PublicPageShell>
   );
 }

@@ -104,16 +104,16 @@ export function ShareDialog({ open, onOpenChange, sessionId, ended, share, onCha
 
   return (
     <Dialog open={open} onOpenChange={(next) => busy === null && onOpenChange(next)}>
-      <DialogContent className="rounded-3xl sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+          <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
             <Link2 className="size-4" /> {t("title")}
           </DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         {!ended ? (
-          <p role="status" className="rounded-2xl border border-border bg-secondary/30 px-4 py-3 text-sm text-muted-foreground">
+          <p role="status" className="rounded-lg border border-border bg-secondary px-4 py-3 text-sm text-muted-foreground">
             {t("needsEnd")}
           </p>
         ) : (
@@ -122,13 +122,13 @@ export function ShareDialog({ open, onOpenChange, sessionId, ended, share, onCha
               <div className="space-y-2">
                 <Label htmlFor="share-link">{t("linkLabel")}</Label>
                 <div className="flex gap-2">
-                  <Input id="share-link" readOnly value={url} className="rounded-xl font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-                  <Button type="button" variant="outline" className="rounded-xl" onClick={() => void copy()} disabled={!active}>
+                  <Input id="share-link" readOnly value={url} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+                  <Button type="button" variant="outline" onClick={() => void copy()} disabled={!active}>
                     {copied ? <Check /> : <Copy />}
                     <span className="sr-only sm:not-sr-only">{t("copy")}</span>
                   </Button>
                   {active ? (
-                    <Button asChild variant="outline" className="rounded-xl" size="icon">
+                    <Button asChild variant="outline" size="icon">
                       <a href={url} target="_blank" rel="noopener noreferrer" aria-label={t("open")}>
                         <ExternalLink />
                       </a>
@@ -147,9 +147,9 @@ export function ShareDialog({ open, onOpenChange, sessionId, ended, share, onCha
               </div>
             ) : null}
 
-            <div className="flex items-start justify-between gap-4 rounded-2xl border border-border bg-card px-4 py-3">
+            <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-card px-4 py-3">
               <div className="space-y-0.5">
-                <Label htmlFor="share-names" className="text-sm font-semibold">
+                <Label htmlFor="share-names" className="text-sm font-medium">
                   {t("includeNames")}
                 </Label>
                 <p className="text-xs text-muted-foreground">{t("includeNamesHint")}</p>
@@ -163,7 +163,7 @@ export function ShareDialog({ open, onOpenChange, sessionId, ended, share, onCha
                 id="share-expiry"
                 value={expiry}
                 onChange={(event) => setExpiry(event.target.value as ExpiryChoice)}
-                className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 {share ? <option value={KEEP}>{t("expiryKeep")}</option> : null}
                 {SHARE_EXPIRY_CHOICES.map((choice) => (
@@ -182,14 +182,14 @@ export function ShareDialog({ open, onOpenChange, sessionId, ended, share, onCha
               {share ? (
                 <>
                   {active ? (
-                    <Button variant="outline" className="rounded-xl" disabled={busy !== null} onClick={() => void turnOff()}>
+                    <Button variant="outline" disabled={busy !== null} onClick={() => void turnOff()}>
                       {busy === "disable" ? <Loader2 className="animate-spin" /> : null}
                       {busy === "disable" ? t("disabling") : t("disable")}
                     </Button>
                   ) : null}
                   <Button
                     variant="ghost"
-                    className="rounded-xl"
+                   
                     title={t("rotateHint")}
                     disabled={busy !== null}
                     onClick={() => void save({ ...expiryInput(), includeNames, rotate: true }, "rotate", "updatedToast")}
@@ -203,7 +203,7 @@ export function ShareDialog({ open, onOpenChange, sessionId, ended, share, onCha
             <div className="flex gap-2">
               {!share ? (
                 <Button
-                  className="rounded-xl font-bold"
+                  
                   disabled={busy !== null}
                   onClick={() => void save({ ...expiryInput(), includeNames }, "save", "enabledToast")}
                 >
@@ -212,7 +212,7 @@ export function ShareDialog({ open, onOpenChange, sessionId, ended, share, onCha
                 </Button>
               ) : dirty ? (
                 <Button
-                  className="rounded-xl font-bold"
+                  
                   disabled={busy !== null}
                   onClick={() => void save({ ...expiryInput(), includeNames }, "save", "updatedToast")}
                 >
@@ -220,7 +220,7 @@ export function ShareDialog({ open, onOpenChange, sessionId, ended, share, onCha
                   {!share.enabled || lapsed ? t("reenable") : t("update")}
                 </Button>
               ) : (
-                <Button variant="outline" className="rounded-xl" onClick={() => onOpenChange(false)}>
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
                   {t("done")}
                 </Button>
               )}
