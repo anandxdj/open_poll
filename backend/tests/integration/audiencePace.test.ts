@@ -270,6 +270,8 @@ describeIntegration('audience pace (W2-F)', () => {
       [2, 100, true],
     ]);
     expect(bobPass).toMatchObject({ final: true, canRetry: false });
+    // Final now: results of every attempt (3 responses to the first slide, all "Green").
+    expect(bobPass.slides[0].results).toMatchObject({ answeredCount: 3, distribution: { counts: [3, 0] } });
     expect((await answer(pid, bob, q1, 0, { optionIndex: 1, attempt: 2, clientAnswerId: 'after' })).body.code).toBe('ALREADY_ANSWERED');
 
     // Ending reconciles: Bob's total is his latest attempt, both attempts stay on record.
@@ -281,7 +283,9 @@ describeIntegration('audience pace (W2-F)', () => {
       ['Ada', 2, 2],
       ['Bob', 2, 2],
     ]);
-    expect(session!.slideStats.map((s) => s.answeredCount)).toEqual([2, 2]);
+    // Responses: every attempt's answer counts (Bob answered each slide twice), as in the distribution.
+    expect(session!.slideStats.map((s) => s.answeredCount)).toEqual([3, 3]);
+    expect((session!.slideStats[0]!.distribution as { counts: number[] }).counts).toEqual([3, 0]);
     const bobAnswers = await PresentationAnswerModel.find({ sessionId: ada.sessionId, participantId: bob.participantId }).lean();
     expect(bobAnswers.map((a) => a.attempt).sort()).toEqual([1, 1, 2, 2]);
     const bobDoc = await PresentationParticipantModel.findById(bob.participantId).lean();
@@ -296,7 +300,7 @@ describeIntegration('audience pace (W2-F)', () => {
       body: {
         title: 'Self-paced quiz',
         pace: 'audience',
-        settings: { nickname: 'optional', audiencePaced: { resultsVisibility: 'after_close' } },
+        settings: { nickname: 'optional', audiencePaced: { resultsVisibility: 'after_close', closeAfterMinutes: 30 } },
         slides: [
           { type: 'heading', content: { title: 'Welcome', subtitle: '' } },
           {
@@ -322,7 +326,10 @@ describeIntegration('audience pace (W2-F)', () => {
     const started = await hostCommand(pid, 'start');
     expect(started.status).toBe(200);
     expect(started.body.data.session).toMatchObject({ status: 'active', pace: 'audience', current: null });
-    expect(started.body.data.session.audience).toMatchObject({ closesAt: null });
+    // The deck's default duration sets the closing time.
+    const closesIn = Date.parse(started.body.data.session.audience.closesAt) - Date.now();
+    expect(closesIn).toBeGreaterThan(29 * 60_000);
+    expect(closesIn).toBeLessThanOrEqual(30 * 60_000);
 
     // Nickname optional: no name → "Guest NNNN".
     const guest = await join(pid);

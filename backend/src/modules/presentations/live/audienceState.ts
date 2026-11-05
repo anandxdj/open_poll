@@ -18,7 +18,7 @@ import {
 import { FIRST_ATTEMPT, parseAttemptState, type AttemptState } from './attempts';
 import { computeSlideDistributionHelper } from './distribution';
 import { k } from './keys';
-import { attemptFilter } from './snapshot';
+import { attemptFilter, highestAttempt } from './snapshot';
 import { issueSlideTicket } from './ticket';
 import { isOpenState, lifecycleOf, readSlideState, sessionSlides, slideIdOf, type Slide, type StoredAnswerResult } from './state';
 
@@ -37,6 +37,7 @@ const iso = (date: Date | null | undefined) => (date ? date.toISOString() : null
 
 export interface AudienceSettings {
   resultsVisibility: ResultsVisibility;
+  closeAfterMinutes: number | null;
   assessment: AudienceAssessmentSettings;
 }
 
@@ -47,7 +48,9 @@ export const audienceSettingsOf = (session: Pick<IPresentationSession, 'settings
   const paced = (session.settingsSnapshot?.audiencePaced ?? {}) as Partial<AudienceSettings>;
   const assessment = (paced.assessment ?? {}) as Partial<AudienceAssessmentSettings>;
   const maxAttempts = assessment.maxAttempts;
+  const closeAfter = (paced as { closeAfterMinutes?: unknown }).closeAfterMinutes;
   return {
+    closeAfterMinutes: typeof closeAfter === 'number' && closeAfter >= 1 ? closeAfter : null,
     resultsVisibility: RESULTS_VISIBILITY.has(paced.resultsVisibility as ResultsVisibility)
       ? (paced.resultsVisibility as ResultsVisibility)
       : 'after_close',
@@ -220,8 +223,17 @@ export const attemptView = (attempt: IAudienceAttempt): AudienceAttemptResult =>
 // Participant view
 // ---------------------------------------------------------------------------
 
-/** A slide's results: live counters, or the stored snapshot once the session ended. */
-const slideResults = async (session: IPresentationSession, slide: Slide, index: number): Promise<SlideResultsView> => {
+/**
+ * A slide's results: live counters, or the stored snapshot once the session
+ * ended. The counters take every attempt's answers (a retry answers again), so
+ * `answeredCount` counts the responses of every attempt too.
+ */
+const slideResults = async (
+  session: IPresentationSession,
+  slide: Slide,
+  index: number,
+  attempts: number
+): Promise<SlideResultsView> => {
   const slideId = slideIdOf(slide);
   if (!session.isLive) {
     const stat = session.slideStats.find((s) => String(s.slideId) === slideId);
@@ -235,13 +247,18 @@ const slideResults = async (session: IPresentationSession, slide: Slide, index: 
       distribution: stat?.distribution ?? {},
     };
   }
-  const live = await computeSlideDistributionHelper(String(session._id), slideId, slide);
+  const sid = String(session._id);
+  const live = await computeSlideDistributionHelper(sid, slideId, slide);
+  let responses = live.answeredCount;
+  for (let attempt = 2; attempt <= attempts; attempt += 1) {
+    responses += await redisClient.sCard(k.answeredInAttempt(sid, slideId, attempt)).catch(() => 0);
+  }
   return {
     slideId,
     slideIndex: index,
     type: slide.type,
     scored: isSlideScored(slide),
-    answeredCount: live.answeredCount,
+    answeredCount: responses,
     participantCount: live.participantCount,
     distribution: live.distribution,
   };
@@ -295,6 +312,9 @@ export const participantAudienceView = async (
   if (status !== 'waiting') {
     const deck = sessionSlides(session);
     const answers = await attemptAnswers(session, participantId, state.number);
+    let attemptsInUse: number | null = null;
+    const results = async (slide: Slide, index: number) =>
+      slideResults(session, slide, index, (attemptsInUse ??= session.isLive ? await highestAttempt(session) : 1));
     for (const [index, slide] of deck.entries()) {
       const slideId = slideIdOf(slide);
       const lifecycle = lifecycleOf(slide.type);
@@ -339,7 +359,7 @@ export const participantAudienceView = async (
         isCorrect: showKey && answer ? Boolean(answer.isCorrect) : null,
         score: showKey && answer ? Number(answer.score ?? 0) : null,
         explanation: showKey ? explanationOf(slide) : null,
-        results: resultsAllowed && keyOk ? await slideResults(session, slide, index) : null,
+        results: resultsAllowed && keyOk ? await results(slide, index) : null,
       });
     }
   }

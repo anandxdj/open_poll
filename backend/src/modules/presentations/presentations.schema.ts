@@ -87,6 +87,7 @@ export const deckSettingsPatchSchema = z
     audiencePaced: z
       .object({
         resultsVisibility: z.enum(RESULTS_VISIBILITY),
+        closeAfterMinutes: z.number().int().min(1).max(43200).nullable(),
         assessment: z
           .object({
             enabled: z.boolean(),

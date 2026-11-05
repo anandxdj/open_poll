@@ -28,6 +28,8 @@ export interface DeckSettings {
   quiz: { leaderboard: boolean; showCorrectOnDevices: boolean };
   audiencePaced: {
     resultsVisibility: ResultsVisibility;
+    /** Minutes after `open-audience` the slides close on their own (W2-F); null = until the host closes them. */
+    closeAfterMinutes: number | null;
     /** `maxAttempts: null` = unlimited retries. */
     assessment: { enabled: boolean; passingScorePercentage: number; maxAttempts: number | null };
   };
@@ -185,7 +187,10 @@ export interface AudienceAttemptResult {
 
 /** `POST /:id/host/open-audience` body. */
 export interface OpenAudienceBody {
-  /** ISO time in the future (at most 30 days ahead); omitted or null = until the host closes. */
+  /**
+   * ISO time in the future (at most 30 days ahead); null = until the host
+   * closes. Omitted: the deck's `closeAfterMinutes` from now, else no closing time.
+   */
   closesAt?: string | null;
 }
 

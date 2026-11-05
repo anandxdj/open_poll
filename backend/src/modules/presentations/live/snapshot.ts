@@ -195,18 +195,12 @@ const reconcileAudienceTotals = async (session: IPresentationSession) => {
   );
 };
 
-/** Participants who answered each slide (an audience-paced retry answers a slide again; it still counts once). */
+/** Answers per slide (an audience-paced retry answers a slide again: every attempt's answer is a response). */
 const storedAnswerCounts = async (session: IPresentationSession): Promise<Map<string, number>> => {
-  const match = { $match: { sessionId: new mongoose.Types.ObjectId(String(session._id)) } };
-  const rows = await PresentationAnswerModel.aggregate<{ _id: unknown; count: number }>(
-    session.pace === 'audience'
-      ? [
-          match,
-          { $group: { _id: { slideId: '$slideId', participantId: '$participantId' } } },
-          { $group: { _id: '$_id.slideId', count: { $sum: 1 } } },
-        ]
-      : [match, { $group: { _id: '$slideId', count: { $sum: 1 } } }]
-  );
+  const rows = await PresentationAnswerModel.aggregate<{ _id: unknown; count: number }>([
+    { $match: { sessionId: new mongoose.Types.ObjectId(String(session._id)) } },
+    { $group: { _id: '$slideId', count: { $sum: 1 } } },
+  ]);
   return new Map(rows.map((row) => [String(row._id), row.count]));
 };
 

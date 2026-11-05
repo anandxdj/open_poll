@@ -106,7 +106,7 @@ export const openAudience = async (
   const presentation = await authorizeDeck(presentationId, actor, 'deck:host');
   assertPresentable(presentation);
   const now = new Date();
-  const closesAt = parseClosesAt(body.closesAt, now);
+  const explicit = parseClosesAt(body.closesAt, now);
 
   let session: IPresentationSession | null = await findLiveSession(presentationId);
   if (session && session.pace !== 'audience') {
@@ -116,6 +116,17 @@ export const openAudience = async (
     if ((presentation.pace ?? 'presenter') !== 'audience') throw notAudiencePaced();
     session = await createSession(presentation, actor);
   }
+  // No closing time sent: the deck's default duration from the first opening (a later
+  // call that sends nothing keeps the closing time already set).
+  const closeAfter = audienceSettingsOf(session).closeAfterMinutes;
+  const closesAt =
+    body.closesAt !== undefined
+      ? explicit
+      : session.audience?.openedAt && !session.audience.closedAt
+        ? (session.audience.closesAt ?? null)
+        : closeAfter
+          ? new Date(now.getTime() + closeAfter * 60_000)
+          : null;
 
   for (const slide of sessionSlides(session)) {
     const slideId = slideIdOf(slide);
