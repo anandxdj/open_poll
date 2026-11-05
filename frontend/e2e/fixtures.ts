@@ -35,7 +35,8 @@ export interface SessionSummary {
 
 export interface Host {
   accessToken: string;
-  createDeck(title: string, slides: DeckSlideInput[]): Promise<CreatedDeck>;
+  /** `extra` adds other create fields, e.g. `{ pace: "audience", theme: { mode: "dark" } }`. */
+  createDeck(title: string, slides: DeckSlideInput[], extra?: Record<string, unknown>): Promise<CreatedDeck>;
   /** The deck as the API stores it (slides with answer keys and settings). */
   getDeck(id: string): Promise<CreatedDeck & { slides: Record<string, unknown>[] }>;
   /** Every run of the deck, newest first (`GET /:id/sessions`). */
@@ -159,11 +160,11 @@ export const test = base.extend<{ host: Host; contexts: BrowserContext[] }, { ho
 
     const host: Host = {
       accessToken,
-      createDeck: (title, slides) =>
+      createDeck: (title, slides, extra = {}) =>
         api<CreatedDeck>("/presentations", {
           method: "POST",
           token: accessToken,
-          body: JSON.stringify({ title, slides }),
+          body: JSON.stringify({ title, slides, ...extra }),
         }),
       getDeck: (id) => api(`/presentations/${id}`, { token: accessToken }),
       getSessions: (id) => api(`/presentations/${id}/sessions`, { token: accessToken }),
