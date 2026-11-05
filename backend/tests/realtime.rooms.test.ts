@@ -5,7 +5,6 @@ import {
   allowJoin,
   audienceParticipantId,
   leavePresentationRooms,
-  legacyRoomForAudience,
   liveRoomForAudience,
 } from '../src/common/realtime/rooms';
 
@@ -22,12 +21,6 @@ describe('audience rooms', () => {
     expect(liveRoomForAudience(PID, 'participant:abc')).toBeNull();
   });
 
-  it('maps only all/host to the legacy rooms', () => {
-    expect(legacyRoomForAudience(PID, 'all')).toBe(`quiz_${PID}`);
-    expect(legacyRoomForAudience(PID, 'host')).toBe(`quiz_${PID}_host`);
-    expect(legacyRoomForAudience(PID, `participant:${PARTICIPANT_ID}`)).toBeNull();
-  });
-
   it('parses participant audiences', () => {
     expect(audienceParticipantId(`participant:${PARTICIPANT_ID}`)).toBe(PARTICIPANT_ID);
     expect(audienceParticipantId('host')).toBeNull();
@@ -36,23 +29,21 @@ describe('audience rooms', () => {
 });
 
 describe('leavePresentationRooms', () => {
-  it("leaves one presentation's legacy and live rooms and nothing else", () => {
+  it("leaves one presentation's live rooms and nothing else", () => {
     const rooms = new Set([
       'socket-id',
-      `quiz_${PID}`,
-      `quiz_${PID}_host`,
       `live:${PID}`,
       `live:${PID}:host`,
       `live:${PID}:p:${PARTICIPANT_ID}`,
-      `quiz_${OTHER_PID}`,
       `live:${OTHER_PID}`,
+      `live:${OTHER_PID}:host`,
       `poll_${PID}`,
     ]);
     const socket = { rooms, leave: (room: string) => rooms.delete(room) } as unknown as Socket;
 
     leavePresentationRooms(socket, PID);
 
-    expect([...rooms].sort()).toEqual(['socket-id', `live:${OTHER_PID}`, `poll_${PID}`, `quiz_${OTHER_PID}`].sort());
+    expect([...rooms].sort()).toEqual(['socket-id', `live:${OTHER_PID}`, `live:${OTHER_PID}:host`, `poll_${PID}`].sort());
   });
 });
 

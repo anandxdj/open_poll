@@ -45,21 +45,19 @@ const deliver = (value: unknown) => {
 };
 
 describe('deliverLiveEvent', () => {
-  it("sends 'all' events to the live room and the legacy room", () => {
+  it("sends 'all' events to the live room only (no legacy quiz:event copy)", () => {
     expect(deliver(envelope())).toEqual([
       { room: `live:${PRESENTATION_ID}`, event: 'live:event', audience: 'all', seq: 7 },
-      { room: `quiz_${PRESENTATION_ID}`, event: 'quiz:event', audience: 'all', seq: 7 },
     ]);
   });
 
-  it("sends 'host' events to the host rooms only", () => {
+  it("sends 'host' events to the host room only", () => {
     expect(deliver(envelope({ type: 'quiz:ended', audience: 'host' }))).toEqual([
       { room: `live:${PRESENTATION_ID}:host`, event: 'live:event', audience: 'host', seq: 7 },
-      { room: `quiz_${PRESENTATION_ID}_host`, event: 'quiz:event', audience: 'host', seq: 7 },
     ]);
   });
 
-  it('sends participant-targeted events to that participant only, with no legacy copy', () => {
+  it('sends participant-targeted events to that participant only', () => {
     expect(deliver(envelope({ audience: `participant:${PARTICIPANT_ID}` }))).toEqual([
       {
         room: `live:${PRESENTATION_ID}:p:${PARTICIPANT_ID}`,
@@ -74,17 +72,17 @@ describe('deliverLiveEvent', () => {
     for (const audience of ['all', `participant:${PARTICIPANT_ID}`] as const) {
       expect(deliver(envelope({ type: 'answer:received', audience }))).toEqual([
         { room: `live:${PRESENTATION_ID}:host`, event: 'live:event', audience: 'host', seq: 7 },
-        { room: `quiz_${PRESENTATION_ID}_host`, event: 'quiz:event', audience: 'host', seq: 7 },
       ]);
     }
   });
 
-  it('delivers the whole envelope, legacy copy included', () => {
+  it('delivers the whole envelope once, as live:event', () => {
     const { io, emits } = fakeIo();
     const sent = envelope({ sessionId: 's-1' });
     deliverLiveEvent(JSON.stringify(sent), io);
-    expect(emits.map((e) => e.data)).toEqual([sent, sent]);
-    expect(emits[1]!.data.quizId).toBe(PRESENTATION_ID);
+    expect(emits.map((e) => e.data)).toEqual([sent]);
+    expect(emits.map((e) => e.event)).toEqual(['live:event']);
+    expect(emits[0]!.data.quizId).toBe(PRESENTATION_ID);
   });
 
   it('drops malformed messages', () => {

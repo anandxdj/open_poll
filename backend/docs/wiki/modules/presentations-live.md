@@ -1,7 +1,7 @@
 ---
 summary: Live session engine contract — sessions, slide phases, host commands, participant resync, events, Redis keys, error codes.
 status: active
-last_updated: 2026-11-01
+last_updated: 2026-11-05
 ---
 
 # Presentations live sessions (contract)
@@ -219,7 +219,7 @@ AnswerSubmitAck = { success: true,  status: 200, message: 'Answer accepted', dat
 ```
 
 The socket must first have joined the deck **as that participant** (`live:join` with the participant's
-credentials, or the legacy `quiz:join`): an anonymous connection never reaches the answer path, and an
+credentials): an anonymous connection never reaches the answer path, and an
 answer for a participant the socket did not join is 403 `NOT_JOINED` (a reconnected socket has no
 rooms: await the `live:join` ack, then send). Identity is still the participant token in the payload,
 checked by the script on every answer; the room only gates who may call. Two budgets apply: the participant's script budget above and

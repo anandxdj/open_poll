@@ -1,7 +1,7 @@
 ---
 summary: Redis pub/sub channels and keys used by the realtime layer.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-05
 ---
 
 # Redis Channels
@@ -11,11 +11,11 @@ own sockets with `io.local`.
 
 | Channel | Publisher | Message | Delivered as |
 | --- | --- | --- | --- |
-| `live:event` | `publishLiveEvent` (`common/realtime/publish.ts`), via `publishPresentationEvent` | live envelope v1 ([`envelope.md`](./envelope.md)) | `live:event` to `live:*` rooms + legacy `quiz:event` to `quiz_*` rooms ([`presentations.md`](./presentations.md)) |
+| `live:event` | `publishLiveEvent` (`common/realtime/publish.ts`), via `publishPresentationEvent` | live envelope v1 ([`envelope.md`](./envelope.md)) | `live:event` to `live:*` rooms ([`presentations.md`](./presentations.md)) |
 | `analytics:update` | `publishPollAnalytics`, from `responses/analytics.worker.ts` | `{ pollId, analytics }` | `analytics:update` to `poll_{pollId}` ([`polls.md`](./polls.md)) |
 
 The `quiz:event` **channel** is gone: deck events are published once, on `live:event`. The
-`quiz:event` **socket event** still exists as the legacy copy.
+`quiz:event` **socket event** (the legacy copy to `quiz_*` rooms) is gone too since W2-D phase 2.
 
 Keys: `live:{presentationId}:seq` — the envelope `seq` counter, incremented in the same Lua script
 that publishes, 7-day sliding TTL. Q&A and reaction coalescing keys (`qna:{<sid>}:*`,

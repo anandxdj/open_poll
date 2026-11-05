@@ -86,7 +86,8 @@ for (const adapter of [true, false]) {
       const hostA = await connect('hostA', 0, host);
       const hostB = await connect('hostB', 1, host);
       const people = await Promise.all(joined.map((who, i) => connect(`p${i}`, (i % 2) as 0 | 1)));
-      const legacy = await connect('legacy', 1);
+      // A second device of participant 0 (same credentials) on the other instance.
+      const second = await connect('second', 1);
       for (const client of [hostA, hostB]) {
         expect(await client.socket.timeout(3000).emitWithAck('live:join', { presentationId: pid, role: 'host' })).toEqual({ ok: true, role: 'host' });
       }
@@ -98,13 +99,16 @@ for (const adapter of [true, false]) {
             .emitWithAck('live:join', { presentationId: pid, role: 'participant', participantId: who.participantId, participantToken: who.token })
         ).toEqual({ ok: true, role: 'participant' });
       }
-      legacy.socket.emit('quiz:join', { quizId: pid, role: 'participant', participantId: joined[0].participantId, participantToken: joined[0].token });
-      await waitFor(async () => (await servers[1]!.io.in(`quiz_${pid}`).fetchSockets()).length >= 1, 'legacy room');
+      expect(
+        await second.socket
+          .timeout(3000)
+          .emitWithAck('live:join', { presentationId: pid, role: 'participant', participantId: joined[0].participantId, participantToken: joined[0].token })
+      ).toEqual({ ok: true, role: 'participant' });
 
       if (adapter) {
         // The adapter links the servers: instance 0 sees instance 1's sockets in the room.
         const everyone = await servers[0]!.io.in(`live:${pid}`).fetchSockets();
-        expect(everyone).toHaveLength(15); // 2 hosts + 12 participants + the legacy one
+        expect(everyone).toHaveLength(15); // 2 hosts + 12 participants + participant 0's second device
         expect(everyone.filter((s) => s.constructor.name === 'RemoteSocket')).toHaveLength(8); // instance 1's
       } else {
         expect(await servers[0]!.io.in(`live:${pid}`).fetchSockets()).toHaveLength(7); // only its own
@@ -126,17 +130,17 @@ for (const adapter of [true, false]) {
       await api(1, 'POST', `/${pid}/host/end`, { user: host });
 
       const ended = (c: Client) => c.live.some((e) => e.type === 'quiz:ended');
-      await waitFor(() => [hostA, hostB, legacy, ...people].every(ended), 'quiz:ended on every socket');
+      await waitFor(() => [hostA, hostB, second, ...people].every(ended), 'quiz:ended on every socket');
       await Bun.sleep(300); // time for duplicates to show up
 
       const fresh = (c: Client) => c.live.filter((e) => e.seq > baseline);
       // Exactly once: no socket sees a seq twice, and seqs arrive in order.
       for (const client of clients) {
-        for (const events of [client.live, client.legacy]) {
-          const seqs = events.map((e) => e.seq);
-          expect(seqs).toEqual([...new Set(seqs)].sort((a, b) => a - b));
-        }
+        const seqs = client.live.map((e) => e.seq);
+        expect(seqs).toEqual([...new Set(seqs)].sort((a, b) => a - b));
       }
+      // The legacy `quiz:event` copy is gone: no socket receives one.
+      for (const client of clients) expect(client.legacy).toEqual([]);
       // Both hosts, on different instances, saw the very same round.
       const roundOf = (c: Client) => fresh(c).map((e) => `${e.seq}:${e.type}`);
       expect(roundOf(hostA)).toEqual(roundOf(hostB));
@@ -150,10 +154,9 @@ for (const adapter of [true, false]) {
       expect(updates.length).toBeLessThanOrEqual(3);
       expect(updates.at(-1)!.payload).toMatchObject({ answeredCount: 12, participantCount: 12 });
       // Participants get the round without host-only data, once each.
-      for (const client of [...people, legacy]) {
+      for (const client of [...people, second]) {
         expect(fresh(client).map((e) => e.type)).toEqual(['question:started', 'question:revealed', 'session:ended', 'quiz:ended']);
       }
-      expect(legacy.legacy.filter((e) => e.seq > baseline).map((e) => e.type)).toEqual(['question:started', 'question:revealed', 'session:ended', 'quiz:ended']);
     }, 60_000);
   });
 }
