@@ -236,6 +236,27 @@ lookup's HTTP status (404 until a session was opened).
   page (live counts); the Zoom page (OWASP headers, the stage, "Embedding is turned off" at once,
   without a reload, when the deck stops allowing it). ~15 s.
 
+- `e2e/a11y-live.spec.ts`, `e2e/a11y-audience-pace.spec.ts`, `e2e/a11y-public.spec.ts` — W4-A axe scans
+  (`@axe-core/playwright`, helper `e2e/axe.ts`: WCAG 2.0/2.1/2.2 A and AA plus best practices, after the
+  page's animations settle). A serious or critical finding fails the test (`expect.soft`, so one run lists
+  every surface); every finding of any impact goes to `test-results/axe/findings.jsonl`, one line per scan.
+  Each runs in a light and a dark deck: the host console (ready, lobby, slide, reveal, content, leaderboard,
+  End session dialog, end), the presenter view (ready, pairing, lobby, slide, reveal, end), the audience
+  window, the phone remote, and the phones (join form, lobby, answering, locked in, right and wrong,
+  look at the screen, leaderboard, end, the results page); every slide type family on the phone and the
+  stage, open, answered and revealed (18 types); audience pace (dashboard not open / lobby / open / close
+  dialog / closed / ended, the presenter view's dashboard, the room screen, the phone's waiting, question,
+  answered, content, summary, result, review, closed); the landing, login, signup and join pages in the
+  light and dark app on a phone and a desktop. Slide images and the YouTube player are answered by
+  `page.route`. ~5 min in all.
+- `e2e/a11y-keyboard.spec.ts` — W4-A by keyboard: a phone joins and answers with keys only (focus on each
+  new screen's heading, the announcer's sentences, the named silent `role="timer"` and its "10 seconds
+  left", shortcuts only inside the option list, focus onto "Answer locked in!" after submitting, ranking
+  moves keeping focus), the host's leaderboard and End session dialogs (focus trapped, Escape, focus back)
+  and the Q&A drawer, reduced motion (CSS animations take no time), 320 px phones and the remote, the host
+  console and presenter view at 200 % zoom (640×360) without sideways scrolling, and phone controls of at
+  least 44×44 px. ~45 s.
+
 - `e2e/landing-auth.spec.ts` — the landing and sign-in surfaces on public pages (no host needed): no
   horizontal overflow on a phone, tablet and desktop (landing, login, signup, forgot/reset password,
   privacy, terms), one h1 and one h2 per landing section, the mobile menu (toggle state, section links,
