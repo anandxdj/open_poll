@@ -301,3 +301,60 @@ test("pages that are not embeds, and decks that do not allow embedding, refuse t
   await directPage.goto("/embed/live/999999");
   await expect(directPage.getByText("This embed isn't available")).toBeVisible();
 });
+
+test("Settings → Workspace → Embedding limits which sites may frame the workspace's embeds", async ({ browser, contexts, host }) => {
+  const deck = await host.createDeck(`E2E embed sites ${Date.now()}`, [SELECT]);
+  await allowEmbedding(host, deck._id);
+  const policy = async () =>
+    (
+      (await (await fetch(`${e2eEnv.apiOrigin}/api/embeds/policy?kind=live&id=${deck.joinCode}`)).json()) as {
+        data: { frameAncestors: string[] };
+      }
+    ).data.frameAncestors;
+
+  const settings = await host.open("/settings/workspace");
+  const section = settings.locator("#embedding");
+  await expect(section.getByRole("heading", { name: "Embedding" })).toBeVisible();
+  await expect(section.getByText("Any site may embed.", { exact: false })).toBeVisible();
+
+  const field = section.getByLabel("Add a site");
+  await field.fill("example.com/page");
+  await section.getByRole("button", { name: "Add" }).click();
+  await expect(section.getByText("Enter a site address like https://example.com", { exact: false })).toBeVisible();
+
+  // Another site listed: ours may no longer frame the workspace's embeds (a second deck, new to the proxy's cache).
+  await field.fill("intranet.example.com");
+  await section.getByRole("button", { name: "Add" }).click();
+  await expect(section.getByRole("list", { name: "Sites allowed to embed" }).getByText("https://intranet.example.com")).toBeVisible();
+  const other = await host.createDeck(`E2E embed sites other ${Date.now()}`, [SELECT]);
+  await allowEmbedding(host, other._id);
+  const { page: unlisted, consoleLines: unlistedConsole } = await openHostSite(
+    contexts,
+    browser,
+    `<iframe src="${FRONTEND}/embed/live/${other.joinCode}" width="420" height="640"></iframe>`,
+    "/unlisted"
+  );
+  await expect.poll(() => framingRefused(unlisted, unlistedConsole)).toBe(true);
+  await section.getByRole("button", { name: "Remove https://intranet.example.com" }).click();
+  await expect(section.getByText("Any site may embed.", { exact: false })).toBeVisible();
+
+  await field.fill(HOST_SITE);
+  await section.getByRole("button", { name: "Add" }).click();
+  await expect(section.getByRole("list", { name: "Sites allowed to embed" }).getByText(HOST_SITE)).toBeVisible();
+  expect(await policy()).toEqual([HOST_SITE]);
+
+  // The listed site frames the embed (this target is new to the proxy's 10 s cache).
+  const { page, consoleLines } = await openHostSite(
+    contexts,
+    browser,
+    `<iframe src="${FRONTEND}/embed/live/${deck.joinCode}" width="420" height="640"></iframe>`,
+    "/listed"
+  );
+  // A deck never presented: the participant view says so, inside the frame.
+  await expect(page.frameLocator("iframe").getByText("Presentation Deck Not Found")).toBeVisible();
+  expect(framingRefused(page, consoleLines)).toBe(false);
+
+  await section.getByRole("button", { name: `Remove ${HOST_SITE}` }).click();
+  await expect(section.getByText("Any site may embed.", { exact: false })).toBeVisible();
+  expect(await policy()).toEqual(["*"]);
+});

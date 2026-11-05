@@ -55,7 +55,6 @@ type JoinGrant =
   | { role: 'participant'; participantId: string }
   | { role: 'screen'; screenTokenId: string };
 
-
 /**
  * Decides whether a socket may follow a deck, without touching rooms. Hosts need
  * `deck:host` on the deck (its creator, or a member of its workspace whose role

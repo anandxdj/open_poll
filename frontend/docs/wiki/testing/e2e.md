@@ -150,8 +150,10 @@ lookup's HTTP status (404 until a session was opened).
   counts, reveal and end, the results embed shows the shared run, and turning the link off (in-place
   confirmation, no `confirm()`) blanks the stage; `/live/<code>`, `/login` and the embed of a deck with
   embedding off refuse to be framed (`frame-ancestors` console error, nothing renders), and opened
-  directly the latter says "Embedding is turned off". Embedding is turned on through the API before the
-  first page load: the proxy keeps policy answers for 10 s. ~40 s.
+  directly the latter says "Embedding is turned off"; Settings → Workspace → Embedding (an invalid
+  site refused, another site listed → ours refused, ours listed → framed, removed → any site).
+  Embedding is turned on through the API before the first page load: the proxy keeps policy answers
+  for 10 s, so each check uses a target the proxy has not seen. ~35 s.
 
 - `e2e/addins.spec.ts` — W4-D add-in panes as browser pages, with Office.js and the Teams library
   blocked (`page.route` abort, so no network and no host): the PowerPoint pane (Microsoft 365
