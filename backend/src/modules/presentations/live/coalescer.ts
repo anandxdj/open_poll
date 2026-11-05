@@ -28,17 +28,18 @@ export { DIRTY_WINDOW_MS };
 /** Decks never change under a session (the snapshot is frozen at open), so slides are cached. */
 const SLIDE_CACHE_TTL_MS = 60_000;
 const SLIDE_CACHE_MAX = 200;
-const slideCache = new Map<string, { slides: Slide[]; expires: number }>();
+const slideCache = new Map<string, { slides: Slide[]; audience: boolean; expires: number }>();
 
-const slidesOf = async (sessionId: string): Promise<Slide[]> => {
+/** The session's slides, and whether it is audience-paced (W2-F: a screen then gets counts only). */
+const sessionOf = async (sessionId: string): Promise<{ slides: Slide[]; audience: boolean }> => {
   const cached = slideCache.get(sessionId);
-  if (cached && cached.expires > Date.now()) return cached.slides;
-  const session = await PresentationSessionModel.findById(sessionId).select('deckSnapshot').lean();
-  if (!session) return [];
-  const slides = sessionSlides(session as never);
+  if (cached && cached.expires > Date.now()) return cached;
+  const session = await PresentationSessionModel.findById(sessionId).select('deckSnapshot pace').lean();
+  if (!session) return { slides: [], audience: false };
+  const entry = { slides: sessionSlides(session as never), audience: session.pace === 'audience', expires: Date.now() + SLIDE_CACHE_TTL_MS };
   if (slideCache.size >= SLIDE_CACHE_MAX) slideCache.delete(slideCache.keys().next().value!);
-  slideCache.set(sessionId, { slides, expires: Date.now() + SLIDE_CACHE_TTL_MS });
-  return slides;
+  slideCache.set(sessionId, entry);
+  return entry;
 };
 
 /** Takes (and clears) the slides answered since the last flush. */
@@ -62,7 +63,7 @@ export const flushDirty = async (presentationId: string, sessionId: string): Pro
   }
   if (slideIds.length === 0) return 0;
 
-  const slides = await slidesOf(sessionId).catch(() => [] as Slide[]);
+  const { slides, audience } = await sessionOf(sessionId).catch(() => ({ slides: [] as Slide[], audience: false }));
   let published = 0;
   for (const slideId of slideIds) {
     const slideIndex = slides.findIndex((slide) => slideIdOf(slide) === slideId);
@@ -79,6 +80,7 @@ export const flushDirty = async (presentationId: string, sessionId: string): Pro
         answeredCount,
         participantCount,
         distribution,
+        ...(audience ? { audience: true } : {}),
       });
       liveEventsCoalesced.inc();
       published += 1;

@@ -309,7 +309,28 @@ Owner request: decks were all dark while the app is light-first.
   `tests/integration/presenter.test.ts`. Not done: a nickname profanity filter at join; the planned
   `builder/NotesTab.tsx` (notes are already edited under the slide in the builder's stage); the remote
   re-reads its state over REST on events instead of receiving host-only counts.)
-- **W2-F** audience pace. (**W3-B2** is built (`feat/folders-templates`): library folders `/api/folders` with folder shares,
+- (**W2-F** audience pace is built, branch `feat/audience-pace` (merges `feat/embeds`, which contains main with
+  PR #20; room screens on an audience-paced deck show the join code and the room's progress, never a name,
+  an answer or a result before the results may show): backend
+  `presentations/live/{audience.service,audienceState,attempts,audienceAutoClose}.ts`, `routes/audience.route.ts`
+  (`POST /:id/host/open-audience {closesAt?}`, `POST /:id/host/close-audience`, participants
+  `POST /:id/audience/{submit,retry}`), the `audience-autoclose` job (30 s), one branch each in
+  `session.service.ts` (`start` opens an audience-paced deck, `goto` refuses with 409 `AUDIENCE_PACED`, `end`
+  closes every open slide), answers to any open slide through the same answer script (v2: it checks the
+  participant's running attempt; per-attempt dedup keys, so replays and the offline queue keep working; no
+  speed points), attempts with pass/fail and retries up to `maxAttempts`, results per `resultsVisibility`,
+  deck setting `settings.audiencePaced.closeAfterMinutes`, nickname `optional`/`off` → "Guest NNNN",
+  migration 230 (answers unique per attempt, the auto-close index); frontend
+  `components/participant/audience/**` (the participant's run, submit, result, retry; the `audience` live
+  slice; `submitAnswer(payload, target)`), `components/host/AudienceDashboard.tsx` (host console and presenter
+  view), `builder/tabs/PaceSettings.tsx` (the builder's Pace tab). See
+  `backend/docs/wiki/modules/presentations-live.md` "Audience pace (W2-F)",
+  `frontend/docs/wiki/features/live-surfaces.md` "Audience pace", `e2e/audience-pace.spec.ts`,
+  `tests/integration/audiencePace.test.ts`. Fixed on the way: multi-select answers were inert outside
+  presenter pace. Not done: a per-participant review for the host (the dashboard shows progress and
+  results, the session report shows answers), kicking from the dashboard (the presenter view's list is not
+  shown there), an attempt column in the exports (they keep each participant's latest attempt).)
+  (**W3-B2** is built (`feat/folders-templates`): library folders `/api/folders` with folder shares,
   templates `/api/templates` with four starter decks and "Save as template", deck `revision` +
   `If-Match` → 409 `DECK_CHANGED` with the builder's conflict banner, slide-level routes, builder
   presence `presentations/editor.socket.ts`, migration 210; see
@@ -334,7 +355,8 @@ Owner request: decks were all dark while the app is light-first.
 
 Remaining merge order (from the plan; flexible when a later package is ready early and conflicts are
 trivial, note deviations here): W2-D phase 2 (merged, PR #18) → W3-B2 (PR #19, `feat/folders-templates`) →
-W2-A (built, `feat/presenter`, already merges W3-B2) → W2-F; Wave 3: W3-D and W3-B2 (W3-B1 is merged), W3-A after W2-A, then
+W2-A (merged, PR #20) → W4-D (`feat/embeds`, migration 220) → W2-F (built, `feat/audience-pace`, merges
+`feat/embeds`; migration 230; the light-deck-themes package takes 240); Wave 3: W3-D and W3-B2 (W3-B1 is merged), W3-A after W2-A, then
 Wave 4 A → B → C → D → E; then the close-out.
 
 ## Process notes

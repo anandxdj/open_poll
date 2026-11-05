@@ -62,6 +62,12 @@ describe('presentations route table', () => {
       'POST /:id/host/remote-token (4)',
       'DELETE /:id/host/remote-token (4)',
       'GET /:id/sessions (3)',
+      // W2-F audience pace: open (rate limited, validates closesAt) and close the slides; participants
+      // submit and retry attempts (rate limited per IP, validated, participant token).
+      'POST /:id/host/open-audience (5)',
+      'POST /:id/host/close-audience (4)',
+      'POST /:id/audience/submit (3)',
+      'POST /:id/audience/retry (3)',
     ]);
   });
 });

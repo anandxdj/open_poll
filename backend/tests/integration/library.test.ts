@@ -420,6 +420,16 @@ describeIntegration('library over HTTP', () => {
       const host = (path: string, body?: unknown) =>
         server.request(`/api/presentations/${presentation._id}/host/${path}`, { method: 'POST', headers: owner.headers, body });
 
+      // A converted deck is audience-paced (W2-F runs it that way, see audiencePace.test.ts);
+      // here the host presents it slide by slide instead.
+      expect(presentation.pace).toBe('audience');
+      const repaced = await server.request(`/api/presentations/${presentation._id}`, {
+        method: 'PATCH',
+        headers: owner.headers,
+        body: { pace: 'presenter' },
+      });
+      expect(repaced.status).toBe(200);
+
       expect((await host('open-lobby')).status).toBe(200);
       const joined = await server.request(`/api/presentations/${presentation._id}/join`, { method: 'POST', body: { name: 'Ada' } });
       expect(joined.status).toBe(200);

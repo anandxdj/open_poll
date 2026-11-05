@@ -215,6 +215,8 @@ const DeckSettingsSchema = sub<DeckSettings>({
   audiencePaced: {
     type: sub({
       resultsVisibility: { type: String, enum: RESULTS_VISIBILITY, default: 'after_close' },
+      // Minutes after opening the slides close on their own (W2-F); null = until the host closes them.
+      closeAfterMinutes: { type: Number, default: null, min: 1, max: 43200 },
       assessment: {
         type: sub({
           enabled: { type: Boolean, default: false },

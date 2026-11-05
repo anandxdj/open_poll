@@ -81,6 +81,13 @@ sessions from `updatedAt` (else `startedAt`). See `modules/presentations-live.md
 `syncIndexes()` for `screentokens` (W4-D): `tokenHash` unique, `{presentationId, createdAt}`,
 `workspaceId`. See `modules/embeds.md`.
 
+## 230-audience-pace
+
+Replaces the answers' unique index `{sessionId, slideId, participantId}` (030) with
+`answer_once_per_attempt` `{sessionId, slideId, participantId, attempt}` (created first, then the old one
+dropped) and creates `audience_autoclose` `{'audience.closesAt': 1}` on `presentationsessions`, partial on
+live sessions with a closing time. Idempotent. See `modules/presentations-live.md` → Audience pace.
+
 ## 240-deck-theme-mode
 
 Light deck themes: stores `theme.mode` on every deck that has none (workspace templates included).

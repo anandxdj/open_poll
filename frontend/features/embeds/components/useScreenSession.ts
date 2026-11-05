@@ -111,6 +111,11 @@ export function useScreenSession(presentationId: string, screenToken: string) {
       // A participant was removed: the screen is told nothing about them, it re-reads the
       // state, which leaves removed participants out (W2-A kick).
       if (event.type === "participant:kicked") requestRefresh("visible");
+      // Audience pace (W2-F): the slides opened or closed, someone joined or answered: re-read the
+      // room's progress (counts only; at most once a second).
+      const audienceDeck = store.getState().deck?.pace === "audience";
+      if (event.type.startsWith("audience:")) requestRefresh("visible");
+      else if (audienceDeck && (event.type === "participant:joined" || event.type === "answer:received")) requestRefresh("visible");
     },
     onResync: requestRefresh,
     // The host presented again (a new session): read which one is live.

@@ -165,6 +165,11 @@ GET /api/presentations/:id/host/remote-token
 POST /api/presentations/:id/host/remote-token
 DELETE /api/presentations/:id/host/remote-token
 GET /api/presentations/:id/sessions
+ROUTER /api/presentations
+POST /api/presentations/:id/host/open-audience
+POST /api/presentations/:id/host/close-audience
+POST /api/presentations/:id/audience/submit
+POST /api/presentations/:id/audience/retry
 ROUTER /api/quizzes
 ROUTER /api/quizzes
 GET /api/quizzes/code/:code
@@ -200,6 +205,11 @@ GET /api/quizzes/:id/host/remote-token
 POST /api/quizzes/:id/host/remote-token
 DELETE /api/quizzes/:id/host/remote-token
 GET /api/quizzes/:id/sessions
+ROUTER /api/quizzes
+POST /api/quizzes/:id/host/open-audience
+POST /api/quizzes/:id/host/close-audience
+POST /api/quizzes/:id/audience/submit
+POST /api/quizzes/:id/audience/retry
 ROUTER /api/mcp
 POST /api/mcp/tokens
 GET /api/mcp/tokens

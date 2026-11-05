@@ -1,7 +1,8 @@
 import { ApiError } from '../../common/utils/ApiError';
 import type { IPresentation } from '../presentations/models/presentation.model';
 import type { IPresentationSession } from '../presentations/models/session.model';
-import type { HostStateResponse, SlideResultsView } from '../presentations/live/contract';
+import type { HostAudienceView, HostStateResponse, SlideResultsView } from '../presentations/live/contract';
+import { audienceSettingsOf, isAudienceClosed } from '../presentations/live/audienceState';
 import { buildDeckLiveState } from '../presentations/live/session.service';
 import type { QnaParticipantListResponse } from '../qna/qna.contract';
 import { listForScreen } from '../qna/qna.service';
@@ -48,6 +49,24 @@ const SCREEN_NOT_FOUND = () => ApiError.notFound('This screen link does not work
 const revealedIn = (session: IPresentationSession | null, slideId: string) =>
   session ? isRevealed(readSlideState(session, slideId)) : false;
 
+/**
+ * Audience pace (W2-F) on a screen: the progress of the room, never a person.
+ * The dashboard's per-participant rows (names, progress, results) are dropped;
+ * the counts stay.
+ */
+export const screenAudienceView = (view: HostAudienceView | null): HostAudienceView | null =>
+  view ? { ...view, participants: [] } : null;
+
+/**
+ * Whether a screen may show an audience-paced session's results: once the
+ * slides closed (or the session ended), unless the deck shows results `never`.
+ * Before that every slide is open and answers keep coming, so a public screen
+ * shows progress and the join code only (results "after each answer" are a
+ * participant's own, on their phone).
+ */
+export const audienceResultsOnScreen = (session: IPresentationSession) =>
+  isAudienceClosed(session) && audienceSettingsOf(session).resultsVisibility !== 'never';
+
 /** Pure: the host state of a deck turned into what its screens may see. */
 export function toScreenState(
   presentation: IPresentation,
@@ -72,9 +91,14 @@ export function toScreenState(
     }),
   };
 
+  const audience = session?.pace === 'audience';
+  // Audience pace: closed slides are final, so their keys may show with the results.
+  const resultsShown = audience ? audienceResultsOnScreen(session) : true;
   const distributions: Record<string, SlideResultsView> = {};
-  for (const [slideId, results] of Object.entries(state.distributions)) {
-    distributions[slideId] = revealedIn(session, slideId) ? results : stripAnswerKeys(results);
+  if (resultsShown) {
+    for (const [slideId, results] of Object.entries(state.distributions)) {
+      distributions[slideId] = audience || revealedIn(session, slideId) ? results : stripAnswerKeys(results);
+    }
   }
   const currentId = state.session?.currentSlideId ?? null;
   const liveDistribution =
@@ -90,11 +114,13 @@ export function toScreenState(
     // A removed participant (W2-A) is gone from the screen: no name, no row.
     participants: state.participants.filter((participant) => !participant.kicked),
     answeredCount: state.answeredCount,
-    liveDistribution,
-    leaderboard: state.leaderboard,
+    liveDistribution: resultsShown ? liveDistribution : null,
+    // Audience pace: no standings while people are still answering at their own pace.
+    leaderboard: audience && session?.isLive ? [] : state.leaderboard,
     slideStates: state.slideStates,
     distributions,
     deckTheme: state.deckTheme,
+    audience: screenAudienceView(state.audience),
     qna,
   };
 }

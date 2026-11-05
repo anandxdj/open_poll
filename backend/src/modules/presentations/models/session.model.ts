@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, type SchemaDefinitionProperty } from 'mongoose';
 import { env } from '../../../common/config/env';
 import type { IPresentationSlide } from './presentation.model';
-import type { DeckSettings, LeaderboardEntry, SessionPace, SessionStatus } from '../live/contract';
+import type { AudienceCloseReason, DeckSettings, LeaderboardEntry, SessionPace, SessionStatus } from '../live/contract';
 import type { ThemeTokens } from '../../themes/resolve';
 
 /** Timing of one visited slide. Response slides are open while neither `closedAt` nor `revealedAt` is set. */
@@ -49,6 +49,23 @@ export interface ISessionShare {
  * it), or the idle-session job did after a lobby or a presented session saw no
  * activity for too long. null for sessions that ended before it was recorded.
  */
+/**
+ * The answer window of an audience-paced session (W2-F): every response slide
+ * opens at `openedAt` and closes at `closedAt` (the host, the closing time, or
+ * the end of the session). `closesAt` is the scheduled close.
+ */
+export interface IAudienceWindow {
+  openedAt: Date | null;
+  closesAt: Date | null;
+  closedAt: Date | null;
+  closeReason: AudienceCloseReason | null;
+}
+
+export const AUDIENCE_CLOSE_REASONS = ['host', 'schedule', 'ended'] as const satisfies readonly AudienceCloseReason[];
+
+/** Index of the `audience-autoclose` job: live sessions with a scheduled close (migration 230). */
+export const AUDIENCE_AUTOCLOSE_INDEX = 'audience_autoclose';
+
 export const SESSION_END_REASONS = ['host', 'lobby_idle', 'live_idle'] as const;
 export type SessionEndReason = (typeof SESSION_END_REASONS)[number];
 
@@ -88,6 +105,8 @@ export interface IPresentationSession extends Document {
   slideStats: ISessionSlideStat[];
   share: ISessionShare | null;
   retainUntil: Date | null;
+  /** Audience pace (W2-F); null for presenter pace. */
+  audience: IAudienceWindow | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -151,6 +170,16 @@ const ShareSchema = new Schema<ISessionShare>(
   { _id: false }
 );
 
+const AudienceWindowSchema = new Schema<IAudienceWindow>(
+  {
+    openedAt: { type: Date, default: null },
+    closesAt: { type: Date, default: null },
+    closedAt: { type: Date, default: null },
+    closeReason: { type: String, enum: [...AUDIENCE_CLOSE_REASONS, null], default: null },
+  },
+  { _id: false }
+);
+
 const PresentationSessionSchema = new Schema<IPresentationSession>(
   {
     presentationId: { type: Schema.Types.ObjectId, ref: 'Presentation', required: true },
@@ -180,6 +209,7 @@ const PresentationSessionSchema = new Schema<IPresentationSession>(
     // Absent until shared, so the sparse token index skips unshared sessions.
     share: { type: ShareSchema, default: undefined },
     retainUntil: { type: Date, default: null },
+    audience: { type: AudienceWindowSchema, default: null },
   },
   // Production indexes come from migration 030 (syncIndexes), not boot.
   { timestamps: true, optimisticConcurrency: true, autoIndex: !env.isProduction }
@@ -198,6 +228,12 @@ PresentationSessionSchema.index({ retainUntil: 1 });
 PresentationSessionSchema.index(
   { status: 1, lastActivityAt: 1 },
   { partialFilterExpression: { isLive: true }, name: LIVE_ACTIVITY_INDEX }
+);
+
+// The audience-autoclose job's lookup: live sessions with a closing time (created by migration 230).
+PresentationSessionSchema.index(
+  { 'audience.closesAt': 1 },
+  { partialFilterExpression: { isLive: true, 'audience.closesAt': { $type: 'date' } }, name: AUDIENCE_AUTOCLOSE_INDEX }
 );
 
 export const PresentationSessionModel = mongoose.model<IPresentationSession>(

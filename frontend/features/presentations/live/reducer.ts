@@ -169,7 +169,8 @@ export type LiveAction =
   /** `GET /:id/live-state` (after joining, reconnect, resync). */
   | { type: "participant/live-state"; state: ParticipantLiveState; receivedAt?: number }
   | { type: "participant/me-loaded"; me: ParticipantState }
-  | { type: "participant/submitted"; slideIndex: number }
+  /** `slideId`: the slide answered (audience pace answers slides that are not on screen). */
+  | { type: "participant/submitted"; slideIndex: number; slideId?: string | null }
   /** An answer went into the offline queue (or was found there after a reload). */
   | { type: "participant/answer-queued"; slideId: string | null; slideIndex: number; clientAnswerId: string }
   /** The server took a queued answer (or already had it: `ALREADY_ANSWERED`, a replay). */

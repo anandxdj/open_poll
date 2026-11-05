@@ -9,6 +9,7 @@
  *
  * See frontend/docs/wiki/features/live-surfaces.md.
  */
+import "@/features/presentations/components/participant/audience/register";
 import "@/features/presenter/register";
 import "@/features/qna/register";
 import "@/features/reactions/register";

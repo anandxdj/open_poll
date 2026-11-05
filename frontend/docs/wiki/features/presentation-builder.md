@@ -193,14 +193,27 @@ interface InspectorTabProps {
 ```
 
 Built in: **Content** (`tabs/ContentTab.tsx`: question + the type's `Editor`) and **Settings**
-(`tabs/SettingsTab.tsx`: time limit, points, speed bonus). **Theme** (`features/themes/components/ThemeTab.tsx`,
+(`tabs/SettingsTab.tsx`: time limit, points, speed bonus). **Pace** (`tabs/PaceSettings.tsx`, order 35,
+W2-F) is deck-level: presenter pace or audience pace (radio cards), and for audience pace results on phones
+(after each answer / when you close the questions / never), "Close automatically" N minutes after opening
+(`settings.audiencePaced.closeAfterMinutes`), the assessment (switch, pass mark %, attempts 1–10 or
+unlimited); plus the nickname rule (required / optional / off) for both paces. It reads the deck with
+`GET /presentations/:id` and saves each change on its own with `PATCH` (`pace` or `settings`; number fields on
+blur or Enter, checked against the backend limits by `parseBounded`), like the Audience tab, so the revision
+does not change and a new deck must be saved first. **Theme** (`features/themes/components/ThemeTab.tsx`,
 order 40, W3-A) is deck-level: a **Light / Dark** switch (a radiogroup "Light or dark"; disabled while a
 brand kit is chosen, the kit brings its own colours and mode), the colour themes (presets) as swatches
 showing each one light and dark side by side with the deck's mode underlined, the workspace's brand kits
 (only when the plan has `brand_kits`), and an accent override with its contrast shown (and a warning when
 the accent stands out less than 3:1 from the stage in this mode). It saves the deck's `theme` on its own
 with `PATCH /presentations/:id` (not through drafts; refused while a session is live), so a new deck must
-be saved first; `DeckDraft.id`, `DeckDraft.theme` and `DeckDraft.themeTokens` carry what it needs.
+be saved first; `DeckDraft.id`, `DeckDraft.theme` and `DeckDraft.themeTokens` carry what it needs. A feature adds a tab by exporting an
+`InspectorTabDef` and adding one line to `INSPECTOR_TABS` (alphabetical; `order` sets position).
+A deck-level tab (e.g. a theme picker) reads `deck` and writes through `onDeckChange`; a new deck
+field also needs a place in `DeckDraft`, `useDeckBuilder` and the save payloads.
+
+The chosen tab stays selected while switching slides, and falls back to the first tab when it
+doesn't apply. Tabs follow the WAI-ARIA tabs pattern (arrow keys, Home/End).
 
 ### Deck theme in the builder
 
@@ -213,13 +226,7 @@ be saved first; `DeckDraft.id`, `DeckDraft.theme` and `DeckDraft.themeTokens` ca
   theme, light during server render and hydration so attributes never mismatch): every create sends
   it (`theme.mode` on builder saves; Save mine as a copy keeps the deck's look). The other create
   paths do the same: AI whole deck (`themeMode`), imports, Use template, Convert to presentation;
-  duplicate keeps the source's (server side). A feature adds a tab by exporting an
-`InspectorTabDef` and adding one line to `INSPECTOR_TABS` (alphabetical; `order` sets position).
-A deck-level tab (e.g. a theme picker) reads `deck` and writes through `onDeckChange`; a new deck
-field also needs a place in `DeckDraft`, `useDeckBuilder` and the save payloads.
-
-The chosen tab stays selected while switching slides, and falls back to the first tab when it
-doesn't apply. Tabs follow the WAI-ARIA tabs pattern (arrow keys, Home/End).
+  duplicate keeps the source's (server side).
 
 ## Slide rail
 

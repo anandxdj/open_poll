@@ -49,6 +49,18 @@ export type SubmitAnswerResult =
    */
   | { status: "error"; message?: string; code?: string };
 
+/**
+ * Audience pace (W2-F): the slide an answer is for, when it is not the slide on
+ * screen (every slide is open at once and each participant moves on their own).
+ */
+export interface AnswerTarget {
+  slideId: string;
+  slideIndex: number;
+  slideTicket?: string | null;
+  /** The participant's attempt (an offline answer must not land in a later attempt). */
+  attempt?: number;
+}
+
 export interface LiveStore extends LiveState {
   dispatch: (action: LiveAction) => void;
   /**
@@ -62,7 +74,7 @@ export interface LiveStore extends LiveState {
    * `NOT_ACCEPTING` or `TIME_UP` the participant's state is re-read — the
    * window closed while the phone was not looking.
    */
-  submitAnswer: (payload: AnswerPayload) => Promise<SubmitAnswerResult>;
+  submitAnswer: (payload: AnswerPayload, target?: AnswerTarget) => Promise<SubmitAnswerResult>;
   /**
    * Participant: starts sending the offline queue (now, with backoff, and on
    * `online` / tab visible / socket rejoined) and restores "saved" for
@@ -173,7 +185,11 @@ export function createLiveStore(
      * A final refusal of a live answer. `PARTICIPANT_KICKED` / `_STALE` / 401 /
      * 404 mean the credentials are gone; `ALREADY_ANSWERED` counts as answered.
      */
-    const refusedLive = (delivery: Extract<AnswerDelivery, { kind: "refused" }>, slideIndex: number): SubmitAnswerResult => {
+    const refusedLive = (
+      delivery: Extract<AnswerDelivery, { kind: "refused" }>,
+      slideIndex: number,
+      slideId: string | null
+    ): SubmitAnswerResult => {
       const { dispatch, loadMe, loadLiveState } = get();
       const { status, code, message } = delivery;
       const reason = lostReasonFor(status, code);
@@ -182,7 +198,7 @@ export function createLiveStore(
         return { status: "error", message, code };
       }
       if (isAlreadyAnswered(status, code)) {
-        dispatch({ type: "participant/submitted", slideIndex });
+        dispatch({ type: "participant/submitted", slideIndex, slideId });
         void loadMe();
         return { status: "duplicate" };
       }
@@ -294,10 +310,13 @@ export function createLiveStore(
         }
       },
 
-      submitAnswer: async (payload) => {
-        const { presentationId, sessionId, self, slide, slideId, slideTicket, dispatch, loadMe } = get();
-        if (!presentationId || !self || !slide) return { status: "skipped" };
-        const slideIndex = slide.slideIndex;
+      submitAnswer: async (payload, target) => {
+        const state = get();
+        const { presentationId, sessionId, self, dispatch, loadMe, loadLiveState } = state;
+        if (!presentationId || !self || (!target && !state.slide)) return { status: "skipped" };
+        const slideIndex = target ? target.slideIndex : state.slide!.slideIndex;
+        const slideId = target ? target.slideId : state.slideId;
+        const slideTicket = target ? (target.slideTicket ?? null) : state.slideTicket;
         // One attempt = one id, however many times (and over whichever channel) it is sent.
         const clientAnswerId = newClientAnswerId();
         const body: AnswerRequest = {
@@ -308,18 +327,20 @@ export function createLiveStore(
           ...(slideId ? { slideId } : {}),
           ...(slideTicket ? { slideTicket } : {}),
           clientAnswerId,
+          ...(target?.attempt ? { attempt: target.attempt } : {}),
           ...payload,
         };
 
         const delivery = await deliver(presentationId, body, retryDelays);
         if (delivery.kind === "accepted") {
-          dispatch({ type: "participant/submitted", slideIndex });
+          dispatch({ type: "participant/submitted", slideIndex, slideId });
           // Scored slides show green/red on the participant's own pick right
-          // away; the correct answer itself stays hidden until reveal.
-          void loadMe();
+          // away; the correct answer itself stays hidden until reveal. In
+          // audience pace the whole run is re-read (answered slides, results after submit).
+          void (target ? loadLiveState() : loadMe());
           return { status: "accepted", replay: delivery.result.replay, clientAnswerId };
         }
-        if (delivery.kind === "refused") return refusedLive(delivery, slideIndex);
+        if (delivery.kind === "refused") return refusedLive(delivery, slideIndex, slideId);
 
         // Unreachable: keep it on the device and send it when the connection is back.
         const queuedAt = Date.now();

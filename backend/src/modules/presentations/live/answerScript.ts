@@ -43,6 +43,13 @@ export interface AnswerScriptInput {
   /** The `StoredAnswerResult` JSON written to `:results:{slideId}`. */
   storedJson: string;
   ops: RedisOp[];
+  /** Audience pace (W2-F): the attempt the answer belongs to; picks its `answered`/`results` keys. Default 1. */
+  attempt?: number;
+  /**
+   * Audience pace: the participant's attempt state the script requires
+   * (`"<n>"`: attempt n, running). Omitted (presenter pace) = no check.
+   */
+  expectedAttempt?: string;
 }
 
 export type AnswerScriptReject =
@@ -60,17 +67,20 @@ export type AnswerScriptReject =
 export type AnswerScriptReply =
   | { status: 'OK'; answeredCount: number; ownsDirtyWindow: boolean }
   | { status: 'DUP'; storedJson: string; answeredCount: number }
+  /** Audience pace: the participant's attempt state is not the one expected (`"<n>"` or `"<n>:done"`). */
+  | { status: 'ATTEMPT'; current: string }
   | { status: AnswerScriptReject };
 
 export const scriptKeys = (input: AnswerScriptInput) => {
   const { sessionId: sid, slideId, participantId } = input;
+  const attempt = input.attempt ?? 1;
   return [
     k.meta(sid),
     k.slides(sid),
     k.kicked(sid),
     k.tokens(sid),
-    k.answered(sid, slideId),
-    k.results(sid, slideId),
+    k.answeredInAttempt(sid, slideId, attempt),
+    k.resultsInAttempt(sid, slideId, attempt),
     k.scores(sid),
     k.correct(sid),
     k.answerRate(sid, participantId),
@@ -79,6 +89,7 @@ export const scriptKeys = (input: AnswerScriptInput) => {
     k.dist(sid, slideId),
     k.disp(sid, slideId),
     k.feed(sid, slideId),
+    k.attempts(sid),
   ];
 };
 
@@ -100,6 +111,7 @@ export const scriptArguments = (input: AnswerScriptInput) => [
   String(SESSION_KEY_TTL_SEC),
   String(ANSWER_GRACE_MS),
   String(TICKET_GRACE_MS),
+  input.expectedAttempt ?? '',
 ];
 
 const isNoScript = (error: unknown) => String((error as { message?: unknown })?.message ?? error).includes('NOSCRIPT');
@@ -120,6 +132,7 @@ const asReply = (raw: unknown): AnswerScriptReply => {
   const status = String(raw[0]);
   if (status === 'OK') return { status: 'OK', answeredCount: Number(raw[1]), ownsDirtyWindow: Number(raw[2]) === 1 };
   if (status === 'DUP') return { status: 'DUP', storedJson: String(raw[1] ?? ''), answeredCount: Number(raw[2]) };
+  if (status === 'ATTEMPT') return { status: 'ATTEMPT', current: String(raw[1] ?? '1') };
   return { status } as AnswerScriptReply;
 };
 

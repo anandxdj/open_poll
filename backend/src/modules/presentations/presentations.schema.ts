@@ -88,6 +88,7 @@ export const deckSettingsPatchSchema = z
     audiencePaced: z
       .object({
         resultsVisibility: z.enum(RESULTS_VISIBILITY),
+        closeAfterMinutes: z.number().int().min(1).max(43200).nullable(),
         assessment: z
           .object({
             enabled: z.boolean(),
@@ -174,7 +175,8 @@ export const reorderSlidesSchema = z
   .strict();
 
 export const joinPresentationSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required').max(30),
+  // Required unless the session's nickname rule is `optional` or `off` (then "Guest NNNN").
+  name: z.string().trim().max(30).optional(),
   // Server-signed device token from a previous join — enables refresh-safe
   // rejoin. Absent or invalid → the server mints a fresh identity.
   deviceToken: z.string().max(256).optional(),
@@ -228,6 +230,8 @@ export const submitPresentationAnswerSchema = z
     slideTicket: z.string().max(80).optional(),
     // The client held this answer offline before sending it (stored as `via: 'offline'`).
     offline: z.boolean().optional(),
+    // Audience pace (W2-F): the attempt this answer belongs to (default: the participant's current one).
+    attempt: z.number().int().min(1).max(1000).optional(),
   })
   .refine(
     (v) =>
@@ -240,6 +244,21 @@ export const submitPresentationAnswerSchema = z
     { message: 'Provide an answer payload' }
   );
 
+/** `POST /:id/host/open-audience` (W2-F): an optional closing time (ISO, in the future, at most 30 days ahead). */
+export const openAudienceSchema = z
+  .object({ closesAt: z.string().datetime({ offset: true }).nullable().optional() })
+  .strict()
+  .default({});
+
+/** `POST /:id/audience/{submit,retry}` (W2-F): participant credentials, and the attempt being submitted. */
+export const audienceAttemptSchema = z
+  .object({
+    participantId: z.string().min(1),
+    participantToken: z.string().min(16).max(128),
+    attempt: z.number().int().min(1).max(1000).optional(),
+  })
+  .strict();
+
 export type CreatePresentationInput = z.infer<typeof createPresentationSchema>;
 export type UpdatePresentationInput = z.infer<typeof updatePresentationSchema>;
 export type InsertSlideInput = z.infer<typeof insertSlideSchema>;
@@ -248,3 +267,5 @@ export type ReorderSlidesInput = z.infer<typeof reorderSlidesSchema>;
 export type JoinPresentationInput = z.infer<typeof joinPresentationSchema>;
 export type SubmitPresentationAnswerInput = z.infer<typeof submitPresentationAnswerSchema>;
 export type GotoSlideInput = z.infer<typeof gotoSlideSchema>;
+export type OpenAudienceInput = z.infer<typeof openAudienceSchema>;
+export type AudienceAttemptInput = z.infer<typeof audienceAttemptSchema>;

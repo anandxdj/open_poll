@@ -66,6 +66,11 @@ reducer is reused; nothing on this surface can send a host command.
   re-reads on every (re)join, return to the tab, `seq` reset, foreign session, and on
   `question:started`, `slide:closed` and `question:revealed` (a revealed slide's answer key only
   comes with the state). A `seq` gap is **not** a reason: a screen does not get every host event.
+- Audience pace (W2-F): the stage shows `StageAudience` (join code, QR, closing time, participants,
+  finished, progress per question; "Answers are closed" once closed) from the screen state's counts-only
+  `audience`; the screen re-reads its state (at most once a second) on `audience:*`, and on
+  `participant:joined` and the counts-only `answer:received` of an audience-paced deck. It never draws
+  an answer, a result or a name of an audience-paced session while it runs.
 - Presenter tools (W2-A): `slide:timing` (pause, resume, extend, skip) reaches screens like every
   `all` event and the host reducer applies it; a kick reaches a screen only as an empty
   `participant:kicked` signal, on which it re-reads its state (removed participants are not in it).

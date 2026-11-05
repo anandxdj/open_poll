@@ -22,6 +22,7 @@ import { issueSlideTicket } from './ticket';
 import { computeSlideDistributionHelper, getLeaderboard, getParticipantCount } from './distribution';
 import { publishParticipantJoined } from './events';
 import { noteSessionActivity } from './activity';
+import { participantAudienceView } from './audienceState';
 import {
   findLiveSession,
   isOpenState,
@@ -131,12 +132,30 @@ const claimSeat = async (sessionId: string, deviceId: string, cap: number | null
   }
 };
 
+/** "Guest 4821": the name of a participant who joins without a nickname. */
+export const guestName = () => `Guest ${crypto.randomInt(1000, 10000)}`;
+
+/**
+ * The name a participant joins with, by the session's nickname rule (deck
+ * setting `nickname`): `required` needs one, `optional` takes it or makes a
+ * guest name, `off` always makes a guest name (W2-F: "Guest NNNN").
+ */
+const joinName = (session: IPresentationSession, typed: string | undefined): string => {
+  const mode = session.settingsSnapshot?.nickname ?? 'required';
+  const name = typed?.trim() ?? '';
+  if (mode === 'off') return guestName();
+  if (name) return name;
+  if (mode === 'optional') return guestName();
+  throw ApiError.badRequest('Name is required');
+};
+
 export const joinPresentation = async (presentationId: string, data: JoinPresentationInput): Promise<JoinResponse> => {
   const presentation = await getPresentationById(presentationId);
   if (presentation.status === 'draft') throw ApiError.badRequest('This presentation is not open yet');
   const session = presentation.status === 'ended' ? null : await findLiveSession(presentationId);
   if (!session) throw ApiError.badRequest('This presentation has already ended');
   const sessionId = String(session._id);
+  const name = joinName(session, data.name);
 
   const rejoinDeviceId = verifySignedId(data.deviceToken);
   // A removed participant's device stays out, before it could take a seat back.
@@ -151,7 +170,7 @@ export const joinPresentation = async (presentationId: string, data: JoinPresent
     {
       $setOnInsert: {
         presentationId,
-        name: data.name,
+        name,
         token: generateParticipantToken(),
         score: 0,
         correctCount: 0,
@@ -368,5 +387,6 @@ export const getParticipantLiveState = async (
     current,
     me: { participantId, name, ...standing, answeredCurrent, lastAnswer },
     finalLeaderboard: session.status === 'ended' ? session.finalLeaderboard : null,
+    audience: session.pace === 'audience' ? await participantAudienceView(session, participantId, now) : null,
   };
 };

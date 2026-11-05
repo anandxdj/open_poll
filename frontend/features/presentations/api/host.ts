@@ -34,6 +34,20 @@ export const revealResults = (id: string) => command(id, "reveal");
 
 export const endSession = (id: string) => command(id, "end");
 
+// ---------- Audience pace (W2-F) ----------
+
+/**
+ * Opens every response slide of an audience-paced deck at once (from the
+ * lobby, or a new session). `closesAt`: an ISO time, null for no closing time;
+ * omitted takes the deck's default duration. On an open session it changes the
+ * closing time; on a closed one it opens the slides again.
+ */
+export const openAudience = (id: string, closesAt?: string | null) =>
+  command(id, "open-audience", closesAt === undefined ? {} : { closesAt });
+
+/** Stops answers on every slide; results shown "after close" appear on the phones. */
+export const closeAudience = (id: string) => command(id, "close-audience");
+
 // ---------- Presenter tools (W2-A) ----------
 
 /** Pauses, resumes or extends (by `seconds`, 5–600, default 30) the current slide's timer. */

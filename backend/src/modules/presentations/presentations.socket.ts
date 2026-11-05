@@ -238,7 +238,13 @@ const handleLiveResync = async (socket: Socket, data: LiveResyncPayload | null, 
 
 // A screen draws the live results as answers arrive, like the host's stage, but
 // `answer:received` is only ever sent before the reveal: its answer key stays home.
-registerScreenView('answer:received', (payload) => stripAnswerKeys(payload));
+// Audience pace (W2-F): every slide is open at once and results follow the deck's
+// `resultsVisibility`, so a screen gets the progress counts only, no distribution.
+registerScreenView('answer:received', (payload) =>
+  payload.audience === true
+    ? { slideId: payload.slideId, slideIndex: payload.slideIndex, answeredCount: payload.answeredCount, participantCount: payload.participantCount, audience: true }
+    : stripAnswerKeys(payload)
+);
 // A removed participant must leave the projected lobby, but a screen gets nothing
 // about them (W2-A kick): an empty signal, on which it re-reads its state, which
 // leaves removed participants out.

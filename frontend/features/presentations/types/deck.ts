@@ -2,6 +2,7 @@
 // Live-session types (participant/host state, reveal payloads, realtime
 // events) stay in `../types.ts`.
 
+import type { DeckSettings } from "./live";
 import type { ContentSlideType, SlideContent } from "./content";
 import type { DeckThemeRef, ThemeTokens } from "@/features/themes/types";
 
@@ -121,6 +122,10 @@ export interface Presentation {
   revision?: number;
   /** A workspace template (W3-B2): never presented or edited in place; "Use template" makes a deck from it. */
   isTemplate?: boolean;
+  /** `audience` (W2-F): every slide opens at once and participants go at their own pace. */
+  pace?: "presenter" | "audience";
+  /** Deck-level settings (all defaulted by the server). */
+  settings?: Partial<DeckSettings>;
   createdAt: string;
   updatedAt: string;
 }

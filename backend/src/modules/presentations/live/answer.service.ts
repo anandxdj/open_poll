@@ -21,6 +21,7 @@ import {
 import { verifySlideTicket } from './ticket';
 import { enqueueAnswerWrite } from './writeBehind';
 import { noteSessionActivity } from './activity';
+import { parseAttemptState, runningAttempt } from './attempts';
 
 /**
  * HOT PATH. One answer = grade in JS (the slide type owns grading), then ONE
@@ -54,6 +55,22 @@ const paused = () =>
   );
 const staleParticipant = () =>
   new ApiError(409, 'Your session has ended — rejoin the presentation deck', LIVE_ERROR_CODES.participantStale);
+const attemptSubmitted = () =>
+  new ApiError(409, 'You already submitted this attempt', LIVE_ERROR_CODES.attemptSubmitted);
+const attemptStale = () =>
+  new ApiError(409, 'This answer belongs to an attempt that is over', LIVE_ERROR_CODES.attemptStale);
+
+/**
+ * Audience pace (W2-F): the attempt an answer counts for — the one the client
+ * names (an offline answer of an earlier attempt must not land in a later
+ * one), else the participant's current attempt. The script re-checks it
+ * atomically, so a submit or retry racing this read wins.
+ */
+const audienceAttempt = async (sessionId: string, data: SubmitPresentationAnswerInput) => {
+  if (data.attempt !== undefined) return data.attempt;
+  const stored = await redisClient.hGet(k.attempts(sessionId), data.participantId).catch(() => null);
+  return parseAttemptState(stored).number;
+};
 
 /**
  * The answer a slide type grades: the generic `payload` when sent, else the
@@ -137,16 +154,19 @@ const processAnswer = async (
   if (!sessionId) throw notAccepting();
 
   let mirrored = false;
+  let attemptReloaded = false;
   // At most: one reload after a reopen raced us, one token mirror, one final try.
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let round = 0; round < 3; round += 1) {
     const window = await timeRedis('answer_window', () => loadAnswerWindow(sessionId, data.slideId));
     const def = window ? getSlideType(window.type) : undefined;
     if (!window || !def?.accept || window.slideIndex !== data.slideIndex) throw notAccepting();
+    const attempt = window.audience ? await audienceAttempt(sessionId, data) : 1;
 
     const nowMs = Date.now();
     // Speed scoring counts only the time the timer ran (paused time is left out).
+    // Audience pace has no speed points: every correct answer scores as if instant.
     const elapsedMs = activeElapsedMs(window, nowMs);
-    const { accepted, isCorrect, score } = grade(def, window, data, elapsedMs);
+    const { accepted, isCorrect, score } = grade(def, window, data, window.audience ? 0 : elapsedMs);
     const { persist } = accepted;
     const stored: StoredAnswerResult = {
       isCorrect,
@@ -175,6 +195,7 @@ const processAnswer = async (
       isCorrect,
       storedJson: JSON.stringify(stored),
       ops: accepted.ops,
+      ...(window.audience ? { attempt, expectedAttempt: runningAttempt(attempt) } : {}),
     });
 
     switch (reply.status) {
@@ -193,6 +214,7 @@ const processAnswer = async (
           timeMs: elapsedMs,
           clientAnswerId: stored.clientAnswerId,
           via,
+          attempt,
         });
         if (reply.ownsDirtyWindow) scheduleDirtyFlush(presentationId, sessionId);
         void noteSessionActivity(sessionId); // throttled: no Mongo write per answer
@@ -225,6 +247,17 @@ const processAnswer = async (
 
       case 'STALE':
         continue; // the slide was reopened while we graded; grade against the new run
+
+      case 'ATTEMPT': {
+        // The participant submitted or retried while we graded: once more against the attempt now current.
+        if (data.attempt === undefined && !attemptReloaded) {
+          attemptReloaded = true;
+          continue;
+        }
+        const current = parseAttemptState(reply.current);
+        if (current.number === attempt && current.submitted) throw attemptSubmitted();
+        throw attemptStale();
+      }
 
       case 'NO_TOKEN':
         if (mirrored) throw ApiError.unauthorized('Invalid participant token');
@@ -260,7 +293,8 @@ const rejectionReason = (error: unknown) => {
 /**
  * Accepts one answer (or replays it). Throws `ApiError`s the same way for both
  * channels: 400 `NOT_ACCEPTING`/`TIME_UP`/validation, 401 bad token, 403
- * `PARTICIPANT_KICKED`, 409 `ALREADY_ANSWERED`/`PARTICIPANT_STALE`/`SLIDE_PAUSED`, 429.
+ * `PARTICIPANT_KICKED`, 409 `ALREADY_ANSWERED`/`PARTICIPANT_STALE`/`SLIDE_PAUSED`,
+ * audience pace 409 `ATTEMPT_SUBMITTED`/`ATTEMPT_STALE`, 429.
  */
 export const submitAnswer = async (
   presentationId: string,

@@ -29,6 +29,8 @@ export interface PendingAnswer {
   timeMs: number;
   clientAnswerId: string | null;
   via: AnswerChannel;
+  /** Audience-paced attempt (W2-F); 1 (the model default) when omitted, as in presenter pace. */
+  attempt?: number;
 }
 
 const BATCH_INTERVAL_MS = 50;
@@ -76,7 +78,7 @@ export const applyParticipantIncrements = async (inserted: PendingAnswer[]) => {
 
 /**
  * Inserts a batch and returns the answers that are new in Mongo. A duplicate
- * (`{sessionId, slideId, participantId}` unique) is an answer that is already
+ * (`{sessionId, slideId, participantId, attempt}` unique) is an answer that is already
  * stored, so it is not new and must not add points again.
  */
 export const insertAnswerBatch = async (batch: PendingAnswer[]): Promise<PendingAnswer[]> => {

@@ -111,6 +111,12 @@ shape (`HostStateResponse`, `presentations-live.md`), built by the same code
   (`tests/embeds.stageSafe.test.ts` runs every registered response type and fails until its
   fixture exists).
 - `session.hostUserId` is null, and removed (kicked) participants are left out of `participants`.
+- **Audience pace** (W2-F, `presentations-live.md` → Audience pace): `audience` is the dashboard's
+  counts only (`screenAudienceView`: window, settings, participant / started / finished / passed
+  counts, progress per question) with **no** per-participant rows; `distributions` and
+  `liveDistribution` stay empty and `null` until the slides closed (or the session ended), and for
+  good when the deck shows results `never` (`audienceResultsOnScreen`); once shown, closed slides come
+  with their keys (their results are final); `leaderboard` is empty while the session is live.
 - `qna`: the followed session's **public Q&A** (`listForScreen` in `qna.service.ts`: visible and
   answered questions, `highlightedId`, the Q&A settings view; the participant list's shape with
   `mine`/`upvoted` false; never pending questions, never participant ids), so a screen that joins
@@ -132,7 +138,8 @@ module that owns the event (`common/realtime/screenViews.ts`, see `realtime/enve
 
 | Event | Screen view |
 | --- | --- |
-| `answer:received` | `stripAnswerKeys(payload)` (live counts without the key; registered in `presentations.socket.ts`) |
+| `answer:received` | `stripAnswerKeys(payload)` (live counts without the key; registered in `presentations.socket.ts`); for an audience-paced session (`payload.audience`, W2-F) only `{slideId, slideIndex, answeredCount, participantCount, audience}` — no distribution |
+| `audience:progress` | none: who submitted, retried, passed or failed stays with the host (W2-F) |
 | `reaction:burst` | as is (registered in `reactions.socket.ts`) |
 | `participant:kicked` | `{}`: an empty signal, no id, name or count (W2-A kick); the screen re-reads its state, which leaves removed participants out (registered in `presentations.socket.ts`) |
 | `qna:question` | none (questions waiting for moderation stay with the host) |
