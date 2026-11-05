@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { formatNumber } from "../../advanced/read";
 import { fractionOf, type GridAxis, type GridPosition, type GridQuadrants } from "./config";
 
-/** `device`: on a participant's phone (app theme). `stage`: on the projected screen (always dark). */
+/** `device`: on a participant's phone (audience tokens). `stage`: on the projected screen (stage tokens). Both follow the deck's light or dark theme. */
 export type BoardTone = "device" | "stage";
 
 export interface BoardMarker {

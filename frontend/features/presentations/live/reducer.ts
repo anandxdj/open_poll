@@ -121,6 +121,11 @@ export interface LiveState {
   settings: DeckSettings | null;
   /** The session's theme snapshot (host session view, participant live-state or the code lookup). */
   theme: ThemeTokens | null;
+  /**
+   * Host and screen: the deck's theme as it is now (host state `deckTheme`),
+   * drawn while no session is live; a live session draws its snapshot.
+   */
+  deckTheme: ThemeTokens | null;
   /** Participant identity once joined. */
   self: LiveSelf | null;
   /** Participant: own score/rank/last answer. */
@@ -212,6 +217,7 @@ export function createInitialLiveState(
     results: {},
     settings: null,
     theme: null,
+    deckTheme: null,
     self: null,
     me: null,
     submittedSlideIndex: null,
@@ -625,6 +631,7 @@ function hostStateLoaded(state: LiveState, host: HostState, receivedAt: number |
     joinCode: deck.joinCode,
     totalSlides: deck.slides.length,
     clockOffsetMs,
+    deckTheme: host.deckTheme !== undefined ? host.deckTheme : state.deckTheme,
   };
   if (!host.session) return { ...base, ...sessionScoped(), status: "draft", modules: base.modules };
 

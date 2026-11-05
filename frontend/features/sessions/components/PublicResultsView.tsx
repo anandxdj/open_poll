@@ -99,6 +99,7 @@ export function PublicResultsContent({ results }: { results: PublicResults }) {
               answeredCount={slide.answeredCount}
               distribution={slide.distribution}
               participants={headcount}
+              theme={results.theme}
             />
           ))}
         </div>

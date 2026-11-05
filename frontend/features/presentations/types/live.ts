@@ -376,6 +376,8 @@ export interface HostState {
   slideStates: SlideStateView[];
   /** Results of every visited response slide, by slideId. */
   distributions: Record<string, SlideResultsView>;
+  /** The deck's theme as it is now (light or dark, preset, kit): the stage draws it while no session is live. Absent from older APIs. */
+  deckTheme?: ThemeTokens | null;
 }
 
 /** `POST /:id/host/{open-lobby,start,goto,close,reopen,reveal,end}`: the deck plus the session acted on. */
@@ -442,6 +444,8 @@ export interface RemoteState {
   currentSlideIndex: number;
   slide: RemoteSlideView | null;
   next: { slideIndex: number; type: string; title: string } | null;
+  /** The live session's theme snapshot, else the deck's current theme (absent from older APIs). */
+  theme?: ThemeTokens | null;
   serverNow: string;
 }
 

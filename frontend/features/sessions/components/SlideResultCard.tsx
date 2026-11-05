@@ -3,6 +3,9 @@
 import { memo, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { StageView } from "@/features/presentations/components/stage/StageView";
+import { DeckThemeProvider } from "@/features/presentations/theme/DeckThemeProvider";
+import { deckThemeFrom } from "@/features/themes/deckTheme";
+import type { ThemeTokens } from "@/features/themes/types";
 import type { LiveParticipant } from "@/features/presentations/types/live";
 import { asRevealDistribution, toStageSlide } from "../query";
 import { ScaledStage, STAGE_DESIGN_WIDTH } from "./ScaledStage";
@@ -17,14 +20,16 @@ interface SlideResultCardProps {
   answeredCount: number;
   distribution: SlideDistribution | null;
   participants: LiveParticipant[];
+  /** The session's theme snapshot: the panel looks like the room's stage (sessions from before themes: dark). */
+  theme?: ThemeTokens | null;
 }
 
 const NO_LEADERBOARD: never[] = [];
 
 /**
- * One slide's results: its own StageView in `report` mode on a dark stage
- * panel (the same chart the host saw), with the slide number, type and
- * response count above.
+ * One slide's results: its own StageView in `report` mode on a stage panel in
+ * the session's theme, light or dark (the same chart the host saw), with the
+ * slide number, type and response count above.
  */
 export const SlideResultCard = memo(function SlideResultCard({
   slideIndex,
@@ -34,6 +39,7 @@ export const SlideResultCard = memo(function SlideResultCard({
   answeredCount,
   distribution,
   participants,
+  theme,
 }: SlideResultCardProps) {
   const t = useTranslations("sessions.report.slides");
   const stageSlide = useMemo(() => toStageSlide(slide), [slide]);
@@ -54,8 +60,9 @@ export const SlideResultCard = memo(function SlideResultCard({
         </p>
         <p className="text-sm text-muted-foreground">{t("responses", { count: answeredCount })}</p>
       </header>
-      {/* The stage as the room saw it: always the dark deck stage, in either app theme. */}
-      <div className="rounded-lg bg-deck-stage-bg px-4 py-6 text-deck-stage-fg ring-inset dark:ring-1 dark:ring-border sm:px-8">
+      {/* The stage as the room saw it: the session's theme, light or dark, in either app theme. */}
+      <DeckThemeProvider theme={deckThemeFrom(theme) ?? { mode: "dark" }}>
+      <div className="rounded-lg bg-deck-stage-bg px-4 py-6 text-deck-stage-fg ring-1 ring-inset ring-deck-stage-fg/10 sm:px-8">
         <h3 className="mx-auto mb-4 max-w-3xl text-balance text-center text-xl font-semibold leading-tight tracking-[-0.02em] text-deck-stage-fg sm:text-2xl">
           {label}
         </h3>
@@ -65,6 +72,7 @@ export const SlideResultCard = memo(function SlideResultCard({
           </ScaledStage>
         </div>
       </div>
+      </DeckThemeProvider>
     </article>
   );
 });

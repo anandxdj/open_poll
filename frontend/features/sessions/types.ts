@@ -1,3 +1,4 @@
+import type { ThemeTokens } from "@/features/themes/types";
 // Wire types of the sessions API (history, reports, exports, sharing, take-home),
 // mirroring backend/src/modules/sessions/contract.ts. Dates are ISO strings, ids 24-hex.
 
@@ -103,6 +104,8 @@ export interface SessionReport {
   share: SessionShare | null;
   access: { export: boolean; share: boolean; delete: boolean };
   exports: { plan: string } & Record<ExportFormat, boolean>;
+  /** The theme the session ran with (light or dark); absent or null for older sessions. */
+  theme?: ThemeTokens | null;
 }
 
 export interface ShareInput {
@@ -134,6 +137,8 @@ export interface PublicResults {
   includeNames: boolean;
   slides: PublicResultSlide[];
   leaderboard: { rank: number; name: string; score: number; correctCount: number }[] | null;
+  /** The theme the session ran with (light or dark); absent or null for older sessions. */
+  theme?: ThemeTokens | null;
 }
 
 export interface TakeHomeSlide {

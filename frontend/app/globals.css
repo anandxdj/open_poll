@@ -3,7 +3,11 @@
 @import "shadcn/tailwind.css";
 @import "../features/presentations/theme/tokens.css";
 
-@custom-variant dark (&:is(.dark *));
+/* `dark:` applies under the app's `.dark` and inside a dark deck scope
+   (`data-deck-mode`, features/presentations/theme/tokens.css), but not inside a
+   light deck drawn on a dark page: decks keep their own mode whatever the app
+   theme of whoever looks at them. */
+@custom-variant dark (&:is(.dark *, [data-deck-mode="dark"] *):where(:not(:is(.dark, [data-deck-mode="dark"]) [data-deck-mode="light"] *)));
 
 /* ─────────────────────────────────────────────────────────────────────────
    Open Poll design foundation: "Graph paper"

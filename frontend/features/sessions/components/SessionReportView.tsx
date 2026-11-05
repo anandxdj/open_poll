@@ -174,6 +174,7 @@ export function ReportContent({ report }: { report: SessionReport }) {
               answeredCount={slide.answeredCount}
               distribution={slide.distribution}
               participants={participants}
+              theme={report.theme}
             />
           ))
         )}
