@@ -89,8 +89,8 @@ describe("SETTINGS_SECTIONS", () => {
     for (const s of SETTINGS_SECTIONS) expect(s.href).toBe(`/settings/${s.id}`);
   });
 
-  test("ships the profile, MCP, privacy, workspace, members, brand, billing and audit pages", () => {
-    expect(SETTINGS_SECTIONS.filter((s) => s.ready).map((s) => s.id)).toEqual(["profile", "mcp", "privacy", "workspace", "members", "brand", "billing", "audit"]);
+  test("ships every page but custom domains", () => {
+    expect(SETTINGS_SECTIONS.filter((s) => s.ready).map((s) => s.id)).toEqual(["profile", "mcp", "privacy", "workspace", "members", "brand", "billing", "sso", "scim", "audit"]);
   });
 });
 
@@ -138,7 +138,7 @@ describe("resolveSection", () => {
   });
 
   test("and last whether the page has shipped", () => {
-    for (const id of ["sso", "scim", "domains"] as const) {
+    for (const id of ["domains"] as const) {
       expect(resolveSection(section(id), { capabilities: everything, workspace: workspace() })).toEqual({
         available: false,
         reason: "Coming soon.",

@@ -4,6 +4,7 @@ import { ApiError } from '../../common/utils/ApiError';
 import { env } from '../../common/config/env';
 import { resetUnverifiedAccount, startSession } from './auth.service';
 import { identityFilter, linkedIdentity, linkIdentity } from './identities';
+import { assertSsoNotRequired } from '../sso/requireSso';
 
 export interface OidcTransaction {
   codeVerifier: string;
@@ -96,6 +97,7 @@ export class OidcService {
     // authorizationCodeGrant validates the RS256 signature using provider JWKS,
     // plus iss, aud, exp, iat, and nonce.
     const user = await OidcService.findOrLinkUser(tokens.claims() ?? {});
+    await assertSsoNotRequired(user);
 
     const { accessToken, refreshToken, restored } = await startSession(user);
 

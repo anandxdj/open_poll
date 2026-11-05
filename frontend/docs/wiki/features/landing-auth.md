@@ -67,7 +67,10 @@ the old 6. Playwright's `getByLabel("Password")` matches the toggle too, so spec
 The landing header's "Log in" goes to `/login` (the SSO button is on that page); it used to start the
 SSO redirect directly. `/login?deleted=<date>` (after deleting an account) shows a note above the form
 saying when the account goes; a sign-in that cancels a pending deletion (`restored` in the response)
-toasts "Welcome back. Your account will not be deleted."
+toasts "Welcome back. Your account will not be deleted." "Continue with SSO" opens a work-email field
+(`features/sso/components/SsoDiscovery.tsx`): a workspace connection for the email's verified domain wins,
+else the deployment-wide OIDC sign-in as before. `?error=sso_*` codes from workspace SSO have their own
+messages in `LoginForm`.
 
 ## Tests
 

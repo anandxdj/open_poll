@@ -21,9 +21,9 @@ import privacyRouter from '../modules/privacy/privacy.route';
 import qnaRouter, { qnaHostRouter } from '../modules/qna/qna.route';
 import remoteRouter from '../modules/remote/remote.route';
 import responsesRouter from '../modules/responses/responses.route';
-import scimRouter from '../modules/scim/scim.route';
+import scimRouter, { scimAdminRouter } from '../modules/scim/scim.route';
 import sessionsRouter, { publicResultsRouter } from '../modules/sessions/sessions.route';
-import ssoRouter, { samlAcsRouter } from '../modules/sso/sso.route';
+import ssoRouter, { samlAcsRouter, ssoAdminRouter } from '../modules/sso/sso.route';
 import templatesRouter from '../modules/templates/templates.route';
 import themesRouter, { brandKitsRouter } from '../modules/themes/themes.route';
 import uploadsRouter from '../modules/uploads/uploads.route';
@@ -50,6 +50,8 @@ const MOUNTS: readonly Mount[] = [
   ['/api/workspaces/:workspaceId/domains', domainsRouter],
   ['/api/workspaces/:workspaceId/invites', workspaceInvitesRouter],
   ['/api/workspaces/:workspaceId/members', membersRouter],
+  ['/api/workspaces/:workspaceId/scim', scimAdminRouter],
+  ['/api/workspaces/:workspaceId/sso', ssoAdminRouter],
 
   ['/api/auth', authRouter],
   ['/api/polls', pollsRouter],

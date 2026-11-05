@@ -56,6 +56,5 @@ describeIntegration('integration harness', () => {
 
   it('answers stub module mounts with 404 until their package lands', async () => {
     expect((await server.request('/api/templates', { headers: owner.headers })).status).toBe(404);
-    expect((await server.request('/scim/v2/Users')).status).toBe(404);
   });
 });

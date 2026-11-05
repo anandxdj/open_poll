@@ -51,7 +51,7 @@ const ALLOWED: readonly Allowed[] = [
   { path: '/api/oembed', reason: 'public oEmbed discovery of published embeds', planned: true },
   { path: '/api/public/*', reason: 'public by design: shared results by token, domain resolution for TLS' },
   { path: '/api/billing/webhook', reason: 'Stripe webhook, authenticated by signature' },
-  { path: '/api/sso/*', reason: 'pre-sign-in SSO flow (discover, login redirect, ACS, metadata, callback)', planned: true },
+  { path: '/api/sso/*', reason: 'pre-sign-in SSO flow (discover, login redirect, ACS, metadata, callback)' },
 
   // Credentials of their own.
   { path: '/api/me/*', reason: 'the signed-in user’s own account (privacy page, data export, re-auth); content only from workspaces they still belong to' },

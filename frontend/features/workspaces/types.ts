@@ -95,6 +95,8 @@ export interface WorkspaceUpdate {
   name?: string;
   settings?: {
     retentionDays?: number | null;
+    /** Sign-ins for verified SSO domains must use SSO (W3-D). */
+    requireSso?: boolean;
     /** Theme new decks start with (W3-A); null = the built-in look. */
     defaultTheme?: { presetId: string; brandKitId: string | null } | null;
   };

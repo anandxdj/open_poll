@@ -1,4 +1,5 @@
-import { getEntitlements, assertLimit, type Entitlements } from '../../common/plans/entitlements';
+import { getEntitlements, assertFeature, assertLimit, type Entitlements } from '../../common/plans/entitlements';
+import { canRequireSso } from '../sso/requireSso';
 import type { PlanId } from '../../common/plans/plans';
 import { assertCan } from '../../common/tenancy/policy';
 import { ACTIONS, roleAllows, type Action, type WorkspaceRole } from '../../common/tenancy/roles';
@@ -187,6 +188,21 @@ export class WorkspaceService {
     if (retentionDays !== undefined) {
       if (retentionDays !== null) assertLimit(actor.workspace, 'retentionDays', retentionDays);
       $set['settings.retentionDays'] = retentionDays;
+    }
+    const requireSso = input.settings?.requireSso;
+    if (requireSso !== undefined) {
+      assertCan(actor, 'workspace:sso');
+      if (requireSso) {
+        assertFeature(actor.workspace, 'sso');
+        if (!(await canRequireSso(actor.workspace._id))) {
+          throw new ApiError(
+            400,
+            'Turn on a single sign-on connection with a verified domain and a passed test sign-in first',
+            'SSO_NOT_READY',
+          );
+        }
+      }
+      $set['settings.requireSso'] = requireSso;
     }
     const defaultTheme = input.settings?.defaultTheme;
     if (defaultTheme !== undefined) {

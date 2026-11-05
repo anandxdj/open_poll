@@ -171,11 +171,11 @@ the rest.
 | --- | --- | --- |
 | `export_xlsx`, `export_pdf` (CSV stays free) | session/poll export routes | W2-C |
 | `brand_kits` | every `/api/brand-kits` route; applying a kit to a deck or the workspace default | W3-A (done) |
-| `sso`, `scim` | SSO connection and SCIM token management (not the login itself) | W3-D |
+| `sso`, `scim` | SSO connection and SCIM token management, `requireSso`, SCIM requests (not the login itself) | W3-D (done) |
 | `custom_domains`, `white_label` | domain routes; removing "Powered by Open Poll" | W4-E |
 | `consumeUsage(ws, 'ai_deck')` | `POST /api/ai/generate-deck` | W3-F |
 | `consumeUsage(ws, 'import')` | `POST /api/imports` | W3-E |
-| `assertLimit(ws, 'seats', n)` | invites, SCIM/SSO JIT (or rely on seat sync for JIT) | W3-B1, W3-D |
+| `assertLimit(ws, 'seats', n)` | invites, SCIM user create/reactivate, SSO JIT | W3-B1, W3-D (done) |
 | `assertLimit(ws, 'retentionDays', d)` | `WorkspaceService.update`; sessions are purged at `retainUntil` by `privacy-retention-purge` | W4-C (done) |
 
 Already enforced: `audienceCap` in live sessions (W1-A1) and on poll responses (here),

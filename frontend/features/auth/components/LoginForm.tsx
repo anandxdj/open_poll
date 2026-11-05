@@ -12,7 +12,9 @@ import { AuthDivider, AuthField, AuthSubmit, PasswordField, authSecondaryClass }
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import axios from "@/lib/api-client";
 import { toast } from "sonner";
-import { getAuthLoginUrl, getGoogleAuthUrl } from "@/lib/env";
+import { getGoogleAuthUrl } from "@/lib/env";
+import { SsoDiscovery, ssoLoginUrl } from "@/features/sso/components/SsoDiscovery";
+import { discoverSso } from "@/features/sso/api/sso.api";
 import { takeInviteRedirect } from "@/features/workspaces/invites/pendingInvite";
 
 const GoogleIcon = (props: JSX.IntrinsicAttributes & SVGProps<SVGSVGElement>) => (
@@ -26,6 +28,12 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   sso_unavailable: "Single sign-on is unavailable right now. Please try again later.",
   sso_expired: "Your sign-in session expired. Please try again.",
   sso_failed: "Single sign-on failed. Please try again.",
+  sso_required: "Your organization signs in with single sign-on. Use Continue with SSO.",
+  sso_domain: "Your identity provider sent an email outside your organization's verified domains.",
+  sso_no_account: "There is no account for you in this workspace yet. Ask an admin to add you.",
+  sso_suspended: "Your access to this workspace was turned off. Ask an admin.",
+  sso_seats: "The workspace has no free seat. Ask an admin.",
+  sso_disabled: "Single sign-on is off for this workspace.",
   google_unavailable: "Google sign-in is unavailable right now.",
   google_failed: "Google sign-in failed. Please try again.",
 };
@@ -73,6 +81,12 @@ export function LoginForm() {
       // Back to an invitation the user opened before signing in, else the dashboard.
       router.push(takeInviteRedirect(searchParams.get("next")) ?? "/polls");
     } catch (err) {
+      // The organization requires single sign-on: go there with the email filled in.
+      if (isAxiosError(err) && err.response?.data?.code === "SSO_REQUIRED") {
+        toast.message("Your organization signs in with single sign-on.");
+        const found = await discoverSso(email);
+        if (found) return window.location.assign(ssoLoginUrl(found.loginUrl, email));
+      }
       const message = isAxiosError(err) ? err.response?.data?.message : undefined;
       toast.error(message || "Login failed. Please try again.");
     } finally {
@@ -143,12 +157,7 @@ export function LoginForm() {
             Continue with Google
           </a>
         </Button>
-        <Button asChild variant="outline" className={authSecondaryClass}>
-          <a href={getAuthLoginUrl()}>
-            <SSOIcon className="size-4" aria-hidden={true} />
-            Continue with SSO
-          </a>
-        </Button>
+        <SsoDiscovery email={email} Icon={SSOIcon} />
       </div>
     </AuthShell>
   );
