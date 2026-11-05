@@ -5,6 +5,7 @@ import imports from "@/messages/en/imports.json";
 import live from "@/messages/en/live.json";
 import presenter from "@/messages/en/presenter.json";
 import qna from "@/messages/en/qna.json";
+import remote from "@/messages/en/remote.json";
 import sessions from "@/messages/en/sessions.json";
 import slidesAdvanced from "@/messages/en/slides-advanced.json";
 
@@ -20,6 +21,7 @@ export const enMessages = {
   live,
   presenter,
   qna,
+  remote,
   sessions,
   slidesAdvanced,
 };
