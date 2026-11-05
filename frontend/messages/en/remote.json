@@ -33,5 +33,10 @@
   "noNotes": "No notes for this slide.",
   "upNext": "Up next",
   "commandFailed": "That did not work: {message}",
-  "commandUnavailable": "The session did not answer. Try again."
+  "commandUnavailable": "The session did not answer. Try again.",
+  "statusLabel": "Session status",
+  "timerLabel": "Time left",
+  "meta": {
+    "title": "Phone remote"
+  }
 }

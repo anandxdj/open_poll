@@ -6,7 +6,9 @@
     "submit": "Join",
     "invalidCode": "Enter the 6-digit code from your host.",
     "notFound": "No live deck with that code.",
-    "poweredBy": "Powered by Open Poll"
+    "poweredBy": "Powered by Open Poll",
+    "codeLabel": "Join code",
+    "checking": "Checking the code…"
   },
   "participant": {
     "notFoundTitle": "Presentation Deck Not Found",
@@ -65,7 +67,10 @@
     "pausedHint": "The presenter paused the timer. You can send your answer when it resumes.",
     "nicknameOptionalPlaceholder": "Nickname (optional)",
     "nicknameOptionalPrompt": "Add a nickname, or join as a guest.",
-    "nicknameOffPrompt": "You join as a guest."
+    "nicknameOffPrompt": "You join as a guest.",
+    "sectionsNav": "Sections",
+    "sending": "Sending your answer…",
+    "joining": "Joining…"
   },
   "leaderboard": {
     "title": "Leaderboard",
@@ -77,36 +82,52 @@
   "timer": {
     "timeLeft": "Time left",
     "seconds": "{seconds}s",
-    "paused": "Paused"
+    "paused": "Paused",
+    "pausedLabel": "Time left, paused",
+    "milestone": "{seconds} seconds left",
+    "pausedAnnouncement": "The timer is paused, {seconds} seconds left",
+    "resumedAnnouncement": "The timer runs again, {seconds} seconds left"
   },
   "slides": {
     "selectAnswer": {
       "selectAll": "Select all that apply",
-      "submit": "Submit Answer"
+      "submit": "Submit Answer",
+      "optionsLabel": "Answer options",
+      "multipleAllowed": "Multiple answers allowed",
+      "explanation": "Explanation"
     },
     "typeAnswer": {
       "placeholder": "Type your exact answer here…",
-      "submit": "Submit Answer"
+      "submit": "Submit Answer",
+      "inputLabel": "Your answer"
     },
     "openEnded": {
       "placeholder": "Share your thoughts or answer freely…",
-      "submit": "Submit Feedback"
+      "submit": "Submit Feedback",
+      "inputLabel": "Your answer"
     },
     "wordcloud": {
       "empty": "Add up to {max, plural, one {# word} other {# words}}",
       "placeholder": "Word {n} of {max}…",
       "add": "Add",
       "remove": "Remove {word}",
-      "submit": "Send Words"
+      "submit": "Send Words",
+      "inputLabel": "Word {n} of {max}",
+      "waiting": "Waiting for responses…"
     },
     "scales": {
       "minLabel": "Strongly Disagree",
       "maxLabel": "Strongly Agree",
-      "submit": "Submit Ratings"
+      "submit": "Submit Ratings",
+      "valueText": "{value} of {max} ({minLabel} 1, {maxLabel} {max})"
     },
     "ranking": {
       "hint": "Use arrows to order items from top (#1) to bottom",
-      "submit": "Submit Ranking"
+      "submit": "Submit Ranking",
+      "moveUp": "Move {item} up",
+      "moveDown": "Move {item} down",
+      "position": "Position {position}:",
+      "moved": "{item} is now number {position}"
     },
     "content": {
       "lookAtScreen": "Look at the screen",
@@ -127,6 +148,9 @@
       "scan": "Scan to join",
       "code": "Join code",
       "connected": "You're connected to this session."
+    },
+    "paragraph": {
+      "empty": "Paragraph"
     }
   },
   "audience": {
@@ -187,5 +211,31 @@
     "history": "Earlier attempts",
     "historyRow": "Attempt {number}: {percentage}%",
     "attemptOver": "That attempt is over. Reloading."
+  },
+  "meta": {
+    "sessionTitle": "Live session",
+    "sessionShareTitle": "Join the live session",
+    "sessionDescription": "Answer live polls, quizzes and Q&A from your phone. No account needed.",
+    "resultsTitle": "Your results"
+  },
+  "announce": {
+    "slide": "New slide, {current} of {total}",
+    "lockedIn": "Your answer is locked in. The result comes with the reveal.",
+    "received": "Your response was received.",
+    "queued": "No connection. Your answer is kept on this phone and sent when you are back online.",
+    "refusedTimeUp": "Your saved answer came in too late and did not count.",
+    "refusedClosed": "Voting ended before your saved answer came in, so it did not count.",
+    "refusedOther": "Your saved answer could not be delivered and did not count.",
+    "timeUp": "Time is up.",
+    "votingEnded": "Voting has ended.",
+    "correct": "Right answer, {points} points.",
+    "correctNoPoints": "Right answer.",
+    "wrong": "Wrong answer, no points.",
+    "rank": "You are number {rank} with {score} points.",
+    "answerSaved": "Your answer was saved.",
+    "answerLockedIn": "Your answer is locked in.",
+    "wrongAudience": "Wrong answer.",
+    "youAnswered": "You answered {answer}.",
+    "resultsShown": "The results are shown below."
   }
 }

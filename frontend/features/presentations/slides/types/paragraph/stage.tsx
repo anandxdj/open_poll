@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { ContentStage } from "../../content/ContentViews";
 import { MarkdownLite } from "../../content/markdown";
@@ -16,6 +17,7 @@ const bodySize = (length: number) =>
 
 /** Title and markdown-lite body, left-aligned for reading. */
 export function ParagraphStage({ slide, mode }: StageViewProps) {
+  const t = useTranslations("live.slides.paragraph");
   const { title, body } = readParagraph(slide.content);
   return (
     <ContentStage mode={mode} className="space-y-[3cqw] text-left">
@@ -36,11 +38,11 @@ export function ParagraphStage({ slide, mode }: StageViewProps) {
           classes={{
             strong: "font-bold text-deck-stage-fg",
             em: "italic",
-            link: "text-deck-accent underline decoration-deck-accent/40 underline-offset-4",
+            link: "text-deck-accent-soft underline decoration-deck-accent/60 underline-offset-4",
           }}
         />
       ) : (
-        <p className="text-[clamp(1.1rem,3.2cqw,2rem)] text-deck-stage-fg/30">Paragraph</p>
+        <p className="text-[clamp(1.1rem,3.2cqw,2rem)] text-deck-stage-muted">{t("empty")}</p>
       )}
     </ContentStage>
   );
