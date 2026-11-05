@@ -6,11 +6,13 @@ import { toast } from "sonner";
 
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/api-error";
 import {
+  closeAudience,
   closeVoting,
   endSession,
   getHostState,
   gotoSlide,
   kickParticipant,
+  openAudience,
   openLobby,
   reopenVoting,
   revealResults,
@@ -29,7 +31,28 @@ const HOST_AUTH: LiveSocketAuth = { role: "host" };
 
 /** Resyncs triggered by the stream itself (gaps, tab focus) run at most this often. */
 const RESYNC_MIN_INTERVAL_MS = 1_000;
-type CommandName = "start" | "openLobby" | "goto" | "close" | "reopen" | "reveal" | "end" | "timer" | "skip";
+type CommandName =
+  | "start"
+  | "openLobby"
+  | "goto"
+  | "close"
+  | "reopen"
+  | "reveal"
+  | "end"
+  | "timer"
+  | "skip"
+  | "openAudience"
+  | "closeAudience";
+
+/** Audience pace (W2-F): events after which the dashboard re-reads host state (progress, completions). */
+const AUDIENCE_REFRESH_ON = new Set([
+  "answer:received",
+  "participant:joined",
+  "participant:kicked",
+  "audience:progress",
+  "audience:opened",
+  "audience:closed",
+]);
 
 /**
  * Host-side session driver. On mount it only **reads** `GET /:id/host/state`
@@ -130,6 +153,8 @@ export function useHostSession(presentationId: string) {
     // stage needs to draw its option columns, word cloud and scales from the start.
     onEvent: (event) => {
       if (event.type === "question:started" || event.type === "slide:closed") void refresh();
+      // Audience pace: per-participant progress is not in the events; re-read (at most once a second).
+      else if (AUDIENCE_REFRESH_ON.has(event.type) && store.getState().deck?.pace === "audience") requestRefresh("gap");
     },
     onResync: requestRefresh,
     // A session this console does not follow: started from another window, or
@@ -244,6 +269,25 @@ export function useHostSession(presentationId: string) {
     [presentationId, store, t, refresh]
   );
 
+  // ---------- audience pace (W2-F) ----------
+
+  /** Opens every slide at once: `closesAt` an ISO time, null for none, omitted for the deck's default. */
+  const openAudienceNow = useCallback(
+    async (closesAt?: string | null) => {
+      const response = await run("openAudience", () => openAudience(presentationId, closesAt));
+      if (response) void refresh();
+      return response;
+    },
+    [run, presentationId, refresh]
+  );
+
+  /** Stops answers on every slide (callers confirm first, in the app's own dialog). */
+  const closeAudienceNow = useCallback(async () => {
+    const response = await run("closeAudience", () => closeAudience(presentationId));
+    if (response) void refresh();
+    return response;
+  }, [run, presentationId, refresh]);
+
   // Callers confirm first (EndSessionDialog): native confirm() is suppressed in embedded browsers.
   const end = useCallback(async () => {
     const response = await run("end", () => endSession(presentationId));
@@ -291,6 +335,9 @@ export function useHostSession(presentationId: string) {
     extendTimer,
     skip,
     kick,
+    openAudience: openAudienceNow,
+    closeAudience: closeAudienceNow,
+    refresh,
   };
 }
 

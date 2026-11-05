@@ -27,6 +27,8 @@ import { EndSessionDialog } from "@/features/presentations/components/host/EndSe
 import { TemplateScreen } from "@/features/presentations/components/host/TemplateScreen";
 import { useHostSession } from "@/features/presentations/components/host/useHostSession";
 import { useJoinLink } from "@/features/presentations/components/host/useJoinLink";
+import { AudienceDashboard } from "@/features/presentations/components/host/AudienceDashboard";
+import { useAudiencePaced } from "@/features/presentations/components/host/useAudiencePaced";
 import { Stage } from "@/features/presentations/components/stage/Stage";
 import { SlotOutlet } from "@/features/presentations/live/slots";
 import { createLiveStore, LiveStoreProvider, useLive, useLiveStore } from "@/features/presentations/live/store";
@@ -88,6 +90,7 @@ function PresenterView({ presentationId }: { presentationId: string }) {
   const hasDeck = useLive((s) => s.deck !== null);
   const isTemplate = useLive((s) => s.deck?.isTemplate === true);
   const participantCount = useLive((s) => s.participants.length);
+  const audiencePaced = useAudiencePaced();
   const join = useJoinLink(joinCode);
   const isLive = status === "lobby" || status === "active";
   const showReconnecting = useAfterDelay(isLive && !connected, 1500);
@@ -123,7 +126,7 @@ function PresenterView({ presentationId }: { presentationId: string }) {
   const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
     const target = e.target;
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
-    if (confirmingEnd || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (confirmingEnd || audiencePaced || e.ctrlKey || e.metaKey || e.altKey) return;
     if (document.querySelector('[role="alertdialog"]')) return;
     if (status === "active" && (e.key === "ArrowRight" || e.key === "PageDown")) void session.next();
     else if (status === "active" && (e.key === "ArrowLeft" || e.key === "PageUp")) void session.previous();
@@ -218,6 +221,10 @@ function PresenterView({ presentationId }: { presentationId: string }) {
         </div>
       )}
 
+      {audiencePaced ? (
+        // Audience pace (W2-F): every slide is open at once; the dashboard replaces stage, notes and controls.
+        <AudienceDashboard presentationId={presentationId} session={session} />
+      ) : (
       <div className="grid min-h-0 flex-1 gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-h-0 flex-col gap-3">
           <h2 className="sr-only">{t("console.currentSlide")}</h2>
@@ -304,8 +311,11 @@ function PresenterView({ presentationId }: { presentationId: string }) {
           <SlotOutlet name="presenterPanels" props={{ presentationId }} />
         </aside>
       </div>
+      )}
 
-      <EndSessionDialog open={confirmingEnd} onOpenChange={setConfirmingEnd} onConfirm={() => void session.end()} />
+      {!audiencePaced && (
+        <EndSessionDialog open={confirmingEnd} onOpenChange={setConfirmingEnd} onConfirm={() => void session.end()} />
+      )}
     </div>
   );
 }

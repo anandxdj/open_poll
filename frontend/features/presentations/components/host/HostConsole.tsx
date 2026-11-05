@@ -19,6 +19,8 @@ import { LeaderboardModal } from "./LeaderboardModal";
 import { useHostSession } from "./useHostSession";
 import { TemplateScreen } from "./TemplateScreen";
 import { useJoinLink } from "./useJoinLink";
+import { AudienceDashboard } from "./AudienceDashboard";
+import { useAudiencePaced } from "./useAudiencePaced";
 
 const primaryButton =
   "rounded-full bg-deck-accent font-semibold text-deck-stage-ink transition-colors hover:bg-deck-accent-soft";
@@ -47,6 +49,7 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
   const joinCode = useLive((s) => s.joinCode);
   const hasDeck = useLive((s) => s.deck !== null);
   const isTemplate = useLive((s) => s.deck?.isTemplate === true);
+  const audiencePaced = useAudiencePaced();
   const join = useJoinLink(joinCode);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -72,7 +75,7 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
   // Arrow keys / PageUp/PageDown move between slides (both ways), F toggles fullscreen.
   const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    if (confirmingEnd) return;
+    if (confirmingEnd || audiencePaced) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === "ArrowRight" || e.key === "PageDown") {
       void session.next();
@@ -114,6 +117,30 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
   // A workspace template (W3-B2) opened by a direct link: the API refuses to present it
   // (TEMPLATE_NOT_PRESENTABLE), so the console offers a deck made from it instead.
   if (isTemplate) return <TemplateScreen presentationId={presentationId} />;
+
+  // Audience pace (W2-F): no stage and no current slide; the dashboard runs the session.
+  if (audiencePaced) {
+    return (
+      <div className="flex h-screen flex-col overflow-hidden bg-deck-stage-bg font-sans text-deck-stage-fg">
+        <HostHeader
+          presentationId={presentationId}
+          copiedUrl={join.copiedUrl}
+          onCopyUrl={join.copyUrl}
+          showLeaderboard={showLeaderboard}
+          onToggleLeaderboard={() => setShowLeaderboard((prev) => !prev)}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
+        />
+        {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} />}
+        {showReconnecting && (
+          <div className="flex shrink-0 items-center justify-center gap-2 border-b border-deck-danger/20 bg-deck-danger/10 px-4 py-1.5 text-xs font-semibold text-deck-danger-soft">
+            <Radio className="size-3 animate-pulse" /> {t("connection.reconnecting")}
+          </div>
+        )}
+        <AudienceDashboard presentationId={presentationId} session={session} />
+      </div>
+    );
+  }
 
   const openLobbyButton = (variant: "outline" | "default" = "outline") => (
     <Button
