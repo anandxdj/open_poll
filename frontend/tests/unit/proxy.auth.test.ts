@@ -17,7 +17,7 @@ describe("token refresh scope", () => {
 
 describe("auth proxy step", () => {
   test("app pages are protected, participant and public pages are not", () => {
-    for (const path of ["/home", "/polls", "/create", "/settings/profile", "/analytics", "/presentation/create", "/presentation/host/abc", "/presentations/abc/sessions"]) {
+    for (const path of ["/home", "/polls", "/create", "/settings/profile", "/analytics", "/presentation/create", "/presentation/host/abc", "/presentations/abc/sessions", "/templates"]) {
       expect(isProtectedRoute(path), path).toBe(true);
     }
     for (const path of ["/", "/login", "/signup", "/live", "/live/123456", "/p/abc", "/r/token", "/privacy", "/invites/token"]) {

@@ -13,6 +13,8 @@ interface LibraryCardBase {
   id: string;
   title: string;
   status: LibraryStatus;
+  /** The library folder it is filed in (`features/library/folders.ts`), null at the top level. */
+  folderId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -60,9 +62,13 @@ export interface LibraryPage {
   counts?: LibraryCounts;
 }
 
+/** Folder filter: everything, items outside any folder (`root`), or one folder's id. */
+export type LibraryFolderFilter = "all" | "root" | (string & {});
+
 /** What the library page filters on (kept in the URL). */
 export interface LibraryFilters {
   type: LibraryType;
   status: LibraryStatus | "all";
   q: string;
+  folder: LibraryFolderFilter;
 }
