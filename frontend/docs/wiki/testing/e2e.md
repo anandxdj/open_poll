@@ -22,7 +22,16 @@ Unit tests are separate: `bun run test` (`bun test tests/unit`, no services).
 | Service | Command | Default |
 | --- | --- | --- |
 | Backend | `bun scripts/migrate.ts && bun src/app.ts` in `../backend` | `http://localhost:5103`, ready at `/ready` |
-| Frontend | `bun x next dev --port 3103` | `http://localhost:3103` |
+| Frontend | `bun x next dev --port 3103`, or `bun x next start --port 3103` with `E2E_FRONTEND_MODE=start` (serves an existing `next build`, built with the `NEXT_PUBLIC_*` the config passes) | `http://localhost:3103` |
+
+**CI runs the production build** (`.github/workflows/ci.yml`: `next build`, then the suite with
+`E2E_FRONTEND_MODE=start`). The dev server compiles every route on first visit and keeps it: the
+suite's processes peaked at ~4.7 GB in dev mode against ~1.4 GB with `next start` (measured with
+the whole suite under a no-swap memory cap: dev mode was OOM-killed at 4 GB, start mode passed).
+On a small runner, next to the Mongo and Redis containers, that pressure made the kernel kill a
+Chromium renderer: `Page crashed` in `presenter.spec.ts` (on main and on PRs, before and after
+the embeds specs existed). To run as CI does: `next build` with `NEXT_PUBLIC_API_URL` and
+`NEXT_PUBLIC_SOCKET_URL` set to the backend origin, then `CI=1 E2E_FRONTEND_MODE=start bun x playwright test`.
 
 Against dedicated test containers — never the dev Mongo/Redis on 27017/6379:
 Mongo `mongodb://127.0.0.1:27117/openpoll_w0c1?directConnection=true`, Redis

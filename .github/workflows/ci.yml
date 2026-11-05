@@ -234,8 +234,25 @@ jobs:
         working-directory: frontend
         run: bun x playwright install --with-deps chromium
 
+      # The suite runs against a production build (`next start`, E2E_FRONTEND_MODE=start), not
+      # `next dev`: the dev server compiles every route on first visit and holds it, which took
+      # the job's processes to ~4.7 GB, next to Mongo and Redis on a small runner; Chromium
+      # renderers are the first thing the kernel kills under memory pressure ("Page crashed",
+      # presenter.spec on main and on PRs). A production build peaks at ~1.4 GB and is what
+      # users get. NEXT_PUBLIC_* are inlined at build time, so they match playwright.config.ts.
+      - name: Build the frontend for the e2e run
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:5103
+          NEXT_PUBLIC_SOCKET_URL: http://localhost:5103
+          NEXT_PUBLIC_SALES_EMAIL: ""
+          NEXT_PUBLIC_STORAGE_PUBLIC_URL: ""
+        run: bun x next build
+
       - name: E2E tests
         working-directory: frontend
+        env:
+          E2E_FRONTEND_MODE: start
         run: bun run test:e2e
 
       - name: Upload Playwright report
