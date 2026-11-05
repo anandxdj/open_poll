@@ -10,6 +10,7 @@ import { k } from './keys';
 import { lifecycleOf, slideIdOf, type StoredAnswerResult } from './state';
 import { visitedSlides } from './views';
 import { parseAttemptState } from './attempts';
+import { dropAnswersOfDeletedSessions, existingSessionIds } from './writeBehind';
 
 /**
  * End-of-session reconciliation and snapshot. Answers reach Redis first and
@@ -61,9 +62,14 @@ export const attemptFilter = (attempt: number) => (attempt === 1 ? { attempt: { 
  * Returns how many were added.
  */
 export const reconcileAnswers = async (session: IPresentationSession): Promise<number> => {
+  const sid = String(session._id);
+  // A session deleted meanwhile (its delete may race the end of the session) gets nothing back.
+  if (!(await existingSessionIds([sid])).has(sid)) return 0;
   const attempts = await highestAttempt(session);
   let added = 0;
   for (let attempt = 1; attempt <= attempts; attempt += 1) added += await reconcileAttempt(session, attempt);
+  // Deleted while we inserted: take the answers out again (the purge deletes the session first).
+  if (added > 0 && !(await dropAnswersOfDeletedSessions([sid])).has(sid)) return 0;
   return added;
 };
 

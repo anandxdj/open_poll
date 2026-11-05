@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, expect, it } from 'bun:test';
+import { afterAll, beforeAll, beforeEach, expect, it, spyOn } from 'bun:test';
 import ExcelJS from 'exceljs';
 import mongoose from 'mongoose';
 import Papa from 'papaparse';
@@ -10,6 +10,10 @@ import {
   PresentationSessionModel,
 } from '../../src/modules/presentations/presentations.model';
 import { WorkspaceModel } from '../../src/modules/workspaces/workspace.model';
+import { k } from '../../src/modules/presentations/live/keys';
+import { reconcileAnswers } from '../../src/modules/presentations/live/snapshot';
+import { flushWriteBehind, writeAnswerBatch, type PendingAnswer } from '../../src/modules/presentations/live/writeBehind';
+import { purgeSessionData } from '../../src/modules/sessions/sessions.service';
 import { WorkspaceMemberModel } from '../../src/modules/workspaces/workspaceMember.model';
 import { createVerifiedUser, type TestUser } from './fixtures';
 import { describeIntegration, resetTestData, startTestServer, type TestServer } from './harness';
@@ -571,6 +575,86 @@ describeIntegration('session reports, exports, sharing and take-home', () => {
     expect(event).toMatchObject({ targetType: 'session', targetId: doomed.sessionId });
     expect(event!.meta).toMatchObject({ runNumber: 2, participants: 2 });
   });
+
+  it('never writes answers back into a deleted session (write-behind and reconciliation racing the delete)', async () => {
+    const deck = await createDeck();
+    const doomed = await runSession(deck._id, ['Ada', 'Grace']);
+    await flushWriteBehind();
+    const doomedId = new mongoose.Types.ObjectId(doomed.sessionId);
+    const session = (await PresentationSessionModel.findById(doomedId))!;
+    const stored = await PresentationAnswerModel.find({ sessionId: doomedId }).lean();
+    expect(stored.length).toBeGreaterThan(0);
+    const [first] = stored;
+    // An accepted answer still waiting for the write-behind (another instance, or a slow batch).
+    const pending: PendingAnswer = {
+      presentationId: deck._id,
+      sessionId: doomed.sessionId,
+      participantId: String(first!.participantId),
+      slideId: String(first!.slideId),
+      slideIndex: first!.slideIndex,
+      optionIndex: first!.optionIndex ?? null,
+      text: first!.text ?? null,
+      payload: first!.payload ?? null,
+      isCorrect: first!.isCorrect,
+      score: first!.score,
+      timeMs: first!.timeMs,
+      clientAnswerId: 'late-batch',
+      via: 'rest',
+    };
+    const storedResult = JSON.stringify({ ...pending, answeredAt: new Date().toISOString(), scored: true });
+    const reseedRedis = () => redisClient.hSet(k.results(doomed.sessionId, pending.slideId), pending.participantId, storedResult);
+
+    // 1. The session is deleted; then the batch lands, and an end-of-session reconciliation runs
+    //    with Redis answer state still around (seeded again: another instance's view).
+    expect((await api('DELETE', `/api/sessions/${doomed.sessionId}`)).status).toBe(200);
+    expect(await PresentationAnswerModel.countDocuments({ sessionId: doomedId })).toBe(0);
+    await writeAnswerBatch([pending]);
+    await reseedRedis();
+    expect(await reconcileAnswers(session)).toBe(0);
+    expect(await PresentationAnswerModel.countDocuments({ sessionId: doomedId })).toBe(0);
+    await redisClient.del(k.results(doomed.sessionId, pending.slideId));
+
+    // 2. The delete lands in the middle of a batch: after its "session still there?" check, before the insert.
+    const racing = await runSession(deck._id, ['Linus']);
+    await flushWriteBehind();
+    const racingId = new mongoose.Types.ObjectId(racing.sessionId);
+    const racingSession = (await PresentationSessionModel.findById(racingId))!;
+    const racingAnswer = (await PresentationAnswerModel.findOne({ sessionId: racingId }).lean())!;
+    const insertMany = PresentationAnswerModel.insertMany.bind(PresentationAnswerModel);
+    const spy = spyOn(PresentationAnswerModel, 'insertMany').mockImplementation((async (docs: unknown, options: unknown) => {
+      spy.mockRestore();
+      await purgeSessionData(racingSession);
+      return insertMany(docs as never, options as never);
+    }) as never);
+    try {
+      await writeAnswerBatch([
+        { ...pending, sessionId: racing.sessionId, participantId: String(racingAnswer.participantId), slideId: String(racingAnswer.slideId), slideIndex: racingAnswer.slideIndex },
+      ]);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(await PresentationSessionModel.countDocuments({ _id: racingId })).toBe(0);
+    expect(await PresentationAnswerModel.countDocuments({ sessionId: racingId })).toBe(0);
+
+    // 3. The same in a reconciliation: the delete lands while it inserts the answers Redis still had.
+    const ending = await runSession(deck._id, ['Alan'], { end: false });
+    await flushWriteBehind();
+    const endingId = new mongoose.Types.ObjectId(ending.sessionId);
+    const endingSession = (await PresentationSessionModel.findById(endingId))!;
+    await PresentationAnswerModel.deleteMany({ sessionId: endingId }); // as if the write-behind lost them
+    const reconcileInsert = spyOn(PresentationAnswerModel, 'insertMany').mockImplementation((async (docs: unknown, options: unknown) => {
+      reconcileInsert.mockRestore();
+      await purgeSessionData(endingSession);
+      return insertMany(docs as never, options as never);
+    }) as never);
+    try {
+      // purgeSessionData clears Redis first, so the reconciliation inserts from what it already read.
+      expect(await reconcileAnswers(endingSession)).toBe(0);
+    } finally {
+      reconcileInsert.mockRestore();
+    }
+    expect(await PresentationAnswerModel.countDocuments({ sessionId: endingId })).toBe(0);
+  }, 60_000);
 
   it('isolates workspaces and enforces roles', async () => {
     const deck = await createDeck();

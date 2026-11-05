@@ -54,14 +54,19 @@ let HOST_SITE = "";
 test.beforeAll(async () => {
   hostServer = createServer((req, res) => {
     const body = hostPages.get((req.url ?? "/").split("?")[0]!);
-    res.writeHead(body ? 200 : 404, { "Content-Type": "text/html; charset=utf-8" });
+    // No keep-alive: nothing of the host site outlives the request that loaded it.
+    res.writeHead(body ? 200 : 404, { "Content-Type": "text/html; charset=utf-8", Connection: "close" });
     res.end(body ?? "not found");
   });
   await new Promise<void>((resolve) => hostServer.listen(0, "127.0.0.1", resolve));
   HOST_SITE = `http://127.0.0.1:${(hostServer.address() as AddressInfo).port}`;
 });
 
+// Every context a test opens is in the `contexts` fixture, which closes them after the test
+// (pages, iframes and their sockets with them). The host site stops with the file.
 test.afterAll(async () => {
+  hostPages.clear();
+  hostServer.closeAllConnections();
   await new Promise<void>((resolve) => hostServer.close(() => resolve()));
 });
 
