@@ -1,5 +1,6 @@
 import { PresentationAnswerModel, type AnswerChannel } from '../models/answer.model';
 import { PresentationParticipantModel } from '../models/participant.model';
+import { PresentationSessionModel } from '../models/session.model';
 
 /**
  * Durable copy of accepted answers. Redis is the source of truth while a
@@ -13,6 +14,11 @@ import { PresentationParticipantModel } from '../models/participant.model';
  * inserted to the participants — unless the session was already finalized
  * (`scoreFinalAt`): once the end-of-session reconciliation has recomputed
  * totals from the stored answers, a late increment would count twice.
+ *
+ * A batch never leaves answers behind for a session that was deleted
+ * (`sessions.service` `purgeSessionData`, deck deletion): answers of sessions
+ * already gone are dropped, and answers of a session deleted while the batch
+ * was written are taken out again (see `writeAnswerBatch`).
  */
 
 export interface PendingAnswer {
@@ -101,9 +107,47 @@ export const insertAnswerBatch = async (batch: PendingAnswer[]): Promise<Pending
   }
 };
 
+/** Of the given session ids, those whose session document still exists. */
+export const existingSessionIds = async (sessionIds: Iterable<string>): Promise<Set<string>> => {
+  const ids = [...new Set(sessionIds)];
+  if (ids.length === 0) return new Set();
+  const rows = await PresentationSessionModel.find({ _id: { $in: ids } }).select('_id').lean();
+  return new Set(rows.map((row) => String(row._id)));
+};
+
+/**
+ * Deletes every stored answer of the sessions among `sessionIds` that no
+ * longer exist: an answer written while its session was being deleted.
+ * Returns the ids that still exist.
+ */
+export const dropAnswersOfDeletedSessions = async (sessionIds: Iterable<string>): Promise<Set<string>> => {
+  const ids = [...new Set(sessionIds)];
+  const existing = await existingSessionIds(ids);
+  const gone = ids.filter((id) => !existing.has(id));
+  if (gone.length > 0) await PresentationAnswerModel.deleteMany({ sessionId: { $in: gone } });
+  return existing;
+};
+
+/**
+ * Writes one batch: the answers of sessions that still exist, then their
+ * participants' points. Deleting a session removes its session document
+ * BEFORE its answers (`purgeSessionData`), so for every answer inserted here
+ * either the check after the insert sees the session gone (and deletes the
+ * answer again), or the session was deleted after that check — after the
+ * insert — and the purge's own delete of its answers takes it. No orphan
+ * either way, on any instance.
+ */
+export const writeAnswerBatch = async (batch: PendingAnswer[]) => {
+  const live = await existingSessionIds(batch.map((answer) => answer.sessionId));
+  const inserted = await insertAnswerBatch(batch.filter((answer) => live.has(answer.sessionId)));
+  if (inserted.length === 0) return;
+  const still = await dropAnswersOfDeletedSessions(inserted.map((answer) => answer.sessionId));
+  await applyParticipantIncrements(inserted.filter((answer) => still.has(answer.sessionId)));
+};
+
 const persistBatch = async (batch: PendingAnswer[]) => {
   try {
-    await applyParticipantIncrements(await insertAnswerBatch(batch));
+    await writeAnswerBatch(batch);
   } catch (error) {
     console.error('[Presentation] Answer write-behind failed:', error);
   }

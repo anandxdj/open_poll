@@ -440,12 +440,16 @@ export const deletePresentation = async (presentationId: string, actor: Actor) =
       )
     ),
   ];
+  // Redis state, then the sessions, then their answers: an answer the write-behind or a
+  // reconciliation stores meanwhile is dropped once its session is gone (see `purgeSessionData`).
+  await redisClient.del(keys).catch(() => {});
   await Promise.all([
     PresentationModel.findByIdAndDelete(presentationId),
     PresentationSessionModel.deleteMany({ presentationId }),
+  ]);
+  await Promise.all([
     PresentationParticipantModel.deleteMany({ presentationId }),
     PresentationAnswerModel.deleteMany({ presentationId }),
     ResourceShareModel.deleteMany({ resourceType: 'presentation', resourceId: presentationId }),
-    redisClient.del(keys).catch(() => {}),
   ]);
 };

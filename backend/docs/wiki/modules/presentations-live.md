@@ -284,6 +284,15 @@ the answers that were really inserted are added to their participants — unless
 final (`scoreFinalAt`, set by the end-of-session reconciliation). A failed batch is logged and
 dropped; reconciliation restores it from `results` at the end.
 
+**Deleted sessions** (`writeAnswerBatch`): a batch drops the answers of sessions whose document is gone,
+and after its insert checks again and deletes what it stored for a session deleted meanwhile
+(`dropAnswersOfDeletedSessions`). `reconcileAnswers` does the same (skip a deleted session; take its
+inserts out again). Because a delete removes the session document before its answers
+(`purgeSessionData`, deck deletion), every interleaving ends with no orphan answer, on any instance:
+either the check after the insert sees the session gone, or the delete's own answer delete runs after
+the insert. Test: `tests/integration/sessions.reports.test.ts` ("never writes answers back into a
+deleted session").
+
 ## Ending a session
 
 `end` (and `open-lobby` replacing a live session) closes the current slide and writes the snapshot:

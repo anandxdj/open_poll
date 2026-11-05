@@ -22,6 +22,7 @@ import {
   type StoredAnswerResult,
 } from '../presentations/live/state';
 import { buildSessionView, sessionListItem } from '../presentations/live/views';
+import { highestAttempt } from '../presentations/live/snapshot';
 import { flushWriteBehind } from '../presentations/live/writeBehind';
 import {
   SESSION_ERROR_CODES,
@@ -232,21 +233,41 @@ const deleteSessionScopedDocuments = async (sessionId: mongoose.Types.ObjectId) 
   await questions.deleteMany({ sessionId });
 };
 
+/** Every Redis key of a session, the answer state of audience-paced retries (W2-F) included. */
+const sessionRedisKeys = async (session: IPresentationSession) => {
+  const sid = String(session._id);
+  const slideIds = sessionSlides(session).map(slideIdOf);
+  const attempts = await highestAttempt(session).catch(() => 1);
+  const retries = slideIds.flatMap((slideId) =>
+    Array.from({ length: Math.max(0, attempts - 1) }, (_, i) => [
+      k.answeredInAttempt(sid, slideId, i + 2),
+      k.resultsInAttempt(sid, slideId, i + 2),
+    ]).flat()
+  );
+  return [...allSessionKeys(sid, slideIds), ...retries];
+};
+
 /**
  * Removes a session and everything stored for it: participants, answers, Q&A
  * and its Redis state. No access check: callers authorize (the delete route,
  * the retention job, account purge).
+ *
+ * Order matters, so no answer is written back afterwards (on any instance):
+ * 1. the Redis state, so nothing can rebuild answers from it (end-of-session
+ *    reconciliation reads `results`) or take new ones;
+ * 2. the session document: from here on the answer write-behind and
+ *    reconciliation store nothing for it, and take out what they stored while
+ *    it went (`writeAnswerBatch`, `reconcileAnswers`);
+ * 3. its participants, answers and Q&A.
  */
 export const purgeSessionData = async (session: IPresentationSession) => {
-  const sid = String(session._id);
+  await redisClient.del(await sessionRedisKeys(session)).catch(() => {});
+  await PresentationSessionModel.deleteOne({ _id: session._id });
   const [answers, participants] = await Promise.all([
     PresentationAnswerModel.deleteMany({ sessionId: session._id }),
     PresentationParticipantModel.deleteMany({ sessionId: session._id }),
   ]);
   await deleteSessionScopedDocuments(session._id);
-  await PresentationSessionModel.deleteOne({ _id: session._id });
-  const keys = allSessionKeys(sid, sessionSlides(session).map(slideIdOf));
-  await redisClient.del(keys).catch(() => {});
   return { participants: participants.deletedCount ?? 0, answers: answers.deletedCount ?? 0 };
 };
 
