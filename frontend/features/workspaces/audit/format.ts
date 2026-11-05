@@ -22,6 +22,8 @@ export const ACTION_LABELS: Record<string, string> = {
   "poll.convert": "Converted a poll to a deck",
   "poll.duplicate": "Duplicated a poll",
   "presentation.duplicate": "Duplicated a deck",
+  "embed.screen_token_create": "Created a screen link",
+  "embed.screen_token_revoke": "Turned off a screen link",
 };
 
 /** Groups offered as `prefix.*` filters. */

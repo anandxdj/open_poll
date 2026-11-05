@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { AiDeckBanner } from "@/features/ai/deck/AiDeckBanner";
+import { EmbedDialog } from "@/features/embeds/components/EmbedDialog";
+import { useCanEmbedDecks } from "@/features/embeds/useCanEmbed";
 import { ImportQuestionsDialog } from "@/features/imports";
 import { blankSlide } from "../slides/editor";
 import type { PresentationSlide, PresentationSlideType } from "../types/deck";
@@ -19,6 +21,8 @@ import { useDeckBuilder } from "./builder/useDeckBuilder";
 export function PresentationBuilder() {
   const builder = useDeckBuilder();
   const [importOpen, setImportOpen] = useState(false);
+  const [embedOpen, setEmbedOpen] = useState(false);
+  const canEmbed = useCanEmbedDecks();
 
   if (builder.loading) {
     return (
@@ -45,6 +49,7 @@ export function PresentationBuilder() {
               onSave={() => void builder.handleSave()}
               onSaveDraft={builder.handleSaveDraft}
               onPresent={() => void builder.handleSave("present")}
+              onEmbed={canEmbed ? () => setEmbedOpen(true) : undefined}
             />
             <AiDeckBanner />
           </>
@@ -83,6 +88,10 @@ export function PresentationBuilder() {
         isEditing={Boolean(builder.editId)}
         onDeckCreated={({ presentation, source }) => builder.handleDeckCreated(presentation, source)}
       />
+
+      {builder.editId && embedOpen ? (
+        <EmbedDialog open onOpenChange={setEmbedOpen} presentationId={builder.editId} title={builder.title} />
+      ) : null}
 
       <ImportQuestionsDialog
         open={importOpen}

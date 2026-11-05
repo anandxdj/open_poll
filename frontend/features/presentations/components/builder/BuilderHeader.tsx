@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Loader2, Play, Sparkles, Upload } from "lucide-react";
+import { ArrowLeft, Code2, Loader2, Play, Sparkles, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,8 @@ interface BuilderHeaderProps {
   onSaveDraft: () => void;
   /** Saves, then opens the host console. Only for a deck that exists (editing). */
   onPresent?: () => void;
+  /** Opens the Embed dialog (features/embeds). Only for a deck that exists. */
+  onEmbed?: () => void;
 }
 
 /**
@@ -40,6 +42,7 @@ export function BuilderHeader({
   onSave,
   onSaveDraft,
   onPresent,
+  onEmbed,
 }: BuilderHeaderProps) {
   const present = isEditing && onPresent;
   return (
@@ -74,6 +77,12 @@ export function BuilderHeader({
           <Button variant="ghost" onClick={onImportQuestions}>
             <Upload aria-hidden />
             Import questions
+          </Button>
+        ) : null}
+        {isEditing && onEmbed ? (
+          <Button variant="ghost" onClick={onEmbed}>
+            <Code2 aria-hidden />
+            Embed
           </Button>
         ) : null}
         <Button variant="ghost" onClick={() => onSaveDraft()} disabled={savingDraft || saving}>

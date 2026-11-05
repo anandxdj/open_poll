@@ -99,6 +99,8 @@ export interface WorkspaceUpdate {
     requireSso?: boolean;
     /** Theme new decks start with (W3-A); null = the built-in look. */
     defaultTheme?: { presetId: string; brandKitId: string | null } | null;
+    /** Sites that may frame this workspace's embeds (W4-D); empty = any site. */
+    embedAllowedOrigins?: string[];
   };
 }
 

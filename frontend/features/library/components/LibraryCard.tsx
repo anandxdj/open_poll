@@ -8,6 +8,7 @@ import {
   ArrowRightLeft,
   BarChart3,
   Check,
+  Code2,
   Copy,
   CopyPlus,
   ExternalLink,
@@ -45,6 +46,8 @@ import {
 import { slideTypeMeta } from "@/features/presentations/slides/meta";
 import { sessionsPath } from "@/features/sessions/query";
 import type { PresentationSlideType } from "@/features/presentations/types/deck";
+import { EmbedDialog } from "@/features/embeds/components/EmbedDialog";
+import { useCanEmbedDecks } from "@/features/embeds/useCanEmbed";
 import { ShareDialog } from "@/features/workspaces/sharing/components/ShareDialog";
 import { useCanShareDecks } from "@/features/workspaces/sharing/useCanShare";
 import { getApiErrorMessage } from "@/lib/api-error";
@@ -87,6 +90,8 @@ export function LibraryCard({ card, onRemoved, onChanged, onDuplicated }: Librar
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [embedOpen, setEmbedOpen] = useState(false);
+  const canEmbed = useCanEmbedDecks();
   const canShareDecks = useCanShareDecks();
   const isPoll = card.entityType === "poll";
   const noun = isPoll ? (card.details.pollType === "TRIAL" ? "assessment" : "poll") : "deck";
@@ -211,6 +216,11 @@ export function LibraryCard({ card, onRemoved, onChanged, onDuplicated }: Librar
                       <Users /> Share with team…
                     </DropdownMenuItem>
                   ) : null}
+                  {canEmbed ? (
+                    <DropdownMenuItem onSelect={() => setEmbedOpen(true)}>
+                      <Code2 /> Embed…
+                    </DropdownMenuItem>
+                  ) : null}
                 </>
               )}
               <DropdownMenuItem onSelect={() => void handleDuplicate()}>
@@ -284,6 +294,15 @@ export function LibraryCard({ card, onRemoved, onChanged, onDuplicated }: Librar
 
       {!isPoll && shareOpen ? (
         <ShareDialog open onOpenChange={setShareOpen} resourceType="presentation" resourceId={card.id} title={card.title} />
+      ) : null}
+      {!isPoll && embedOpen ? (
+        <EmbedDialog
+          open
+          onOpenChange={setEmbedOpen}
+          presentationId={card.id}
+          title={card.title}
+          joinCode={card.details.joinCode}
+        />
       ) : null}
 
       <AlertDialog open={confirm !== null} onOpenChange={(open) => !open && !busy && setConfirm(null)}>
