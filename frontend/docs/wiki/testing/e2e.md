@@ -84,6 +84,13 @@ lookup's HTTP status (404 until a session was opened).
   console mid-question, after answering, after the reveal and on a content slide (per-session
   credentials in `localStorage`, `live-state` resync, the console resumes); a finished deck shows
   "Present again" instead of auto-opening a lobby.
+- `e2e/offline-answers.spec.ts` — offline answers (W2-D phase 2): a phone picks an option, goes
+  offline (`context.setOffline(true)`) and submits — "Saved — will sync", not counted — stays
+  offline for more than 10 s, comes back and the answer is locked in and counted exactly once (host
+  counter, reveal, the run's `answerCount`); a queued answer survives closing the tab while
+  offline and is sent when the deck opens again in that browser (IndexedDB); a queued answer that
+  arrives after the host closed voting is refused with "Voting closed before your answer arrived".
+  ~35 s.
 - `e2e/content-slides.spec.ts` — content slides: a deck of all eight content types presented
   fullscreen **without a lobby or any participant** (F key, arrow-key and button navigation, each
   stage layout, end; the run is on record with 0 participants), and a mixed deck (heading → word
@@ -109,10 +116,37 @@ lookup's HTTP status (404 until a session was opened).
   tab plus adding a Q&A slide. The deck is created with `settings` through the API directly (the
   `host.createDeck` fixture sends title and slides only). ~20 s.
 
+- Library card actions (`library.spec`, `folders.spec`): the search box is debounced, so specs wait for
+  `q=` (and `type=`) to reach the URL before opening a card menu; otherwise the list reloads under the
+  open menu.
+
 - `e2e/duplicate.spec.ts` — LIB-19: "Duplicate" from the library card menu on a two-slide deck and
   a published poll; both copies appear as drafts, the deck copy opens from its toast in the builder
   with both slides and the notes, and the originals (and the deck's empty session list) are
   unchanged through the API. ~6 s.
+
+- `e2e/folders.spec.ts` — W3-B2 library folders: New folder (the folder opens empty; a second folder of
+  the same name is refused in the dialog), Move to folder… on a deck and a poll card, the "In folder"
+  label, filtering by the folder chip and by Not in a folder (kept across a reload through `?folder=`),
+  Rename folder and Delete folder from the folder menu (the app's AlertDialog; the items stay at the
+  top level, checked through the API). ~10 s.
+
+- `e2e/templates.spec.ts` — W3-B2 templates: the four starter templates on `/templates`, Use template
+  on Team retro opens the builder with its nine slides; Save as template… from a library card (hidden
+  from the library), the template under "Saved in this workspace", Use template opens it with its two
+  slides, Delete template through the app's dialog (the deck made from it stays). A template opened by
+  direct link shows "This is a template" in the host console (no Open lobby / Start presenting) and in
+  the builder (no editor); Use template from each opens a new deck. ~12 s.
+
+- `e2e/coediting.spec.ts` — W3-B2 co-editing safety: two builders (two browser contexts) on one deck;
+  the first saves, the second's save shows the conflict banner and the deck keeps the first save; Save
+  draft while it is up sends nothing; Reload latest version loads the first save and a later save
+  works. Second test: Save mine as a copy opens a new "(my version)" deck with the local edits and leaves
+  the other save untouched. Third test: presence, the same deck open in two pages of the (one) e2e host
+  shows "You have this deck open in another tab" in both, and closing one removes it from the other.
+  Fourth test: a builder left open without edits (slide selected only) keeps no local draft, picks up a
+  co-editor's save on reload with no banner, and leaving it sends no save (the revision is unchanged).
+  ~14 s.
 
 - `e2e/members.spec.ts` — teams and sharing: owner invites a second (seeded) account from
   `/settings/members`, the invite link is read from the form (no mail provider in e2e), the invitee

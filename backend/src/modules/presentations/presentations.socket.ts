@@ -6,13 +6,7 @@ import { liveSeqKey } from '../../common/realtime/publish';
 import { SOCKET_EVENTS, type LiveRole } from '../../common/realtime/events';
 import { registerSocketModule } from '../../common/realtime/registry';
 import { registerScreenView } from '../../common/realtime/screenViews';
-import {
-  allowJoin,
-  isValidObjectId,
-  leavePresentationRooms,
-  legacyRooms,
-  liveRooms,
-} from '../../common/realtime/rooms';
+import { allowJoin, isValidObjectId, leavePresentationRooms, liveRooms } from '../../common/realtime/rooms';
 import { PresentationService } from './presentations.service';
 import { authorizeScreen } from '../embeds/screenTokens.service';
 import { getScreenState } from '../embeds/stage.service';
@@ -35,11 +29,6 @@ interface JoinCredentials {
   participantToken?: string;
   /** Screen only (W4-D): a screen token of this deck. */
   screenToken?: string;
-}
-
-/** Legacy `quiz:join` payload — `quizId` carries the presentation id. */
-interface QuizJoinPayload extends JoinCredentials {
-  quizId?: string;
 }
 
 interface LiveJoinPayload extends JoinCredentials {
@@ -106,15 +95,6 @@ const joinLiveRooms = (socket: Socket, presentationId: string, grant: JoinGrant)
   }
 };
 
-const joinLegacyRooms = (socket: Socket, presentationId: string, grant: JoinGrant) => {
-  // The legacy protocol predates screens.
-  if (grant.role === 'screen') return;
-  socket.join(legacyRooms.all(presentationId));
-  // Host-only room: carries pre-reveal answer distributions that must never
-  // reach participant sockets.
-  if (grant.role === 'host') socket.join(legacyRooms.host(presentationId));
-};
-
 const leaveTarget = (data: unknown): string | null => {
   const presentationId =
     typeof data === 'string' ? data : (data as { presentationId?: unknown } | null)?.presentationId;
@@ -167,8 +147,8 @@ const failedAnswer = (status: number, message: string, code?: string): AnswerSub
 /**
  * `answer:submit` — the REST answer, over the socket. The payload is the REST
  * body plus `presentationId`. Two things are required: the socket joined the
- * deck as that participant (`live:join` / `quiz:join` with the participant's
- * token, so an anonymous connection never reaches the answer path), and the
+ * deck as that participant (`live:join` with the participant's token, so an
+ * anonymous connection never reaches the answer path), and the
  * participant token travels in the payload (the identity is the token, checked
  * by the answer script on every answer — being in a room proves nothing by
  * itself). The ack is the REST envelope with the status the HTTP call would
@@ -263,26 +243,8 @@ export const presentationsSocketModule = registerSocketModule({
   name: 'presentations',
 
   onConnection(socket) {
-    // Legacy protocol (`quiz_*` rooms, `quiz:event`): unauthorized joins are
-    // silently dropped. The socket also joins the `live:*` rooms, so it receives
-    // `live:event` as well.
-    socket.on(SOCKET_EVENTS.quizJoin, async (data: QuizJoinPayload | null) => {
-      if (!allowJoin(socket)) return;
-      const presentationId = data?.quizId;
-      if (!isValidObjectId(presentationId) || !data?.role) return;
-
-      const grant = await authorizeJoin(socket, presentationId, data);
-      if (typeof grant === 'string' || grant.role === 'screen') return;
-      joinLegacyRooms(socket, presentationId, grant);
-      joinLiveRooms(socket, presentationId, grant);
-    });
-
-    socket.on(SOCKET_EVENTS.quizLeave, (data: unknown) => {
-      const presentationId = leaveTarget(data);
-      if (presentationId) leavePresentationRooms(socket, presentationId);
-    });
-
-    // `live:*` rooms only, with an ack reporting the outcome.
+    // The only join: `live:*` rooms, with an ack reporting the outcome. (The legacy
+    // `quiz:join` / `quiz:leave` and the `quiz:event` copy were removed in W2-D phase 2.)
     socket.on(SOCKET_EVENTS.liveJoin, async (data: LiveJoinPayload | null, ack?: unknown) => {
       const reply = (result: LiveJoinAck) => {
         if (typeof ack === 'function') ack(result);

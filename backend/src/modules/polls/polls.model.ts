@@ -29,6 +29,8 @@ export interface IPoll extends Document {
   questions: IQuestion[];
   /** The deck made by "Convert to presentation" (library module); null until converted. */
   convertedPresentationId?: mongoose.Types.ObjectId | null;
+  /** Library folder (W3-B2, `modules/folders`); null at the top level. */
+  folderId?: mongoose.Types.ObjectId | null;
 }
 
 // Embedded Question Schema
@@ -71,12 +73,15 @@ const PollSchema = new Schema<IPoll>({
       message: "A poll must contain at least one question."
     }
   },
-  convertedPresentationId: { type: Schema.Types.ObjectId, ref: 'Presentation', default: null }
+  convertedPresentationId: { type: Schema.Types.ObjectId, ref: 'Presentation', default: null },
+  folderId: { type: Schema.Types.ObjectId, ref: 'Folder', default: null }
 }, {
   timestamps: true // Automatically adds createdAt and updatedAt
 });
 
 // Workspace poll list, newest first. Production gets it from migration 020.
 PollSchema.index({ workspaceId: 1, createdAt: -1 });
+// A folder's polls in the library (W3-B2). Production gets it from migration 210.
+PollSchema.index({ workspaceId: 1, folderId: 1, updatedAt: -1 }, { name: 'polls_workspace_folder_updated' });
 
 export const PollModel = mongoose.model<IPoll>('Poll', PollSchema);

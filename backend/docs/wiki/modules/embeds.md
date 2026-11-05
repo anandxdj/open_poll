@@ -124,7 +124,7 @@ must be a live token of **that** deck and the deck must allow embedding, else `F
 (`INVALID_PAYLOAD` without a token). A screen joins `live:{pid}` (every `all` event) and
 `live:{pid}:screen` — **never** the host room — and is recorded in `screenTokensOf(socket)`.
 `live:resync {presentationId, role: 'screen', screenToken}` acks `{ok, role: 'screen', seq, state}`
-with the screen state. The legacy `quiz:join` does not know screens. A screen cannot answer
+with the screen state. A screen cannot answer
 (`answer:submit` is 403 `NOT_JOINED`) or send host commands (those are HTTP with a user).
 
 Host-audience events reach the screen room only through a **screen view** registered by the

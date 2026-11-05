@@ -29,8 +29,20 @@ export const firstSlide = (): PresentationSlide => {
 export const buildDraftStorageKey = (presentationId: string | null) =>
   presentationId ? `openpoll_presentation_draft_${presentationId}` : "openpoll_presentation_draft_new";
 
-/** `savedAt` (ms) lets a reload tell unsaved local edits from an older copy of the saved deck. */
-export type PersistedPresentationDraft = DeckDraft & { active: number; savedAt?: number };
+/**
+ * `savedAt` (ms) lets a reload tell unsaved local edits from an older copy of the saved deck;
+ * `revision` is the saved deck's revision the edits started from, so restoring them never
+ * overwrites a save someone else made meanwhile (the next save gets the conflict instead).
+ */
+export type PersistedPresentationDraft = DeckDraft & { active: number; savedAt?: number; revision?: number };
+
+/**
+ * Identity of a deck's editable content (title and slides). Equal signatures
+ * mean no unsaved edit: the builder keeps no local draft and sends no save for
+ * them (a save would bump the revision for nothing and make a co-editor's
+ * next save look stale).
+ */
+export const deckSignature = (title: string, slides: PresentationSlide[]) => JSON.stringify({ title: title.trim(), slides });
 
 /** A local draft written after the server copy holds edits not saved yet (a reload, a crash). */
 export const draftIsNewer = (draft: PersistedPresentationDraft | null, serverUpdatedAt: string) =>
@@ -50,6 +62,7 @@ export function loadDraft(storageKey: string): PersistedPresentationDraft | null
       slides: parsed.slides,
       active: typeof parsed.active === "number" ? parsed.active : 0,
       savedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : undefined,
+      revision: typeof parsed.revision === "number" ? parsed.revision : undefined,
     };
   } catch {
     return null;
@@ -82,23 +95,20 @@ export function validateDeck(title: string, slides: PresentationSlide[]): string
   return null;
 }
 
-/** Payload shape for create/update: the API assigns slide ids itself. */
-export function withoutSlideId(s: PresentationSlide): Omit<PresentationSlide, "_id"> {
-  const rest: Partial<PresentationSlide> = { ...s };
-  delete rest._id;
-  return rest as Omit<PresentationSlide, "_id">;
-}
-
-/** Explicit save: slides must already pass `validateDeck`. */
+/**
+ * Explicit save: slides must already pass `validateDeck`. Slides keep their `_id`:
+ * the API keeps the ids of stored slides (co-editors and the slide-level routes
+ * address slides by id) and gives new slides and unknown ids fresh ones.
+ */
 export function toSavePayload(title: string, cleanedSlides: PresentationSlide[]): PresentationDraftInput {
-  return { title: title.trim(), slides: cleanedSlides.map(withoutSlideId) };
+  return { title: title.trim(), slides: cleanedSlides };
 }
 
 /** Silent/draft save: fills gaps so an unfinished deck still passes the API rules. */
 export function toDraftPayload(title: string, slides: PresentationSlide[]): PresentationDraftInput {
   return {
     title: title.trim() || "Untitled Presentation Deck",
-    slides: slides.map(normalizeSlideForDraft).map(withoutSlideId),
+    slides: slides.map(normalizeSlideForDraft),
   };
 }
 

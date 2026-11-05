@@ -1,8 +1,9 @@
 /**
  * Realtime integration test: real Redis and Mongo, two Socket.io servers (two
  * "instances" sharing one Redis) on port 0, and socket.io-client sockets that
- * join through both the legacy `quiz:join` and the new `live:join`. Events are
- * produced by the real presentations service.
+ * join through `live:join` (the legacy `quiz:join` / `quiz:event` protocol is
+ * gone and must deliver nothing). Events are produced by the real presentations
+ * service.
  *
  * Skipped unless TEST_REDIS_URL and TEST_MONGO_URI are both set. Point them at
  * dedicated test databases — never at a dev or shared instance. The test deletes
@@ -192,60 +193,64 @@ describe.skipIf(!inProcess)('realtime integration', () => {
     if (pinnedIsOpen) Object.defineProperty(redisClient, 'isOpen', pinnedIsOpen);
   }, 20_000);
 
-  it('delivers each event exactly once per room member, across instances and protocols', async () => {
+  it('delivers each event exactly once per room member, across instances, and never as quiz:event', async () => {
     const { alice, bob, carol } = participants;
 
-    // Instance 0: legacy host, legacy participant, an intruder. Instance 1: a
-    // host authenticated at the handshake and participants on both protocols.
-    const hostLegacy = await connect('hostLegacy', 0);
-    const aliceLegacy = await connect('aliceLegacy', 0);
+    // Instance 0: a host joining with an access token, a participant, an intruder.
+    // Instance 1: a host authenticated at the handshake, two participants, and a
+    // socket that only speaks the removed legacy protocol.
+    const hostToken0 = await connect('hostToken', 0);
+    const aliceLive = await connect('aliceLive', 0);
     const intruder = await connect('intruder', 0);
     const hostHandshake = await connect('hostHandshake', 1, { token: `Bearer ${hostToken}` });
     const bobLive = await connect('bobLive', 1);
-    const carolLegacy = await connect('carolLegacy', 1);
+    const carolLive = await connect('carolLive', 1);
+    const legacyOnly = await connect('legacyOnly', 1);
 
-    hostLegacy.socket.emit('quiz:join', { quizId: presentationId, role: 'host', accessToken: hostToken });
-    aliceLegacy.socket.emit('quiz:join', {
-      quizId: presentationId,
-      role: 'participant',
-      participantId: alice.participantId,
-      participantToken: alice.token,
-    });
-    carolLegacy.socket.emit('quiz:join', {
+    // `quiz:join` no longer exists: valid credentials join nothing.
+    legacyOnly.socket.emit('quiz:join', {
       quizId: presentationId,
       role: 'participant',
       participantId: carol.participantId,
       participantToken: carol.token,
     });
-    intruder.socket.emit('quiz:join', {
-      quizId: presentationId,
-      role: 'participant',
-      participantId: alice.participantId,
-      participantToken: 'x'.repeat(32),
+    legacyOnly.socket.emit('quiz:join', { quizId: presentationId, role: 'host', accessToken: hostToken });
+    expect(await liveJoin(hostToken0, { presentationId, role: 'host', accessToken: hostToken })).toEqual({
+      ok: true,
+      role: 'host',
     });
+    for (const [client, p] of [
+      [aliceLive, alice],
+      [bobLive, bob],
+      [carolLive, carol],
+    ] as const) {
+      expect(
+        await liveJoin(client, {
+          presentationId,
+          role: 'participant',
+          participantId: p.participantId,
+          participantToken: p.token,
+        })
+      ).toEqual({ ok: true, role: 'participant' });
+    }
     expect(await liveJoin(hostHandshake, { presentationId, role: 'host' })).toEqual({ ok: true, role: 'host' });
+    expect(await liveJoin(intruder, { presentationId, role: 'host' })).toEqual({ ok: false, error: 'UNAUTHENTICATED' });
     expect(
-      await liveJoin(bobLive, {
+      await liveJoin(intruder, {
         presentationId,
         role: 'participant',
-        participantId: bob.participantId,
-        participantToken: bob.token,
+        participantId: alice.participantId,
+        participantToken: 'x'.repeat(32),
       })
-    ).toEqual({ ok: true, role: 'participant' });
-    expect(await liveJoin(intruder, { presentationId, role: 'host' })).toEqual({ ok: false, error: 'UNAUTHENTICATED' });
+    ).toEqual({ ok: false, error: 'FORBIDDEN' });
 
-    await waitFor(
-      () =>
-        inRoom(0, hostLegacy, `quiz_${presentationId}_host`) &&
-        inRoom(0, hostLegacy, `live:${presentationId}:host`) &&
-        inRoom(0, aliceLegacy, `quiz_${presentationId}`) &&
-        inRoom(0, aliceLegacy, `live:${presentationId}:p:${alice.participantId}`) &&
-        inRoom(1, carolLegacy, `quiz_${presentationId}`) &&
-        inRoom(1, carolLegacy, `live:${presentationId}`),
-      'legacy joins'
-    );
+    expect(inRoom(0, hostToken0, `live:${presentationId}:host`)).toBe(true);
+    expect(inRoom(0, aliceLive, `live:${presentationId}:p:${alice.participantId}`)).toBe(true);
+    expect(inRoom(1, carolLive, `live:${presentationId}`)).toBe(true);
     // Lobby/join events published before the sockets joined are not part of this test.
     await Bun.sleep(100);
+    expect(inRoom(1, legacyOnly, `live:${presentationId}`)).toBe(false);
+    expect(inRoom(1, legacyOnly, `quiz_${presentationId}`)).toBe(false);
     baselineSeq = Number((await redisClient.get(liveSeqKey(presentationId))) ?? 0);
     expect(baselineSeq).toBeGreaterThan(0);
     expect(await redisClient.ttl(liveSeqKey(presentationId))).toBeGreaterThan(0);
@@ -280,7 +285,7 @@ describe.skipIf(!inProcess)('realtime integration', () => {
 
     const fresh = (events: Envelope[]) => events.filter((e) => e.seq > baselineSeq);
     const ended = (client: Client) => fresh(client.live).some((e) => e.type === 'quiz:ended');
-    await waitFor(() => [hostLegacy, hostHandshake, aliceLegacy, bobLive, carolLegacy].every(ended), 'quiz:ended');
+    await waitFor(() => [hostToken0, hostHandshake, aliceLive, bobLive, carolLive].every(ended), 'quiz:ended');
     // Give duplicates, if any, time to arrive.
     await Bun.sleep(300);
 
@@ -298,68 +303,65 @@ describe.skipIf(!inProcess)('realtime integration', () => {
     // The session engine publishes `session:ended` and then its legacy copy `quiz:ended`.
     const roundForParticipant = ['question:started', 'question:revealed', 'session:ended', 'quiz:ended'];
 
-    expect(types(hostLegacy.live)).toEqual(roundForHost);
-    expect(types(hostLegacy.legacy)).toEqual(roundForHost);
+    expect(types(hostToken0.live)).toEqual(roundForHost);
     expect(types(hostHandshake.live)).toEqual(roundForHost);
-    expect(types(hostHandshake.legacy)).toEqual([]);
-    expect(types(aliceLegacy.live)).toEqual([
+    expect(types(aliceLive.live)).toEqual([
       'question:started',
       'question:started',
       'question:revealed',
       'session:ended',
       'quiz:ended',
     ]);
-    expect(fresh(aliceLegacy.live)[1]!.payload).toEqual({ probe: 'alice-only' });
-    expect(types(aliceLegacy.legacy)).toEqual(roundForParticipant);
+    expect(fresh(aliceLive.live)[1]!.payload).toEqual({ probe: 'alice-only' });
     expect(types(bobLive.live)).toEqual(roundForParticipant);
-    expect(types(bobLive.legacy)).toEqual([]);
-    expect(types(carolLegacy.live)).toEqual(roundForParticipant);
-    expect(types(carolLegacy.legacy)).toEqual(roundForParticipant);
+    expect(types(carolLive.live)).toEqual(roundForParticipant);
     expect(intruder.live).toEqual([]);
-    expect(intruder.legacy).toEqual([]);
+    expect(legacyOnly.live).toEqual([]);
+    // No socket receives the removed legacy `quiz:event` copy.
+    for (const client of clients) expect(client.legacy).toEqual([]);
 
-    // answer:received never reaches a participant socket, on either protocol.
-    for (const client of [aliceLegacy, bobLive, carolLegacy, intruder]) {
-      expect([...client.live, ...client.legacy].some((e) => e.type === 'answer:received')).toBe(false);
+    // answer:received never reaches a participant socket.
+    for (const client of [aliceLive, bobLive, carolLive, intruder, legacyOnly]) {
+      expect(client.live.some((e) => e.type === 'answer:received')).toBe(false);
     }
-    expect(fresh(hostLegacy.live).filter((e) => e.payload.forged)).toMatchObject([{ audience: 'host' }]);
+    expect(fresh(hostToken0.live).filter((e) => e.payload.forged)).toMatchObject([{ audience: 'host' }]);
 
     // Exactly once and in order: per socket, seqs are unique and strictly increasing.
     for (const client of clients) {
-      for (const events of [client.live, client.legacy]) {
-        const seqs = events.map((e) => e.seq);
-        expect(seqs).toEqual([...new Set(seqs)].sort((a, b) => a - b));
-      }
+      const seqs = client.live.map((e) => e.seq);
+      expect(seqs).toEqual([...new Set(seqs)].sort((a, b) => a - b));
     }
     // Together the sockets saw every seq of the round, with no gaps.
     const seen = new Set(clients.flatMap((c) => fresh(c.live).map((e) => e.seq)));
     expect([...seen].sort((a, b) => a - b)).toEqual(Array.from({ length: 7 }, (_, i) => baselineSeq + 1 + i));
 
-    // The legacy copy is the same envelope, so current clients keep reading quizId/type/payload.
-    const legacyEnded = fresh(hostLegacy.legacy).at(-1)!;
-    expect(legacyEnded).toEqual(fresh(hostLegacy.live).at(-1)!);
+    const lastEvent = fresh(hostToken0.live).at(-1)!;
     const sessionId = String((await PresentationSessionModel.findOne({ presentationId }).lean())!._id);
-    expect(legacyEnded).toMatchObject({ v: 1, quizId: presentationId, presentationId, sessionId, audience: 'all' });
+    expect(lastEvent).toMatchObject({ v: 1, quizId: presentationId, presentationId, sessionId, audience: 'all' });
     // Every event the service published carries the session (the forged probe was published without one).
-    expect(fresh(hostLegacy.live).filter((e) => !e.payload.forged).every((e) => e.sessionId === sessionId)).toBe(true);
-    expect(Array.isArray(legacyEnded.payload.leaderboard)).toBe(true);
+    expect(fresh(hostToken0.live).filter((e) => !e.payload.forged).every((e) => e.sessionId === sessionId)).toBe(true);
+    expect(Array.isArray(lastEvent.payload.leaderboard)).toBe(true);
   }, 30_000);
 
-  it('stops delivering after quiz:leave / live:leave', async () => {
+  it('stops delivering after live:leave', async () => {
     const byName = (name: string) => clients.find((c) => c.name === name)!;
-    const hostLegacy = byName('hostLegacy');
+    const hostToken0 = byName('hostToken');
     const hostHandshake = byName('hostHandshake');
-    hostLegacy.socket.emit('quiz:leave', presentationId);
+    // `quiz:leave` is gone too: it leaves nothing.
+    hostToken0.socket.emit('quiz:leave', presentationId);
     expect(await hostHandshake.socket.timeout(3000).emitWithAck('live:leave', { presentationId })).toEqual({ ok: true });
-    await waitFor(() => !inRoom(0, hostLegacy, `quiz_${presentationId}`), 'quiz:leave');
+    await waitFor(() => !inRoom(1, hostHandshake, `live:${presentationId}`), 'live:leave');
+    expect(inRoom(0, hostToken0, `live:${presentationId}:host`)).toBe(true);
 
-    const before = [hostLegacy, hostHandshake].map((c) => c.live.length + c.legacy.length);
+    const before = hostHandshake.live.length;
     const probe = await publishLiveEvent({ presentationId, type: 'quiz:ended', payload: { probe: 'after-leave' } });
     expect(probe?.seq).toBeGreaterThan(baselineSeq);
     const bob = byName('bobLive');
     await waitFor(() => bob.live.some((e) => e.seq === probe!.seq), 'probe after leave');
+    await waitFor(() => hostToken0.live.some((e) => e.seq === probe!.seq), 'probe to the host still joined');
     await Bun.sleep(100);
 
-    expect([hostLegacy, hostHandshake].map((c) => c.live.length + c.legacy.length)).toEqual(before);
+    expect(hostHandshake.live.length).toEqual(before);
+    for (const client of clients) expect(client.legacy).toEqual([]);
   }, 15_000);
 });

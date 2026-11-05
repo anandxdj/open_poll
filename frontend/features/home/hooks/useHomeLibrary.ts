@@ -21,7 +21,7 @@ interface Loaded {
 async function loadSlices(): Promise<Omit<Loaded, "key" | "error">> {
   const [recent, live] = await Promise.all([
     fetchLibraryPage(DEFAULT_FILTERS, null, RECENT_LIMIT),
-    fetchLibraryPage({ type: "presentation", status: "live", q: "" }, null, 3),
+    fetchLibraryPage({ ...DEFAULT_FILTERS, type: "presentation", status: "live" }, null, 3),
   ]);
   return {
     recent: recent.items,

@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { apiClient } from "@/lib/api-client";
 import { isRetryableAnswerFailure } from "@/features/presentations/live/errors";
 import { createLiveStore, participantLostReason } from "@/features/presentations/live/store";
+import { createMemoryAnswerStorage } from "@/features/presentations/live/offline";
 import { getSlotEntries, registerSlot, SLOT_NAMES, SlotOutlet } from "@/features/presentations/live/slots";
 import { PID, SELF, SID, SLIDE_IDS, T0, at, deck, event, hostState, liveSlide, liveState, sessionView } from "./live.fixtures";
 
@@ -44,7 +45,7 @@ const participantStore = (init = {}) =>
       status: "active",
       ...init,
     },
-    { answerRetryDelaysMs: [1, 1] }
+    { answerRetryDelaysMs: [1, 1], answerQueue: createMemoryAnswerStorage(), isOnline: () => true }
   );
 
 describe("createLiveStore", () => {
@@ -108,7 +109,7 @@ describe("createLiveStore", () => {
         slideId: "sl2",
         clientAnswerId: (result as { clientAnswerId: string }).clientAnswerId,
         payload: { optionIndices: [0, 2] },
-      });
+      }, { timeout: 10_000 });
       expect(store.getState().submittedSlideIndex).toBe(2);
     } finally {
       post.mockRestore();
@@ -315,13 +316,15 @@ describe("answer path", () => {
     }
   });
 
-  test("the per-participant rate limit (429 RATE_LIMITED) is retried, then reported", async () => {
+  test("the per-participant rate limit (429 RATE_LIMITED) is retried, then the answer is queued", async () => {
     const post = spyOn(apiClient, "post").mockRejectedValue(apiFailure(429, "RATE_LIMITED", "Slow down"));
     try {
       const store = participantStore();
-      expect(await store.getState().submitAnswer({ optionIndex: 0 })).toEqual({ status: "error", message: "Slow down", code: "RATE_LIMITED" });
+      const result = await store.getState().submitAnswer({ optionIndex: 0 });
+      expect(result).toMatchObject({ status: "queued" });
       expect(post).toHaveBeenCalledTimes(3);
       expect(store.getState().submittedSlideIndex).toBeNull();
+      expect(Object.values(store.getState().pendingAnswers)).toMatchObject([{ status: "queued", slideIndex: 0 }]);
     } finally {
       post.mockRestore();
     }

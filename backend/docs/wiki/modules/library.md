@@ -1,7 +1,7 @@
 ---
 summary: Unified library (polls + decks as cards, cursor pagination, search), "Convert to presentation" for polls, and the legacy-quiz copy (migration 010).
 status: active
-last_updated: 2026-11-01
+last_updated: 2026-11-05
 ---
 
 # Library Module (`src/modules/library/`)
@@ -23,7 +23,8 @@ list of everything a workspace owns, and the bridge from a poll to an audience-p
 
 `authenticate()` → `workspaceContext()` → `assertCan(req, 'deck:read')`.
 
-Query: `type=all|poll|presentation` (default `all`), `status=draft|live|ended`, `folderId=<id>|root`,
+Query: `type=all|poll|presentation` (default `all`), `status=draft|live|ended`, `folderId=<id>|root`
+(library folders, `modules/folders-templates.md`),
 `q` (≤100 chars, case-insensitive title substring, regex-escaped), `cursor`, `limit` (1–60, default 24).
 Empty values count as unset; anything else malformed → 400.
 
@@ -39,7 +40,7 @@ Response `data`:
 
 `counts` honour `folderId` and `q` but not `type`/`status` (tab badges and dashboard stats).
 
-Card (`entityType`, `id`, `title`, `status`, `createdAt`, `updatedAt`, `stats`, `details`):
+Card (`entityType`, `id`, `title`, `status`, `folderId` (null at the top level), `createdAt`, `updatedAt`, `stats`, `details`):
 
 | | `status` | `stats` | `details` |
 |---|---|---|---|
@@ -48,7 +49,8 @@ Card (`entityType`, `id`, `title`, `status`, `createdAt`, `updatedAt`, `stats`, 
 
 **Scope.** Items whose `workspaceId` is the current workspace. Items without one (created before
 migration 020 backfills them) are listed only in their creator's **personal** workspace, only for
-the creator — where 020 will put them. Decks with `deletedAt` set are hidden.
+the creator — where 020 will put them. Decks with `deletedAt` set are hidden, and so are workspace
+templates (`isTemplate: true`, listed by `GET /api/templates`).
 
 **Pagination.** Each collection is read sorted `{updatedAt:-1, _id:-1}` with `limit + 1` documents
 after the cursor (`updatedAt < u` or `updatedAt = u and _id < id`); the two runs are merged and cut
@@ -95,8 +97,8 @@ losers delete theirs and return the winner's. Audit action `poll.convert`.
 The library card menu's "Duplicate" calls the entity's own route, not `/api/library`:
 `POST /api/presentations/:id/duplicate` (`modules/presentations.md` → Routes) and
 `POST /api/polls/:id/duplicate` (`modules/polls.md` → Duplicate). Both need `deck:read` on the
-source and `deck:create` in the current workspace, make a draft `Copy of <title>` there and never
-copy runs, answers or responses. The copy has the newest `updatedAt`, so it heads the first page.
+source and `deck:create` in the current workspace, make a draft `Copy of <title>` there (in the
+source's folder) and never copy runs, answers or responses. The copy has the newest `updatedAt`, so it heads the first page.
 
 ## select_answer additions (in `presentations/slides/types/select_answer.ts`)
 

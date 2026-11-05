@@ -1,7 +1,7 @@
 ---
 summary: Live deck socket contract — join/leave events, rooms per role, event types, audiences and payloads.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-05
 ---
 
 # Presentations realtime
@@ -10,28 +10,27 @@ Handlers: `backend/src/modules/presentations/presentations.socket.ts`. Event typ
 `backend/src/common/realtime/events/presentation.ts`. Envelope, seq and delivery rules:
 [`envelope.md`](./envelope.md).
 
-The live-deck entity is `presentations`. The `quiz:*` names are the wire protocol kept from before
-the quizzes module was folded in; `quizId` carries the presentation id.
+The live-deck entity is `presentations`. The legacy `quiz:join` / `quiz:leave` / `quiz:event`
+protocol (and its `quiz_*` rooms) was removed in W2-D phase 2; the envelope still carries `quizId`
+(= `presentationId`) as an alias. Event *types* keep their historical names (`quiz:ended`).
 
 ## Client → server
 
 | Event | Payload | Joins | Reply |
 | --- | --- | --- | --- |
-| `quiz:join` (legacy) | `{ quizId, role: 'host', accessToken? }` or `{ quizId, role: 'participant', participantId, participantToken }` | legacy **and** live rooms | none — unauthorized joins are silently dropped |
-| `quiz:leave` (legacy) | `quizId` | leaves every room of that presentation | none |
 | `live:join` | `{ presentationId, role: 'host', accessToken? }`, `{ presentationId, role: 'participant', participantId, participantToken }` or `{ presentationId, role: 'screen', screenToken }` (W4-D) | live rooms only | ack `{ ok: true, role }` or `{ ok: false, error: 'INVALID_PAYLOAD' \| 'RATE_LIMITED' \| 'UNAUTHENTICATED' \| 'FORBIDDEN' }` |
 | `live:leave` | `{ presentationId }` (or the bare id) | leaves every room of that presentation | ack `{ ok }` |
 | `answer:submit` | the `POST /:id/answer` body plus `presentationId` (the socket must have joined as that participant; the participant token inside is the identity) | none | ack with the REST envelope: `{ success, status, message, code?, data: AnswerResult \| null }` |
 | `live:resync` | `{ presentationId, role, accessToken? \| participantId + participantToken \| screenToken }` | none | ack `{ ok: true, role, seq, state }` (`ParticipantLiveState` or `HostStateResponse`) or `{ ok: false, error }` |
 
-Authorization (same for both protocols):
+Authorization:
 - **host** — the user needs `deck:host` on the deck (`PresentationService.canHost`: its creator, or an active member of the deck's workspace whose role allows hosting). The user comes from
   `accessToken` when sent (it must be valid), otherwise from the handshake token
   (`handshake.auth.token`, see `envelope.md`).
 - **participant** — `participantId` + `participantToken` issued by `POST /:id/join`
   (`PresentationService.isAuthorizedParticipant`).
 - **screen** (W4-D) — a live screen token of **this** deck, which must allow embedding
-  (`authorizeScreen`, `modules/embeds.md`). `live:join` only; `quiz:join` ignores it. `live:resync`
+  (`authorizeScreen`, `modules/embeds.md`). `live:resync`
   answers the stage-safe screen state. A screen cannot answer (`NOT_JOINED`).
 
 All joins count against the 30-per-minute per-connection budget. `answer:submit` and `live:resync` have
@@ -41,18 +40,16 @@ client retry rule: [`../modules/presentations-live.md`](../modules/presentations
 
 ## Rooms
 
-| Role | Live rooms | Legacy rooms (`quiz:join` only) |
-| --- | --- | --- |
-| host | `live:{pid}`, `live:{pid}:host` | `quiz_{pid}`, `quiz_{pid}_host` |
-| participant | `live:{pid}`, `live:{pid}:p:{participantId}` | `quiz_{pid}` |
-| screen | `live:{pid}`, `live:{pid}:screen` (host events only through their screen view, `envelope.md`) | none |
+| Role | Live rooms |
+| --- | --- |
+| host | `live:{pid}`, `live:{pid}:host` |
+| participant | `live:{pid}`, `live:{pid}:p:{participantId}` |
+| screen | `live:{pid}`, `live:{pid}:screen` (host events only through their screen view, `envelope.md`) |
 
 ## Server → client
 
-- `live:event` — the v1 envelope, to the `live:*` room of its audience.
-- `quiz:event` (legacy) — the same envelope, to `quiz_{pid}` (`all`) or `quiz_{pid}_host` (`host`).
-  Participant-targeted events have no legacy copy. Current clients read `quizId`, `type`, `payload`
-  and `emittedAt`, which are unchanged; the extra fields are ignored.
+- `live:event` — the v1 envelope, to the `live:*` room of its audience. (There is no `quiz:event`
+  copy any more.)
 
 ## Event types
 
@@ -79,7 +76,7 @@ of other sessions. Payload types: `PresentationEventPayloads` in
 (open_ended) | `scales` (per-statement averages) | `ranking` (Borda items + voters).
 
 `answer:received` carries the live distribution before reveal, so it never reaches a participant
-room on either protocol, whatever audience a publisher asks for.
+room, whatever audience a publisher asks for.
 
 ## Other modules' events
 

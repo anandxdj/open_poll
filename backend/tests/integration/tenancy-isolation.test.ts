@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 import mongoose from 'mongoose';
 import { setStorageDriver, type StorageDriver } from '../../src/common/storage/storage';
 import { createApp } from '../../src/http/createApp';
+import { FolderModel } from '../../src/modules/folders/folder.model';
 import { PresentationModel } from '../../src/modules/presentations/models/presentation.model';
 import { PollModel } from '../../src/modules/polls/polls.model';
 import { ResourceShareModel } from '../../src/modules/workspaces/resourceShare.model';
@@ -136,6 +137,8 @@ describe('tenancy isolation: route table', () => {
       '/api/uploads/',
       '/api/shares',
       '/api/audit',
+      '/api/folders',
+      '/api/templates',
     ]) {
       expect(guarded(prefix).length, prefix).toBeGreaterThan(0);
     }
@@ -158,6 +161,8 @@ describeIntegration('tenancy isolation: cross-workspace matrix', () => {
   let deckA: any;
   let draftA: any;
   let publishedA: any;
+  let folderA!: string; // W3-B2: a library folder of Alpha
+  let templateA!: string; // W3-B2: a workspace template of Alpha
 
   const call = async (user: TestUser | null, method: string, path: string, body?: unknown, workspaceId?: string | null) => {
     const headers: Record<string, string> = { ...(user?.headers ?? {}) };
@@ -193,12 +198,29 @@ describeIntegration('tenancy isolation: cross-workspace matrix', () => {
     deckA = await createPresentation(server, inWorkspace(alice, wsA), { title: 'Alpha deck' });
     draftA = await createPoll(server, inWorkspace(alice, wsA), { title: 'Alpha draft poll', isPublished: false });
     publishedA = await createPoll(server, inWorkspace(alice, wsA), { title: 'Alpha published poll' });
+    folderA = (await call(alice, 'POST', '/api/folders', { name: 'Alpha folder' }, wsA)).body.data.folder.id;
+    templateA = (await call(alice, 'POST', '/api/templates', { presentationId: deckA._id, title: 'Alpha template' }, wsA)).body.data._id;
   });
 
   /** Every way Bob can reach for Alpha's deck and polls; each must be denied. */
   const attacks = (): [string, string, unknown?][] => {
     const deck = `/api/presentations/${deckA._id}`;
+    const slide = `${deck}/slides/${deckA.slides[0]._id}`;
     return [
+      // W3-B2: slide-level edits, folders, folder shares and templates.
+      ['POST', `${deck}/slides`, { slide: { type: 'heading', content: { title: 'pwned' } } }],
+      ['PATCH', slide, { notes: 'pwned' }],
+      ['DELETE', slide],
+      ['POST', `${deck}/slides/reorder`, { order: [deckA.slides[0]._id] }],
+      ['PATCH', `/api/folders/${folderA}`, { name: 'pwned' }],
+      ['DELETE', `/api/folders/${folderA}`],
+      ['POST', '/api/folders/move', { folderId: folderA, items: [{ entityType: 'presentation', id: deckA._id }] }],
+      ['POST', '/api/folders/move', { folderId: null, items: [{ entityType: 'poll', id: publishedA._id }] }],
+      ['GET', `/api/shares?resourceType=folder&resourceId=${folderA}`],
+      ['PUT', `/api/shares?resourceType=folder&resourceId=${folderA}`, { shares: [] }],
+      ['POST', '/api/templates', { presentationId: deckA._id }],
+      ['POST', `/api/templates/${templateA}/use`],
+      ['DELETE', `/api/templates/${templateA}`],
       ['GET', deck],
       ['PATCH', deck, { title: 'pwned' }],
       ['DELETE', deck],
@@ -257,9 +279,16 @@ describeIntegration('tenancy isolation: cross-workspace matrix', () => {
       // Nothing changed, and nothing was copied anywhere.
       expect((await PresentationModel.findById(deckA._id))).toMatchObject({ title: 'Alpha deck', status: 'draft', activeSessionId: null });
       expect(await PollModel.countDocuments({ _id: { $in: [draftA._id, publishedA._id] } })).toBe(2);
-      expect(await PresentationModel.countDocuments({})).toBe(1);
+      // The deck and its template (W3-B2), nothing else.
+      expect(await PresentationModel.countDocuments({})).toBe(2);
+      expect((await PresentationModel.findById(templateA))).toMatchObject({ title: 'Alpha template', isTemplate: true });
+      expect((await PresentationModel.findById(deckA._id))!.folderId).toBeNull();
+      expect((await PresentationModel.findById(deckA._id))!.slides.map((s) => String(s._id))).toEqual([deckA.slides[0]._id]);
+      expect((await PresentationModel.findById(deckA._id))!.revision).toBe(0);
+      expect((await FolderModel.findById(folderA))).toMatchObject({ name: 'Alpha folder' });
+      expect(await FolderModel.countDocuments({})).toBe(1);
       expect(await PollModel.countDocuments({})).toBe(2);
-      expect((await PollModel.findById(publishedA._id))).toMatchObject({ title: 'Alpha published poll' });
+      expect((await PollModel.findById(publishedA._id))).toMatchObject({ title: 'Alpha published poll', folderId: null });
       expect(await ResourceShareModel.countDocuments({})).toBe(0);
       expect(await WorkspaceMemberModel.countDocuments({ workspaceId: wsA })).toBe(3);
       expect(String((await WorkspaceModel.findById(wsA))!.ownerId)).toBe(alice.id);
@@ -279,6 +308,15 @@ describeIntegration('tenancy isolation: cross-workspace matrix', () => {
     expect((await call(alice, 'GET', `/api/workspaces/${wsA}/members`)).status).toBe(200);
     expect((await call(alice, 'GET', `/api/shares?resourceType=presentation&resourceId=${deckA._id}`, undefined, wsA)).status).toBe(200);
     expect((await call(alice, 'POST', `${deck}/duplicate`, undefined, wsA)).status).toBe(201);
+    expect((await call(alice, 'PATCH', `${deck}/slides/${deckA.slides[0]._id}`, { notes: 'mine' }, wsA)).status).toBe(200);
+    expect((await call(alice, 'POST', `${deck}/slides`, { slide: { type: 'heading', content: { title: 'Mine' } } }, wsA)).status).toBe(201);
+    expect((await call(alice, 'PATCH', `/api/folders/${folderA}`, { name: 'Alpha folder renamed' }, wsA)).status).toBe(200);
+    expect((await call(alice, 'POST', '/api/folders/move', { folderId: folderA, items: [{ entityType: 'presentation', id: deckA._id }, { entityType: 'poll', id: publishedA._id }] }, wsA)).status).toBe(200);
+    expect((await call(alice, 'GET', `/api/shares?resourceType=folder&resourceId=${folderA}`, undefined, wsA)).status).toBe(200);
+    expect((await call(alice, 'POST', `/api/templates/${templateA}/use`, undefined, wsA)).status).toBe(201);
+    expect((await call(alice, 'POST', '/api/templates', { presentationId: deckA._id }, wsA)).status).toBe(201);
+    expect((await call(alice, 'DELETE', `/api/templates/${templateA}`, undefined, wsA)).status).toBe(200);
+    expect((await call(alice, 'DELETE', `/api/folders/${folderA}`, undefined, wsA)).status).toBe(200);
     expect((await call(alice, 'POST', `/api/polls/${draftA._id}/duplicate`, undefined, wsA)).status).toBe(201);
   });
 
@@ -289,14 +327,14 @@ describeIntegration('tenancy isolation: cross-workspace matrix', () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     const seenByBob = await Promise.all(
-      ['/api/presentations', '/api/polls', '/api/library', '/api/audit', `/api/workspaces/${wsB}/members`].map(async (path) => {
+      ['/api/presentations', '/api/polls', '/api/library', '/api/audit', `/api/workspaces/${wsB}/members`, '/api/folders', '/api/templates'].map(async (path) => {
         const res = await call(bob, 'GET', path, undefined, wsB);
         expect(res.status, path).toBe(200);
         return JSON.stringify(res.body);
       }),
     );
     for (const text of seenByBob) {
-      for (const secret of [deckA._id, draftA._id, publishedA._id, alice.email, 'Alpha deck', 'Alpha published poll', wsA]) {
+      for (const secret of [deckA._id, draftA._id, publishedA._id, folderA, templateA, alice.email, 'Alpha deck', 'Alpha published poll', 'Alpha folder', 'Alpha template', wsA]) {
         expect(text).not.toContain(secret);
       }
     }
@@ -306,7 +344,7 @@ describeIntegration('tenancy isolation: cross-workspace matrix', () => {
     expect(seenByBob[3]).not.toContain('workspace.update'); // Alpha's event
 
     const seenByAlice = await Promise.all(
-      ['/api/presentations', '/api/polls', '/api/library', '/api/audit'].map(async (path) => JSON.stringify((await call(alice, 'GET', path, undefined, wsA)).body)),
+      ['/api/presentations', '/api/polls', '/api/library', '/api/audit', '/api/folders', '/api/templates'].map(async (path) => JSON.stringify((await call(alice, 'GET', path, undefined, wsA)).body)),
     );
     for (const text of seenByAlice) {
       expect(text).not.toContain(deckB._id);
@@ -335,7 +373,7 @@ describeIntegration('tenancy isolation: cross-workspace matrix', () => {
     }, wsB);
     expect(poll.status, JSON.stringify(poll.body)).toBe(201);
     expect(String((await PollModel.findById(poll.body.data._id))!.workspaceId)).toBe(wsB);
-    expect(await PresentationModel.countDocuments({ workspaceId: wsA })).toBe(1);
+    expect(await PresentationModel.countDocuments({ workspaceId: wsA })).toBe(2); // the deck and its template
     expect(await PollModel.countDocuments({ workspaceId: wsA })).toBe(2);
     expect((await call(bob, 'POST', '/api/presentations', { title: 'x', slides: [] }, wsA)).body.code).toBe('WORKSPACE_FORBIDDEN');
     const alienPoll = { title: 'Not allowed', pollType: 'POLL', isPublished: true, expiresAt: new Date(Date.now() + 3600_000).toISOString(), questions: [{ text: 'Which one?', options: ['a', 'b'], type: 'single' }] };

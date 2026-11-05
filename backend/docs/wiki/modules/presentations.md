@@ -1,7 +1,7 @@
 ---
 summary: Live presentation decks (Mentimeter-style) — slide type registry, sessions (one per run), scored and interactive slides, join codes, speed scoring, leaderboard, Redis-first hot path.
 status: active
-last_updated: 2026-11-01
+last_updated: 2026-11-05
 ---
 
 # Presentations Module (`src/modules/presentations/`)
@@ -27,7 +27,8 @@ feature in `modules/polls` — see `modules/polls.md`.
 |---|---|
 | `presentations.service.ts` | **Facade** (`PresentationService` + `publishPresentationEvent`, `computeSlideDistributionHelper`). The stable API for the socket, MCP, AI, worker and controllers; delegates only. Methods take an `actor`: the request (policy context) or a bare user id (sockets, scripts, tests). |
 | `access.ts` | `getPresentationById` (404 for trashed decks), `authorizeDeck(id, actor, action)` (`assertCan`), `canActOnDeck` (socket yes/no), `actorContext` (a bare user id resolves its membership in the deck's workspace). |
-| `crud.service.ts` | Create (in the request's workspace, on its default theme), workspace-scoped list, update (settings patched field by field, theme fields checked and replaced), delete (with sessions and their Redis keys), duplicate (below). |
+| `crud.service.ts` | Create (in the request's workspace, on its default theme), workspace-scoped list (no templates), update (settings patched field by field, theme fields checked and replaced, `revision` + `If-Match`, slide ids kept), slide-level edits, delete (with sessions and their Redis keys), duplicate (below) and `copyDeckForWorkspace` (shared with templates). |
+| `revision.ts` | `parseIfMatch`, `deckChanged` (409 `DECK_CHANGED`). |
 | `live/session.service.ts` | The session engine: `openLobby`, `startSession`, `gotoSlide`/`advanceSlide`, `closeCurrentSlide`, `reopenCurrentSlide`, `revealCurrentSlide`, `endPresentation`, `getHostState`, `listSessions`, `getPresentationByCode`. Only writer of the deck mirror. |
 | `live/state.ts` | Slide states and phases, the Redis **answer windows** (`loadAnswerWindow`, rebuilt from the session document on a miss), live-session lookup, `StoredAnswerResult`. |
 | `live/answer.service.ts` | `submitAnswer` hot path: window lookup, registry `accept`/`score` in JS, then ONE Redis script call; replays by `clientAnswerId`; metrics. |
@@ -185,7 +186,8 @@ Exports: one column per guess / per item / per item and axis / x and y.
     (`presenter` | `audience`), `settings` (`audienceLocale`, `nickname`,
     `showResultsOnDevices`, `qna{}`, `reactions{enabled, emojis ≤6}`, `quiz{leaderboard,
     showCorrectOnDevices}`, `audiencePaced{resultsVisibility, assessment{}}`, `embed{allowed}`),
-    `theme` (`{presetId:'graph-paper', brandKitId, overrides}`, see `modules/themes.md`), `isTemplate`, `templateSourceId`,
+    `theme` (`{presetId:'graph-paper', brandKitId, overrides}`, see `modules/themes.md`), `isTemplate`, `templateSourceId`
+    (workspace templates, `modules/folders-templates.md`), `revision` (co-editing: +1 per title/slide save),
     `legacy` (`{source:'poll'|'quiz', sourceId}` or null), `deletedAt` (trash: 404 and hidden
     from lists). Create/update accept `pace`, `settings` (any subset; update patches field by
     field) and `theme` (`presetId`, `brandKitId`, `overrides`, each replaced whole and checked by
@@ -301,7 +303,12 @@ Public (participants):
 - `GET /:id/live-state?participantId=&token=` — full participant resync
 
 Creator (JWT + workspace context):
-- `POST /`, `GET /` (current workspace), `GET /:id`, `PATCH /:id` (draft/ended only), `DELETE /:id`
+- `POST /`, `GET /` (current workspace, templates excluded), `GET /:id`, `PATCH /:id` (draft/ended only;
+  `If-Match: "<revision>"` → `409 DECK_CHANGED` when someone saved the title or slides since; slides may
+  carry their `_id`, which is kept), `DELETE /:id`
+- Slide-level edits (W3-B2, `If-Match` the same way): `POST /:id/slides`, `POST /:id/slides/reorder`,
+  `PATCH /:id/slides/:slideId`, `DELETE /:id/slides/:slideId` — see `modules/folders-templates.md`
+  → Co-editing
 - `POST /:id/duplicate` — per-user rate limit (30/min), then `deck:create` in the current workspace
   and `deck:read` on the source (`authorizeDeck`: share grants count, but a share never grants
   create; the source must be in the selected workspace). `201` with the new deck, as create; audit
@@ -320,8 +327,8 @@ Creator (JWT + workspace context):
 
 Every state change goes through `live/events.ts` → `publishLiveEvent` (Redis channel
 `live:event`) with the session's id on the envelope; each instance delivers `live:event` to
-the `live:{presentationId}` rooms and the legacy `quiz:event` copy to `quiz_{presentationId}`
-(`answer:received` only to the host rooms). Socket handlers live in `presentations.socket.ts`
+the `live:{presentationId}` rooms (`answer:received` only to the host room). The legacy
+`quiz:join` / `quiz:event` protocol was removed in W2-D phase 2. Socket handlers live in `presentations.socket.ts`
 (`answer:submit`, `live:resync` included).
 See `realtime/presentations.md` for the event contract.
 
@@ -332,6 +339,7 @@ See `realtime/presentations.md` for the event contract.
   built-in types, written before the registry refactor (in-memory Redis fake + model stubs in
   `tests/presentations/harness.ts`). Changes made by the session engine are marked in place.
 - `tests/presentations/routes.test.ts` — route table snapshot (order + middleware count).
+- `tests/integration/coediting.test.ts` — revisions, `If-Match` and the slide-level routes (W3-B2).
 - `tests/integration/duplicate.test.ts` — duplicate decks and polls through `createApp()`: copy
   fidelity, sessions/answers/responses left behind, roles and shares, other-workspace refusal.
 - `tests/presentations/registry.test.ts` — registry contract, content lifecycle via a

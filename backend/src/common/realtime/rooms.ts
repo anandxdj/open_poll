@@ -3,8 +3,8 @@ import type { Socket } from 'socket.io';
 import type { LiveAudience } from './events';
 
 // ---------- Room names ----------
-// `live:*` rooms receive `live:event`; the `quiz_*` rooms receive the legacy
-// `quiz:event` copy for clients that still speak that protocol.
+// `live:*` rooms receive `live:event`. (The legacy `quiz_*` rooms and their
+// `quiz:event` copy were removed in W2-D phase 2.)
 
 export const liveRooms = {
   /** Everyone following the deck: host, screens and participants. */
@@ -14,12 +14,6 @@ export const liveRooms = {
   screen: (presentationId: string) => `live:${presentationId}:screen`,
   participant: (presentationId: string, participantId: string) =>
     `live:${presentationId}:p:${participantId}`,
-};
-
-export const legacyRooms = {
-  all: (presentationId: string) => `quiz_${presentationId}`,
-  // Host-only: carries pre-reveal answer distributions.
-  host: (presentationId: string) => `quiz_${presentationId}_host`,
 };
 
 export const pollRoom = (pollId: string) => `poll_${pollId}`;
@@ -45,19 +39,11 @@ export const liveRoomForAudience = (presentationId: string, audience: LiveAudien
   return participantId ? liveRooms.participant(presentationId, participantId) : null;
 };
 
-/** Room that receives the legacy `quiz:event` copy. Participant-targeted events have none. */
-export const legacyRoomForAudience = (presentationId: string, audience: LiveAudience): string | null => {
-  if (audience === 'all') return legacyRooms.all(presentationId);
-  if (audience === 'host') return legacyRooms.host(presentationId);
-  return null;
-};
-
-/** Leaves every room of one presentation, legacy and live, whatever role joined them. */
+/** Leaves every live room of one presentation, whatever role joined them. */
 export const leavePresentationRooms = (socket: Socket, presentationId: string) => {
   const live = liveRooms.all(presentationId);
-  const legacy = [legacyRooms.all(presentationId), legacyRooms.host(presentationId)];
   for (const room of [...socket.rooms]) {
-    if (room === live || room.startsWith(`${live}:`) || legacy.includes(room)) socket.leave(room);
+    if (room === live || room.startsWith(`${live}:`)) socket.leave(room);
   }
 };
 

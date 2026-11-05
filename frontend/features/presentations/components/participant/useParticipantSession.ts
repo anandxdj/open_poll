@@ -19,8 +19,10 @@ export type ParticipantLoad = "loading" | "ready" | "not-found";
  * on every socket (re)join, when the tab returns, when a host seq reset is
  * seen), follows the socket, and reacts when the credentials stop working
  * (`kicked` stays as it is; `stale`/`missing` forget them and look the code up
- * again, so the participant can rejoin the live session). Must run inside a
- * participant `LiveStoreProvider`.
+ * again, so the participant can rejoin the live session). Once joined it runs
+ * the offline answer queue (`startAnswerSync`): answers saved while offline are
+ * sent on load, on reconnect and with backoff. Must run inside a participant
+ * `LiveStoreProvider`.
  */
 export function useParticipantSession(code: string) {
   const store = useLiveStore();
@@ -82,6 +84,14 @@ export function useParticipantSession(code: string) {
       }
     });
   }, [store, code, loadInfo]);
+
+  // The offline answer queue runs while there is an identity to send for (also after a reload:
+  // answers queued before it are restored as "saved" and sent).
+  const participantId = self?.participantId;
+  useEffect(() => {
+    if (!presentationId || !participantId) return;
+    return store.getState().startAnswerSync();
+  }, [store, presentationId, participantId]);
 
   // Any reason (rejoined, tab visible, seq reset) means the same thing here: read `live-state`.
   const resync = useCallback(() => {

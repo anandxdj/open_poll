@@ -1,7 +1,7 @@
 ---
 summary: Minimal-context routing guide for loading only required docs per task.
 status: active
-last_updated: 2026-10-26
+last_updated: 2026-11-05
 ---
 
 # Context Router
@@ -100,6 +100,11 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 ### Billing: Stripe checkout, portal, webhook, plan catalogue, poll response cap, plan gates
 - `backend/docs/wiki/modules/billing.md` (owner's Stripe setup and the list of gates other packages apply)
 - Add `backend/docs/wiki/platform/plans.md` only if changing plan numbers, entitlements or usage counters.
+
+### Folders, templates, co-editing, presence (W3-B2): `/api/folders`, `/api/templates`, deck `revision` + `If-Match`, slide-level routes, `editor.socket.ts`, migration 210
+- `backend/docs/wiki/modules/folders-templates.md`
+- Add `backend/docs/wiki/realtime/editor.md` only for builder presence (`deck:join`, `presence:update`).
+- Add `backend/docs/wiki/modules/presentations.md` only if touching other deck routes, `modules/library.md` for the library list.
 
 ### Members, invites, resource sharing, audit log, tenancy isolation test
 - `backend/docs/wiki/modules/members-sharing.md`

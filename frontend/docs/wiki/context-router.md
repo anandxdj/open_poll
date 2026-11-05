@@ -54,8 +54,11 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Changing Home at `/home` (the landing page after sign-in: live now, start tiles, numbers, recent work).
 - **Action**: Read `frontend/docs/wiki/features/home.md`
 
-- **Task**: Changing the library at `/polls` (poll + deck cards, filters, convert to presentation).
+- **Task**: Changing the library at `/polls` (poll + deck cards, folders, filters, convert to presentation, save as template).
 - **Action**: Read `frontend/docs/wiki/features/library.md`
+
+- **Task**: Changing the templates page at `/templates` (starter and workspace templates, Use template, Save as template dialog).
+- **Action**: Read `frontend/docs/wiki/features/templates.md`
 
 - **Task**: Session history, the session report, exports, public results links (`/r/[token]`), the participant results page (`/live/[code]/summary`) or the end-screen links to them.
 - **Action**: Read `frontend/docs/wiki/features/sessions.md`

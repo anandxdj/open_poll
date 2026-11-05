@@ -43,17 +43,18 @@ function connect(user: { id: string } | null = null) {
     return reply;
   };
   const joined = () => [...rooms].filter((r) => r !== 'socket-id').sort();
-  return { emit, ack, joined };
+  const handles = (event: string) => handlers.has(event);
+  return { emit, ack, joined, handles };
 }
 
 describe('socket module registry', () => {
-  it('registers the polls, embeds, presentations and reactions modules', () => {
-    expect(getSocketModules().map((m) => m.name)).toEqual(['polls', 'embeds', 'presentations', 'reactions']);
+  it('registers the polls, embeds, editor (builder presence), presentations and reactions modules', () => {
+    expect(getSocketModules().map((m) => m.name)).toEqual(['polls', 'embeds', 'editor', 'presentations', 'reactions']);
   });
 
   it('refuses a second module with the same name', () => {
     expect(() => registerSocketModule({ name: 'polls' })).toThrow('registered twice');
-    expect(getSocketModules()).toHaveLength(4);
+    expect(getSocketModules()).toHaveLength(5);
   });
 });
 
@@ -87,63 +88,15 @@ describe('presentations socket module', () => {
     (PresentationService as any).isAuthorizedParticipant = original.isAuthorizedParticipant;
   });
 
-  describe('legacy quiz:join', () => {
-    it('puts an owner in the legacy and live host rooms', async () => {
-      const socket = connect();
-      await socket.emit('quiz:join', { quizId: PID, role: 'host', accessToken: hostToken() });
-      expect(ownerCalls).toEqual([[PID, HOST_ID]]);
-      expect(socket.joined()).toEqual([`live:${PID}`, `live:${PID}:host`, `quiz_${PID}`, `quiz_${PID}_host`].sort());
-    });
-
-    it('accepts the handshake identity when no access token is sent', async () => {
+  describe('legacy quiz:join (removed in W2-D phase 2)', () => {
+    it('is no longer handled: only live:join puts a socket in a room', () => {
       const socket = connect({ id: HOST_ID });
-      await socket.emit('quiz:join', { quizId: PID, role: 'host' });
-      expect(socket.joined()).toContain(`quiz_${PID}_host`);
-    });
-
-    it('drops hosts that are not the owner or not authenticated', async () => {
-      const other = connect();
-      await other.emit('quiz:join', { quizId: PID, role: 'host', accessToken: hostToken(PARTICIPANT_ID) });
-      const anonymous = connect();
-      await anonymous.emit('quiz:join', { quizId: PID, role: 'host' });
-      const badToken = connect({ id: HOST_ID });
-      await badToken.emit('quiz:join', { quizId: PID, role: 'host', accessToken: 'garbage' });
-      expect(other.joined()).toEqual([]);
-      expect(anonymous.joined()).toEqual([]);
-      expect(badToken.joined()).toEqual([]);
-    });
-
-    it('puts a verified participant in the shared rooms and its own room, never a host room', async () => {
-      const socket = connect();
-      await socket.emit('quiz:join', {
-        quizId: PID,
-        role: 'participant',
-        participantId: PARTICIPANT_ID,
-        participantToken: PARTICIPANT_TOKEN,
-      });
-      expect(participantCalls).toEqual([[PID, PARTICIPANT_ID, PARTICIPANT_TOKEN]]);
-      expect(socket.joined()).toEqual([`live:${PID}`, `live:${PID}:p:${PARTICIPANT_ID}`, `quiz_${PID}`].sort());
-    });
-
-    it('drops participants with a wrong token or a malformed payload', async () => {
-      const socket = connect();
-      await socket.emit('quiz:join', {
-        quizId: PID,
-        role: 'participant',
-        participantId: PARTICIPANT_ID,
-        participantToken: 'x'.repeat(32),
-      });
-      await socket.emit('quiz:join', { quizId: PID, role: 'participant', participantId: PARTICIPANT_ID });
-      await socket.emit('quiz:join', { quizId: 'nope', role: 'participant' });
-      await socket.emit('quiz:join', null);
-      expect(socket.joined()).toEqual([]);
-    });
-
-    it('quiz:leave leaves every room of that presentation', async () => {
-      const socket = connect();
-      await socket.emit('quiz:join', { quizId: PID, role: 'host', accessToken: hostToken() });
-      await socket.emit('quiz:leave', PID);
-      expect(socket.joined()).toEqual([]);
+      expect(socket.handles('quiz:join')).toBe(false);
+      expect(socket.handles('quiz:leave')).toBe(false);
+      expect(socket.handles('live:join')).toBe(true);
+      expect(socket.handles('live:leave')).toBe(true);
+      expect(socket.handles('answer:submit')).toBe(true);
+      expect(socket.handles('live:resync')).toBe(true);
     });
   });
 
@@ -194,10 +147,10 @@ describe('presentations socket module', () => {
       expect(socket.joined()).toEqual([]);
     });
 
-    it('shares the per-connection join budget with quiz:join', async () => {
+    it('caps joins per connection', async () => {
       const socket = connect({ id: HOST_ID });
       for (let i = 0; i < MAX_JOINS_PER_MINUTE; i++) {
-        await socket.emit('quiz:join', { quizId: PID, role: 'host' });
+        await socket.ack('live:join', { presentationId: PID, role: 'host' });
       }
       expect(await socket.ack('live:join', { presentationId: PID, role: 'host' })).toEqual({
         ok: false,

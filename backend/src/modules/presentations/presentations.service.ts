@@ -10,6 +10,9 @@ import type { IPresentation } from './presentations.model';
 import type {
   CreatePresentationInput,
   UpdatePresentationInput,
+  InsertSlideInput,
+  PatchSlideInput,
+  ReorderSlidesInput,
   JoinPresentationInput,
   SubmitPresentationAnswerInput,
   GotoSlideInput,
@@ -65,9 +68,27 @@ export class PresentationService {
     presentationId: string,
     actor: Actor,
     data: UpdatePresentationInput,
-    options?: { expectedVersion?: number },
+    options?: crud.UpdateOptions,
   ) {
     return crud.updatePresentation(presentationId, actor, data, options);
+  }
+
+  // Slide-level edits (W3-B2): `expectedRevision` is the `If-Match` revision (409 when stale).
+
+  static insertSlide(presentationId: string, actor: Actor, input: InsertSlideInput, expectedRevision?: number) {
+    return crud.insertSlide(presentationId, actor, input, expectedRevision);
+  }
+
+  static updateSlide(presentationId: string, actor: Actor, slideId: string, patch: PatchSlideInput, expectedRevision?: number) {
+    return crud.updateSlide(presentationId, actor, slideId, patch, expectedRevision);
+  }
+
+  static deleteSlide(presentationId: string, actor: Actor, slideId: string, expectedRevision?: number) {
+    return crud.deleteSlide(presentationId, actor, slideId, expectedRevision);
+  }
+
+  static reorderSlides(presentationId: string, actor: Actor, input: ReorderSlidesInput, expectedRevision?: number) {
+    return crud.reorderSlides(presentationId, actor, input, expectedRevision);
   }
 
   static deletePresentation(presentationId: string, actor: Actor) {

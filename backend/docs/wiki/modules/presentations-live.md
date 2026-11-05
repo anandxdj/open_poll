@@ -1,7 +1,7 @@
 ---
 summary: Live session engine contract — sessions, slide phases, host commands, participant resync, events, Redis keys, error codes.
 status: active
-last_updated: 2026-11-01
+last_updated: 2026-11-05
 ---
 
 # Presentations live sessions (contract)
@@ -40,7 +40,8 @@ blocked while a session is live, except the embedding switch `settings.embed.all
 `modules/embeds.md`), which a presenter may need mid-session to put the stage on a second screen.
 
 Participants and answers carry `sessionId`; answers also carry `slideId` (plus `slideIndex` for
-exports), `clientAnswerId` and `via` (`rest` today; `socket`/`offline` from W2-D). A participant
+exports), `clientAnswerId` and `via` (`rest`, `socket`, or `offline` for an answer the client held
+in its offline queue). A participant
 belongs to one session: a device that joins a later session becomes a new participant there.
 
 ## Slide phases
@@ -69,7 +70,7 @@ the creator). Each returns `HostCommandResponse` = the deck document **plus `ses
 
 | Command | Body | Effect | Events |
 | --- | --- | --- | --- |
-| `POST /:id/host/open-lobby` | — | Ends the live session if any (with a snapshot), opens a **new** session in `lobby`. Never deletes data. | `session:lobby`, `lobby:opened` |
+| `POST /:id/host/open-lobby` | — | Ends the live session if any (with a snapshot), opens a **new** session in `lobby`. Never deletes data. 409 `TEMPLATE_NOT_PRESENTABLE` on a workspace template (also on start). | `session:lobby`, `lobby:opened` |
 | `POST /:id/host/start` | — | Present without a lobby: lobby session → goes to slide 0; no live session → new session straight to slide 0. 409 `SESSION_ALREADY_LIVE` while a session is `active`. | slide 0's event (below) |
 | `POST /:id/host/goto` | `{slideIndex}` or `{slideId}` | Moves to any slide, forwards or backwards (from `lobby` too). | the target's event |
 | `POST /:id/host/advance` | `{slideIndex?}` | Legacy alias: `goto` `slideIndex`, default current + 1. | the target's event |
@@ -220,7 +221,7 @@ AnswerSubmitAck = { success: true,  status: 200, message: 'Answer accepted', dat
 ```
 
 The socket must first have joined the deck **as that participant** (`live:join` with the participant's
-credentials, or the legacy `quiz:join`): an anonymous connection never reaches the answer path, and an
+credentials): an anonymous connection never reaches the answer path, and an
 answer for a participant the socket did not join is 403 `NOT_JOINED` (a reconnected socket has no
 rooms: await the `live:join` ack, then send). Identity is still the participant token in the payload,
 checked by the script on every answer; the room only gates who may call. Two budgets apply: the participant's script budget above and
@@ -338,6 +339,7 @@ TTL 6 h after the last transition. A missing window is rebuilt from the session 
 
 `SESSION_FULL` (403, join), `SESSION_ALREADY_LIVE` (409, start), `SESSION_BUSY` (409, concurrent
 host commands — retry), `NO_LIVE_SESSION` (400, host commands that need one),
+`TEMPLATE_NOT_PRESENTABLE` (409, open-lobby and start on a workspace template, W3-B2),
 `PARTICIPANT_KICKED` (403), `PARTICIPANT_STALE` (409, answer from an ended session's participant),
 `FORBIDDEN` (403, policy), `WORKSPACE_FORBIDDEN` (403, bad `X-Workspace-Id`). Answers add
 `NOT_ACCEPTING` (400), `TIME_UP` (400), `ALREADY_ANSWERED` (409) and `RATE_LIMITED` (429), see
@@ -407,8 +409,10 @@ Runbook:
   answers are keyed by `{sessionId, slideId, participantId}`.
 - **W2-D** (done): the answer path is one Redis script (below); `clientAnswerId` and `via`
   (`rest`/`socket`/`offline`) are stored; `psess:{sid}:results` holds what reconciliation needs.
-  Phase 2 (frontend): the offline queue and `submitAnswer` in `live/store.ts` (socket ack 3 s →
-  REST → queue) call `answer:submit` / `POST /answer` with a stable `clientAnswerId`, the slide's
-  ticket and `offline: true` for queued answers, then the legacy `quiz:event` dual-emit goes.
+  Phase 2 (done, frontend): `submitAnswer` in `frontend/features/presentations/live/store.ts`
+  (socket `answer:submit` with a 3 s ack, only after the `live:join` ack → REST → the IndexedDB
+  queue in `live/offline/`) sends a stable `clientAnswerId`, the slide's ticket and `offline: true`
+  for queued answers (`frontend/docs/wiki/features/live-surfaces.md`, "Answers"). The legacy
+  `quiz:join` / `quiz:event` protocol is gone.
 - **W2-F**: `pace: 'audience'` opens every response slide in `:slides`; `settings.audiencePaced`
   is snapshotted.

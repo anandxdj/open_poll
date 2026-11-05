@@ -101,7 +101,7 @@ The one remaining NONE P0 is POLL-01, the poll builder itself.
 - Content: `heading`, `paragraph`, `bullets`, `image`, `big_number`, `quote`, `video`, `instructions`.
 
 **Socket events**
-- Client to server: `live:join`, `live:leave`, `live:resync`, `answer:submit`, `reaction:send`, `poll:join`, `poll:leave`, and the legacy `quiz:join` and `quiz:leave`.
+- Client to server: `live:join`, `live:leave`, `live:resync`, `answer:submit`, `reaction:send`, `poll:join`, `poll:leave` (the legacy `quiz:join` and `quiz:leave` were removed in W2-D phase 2).
 - Server to client:
   - Session: `session:lobby`, `slide:shown`, `question:started`, `slide:closed`, `question:revealed`, `leaderboard:shown`, `session:ended`
   - People and answers: `participant:joined`, `answer:received` (host only)

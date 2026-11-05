@@ -51,7 +51,16 @@
     "rejoinHint": "That session is over. Enter a nickname to join the current one.",
     "syncing": "Catching up…",
     "waitingForSlide": "Loading the current slide…",
-    "tooManyAttempts": "Too many attempts. Wait a moment and try again."
+    "tooManyAttempts": "Too many attempts. Wait a moment and try again.",
+    "savedOffline": "Saved — will sync",
+    "savedOfflineHint": "Your answer is saved on this device. It will be sent as soon as the connection is back.",
+    "syncRefusedTimeUp": "Your answer arrived after time ran out",
+    "syncRefusedClosed": "Voting closed before your answer arrived",
+    "syncRefusedOther": "Your saved answer could not be sent",
+    "syncRefusedHint": "It was not counted.",
+    "syncRefusedSlideTimeUp": "Your saved answer to slide {slide} arrived after time ran out, so it was not counted.",
+    "syncRefusedSlideClosed": "Voting on slide {slide} closed before your saved answer arrived, so it was not counted.",
+    "syncRefusedSlideOther": "Your saved answer to slide {slide} could not be sent."
   },
   "leaderboard": {
     "title": "Leaderboard",

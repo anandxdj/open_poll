@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeft, Code2, Loader2, Play, Sparkles, Upload } from "lucide-react";
 
@@ -23,6 +24,8 @@ interface BuilderHeaderProps {
   onPresent?: () => void;
   /** Opens the Embed dialog (features/embeds). Only for a deck that exists. */
   onEmbed?: () => void;
+  /** Who else has the deck open (`PresenceAvatars`), beside the title. */
+  presence?: ReactNode;
 }
 
 /**
@@ -43,6 +46,7 @@ export function BuilderHeader({
   onSaveDraft,
   onPresent,
   onEmbed,
+  presence,
 }: BuilderHeaderProps) {
   const present = isEditing && onPresent;
   return (
@@ -63,6 +67,7 @@ export function BuilderHeader({
           className="h-9 border-transparent bg-transparent px-2 text-lg font-semibold tracking-[-0.02em] shadow-none hover:border-border focus-visible:border-ring md:text-lg"
         />
       </div>
+      {presence}
       <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="outline"

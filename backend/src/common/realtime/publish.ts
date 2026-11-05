@@ -11,7 +11,7 @@ import {
   type LiveEventType,
   type ResponseAcceptedEvent,
 } from './events';
-import { legacyRoomForAudience, liveRoomForAudience, liveRooms } from './rooms';
+import { liveRoomForAudience, liveRooms } from './rooms';
 import { getScreenView } from './screenViews';
 
 // The seq counter outlives sessions; it only expires after a week without events.
@@ -123,9 +123,9 @@ export const parseLiveEnvelope = (message: string): LiveEventEnvelope | null => 
 
 /**
  * Delivers one published live event to this instance's sockets: `live:event` to
- * the audience's `live:*` room, plus the legacy `quiz:event` copy to the matching
- * `quiz_*` room. Uses `io.local` — every instance runs this subscriber, so each
- * one delivers only to the sockets it holds.
+ * the audience's `live:*` room (the legacy `quiz:event` copy is gone, W2-D).
+ * Uses `io.local` — every instance runs this subscriber, so each one delivers
+ * only to the sockets it holds.
  */
 export const deliverLiveEvent = (message: string, io: Server) => {
   const envelope = parseLiveEnvelope(message);
@@ -145,8 +145,6 @@ export const deliverLiveEvent = (message: string, io: Server) => {
   const delivered = audience === envelope.audience ? envelope : { ...envelope, audience };
 
   io.local.to(room).emit(SOCKET_EVENTS.liveEvent, delivered);
-  const legacyRoom = legacyRoomForAudience(envelope.presentationId, audience);
-  if (legacyRoom) io.local.to(legacyRoom).emit(SOCKET_EVENTS.quizEvent, delivered);
 
   // Screens (W4-D) see `all` events through the `all` room; a host event only
   // through the screen view its module registered (see screenViews.ts).

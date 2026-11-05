@@ -1,7 +1,7 @@
 ---
 summary: Audience Q&A and emoji reactions on the live surfaces — state slice, slots, host moderation, the Q&A slide, the builder's Audience tab, wire usage and tests.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-05
 ---
 
 # Q&A and reactions (`features/qna/`, `features/reactions/`)
@@ -23,7 +23,7 @@ which the unit tests use so registrations do not leak between test files).
 | `registerLiveReducer('qna')` | `qnaReducer` (`qna/state.ts`) | The question slice, see below. |
 | `registerLiveReducer('reaction')` | `reactionReducer` (`reactions/state.ts`) | The latest coalesced `reaction:burst` (`{burstId, counts}`). |
 | `participantTabs` `qna` | `QnaTab` → `QnaPanel` | The Q&A tab. Shown unless the deck is known not to use Q&A (`qna/tabAvailability.ts`: a small cache the loader fills; `when` has no store access and runs at render, so an unknown deck counts as available). |
-| `participantBanner` `qna-sync` | `QnaParticipantSync` | Invisible: loads the list, bridges participant-addressed events (below), tells the tab cache. |
+| `participantBanner` `qna-sync` | `QnaParticipantSync` | Invisible: loads the list, tells the tab cache. |
 | `participantFooter` `reactions` | `ReactionsBar` | One button per allowed emoji; emits `reaction:send` on the shared socket (`lib/socket`). |
 | `hostToolbar` `qna` | `HostQnaDrawer` | Header button with the pending count and the moderation drawer (Esc closes; keys typed inside do not reach the console's slide shortcuts). |
 | `presenterPanels` `qna` | `PresenterQnaPanel` | The same `HostQnaPanel`, for W2-A's presenter console. |
@@ -55,11 +55,11 @@ participant, the identity), again after a reset, and after a socket reconnect; `
 runs one request per store at a time. The participant's list needs the credentials as headers
 (`X-Participant-Id`, `X-Participant-Token`, `api.ts`), never in URL or body.
 
-**Participant-addressed events.** The live hook still listens on the legacy `quiz:event`, which
-carries only the `all` and `host` audiences. Events for one participant (the author of a
-rejected question) travel on `live:event` only, so `QnaParticipantSync` listens there for
-`audience === participant:<own id>` and dispatches them. When the live hook moves to `live:event`
-(W1-A2) this becomes redundant but harmless (the reducer upserts); remove it then.
+**Participant-addressed events.** Events for one participant (the author of a rejected question,
+`audience === participant:<own id>`) arrive through the live socket hook like every other
+`live:event`: the participant socket is in its own `live:{pid}:p:{id}` room. The bridge that
+forwarded them while the hook listened on the legacy `quiz:event` was removed with that protocol
+(W2-D phase 2).
 
 ## Participant UI
 

@@ -223,8 +223,9 @@ frontend typecheck clean, lint 0 errors (6 warnings), 635 unit tests, build gree
 tests green (the frontend checks ran in a clean worktree of that commit that also had decoy
 `backend/.env` and `frontend/.env.local` files, to prove the e2e servers ignore them).
 
-**Wave 4 — W4-D embeds, oEmbed, add-in panes** (built on `feat/embeds`, stacked on
-`feat/launch-basics`; not pushed, no PR yet).
+**Wave 4 — W4-D embeds, oEmbed, add-in panes** (built on `feat/embeds`, started from
+`feat/launch-basics` and merged with `feat/folders-templates` (current main with offline answers, plus
+folders, templates, revisions and presence); not pushed, no PR yet).
 - Backend `modules/embeds` (`backend/docs/wiki/modules/embeds.md`): `GET /api/oembed` (rich, iframe
   HTML; live/results/stage URLs of this site or the deck's own custom domain; any origin, mounted
   before the CORS allow-list), `GET /api/embeds/policy` (for the frontend proxy), screen tokens
@@ -254,12 +255,24 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
 
 ## Left to do (nothing is half-merged)
 
-- **W2-D phase 2** (unblocked, W1-A2 and W2-D phase 1 are merged; plugs into the single `submitAnswer`): frontend offline queue (`submitAnswer`: socket ack → REST →
-  IndexedDB, in `live/store` + `live/offline/**`), frontend contract types (`slideTicket`, `AnswerResult`,
-  error codes `NOT_ACCEPTING`, `TIME_UP`, `ALREADY_ANSWERED`, `RATE_LIMITED`, `NOT_JOINED`), await the
-  `live:join` ack before `answer:submit` after a reconnect, remove the legacy `quiz:event` dual-emit.
-- **W2-A** presenter view + remote + timer/kick, **W2-F** audience pace, **W3-B2**
-  folders/templates/duplicate/co-editing. (**W3-D** SAML, per-workspace OIDC and SCIM are built:
+- (**W2-D phase 2** offline answers is built, branch `feat/offline-answers`: `submitAnswer` in
+  `frontend/features/presentations/live/store.ts` sends socket `answer:submit` (3 s ack, only after the
+  `live:join` ack) → REST → an IndexedDB queue (`live/offline/`, keyed by `clientAnswerId`, backoff,
+  survives a reload, "Saved — will sync", clear message on a final refusal); contract types
+  (`AnswerRequest`, `AnswerSubmitAck`, `LiveResyncAck`, the error codes); the legacy `quiz:join` /
+  `quiz:event` dual-emit and the Q&A participant-event bridge are removed. See
+  `frontend/docs/wiki/features/live-surfaces.md` "Answers" and `e2e/offline-answers.spec.ts`. Not done:
+  the client still resyncs over REST, not `live:resync`; the legacy event *types* `lobby:opened` /
+  `quiz:ended` are still published.)
+- **W2-A** presenter view + remote + timer/kick, **W2-F** audience pace. (**W3-B2** is built (`feat/folders-templates`): library folders `/api/folders` with folder shares,
+  templates `/api/templates` with four starter decks and "Save as template", deck `revision` +
+  `If-Match` → 409 `DECK_CHANGED` with the builder's conflict banner, slide-level routes, builder
+  presence `presentations/editor.socket.ts`, migration 210; see
+  `backend/docs/wiki/modules/folders-templates.md`. Templates are never presented (409
+  `TEMPLATE_NOT_PRESENTABLE`; builder and host console offer Use template), and the builder writes
+  no local draft and sends no silent save without a real edit. Left out on purpose: nested folders, editing a
+  workspace template in place, the builder saving slide by slide (it saves the whole deck with
+  `If-Match`; the slide routes serve agents and integrations).) (**W3-D** SAML, per-workspace OIDC and SCIM are built:
   `backend/docs/wiki/modules/sso-scim.md`, `docs/deploy/sso.md`.) (**W3-A** themes and brand kits are built:
   `backend/docs/wiki/modules/themes.md`.)
   (**W3-G** workspace insights is built: `GET /api/insights` and the `/analytics` overview, see
@@ -275,7 +288,7 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   `backend/docs/wiki/quiz-roadmap.md`; push the branch and open a PR (ask the owner first).
 
 Remaining merge order (from the plan; flexible when a later package is ready early and conflicts are
-trivial, note deviations here): W2-D phase 2 → W2-A (adds the NotesTab and the `notes` field of the
+trivial, note deviations here): W2-D phase 2 (built, awaiting merge) → W2-A (adds the NotesTab and the `notes` field of the
 frontend `Presentation` type) → W2-F; Wave 3: W3-D and W3-B2 (W3-B1 is merged), W3-A after W2-A, then
 Wave 4 A → B → C → D → E; then the close-out.
 
@@ -318,8 +331,8 @@ Wave 4 A → B → C → D → E; then the close-out.
 - **Q&A section in session reports and exports** (W2-B is merged, W2-C reports do not show Q&A yet).
 - **Plan gates still to apply** (feature keys exist from W3-C; W2-C gates XLSX/PDF, W3-F consumes
   `ai_deck`, W3-E consumes `import`, W3-B1 enforces `seats` on invites, W3-A `brand_kits`, W3-D `sso` / `scim` and seats, W4-E `custom_domains` / `white_label`): none left. (W4-C retention is enforced by the `privacy-retention-purge` job.)
-- **W3-B2 must delete a folder's `ResourceShare` rows when it deletes a folder** (sharing reads the raw
-  `folders` collection).
+- ~~W3-B2 must delete a folder's `ResourceShare` rows when it deletes a folder~~ done in
+  `feat/folders-templates` (`FoldersService.remove`).
 - **Proxy protected prefixes:** add `/presentations` and `/presentation/create` (signed-out visitors
   currently see a load error instead of a login redirect; check the redirect works).
 - **E2E login rate limit** (10 per 5 min per IP): the `host` fixture logs in once per worker (W1-A2). Do not add per-test or per-file logins; billing.spec still logs in once in its own `beforeAll`.
@@ -358,7 +371,7 @@ Wave 4 A → B → C → D → E; then the close-out.
 - **W2-B (merged):** the participant Q&A tab shows until the deck is known not to use Q&A (the slot's
   `when` has no store access and runs at render, so an unknown deck counts as available; W1-A2's store
   now makes a proper fix possible); `QnaParticipantSync` bridges participant-addressed events from
-  `live:event` and goes away with the legacy `quiz:event` dual-emit (W2-D phase 2); the W2-A audience
+  `live:event` (removed in W2-D phase 2 with the legacy `quiz:event` dual-emit); the W2-A audience
   window must forward `reaction:burst`; add a Q&A section to session reports and exports (W2-C).
 - **Test registries:** `features/registrations` registers modules process-wide as soon as a unit test
   imports a host/participant surface, so unit tests that count slot entries or compare whole live

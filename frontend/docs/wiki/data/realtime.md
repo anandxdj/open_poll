@@ -1,7 +1,7 @@
 ---
 summary: WebSocket hook structure and live analytics event flow.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-05
 ---
 
 # Realtime & WebSockets
@@ -15,10 +15,10 @@ last_updated: 2026-10-19
 - **Events**: Listen for vote increments and dynamically merge the state into the analytics data structure without causing full page reloads.
 
 ## Presentation Deck Live Sockets
-- **Protocol**: the versioned one only — `live:join` (with an ack) and `live:event` envelopes
-  (`backend/docs/wiki/realtime/envelope.md`). The client no longer emits `quiz:join` or listens to
-  `quiz:event` (the backend still dual-emits until W2-D removes it; the client ignores the copy).
-  Session semantics: `backend/docs/wiki/modules/presentations-live.md`.
+- **Protocol**: the versioned one only — `live:join` (with an ack), `live:event` envelopes and
+  `answer:submit` (with an ack) (`backend/docs/wiki/realtime/envelope.md`). The legacy `quiz:join`
+  / `quiz:event` protocol is gone on both sides (W2-D phase 2). Session semantics:
+  `backend/docs/wiki/modules/presentations-live.md`.
 - **Hook**: `features/presentations/live/useLiveSocket.ts` —
   `useLiveSocket(presentationId, auth, handlers?)` (`handlers` = `{ onEvent, onResync,
   onForeignSession, onJoinError }`, or a bare `onEvent` function), used inside a live store provider
@@ -26,8 +26,11 @@ last_updated: 2026-10-19
   {presentationId, role, accessToken | participantId + participantToken}` on connect and on every
   reconnect, waits for the ack (`{ok: true, role}` / `{ok: false, error}`: `UNAUTHENTICATED`,
   `FORBIDDEN`, `INVALID_PAYLOAD`, `RATE_LIMITED` — retried after 5 s), and sets `connected` in the
-  store only once joined. On unmount it emits `live:leave`. Wire names: `LIVE_SOCKET_EVENTS`
-  (`types/realtime.ts`).
+  store only once joined. A participant's socket becomes the store's **answer transport**
+  (`setAnswerTransport`) after that ack and stops being it on every disconnect, so `answer:submit`
+  is never sent on a reconnected socket before its `live:join` ack. On unmount it emits
+  `live:leave`. Wire names: `LIVE_SOCKET_EVENTS` (`types/realtime.ts`: `join`, `leave`, `event`,
+  `answerSubmit`, `resync`, `screenRevoked`).
 - **Auth**: `{ role: "host" }` (pulls the JWT access token from `useAuthStore`),
   `{ role: "participant", participantId, participantToken }` (from the session's stored
   credentials) or `{ role: "screen", screenToken }` (W4-D, the read-only stage of
@@ -66,10 +69,12 @@ last_updated: 2026-10-19
   `useCountdown(timing, totalSeconds)` turn it into the countdown. Never reuse a `serverNow` read
   earlier (the old bug: the page-load value inflated every countdown by the time since load).
   `endsAt: null` is an untimed window: no timer, open until the host closes or reveals.
-- **Answers**: sent over REST (`POST /:id/answer`) by `submitAnswer` in `live/store.ts` with a
-  per-attempt `clientAnswerId` and the slide's `slideTicket` (from `question:started`, or
-  `live-state.current.slideTicket` after a resync); the socket `answer:submit` / `live:resync` of
-  W2-D phase 2 are not used yet. See the answers section of the live-surfaces doc.
+- **Answers**: `submitAnswer` in `live/store.ts` sends a per-attempt `clientAnswerId` and the
+  slide's `slideTicket` (from `question:started`, or `live-state.current.slideTicket` after a
+  resync): socket `answer:submit` with a 3 s ack timeout (`AnswerSubmitAck`: the REST envelope plus
+  `status`) → `POST /:id/answer` → the IndexedDB offline queue (`live/offline/`), retried with
+  backoff and on every reconnect with the same id and `offline: true`. See the answers section of
+  the live-surfaces doc. `live:resync` (`LiveResyncAck` is typed) is not used: resyncs read REST.
 - **State recovery**: on refresh/late join the participant's code lookup returns the live slide,
   its `currentSlideId`, phase and timing; `live-state` adds results, standings and whether the
   slide was answered — render immediately, then follow socket events.

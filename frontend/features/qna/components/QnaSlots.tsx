@@ -2,10 +2,8 @@
 
 import { useEffect } from "react";
 
-import { useLive, useLiveStore } from "@/features/presentations/live/store";
+import { useLive } from "@/features/presentations/live/store";
 import type { ParticipantSlotProps } from "@/features/presentations/live/slots";
-import type { PresentationRealtimeEvent } from "@/features/presentations/types";
-import { acquireSocket, releaseSocket } from "@/lib/socket";
 import { rememberQnaTab } from "../tabAvailability";
 import { selectQna, useQnaSync } from "../useQnaSync";
 import { HostQnaPanel } from "./HostQnaPanel";
@@ -17,38 +15,15 @@ export function QnaTab() {
 }
 
 /**
- * Events addressed to one participant (`audience: participant:<id>`, e.g. their
- * own question was rejected) travel only on the versioned `live:event`; the
- * legacy `quiz:event` the live hook listens on carries `all` and `host`
- * audiences only. Until the live hook moves to `live:event`, this bridges the
- * participant-addressed `qna:*` events into the store. Replays are harmless:
- * the reducer upserts.
- */
-function usePrivateQnaEvents(presentationId: string, participantId: string) {
-  const store = useLiveStore();
-  useEffect(() => {
-    const socket = acquireSocket();
-    const onEvent = (event: PresentationRealtimeEvent) => {
-      if (event?.presentationId !== presentationId) return;
-      if (event.audience !== `participant:${participantId}` || !event.type.startsWith("qna:")) return;
-      store.getState().dispatch({ type: "live/event", event });
-    };
-    socket.on("live:event", onEvent);
-    return () => {
-      socket.off("live:event", onEvent);
-      releaseSocket();
-    };
-  }, [store, presentationId, participantId]);
-}
-
-/**
  * Invisible: loads the participant's Q&A list as soon as they joined (so the
- * tab, reactions and highlights are ready), follows events addressed to the
- * participant, and tells the tab slot whether Q&A can happen in this deck at all.
+ * tab, reactions and highlights are ready) and tells the tab slot whether Q&A
+ * can happen in this deck at all. Events addressed to the participant
+ * (`audience: participant:<id>`, e.g. their own question was rejected) arrive
+ * through the live socket hook like every other `live:event` (the bridge that
+ * used to forward them while the hook listened to the legacy `quiz:event` is gone).
  */
-export function QnaParticipantSync({ presentationId, participantId }: ParticipantSlotProps) {
+export function QnaParticipantSync({ presentationId }: ParticipantSlotProps) {
   useQnaSync();
-  usePrivateQnaEvents(presentationId, participantId);
   const available = useLive((s) => {
     const { loaded, settings } = selectQna(s);
     return loaded && settings ? settings.enabled || settings.hasBoard : null;

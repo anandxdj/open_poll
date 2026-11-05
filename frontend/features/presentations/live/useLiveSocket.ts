@@ -10,6 +10,7 @@ import {
   type LiveSocketAuth,
   type PresentationRealtimeEvent,
 } from "../types/realtime";
+import { createSocketAnswerTransport } from "./answerDelivery";
 import { planEnvelope } from "./reducer";
 import { useLive, useLiveStore } from "./store";
 
@@ -50,8 +51,8 @@ const RATE_LIMIT_RETRY_MS = 5_000;
 /**
  * Joins a deck's live rooms on the shared socket (`live:join`, with an ack)
  * and feeds every `live:event` envelope of that deck into the surrounding
- * live store, then calls the handlers for side effects. Only the versioned
- * protocol is used: the legacy `quiz:*` events are not listened to.
+ * live store, then calls the handlers for side effects. (The server no longer
+ * sends the legacy `quiz:event` copy.)
  *
  * Per envelope: events of another session only record their `seq`
  * (`onForeignSession`); a repeated `seq` is dropped; the host resyncs on a
@@ -60,7 +61,10 @@ const RATE_LIMIT_RETRY_MS = 5_000;
  * gap as loss: `seq` counts host-only and other participants' events too.
  * Every (re)join, and every return to a visible tab, asks for a resync.
  * Connection status lands in the store as `connected` (socket connected *and*
- * joined).
+ * joined). A participant's socket becomes the store's answer transport
+ * (`answer:submit`) only once the join acked, and stops being it on every
+ * disconnect: after a reconnect no answer goes over the socket before the new
+ * `live:join` ack.
  *
  * Pass `auth = undefined` to stay out of the room — the server rejects a
  * participant join without credentials, so wait until the nickname gate
@@ -112,6 +116,11 @@ export function useLiveSocket(
 
     const setConnected = (value: boolean) =>
       store.getState().dispatch({ type: "live/connection", connected: value });
+    // Answers go over this socket only while it is joined as the participant.
+    const setTransport = (isJoined: boolean) =>
+      store
+        .getState()
+        .setAnswerTransport(isJoined && role === "participant" ? createSocketAnswerTransport(socket, presentationId) : null);
 
     const join = () => {
       if (disposed || !socket.connected) return;
@@ -126,11 +135,13 @@ export function useLiveSocket(
         if (ack?.ok) {
           joined = true;
           setConnected(true);
+          setTransport(true);
           handleJoined();
           return;
         }
         joined = false;
         setConnected(false);
+        setTransport(false);
         const error = ack && !ack.ok ? ack.error : "NO_ACK";
         handleJoinError(error);
         if (error === "RATE_LIMITED") retryTimer = setTimeout(join, RATE_LIMIT_RETRY_MS);
@@ -138,12 +149,13 @@ export function useLiveSocket(
     };
 
     const handleEvent = (event: PresentationRealtimeEvent) => {
-      if (event?.presentationId === presentationId || event?.quizId === presentationId) handleRealtimeEvent(event);
+      if (event?.presentationId === presentationId) handleRealtimeEvent(event);
     };
     const handleConnect = () => join();
     const handleDisconnect = () => {
       joined = false;
       setConnected(false);
+      setTransport(false);
     };
     const handleVisibility = () => {
       if (document.visibilityState === "visible" && joined) handleVisible();
@@ -168,6 +180,7 @@ export function useLiveSocket(
 
     return () => {
       disposed = true;
+      setTransport(false);
       if (retryTimer) clearTimeout(retryTimer);
       document.removeEventListener("visibilitychange", handleVisibility);
       socket.emit(LIVE_SOCKET_EVENTS.leave, { presentationId });

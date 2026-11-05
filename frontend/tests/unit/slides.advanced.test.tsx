@@ -363,7 +363,7 @@ describe("guess_number", () => {
 
     test("saved slides reach the API unchanged", () => {
       const saved = cleanSlide(GUESS);
-      expect(toSavePayload("Deck", [{ ...saved, _id: "s1" }]).slides[0]).toEqual(saved);
+      expect(toSavePayload("Deck", [{ ...saved, _id: "s1" }]).slides[0]).toEqual({ ...saved, _id: "s1" });
     });
 
     test("drafts fill what the API needs: a usable range, a correct number on the steps, a timer", () => {
@@ -535,7 +535,7 @@ describe("hundred_points", () => {
     expect(cleaned).toMatchObject({ points: 0, scoreDependsOnTime: false, config: { items: ["Docs", "Tests"] } });
     expect(validateSlide(cleaned)).toBeNull();
     expect(def.clean(cleaned)).toEqual(cleaned);
-    expect(toSavePayload("Deck", [{ ...cleaned, _id: "s1" }]).slides[0]).toEqual(cleaned);
+    expect(toSavePayload("Deck", [{ ...cleaned, _id: "s1" }]).slides[0]).toEqual({ ...cleaned, _id: "s1" });
   });
 
   test("drafts get at least two items", () => {
@@ -897,7 +897,7 @@ describe("pin_on_image", () => {
       config: { region: REGION },
     });
     expect(def.clean(graded)).toEqual(graded);
-    expect(toSavePayload("Deck", [{ ...graded, _id: "s1" }]).slides[0]).toEqual(graded);
+    expect(toSavePayload("Deck", [{ ...graded, _id: "s1" }]).slides[0]).toEqual({ ...graded, _id: "s1" });
   });
 
   test("drafts keep a placeholder image, fill the alt text and drop an unusable area", () => {

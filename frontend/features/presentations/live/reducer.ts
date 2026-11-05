@@ -58,6 +58,24 @@ export interface LiveTiming {
   clockOffsetMs: number;
 }
 
+/**
+ * Participant: an answer saved on this device that the server has not
+ * confirmed (`queued`: in the offline queue, "Saved — will sync"), or that
+ * the server refused for good after it sat in the queue (`refused`, with the
+ * server's `code`: `TIME_UP`, `NOT_ACCEPTING`, …).
+ */
+export interface PendingAnswer {
+  clientAnswerId: string;
+  slideId: string | null;
+  slideIndex: number;
+  status: "queued" | "refused";
+  code: string | null;
+  message: string | null;
+}
+
+/** Key of a slide's entry in `LiveState.pendingAnswers`: its id (session-scoped), else its index. */
+export const pendingAnswerKey = (slideId: string | null, slideIndex: number): string => slideId ?? `#${slideIndex}`;
+
 export interface LiveState {
   role: LiveRole;
   presentationId: string | null;
@@ -105,6 +123,8 @@ export interface LiveState {
   me: ParticipantState | null;
   /** Participant: index of the slide this participant answered (current slide only). */
   submittedSlideIndex: number | null;
+  /** Participant: answers in the offline queue or refused from it, by `pendingAnswerKey(slideId, slideIndex)`. */
+  pendingAnswers: Record<string, PendingAnswer>;
   /**
    * Participant: why the credentials stopped working — `kicked` (removed by
    * the host), `stale` (they belong to an ended session), `missing` (unknown
@@ -139,6 +159,19 @@ export type LiveAction =
   | { type: "participant/live-state"; state: ParticipantLiveState; receivedAt?: number }
   | { type: "participant/me-loaded"; me: ParticipantState }
   | { type: "participant/submitted"; slideIndex: number }
+  /** An answer went into the offline queue (or was found there after a reload). */
+  | { type: "participant/answer-queued"; slideId: string | null; slideIndex: number; clientAnswerId: string }
+  /** The server took a queued answer (or already had it: `ALREADY_ANSWERED`, a replay). */
+  | { type: "participant/answer-synced"; slideId: string | null; slideIndex: number; clientAnswerId: string }
+  /** The server refused a queued answer for good. */
+  | {
+      type: "participant/answer-refused";
+      slideId: string | null;
+      slideIndex: number;
+      clientAnswerId: string;
+      code: string | null;
+      message: string | null;
+    }
   /** The credentials stopped working; `kicked` also forgets the identity. */
   | { type: "participant/lost"; reason: ParticipantLostReason };
 
@@ -176,6 +209,7 @@ export function createInitialLiveState(
     self: null,
     me: null,
     submittedSlideIndex: null,
+    pendingAnswers: {},
     lost: null,
     lastSeq: null,
     modules: initialModuleState(),
@@ -318,6 +352,7 @@ const sessionScoped = (): Partial<LiveState> => ({
   results: {},
   me: null,
   submittedSlideIndex: null,
+  pendingAnswers: {},
   modules: initialModuleState(),
 });
 
@@ -454,15 +489,64 @@ function coreReducer(state: LiveState, action: LiveAction): LiveState {
     case "participant/submitted":
       return { ...state, submittedSlideIndex: action.slideIndex };
 
+    case "participant/answer-queued": {
+      const key = pendingAnswerKey(action.slideId, action.slideIndex);
+      const existing = state.pendingAnswers[key];
+      if (existing?.status === "queued" && existing.clientAnswerId === action.clientAnswerId) return state;
+      const entry: PendingAnswer = {
+        clientAnswerId: action.clientAnswerId,
+        slideId: action.slideId,
+        slideIndex: action.slideIndex,
+        status: "queued",
+        code: null,
+        message: null,
+      };
+      return { ...state, pendingAnswers: { ...state.pendingAnswers, [key]: entry } };
+    }
+
+    case "participant/answer-synced": {
+      const key = pendingAnswerKey(action.slideId, action.slideIndex);
+      const existing = state.pendingAnswers[key];
+      const pendingAnswers = existing && existing.clientAnswerId === action.clientAnswerId ? withoutKey(state.pendingAnswers, key) : state.pendingAnswers;
+      // Counts as answered only on the slide it belongs to (the phone may have moved on).
+      const onScreen = state.currentSlideIndex === action.slideIndex && (action.slideId === null || state.slideId === action.slideId);
+      return {
+        ...state,
+        pendingAnswers,
+        submittedSlideIndex: onScreen ? action.slideIndex : state.submittedSlideIndex,
+      };
+    }
+
+    case "participant/answer-refused": {
+      const key = pendingAnswerKey(action.slideId, action.slideIndex);
+      const existing = state.pendingAnswers[key];
+      if (existing && existing.clientAnswerId !== action.clientAnswerId) return state;
+      const entry: PendingAnswer = {
+        clientAnswerId: action.clientAnswerId,
+        slideId: action.slideId,
+        slideIndex: action.slideIndex,
+        status: "refused",
+        code: action.code,
+        message: action.message,
+      };
+      return { ...state, pendingAnswers: { ...state.pendingAnswers, [key]: entry } };
+    }
+
     case "participant/lost":
       return action.reason === "kicked"
-        ? { ...state, lost: action.reason, self: null, me: null, submittedSlideIndex: null }
+        ? { ...state, lost: action.reason, self: null, me: null, submittedSlideIndex: null, pendingAnswers: {} }
         : { ...state, lost: action.reason };
 
     default:
       return state;
   }
 }
+
+const withoutKey = <T>(record: Record<string, T>, key: string): Record<string, T> => {
+  const rest = { ...record };
+  delete rest[key];
+  return rest;
+};
 
 // ---------- Host ----------
 
@@ -820,6 +904,10 @@ function participantLiveState(state: LiveState, live: ParticipantLiveState, rece
   };
 }
 
+/** Drops a slide's refused pending answer (a queued one is still on its way). */
+const dropRefused = (pending: Record<string, PendingAnswer>, key: string) =>
+  pending[key]?.status === "refused" ? withoutKey(pending, key) : pending;
+
 /** Participant: every core event of the followed session. */
 function participantEvent(
   state: LiveState,
@@ -861,6 +949,8 @@ function participantEvent(
       reveal: null,
       // A reopened slide stays answered for those who answered; a new one starts fresh.
       me: p.reopened ? state.me : null,
+      // A refusal from the queue no longer applies to a fresh window of the slide.
+      pendingAnswers: dropRefused(next.pendingAnswers, pendingAnswerKey(p.slideId, p.slideIndex)),
     };
   }
 

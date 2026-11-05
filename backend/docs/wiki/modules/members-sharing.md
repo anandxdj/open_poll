@@ -1,7 +1,7 @@
 ---
 summary: Workspace members, invitations, resource shares (ResourceShare), the audit log API, seat limits, the last-owner guard, migration 100 and the tests.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-05
 ---
 
 # Members, invites, sharing and audit (W3-B1)
@@ -113,11 +113,11 @@ ShareView = { principalType, principalId, role, name, email|null, workspaceRole|
   (`400 PRINCIPAL_NOT_IN_WORKSPACE`, `details.principalIds`). The role must not exceed the
   granter's own permissions on the resource (`403 ROLE_NOT_ASSIGNABLE`).
 - Decks without a `workspaceId` (before migration 020) can't be shared (`409 NOT_SHAREABLE`).
-- Folder shares: the Folder model is W3-B2's, so the folder is read from the raw `folders`
-  collection (`_id`, `workspaceId`, `name`, `deletedAt`). **W3-B2 must delete a folder's
-  `ResourceShare` documents (`resourceType: 'folder'`) when it deletes the folder**; deleting a deck
-  already removes its shares (`crud.service.ts`). Nested folders: only the deck's direct folder is
-  matched today; walk `parentId` in `loadShareGrants` if W3-B2 adds inheritance.
+- Folder shares: the Folder model is W3-B2's (`modules/folders-templates.md`); this module reads the
+  raw `folders` collection (`_id`, `workspaceId`, `name`, `deletedAt`). Deleting a folder
+  (`DELETE /api/folders/:id`) deletes its `ResourceShare` documents (`resourceType: 'folder'`);
+  deleting a deck removes its shares (`crud.service.ts`). Folders are one level deep, so only the
+  deck's direct folder is matched; walk `parentId` in `loadShareGrants` if nesting is added.
 - Evaluation: `presentations/access.ts` (`authorizeDeck`, `canActOnDeck`) counts shares, so REST
   routes, host actions, the sessions list and the socket host join honour them. Other resource
   types (polls) have no shares.

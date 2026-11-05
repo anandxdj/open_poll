@@ -65,14 +65,14 @@ export class PollService {
   /**
    * Copies a poll into `workspaceId` as an unpublished draft: title "Copy of
    * …", questions (options, answers, points, explanations), pollType, pass
-   * mark and anonymity. Never its responses: the copy starts with zeroed
+   * mark, anonymity and library folder. Never its responses: the copy starts with zeroed
    * analytics, open and with results unpublished, expiring per
    * `duplicateExpiresAt`. The caller has authorized both the read of the
    * source and the create in `workspaceId`.
    */
   static async duplicatePoll(source: IPoll, creatorId: string, workspaceId: IdLike, now = new Date()) {
     const expiresAt = duplicateExpiresAt(source.expiresAt, now);
-    return this.createPoll(
+    const copy = await this.createPoll(
       {
         title: copyTitle(source.title),
         pollType: source.pollType,
@@ -93,6 +93,12 @@ export class PollService {
       creatorId,
       workspaceId,
     );
+    // Like a deck's copy, it lands in the source's library folder (same workspace only).
+    if (source.folderId && source.workspaceId != null && String(source.workspaceId) === String(workspaceId)) {
+      copy.folderId = source.folderId;
+      await copy.save();
+    }
+    return copy;
   }
 
   static async getPollById(pollId: string) {

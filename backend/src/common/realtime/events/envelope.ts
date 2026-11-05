@@ -19,7 +19,7 @@ export interface LiveEventEnvelope<TType extends string = string> {
   payload: Record<string, unknown>;
   audience: LiveAudience;
   emittedAt: string;
-  /** Alias of `presentationId` for clients of the legacy `quiz:event` protocol. */
+  /** Alias of `presentationId`, kept in the envelope for older clients (the `quiz:event` copy itself is gone). */
   quizId: string;
 }
 
