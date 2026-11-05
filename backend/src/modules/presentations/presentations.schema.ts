@@ -81,8 +81,24 @@ export const deckSettingsPatchSchema = z
   .partial()
   .strict();
 
-/** Theme selection; brand kits and overrides come with the themes module. */
-export const deckThemePatchSchema = z.object({ presetId: z.string().min(1).max(40) }).partial().strict();
+const hexColor = z
+  .string()
+  .regex(/^#[0-9a-f]{6}$/i, 'Use a #rrggbb colour')
+  .transform((value) => value.toLowerCase());
+
+/**
+ * Theme selection (W3-A): a preset, optionally a brand kit of the deck's
+ * workspace (plan feature `brand_kits`), and an accent override. The service
+ * checks the preset, the kit and the override's contrast.
+ */
+export const deckThemePatchSchema = z
+  .object({
+    presetId: z.string().min(1).max(40),
+    brandKitId: objectIdString.nullable(),
+    overrides: z.object({ accent: hexColor, accentText: hexColor }).partial().strict().nullable(),
+  })
+  .partial()
+  .strict();
 
 export const createPresentationSchema = z.object({
   title: z.string().min(1, 'Title is required').max(120),

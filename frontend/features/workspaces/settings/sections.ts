@@ -71,7 +71,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     href: "/settings/brand",
     icon: Palette,
     group: "workspace",
-    ready: false,
+    ready: true,
     feature: "brand_kits",
     action: { name: "workspace:brand", minimumRole: "admin" },
   },

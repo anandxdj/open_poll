@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useLive } from "../../live/store";
+import { useDeckTheme } from "../../theme/DeckThemeProvider";
 import { SlotOutlet, type StageSlotProps } from "../../live/slots";
 import { getSlideRuntime } from "../../slides/runtime";
 import { ResponseCounter } from "./ResponseCounter";
@@ -34,9 +35,23 @@ export function Stage({ surface, join, countdown, readyActions, lobbyActions, en
   const status = useLive((s) => s.status);
   const presentationId = useLive((s) => s.presentationId);
   const slide = useLive((s) => s.deck?.slides[s.currentSlideIndex] ?? null);
+  const background = useDeckTheme()?.background ?? null;
+  const overlay = background
+    ? `color-mix(in srgb, var(--deck-stage-bg) ${Math.round(background.overlayOpacity * 100)}%, transparent)`
+    : "";
 
   return (
     <main className="relative flex-1 overflow-hidden flex flex-col items-center justify-center p-4 sm:p-6">
+      {/* A brand kit's background picture, under the stage colour at the kit's overlay strength. */}
+      {background ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage: `linear-gradient(${overlay}, ${overlay}), url(${JSON.stringify(background.imageUrl)})`,
+          }}
+        />
+      ) : null}
       {/* Graph paper behind everything but a running slide, which needs the room's full attention. */}
       {status !== "active" && <div aria-hidden="true" className="stage-grid pointer-events-none absolute inset-0" />}
       {status === "draft" && <StageReady actions={readyActions} />}

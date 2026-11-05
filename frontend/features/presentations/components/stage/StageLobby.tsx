@@ -5,6 +5,7 @@ import { Check, Copy, Users } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useTranslations } from "next-intl";
 import { useLive } from "../../live/store";
+import { useDeckTheme } from "../../theme/DeckThemeProvider";
 
 export interface JoinLinkControls {
   /** Absolute participant URL (`/live/<code>`); empty until known. */
@@ -20,10 +21,15 @@ export function StageLobby({ join, actions }: { join: JoinLinkControls; actions?
   const t = useTranslations("presenter.lobby");
   const joinCode = useLive((s) => s.joinCode);
   const participants = useLive((s) => s.participants);
+  const theme = useDeckTheme();
   const { playUrl, copiedUrl, copiedCode, copyUrl, copyCode } = join;
 
   return (
     <div className="relative my-auto w-full max-w-2xl space-y-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {theme?.logo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a customer's logo from their brand kit, any host
+        <img src={theme.logo.url} alt={theme.logo.alt} className="mx-auto h-14 max-w-[280px] object-contain sm:h-16" />
+      ) : null}
       <div className="space-y-2">
         <p className="flex flex-wrap items-center justify-center gap-2 text-base text-deck-stage-fg/70 sm:text-lg">
           <span>{t("scanOrJoin")}</span>

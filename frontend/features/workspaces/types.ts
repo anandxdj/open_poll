@@ -93,7 +93,11 @@ export interface WorkspaceDetail {
 
 export interface WorkspaceUpdate {
   name?: string;
-  settings?: { retentionDays?: number | null };
+  settings?: {
+    retentionDays?: number | null;
+    /** Theme new decks start with (W3-A); null = the built-in look. */
+    defaultTheme?: { presetId: string; brandKitId: string | null } | null;
+  };
 }
 
 /** What this deployment offers (GET /api/capabilities); separate from plan entitlements. */

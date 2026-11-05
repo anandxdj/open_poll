@@ -72,7 +72,7 @@ While capabilities or the workspace detail are loading, gated entries are disabl
 | privacy | none (the user's own account) | W4-C (shipped) |
 | members | team only (every member sees the roster; managers get the controls) | W3-B1 |
 | audit | `workspace:manage` (admin) | W3-B1 |
-| brand | `brand_kits`, `workspace:brand` (admin) | W3-A |
+| brand | `brand_kits`, `workspace:brand` (admin) | W3-A (shipped) |
 | billing | `workspace:billing` (owner); no capability gate: the page explains when billing is off (`features/billing.md`) | W3-C (shipped) |
 | sso | capability `samlSso`, team only, `sso`, `workspace:sso` (admin) | W3-D |
 | scim | capability `scim`, team only, `scim`, `workspace:sso` (admin) | W3-D |
@@ -86,6 +86,21 @@ While capabilities or the workspace detail are loading, gated entries are disabl
    Adjust its gates on the same entry if your package's rules differ.
 3. Gate the page content itself too (a direct URL bypasses the nav): read `useCurrentWorkspace()` and
    `useCapabilities()`, and rely on the API's 403/503 for the real enforcement.
+
+## Brand (W3-A)
+
+`features/themes/`, page `settings/brand` (`BrandSettings`). Backend contract: `backend/docs/wiki/modules/themes.md`.
+
+| Path (`features/themes/…`) | Role |
+| --- | --- |
+| `types.ts`, `api/themes.api.ts` | `ThemeTokens`, `BrandKit`, `DeckThemeRef`; presets, brand kit CRUD, `saveDeckTheme`. |
+| `contrast.ts`, `fonts.ts` | Mirrors of the API's WCAG checks and font URLs, for live feedback and previews of unsaved kits. |
+| `deckTheme.ts` | `deckThemeFrom(tokens)`: a session's snapshot as a `DeckTheme` (see `live-surfaces.md`). |
+| `hooks/useThemeCatalog.ts` | Presets, fonts and (when the plan has them) the workspace's kits. |
+| `components/BrandSettings.tsx` | Kit cards (swatch, fonts, edit, delete with confirmation), the "Theme for new decks" select (`settings.defaultTheme`), the editor. Members without `workspace:brand` or plans without `brand_kits` get one line saying why. |
+| `components/BrandKitEditor.tsx` | Name, eight colours (picker plus hex field), contrast checks as you type (saving waits until all pass), chart colours (1–12), heading and body fonts, logo and stage background (upload with `brand_logo` / `brand_background` when storage is on, or a link), background overlay. |
+| `components/BrandPreview.tsx`, `ThemeSwatch.tsx` | A stage and a phone drawn with the real deck tokens; a small swatch for lists. |
+| `components/ThemeTab.tsx` | The builder's deck-level Theme tab (`presentation-builder.md`). |
 
 ## Privacy (W4-C)
 

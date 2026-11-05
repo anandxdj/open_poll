@@ -10,7 +10,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { createLiveStore, LiveStoreProvider, useLive } from "../../live/store";
 import { useAfterDelay } from "../../live/useAfterDelay";
-import { DeckThemeProvider } from "../../theme/DeckThemeProvider";
+import { LiveDeckTheme } from "@/features/themes/LiveDeckTheme";
 import { Stage } from "../stage/Stage";
 import { HostControls } from "./HostControls";
 import { HostHeader } from "./HostHeader";
@@ -27,11 +27,11 @@ const outlineButton =
 export function HostConsole({ presentationId }: { presentationId: string }) {
   const [store] = useState(() => createLiveStore("host", { presentationId }));
   return (
-    <DeckThemeProvider>
-      <LiveStoreProvider store={store}>
+    <LiveStoreProvider store={store}>
+      <LiveDeckTheme>
         <HostConsoleView presentationId={presentationId} />
-      </LiveStoreProvider>
-    </DeckThemeProvider>
+      </LiveDeckTheme>
+    </LiveStoreProvider>
   );
 }
 

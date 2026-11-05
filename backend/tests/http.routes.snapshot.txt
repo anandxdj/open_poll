@@ -134,6 +134,11 @@ GET /api/billing
 POST /api/billing/checkout
 POST /api/billing/portal
 ROUTER /api/brand-kits
+GET /api/brand-kits
+POST /api/brand-kits
+GET /api/brand-kits/:id
+PATCH /api/brand-kits/:id
+DELETE /api/brand-kits/:id
 ROUTER /api/capabilities
 GET /api/capabilities
 ROUTER /api/embeds
@@ -180,6 +185,7 @@ PUT /api/shares
 ROUTER /api/sso
 ROUTER /api/templates
 ROUTER /api/themes
+GET /api/themes/presets
 ROUTER /api/uploads
 POST /api/uploads/presign
 POST /api/uploads/complete

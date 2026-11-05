@@ -20,6 +20,7 @@ import type {
 } from "../types";
 import { isRealtimeEvent } from "../types/realtime";
 import { clockOffsetFrom } from "./clock";
+import type { ThemeTokens } from "@/features/themes/types";
 
 /**
  * Pure state machine behind every live surface (host console, participant
@@ -96,6 +97,8 @@ export interface LiveState {
   results: Record<string, SlideResultsView>;
   /** Participant: the session's settings snapshot (from `live-state`). */
   settings: DeckSettings | null;
+  /** The session's theme snapshot (host session view, participant live-state or the code lookup). */
+  theme: ThemeTokens | null;
   /** Participant identity once joined. */
   self: LiveSelf | null;
   /** Participant: own score/rank/last answer. */
@@ -169,6 +172,7 @@ export function createInitialLiveState(
     leaderboard: [],
     results: {},
     settings: null,
+    theme: null,
     self: null,
     me: null,
     submittedSlideIndex: null,
@@ -481,6 +485,7 @@ function applySessionView(
     status: session.status,
     joinCode: session.joinCode || state.joinCode,
     totalSlides: session.totalSlides,
+    theme: session.theme !== undefined ? session.theme : state.theme,
     currentSlideIndex: session.currentSlideIndex,
     slideId: session.currentSlideId,
     phase: session.status === "active" ? (current?.phase ?? null) : null,
@@ -723,6 +728,7 @@ function participantInfoLoaded(
     status: info.status,
     totalSlides: info.totalSlides,
     currentSlideIndex: info.currentSlideIndex,
+    theme: info.theme !== undefined ? info.theme : followed.theme,
     clockOffsetMs,
     // A different session drops the old identity unless the caller brings this session's.
     self: action.self !== undefined ? action.self : followed === state ? state.self : null,
@@ -760,6 +766,7 @@ function participantLiveState(state: LiveState, live: ParticipantLiveState, rece
     joinCode: live.joinCode || followed.joinCode,
     totalSlides: live.totalSlides,
     settings: live.settings ?? followed.settings,
+    theme: live.theme ?? followed.theme,
     clockOffsetMs,
     me: {
       participantId: live.me.participantId,

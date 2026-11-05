@@ -1,4 +1,5 @@
 import type { Presentation, PresentationSlideType, PresentationStatus } from "./deck";
+import type { ThemeTokens } from "@/features/themes/types";
 
 /**
  * Live-session wire types. Mirror of the session engine contract in
@@ -63,6 +64,8 @@ export interface SessionView {
   answerCount: number;
   audienceCap: number | null;
   retainUntil: string | null;
+  /** The deck theme snapshotted when the session opened (W3-A); absent from older APIs. */
+  theme?: ThemeTokens | null;
 }
 
 /** Results of one response slide (host view; also what a reveal broadcasts). */
@@ -271,6 +274,8 @@ export interface PublicPresentationInfo {
   /** Response slides only. `questionEndsAt` is null while the slide is untimed and open. */
   questionStartedAt?: string;
   questionEndsAt?: string | null;
+  /** The live session's theme snapshot, so the join screen already looks like the deck. */
+  theme?: ThemeTokens | null;
 }
 
 /** `GET /:id/live-state` — everything a participant needs to re-render after a reconnect. */
@@ -284,7 +289,7 @@ export interface ParticipantLiveState {
   totalSlides: number;
   serverNow: string;
   settings: DeckSettings | null;
-  theme: Record<string, unknown> | null;
+  theme: ThemeTokens | null;
   current: {
     slideId: string;
     slideIndex: number;

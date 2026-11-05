@@ -569,6 +569,8 @@ describe('golden: participant slide payload (sanitize)', () => {
       // Session engine: additive fields.
       sessionId: String(sessionOf(pid)._id),
       pace: 'presenter',
+      // W3-A: the session's theme snapshot (the built-in look here).
+      theme: expect.objectContaining({ presetId: 'graph-paper', custom: false }),
     });
 
     await PresentationService.advanceSlide(pid, OWNER_ID, 4);

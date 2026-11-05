@@ -89,6 +89,11 @@
   --primary-foreground: var(--deck-primary-fg);
 }
 
+/* A theme's heading font (W3-A); without one, headings keep the inherited font. */
+[data-deck-theme] :is(h1, h2, h3) {
+  font-family: var(--theme-font-heading, inherit);
+}
+
 /* `inline` so utilities read the variable where they are used — a deck scope
    overriding `--deck-*` then recolours everything inside it. */
 @theme inline {

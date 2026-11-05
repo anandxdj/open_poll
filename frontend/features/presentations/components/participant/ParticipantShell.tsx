@@ -10,7 +10,8 @@ import { getSlotEntries, SlotOutlet, type ParticipantSlotProps } from "../../liv
 import { createLiveStore, LiveStoreProvider, useLive } from "../../live/store";
 import { useAfterDelay } from "../../live/useAfterDelay";
 import { getSlideRuntime } from "../../slides/runtime";
-import { DeckThemeProvider } from "../../theme/DeckThemeProvider";
+import { LiveDeckTheme } from "@/features/themes/LiveDeckTheme";
+import { useDeckTheme } from "../../theme/DeckThemeProvider";
 import type { AnswerPayload } from "../../types";
 import { JoinGate } from "./JoinGate";
 import { ParticipantEnd } from "./ParticipantEnd";
@@ -30,11 +31,11 @@ import { useParticipantSession } from "./useParticipantSession";
 export function ParticipantShell({ code }: { code: string }) {
   const [store] = useState(() => createLiveStore("participant"));
   return (
-    <DeckThemeProvider>
-      <LiveStoreProvider store={store}>
+    <LiveStoreProvider store={store}>
+      <LiveDeckTheme>
         <ParticipantScreen code={code} />
-      </LiveStoreProvider>
-    </DeckThemeProvider>
+      </LiveDeckTheme>
+    </LiveStoreProvider>
   );
 }
 
@@ -44,6 +45,7 @@ function ParticipantScreen({ code }: { code: string }) {
 
   const status = useLive((s) => s.status);
   const title = useLive((s) => s.title);
+  const theme = useDeckTheme();
   const presentationId = useLive((s) => s.presentationId);
   const connected = useLive((s) => s.connected);
   const showReconnecting = useAfterDelay(!connected && status !== "ended", 1500);
@@ -70,7 +72,13 @@ function ParticipantScreen({ code }: { code: string }) {
   return (
     <div className="min-h-screen bg-deck-bg text-deck-fg flex flex-col font-sans">
       <header className="flex h-14 items-center justify-between border-b border-deck-border bg-deck-bg px-5">
-        <span className="max-w-[200px] truncate text-sm font-semibold tracking-[-0.01em]">{title}</span>
+        <span className="flex min-w-0 items-center gap-2.5">
+          {theme?.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a customer's logo from their brand kit, any host
+            <img src={theme.logo.url} alt={theme.logo.alt} className="h-7 max-w-[96px] shrink-0 object-contain" />
+          ) : null}
+          <span className="max-w-[200px] truncate text-sm font-semibold tracking-[-0.01em]">{title}</span>
+        </span>
         <span className="flex items-center gap-1.5 text-sm text-deck-muted-fg"><span className="size-1.5 rounded-full bg-deck-live" aria-hidden="true" />{self.name}</span>
       </header>
 

@@ -170,7 +170,7 @@ the rest.
 | Gate | Where | Package |
 | --- | --- | --- |
 | `export_xlsx`, `export_pdf` (CSV stays free) | session/poll export routes | W2-C |
-| `brand_kits` | brand kit create/update/apply routes | W3-A |
+| `brand_kits` | every `/api/brand-kits` route; applying a kit to a deck or the workspace default | W3-A (done) |
 | `sso`, `scim` | SSO connection and SCIM token management (not the login itself) | W3-D |
 | `custom_domains`, `white_label` | domain routes; removing "Powered by Open Poll" | W4-E |
 | `consumeUsage(ws, 'ai_deck')` | `POST /api/ai/generate-deck` | W3-F |

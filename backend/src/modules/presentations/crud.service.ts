@@ -10,6 +10,8 @@ import { ResourceShareModel } from '../workspaces/resourceShare.model';
 import { authorizeDeck, type Actor } from './access';
 import { allSessionKeys, k } from './live/keys';
 import { assertContentMediaInWorkspace } from './slides/types/content/media';
+import { assertThemeChoice, type ThemeChoice } from '../themes/themes.service';
+import { WorkspaceModel } from '../workspaces/workspace.model';
 import type { CreatePresentationInput, UpdatePresentationInput } from './presentations.schema';
 
 const generateJoinCode = () => crypto.randomInt(100000, 1000000).toString();
@@ -36,10 +38,16 @@ export const createPresentation = async (data: CreatePresentationInput, actor: A
   }
   // Uploaded media must belong to the deck's workspace (the request schema cannot query).
   if (workspaceId && data.slides) await assertContentMediaInWorkspace(data.slides, workspaceId);
+  // A new deck starts on the workspace's default theme unless the request picks one.
+  const workspace = typeof actor === 'string' ? null : (actor.workspace ?? null);
+  const defaultTheme = (workspace as { settings?: { defaultTheme?: ThemeChoice | null } } | null)?.settings?.defaultTheme;
+  const themeChoice: ThemeChoice | undefined = data.theme ?? (defaultTheme ? { ...defaultTheme } : undefined);
+  const theme = themeChoice ? await assertThemeChoice(themeChoice, workspace as Parameters<typeof assertThemeChoice>[1]) : undefined;
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       return await PresentationModel.create({
         ...data,
+        ...(theme ? { theme: theme as Record<string, unknown> } : {}),
         creatorId,
         ...(workspaceId ? { workspaceId } : {}),
         joinCode: generateJoinCode(),
@@ -84,9 +92,17 @@ export const updatePresentation = async (presentationId: string, actor: Actor, d
   if (data.title !== undefined) presentation.title = data.title;
   if (data.slides !== undefined) presentation.slides = data.slides as IPresentationSlide[];
   if (data.pace !== undefined) presentation.pace = data.pace;
-  // Settings and theme are patched field by field: omitted fields keep their value.
-  for (const [path, value] of [...toPaths(data.settings ?? {}, 'settings'), ...toPaths(data.theme ?? {}, 'theme')]) {
+  // Settings are patched field by field: omitted fields keep their value.
+  for (const [path, value] of toPaths(data.settings ?? {}, 'settings')) {
     presentation.set(path, value);
+  }
+  // Theme fields are replaced whole (overrides is one object), after checking them against the deck's workspace.
+  if (data.theme) {
+    const workspace = presentation.workspaceId ? await WorkspaceModel.findById(presentation.workspaceId).lean() : null;
+    const theme = await assertThemeChoice(data.theme, workspace);
+    for (const key of ['presetId', 'brandKitId', 'overrides'] as const) {
+      if (theme[key] !== undefined) presentation.set(`theme.${key}`, theme[key]);
+    }
   }
   await presentation.save();
   return presentation;

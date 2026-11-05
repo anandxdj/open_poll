@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { hasSlideType, slideKindOf, type BuiltInSlideType, type SlideKind, type SlideMedia } from '../slides';
-import { DEFAULT_THEME_PRESET } from '../../themes/resolve';
+import { DEFAULT_THEME_PRESET } from '../../themes/presets';
 import type { DeckSettings, SessionPace } from '../live/contract';
 
 export const SESSION_PACES = ['presenter', 'audience'] as const satisfies readonly SessionPace[];

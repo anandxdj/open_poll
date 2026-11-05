@@ -436,7 +436,7 @@ describe('sessions: participant resync (live-state)', () => {
     const lobby = await PresentationService.getParticipantLiveState(pid, ada.participantId, ada.token);
     expect(lobby).toMatchObject({ status: 'lobby', current: null, finalLeaderboard: null, joinCode: '777777' });
     expect(lobby.settings.nickname).toBe('required');
-    expect(lobby.theme?.presetId).toBe('amber');
+    expect(lobby.theme).toMatchObject({ presetId: 'graph-paper', custom: false, brandKitId: null });
 
     await PresentationService.advanceSlide(pid, OWNER_ID);
     at(1_000);
