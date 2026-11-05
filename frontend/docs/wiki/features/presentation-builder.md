@@ -18,9 +18,9 @@ Route `/presentation/create` (`app/(dashboard)/presentation/create/page.tsx`, `?
 | State | `components/builder/useDeckBuilder.ts` | Deck + selected slide, local draft (localStorage), silent backend drafts, explicit save, AI generation. |
 | Frame | `components/builder/BuilderShell.tsx` | A studio frame: the header bar across the top, the rail on the left (on top below `lg`), the stage on graph paper in the middle and the inspector as a 26rem panel on the right from `xl` (below `xl` it sits under the stage as a sheet and both scroll together). The app sidebar starts collapsed on builder routes (`isStudioPath` in `components/layouts/nav.ts`). |
 | Header | `components/builder/BuilderHeader.tsx` | Back to the library, the title edited in place (`Deck title`), who else has the deck open (`presence` slot, see Co-editing safety), AI generate (outline), Import questions (`features/imports`, optional `onImportQuestions`) and Save draft (ghost), then Save changes (outline) and Present (the one ember button: `handleSave("present")` saves, then opens `/presentation/host/[id]`). A new deck shows Create deck as the ember button and no Present. |
-| Stage | `components/builder/SlideStage.tsx` | "Slide N of M" with the type, kind and time limit, the selected slide at full width (the rail's `SlideThumbnail`, the same `StageView`), and its speaker notes (`slide.notes`, host only, up to 5000 characters, saved with the deck). |
+| Stage | `components/builder/SlideStage.tsx` | "Slide N of M" with the type, kind and time limit, the selected slide at full width (the rail's `SlideThumbnail`, the same `StageView`, in the deck's theme), and its speaker notes (`slide.notes`, host only, up to 5000 characters, saved with the deck). |
 | AI dialog | `components/AiPresentationModal.tsx` | "Whole deck" (default for a new deck; see [`ai-deck.md`](./ai-deck.md): outline review, speaker notes, creates the deck and `handleDeckCreated` switches the builder to it) and "Quick slides" (questions merged into this deck). `AiDeckBanner` shows the mock-data notice under the header for `?aiSource=mock`. |
-| Rail | `components/builder/SlideRail.tsx` | Paper column (`bg-sidebar`), the selected slide a white sheet; thumbnails (`SlideThumbnail`, scoped `dark` so the stage reads in light mode), select, reorder, duplicate, delete, "New slide" picker. |
+| Rail | `components/builder/SlideRail.tsx` | Paper column (`bg-sidebar`), the selected slide a white sheet; thumbnails (`SlideThumbnail` in the deck's theme, light or dark, whatever the app theme), select, reorder, duplicate, delete, "New slide" picker. |
 | Inspector | `components/builder/Inspector.tsx` | Flat (the frame gives it its surface): slide type and kind, the `inspectorTabs` registry as underline tabs under it (scrolling sideways if they don't fit), the panel below. |
 | Pure helpers | `components/builder/{deckDraft,slideRailOps}.ts` | Validation, payloads, local draft, rail operations (unit tested). |
 
@@ -194,10 +194,26 @@ interface InspectorTabProps {
 
 Built in: **Content** (`tabs/ContentTab.tsx`: question + the type's `Editor`) and **Settings**
 (`tabs/SettingsTab.tsx`: time limit, points, speed bonus). **Theme** (`features/themes/components/ThemeTab.tsx`,
-order 40, W3-A) is deck-level: presets and the workspace's brand kits as swatches (kits only when the
-plan has `brand_kits`), and an accent override with its contrast shown. It saves the deck's `theme` on
-its own with `PATCH /presentations/:id` (not through drafts), so a new deck must be saved first;
-`DeckDraft.id` and `DeckDraft.theme` carry what it needs. A feature adds a tab by exporting an
+order 40, W3-A) is deck-level: a **Light / Dark** switch (a radiogroup "Light or dark"; disabled while a
+brand kit is chosen, the kit brings its own colours and mode), the colour themes (presets) as swatches
+showing each one light and dark side by side with the deck's mode underlined, the workspace's brand kits
+(only when the plan has `brand_kits`), and an accent override with its contrast shown (and a warning when
+the accent stands out less than 3:1 from the stage in this mode). It saves the deck's `theme` on its own
+with `PATCH /presentations/:id` (not through drafts; refused while a session is live), so a new deck must
+be saved first; `DeckDraft.id`, `DeckDraft.theme` and `DeckDraft.themeTokens` carry what it needs.
+
+### Deck theme in the builder
+
+- The canvas and the rail thumbnails draw the deck as the room will see it: `PresentationBuilder`
+  passes `deckThemeFrom(deck.themeTokens)` (the API's resolved theme from the deck read, create and
+  theme saves) to `SlideStage` and `SlideRail`; `SlideThumbnail` scopes it with `DeckThemeProvider`
+  (without a `theme` prop it inherits the surrounding deck scope, as in the presenter's next-slide
+  preview). A deck not saved yet draws the built-in look in the creator's app mode.
+- A new deck takes the app theme its creator uses (`useAppThemeMode`: the `next-themes` resolved
+  theme, light during server render and hydration so attributes never mismatch): every create sends
+  it (`theme.mode` on builder saves; Save mine as a copy keeps the deck's look). The other create
+  paths do the same: AI whole deck (`themeMode`), imports, Use template, Convert to presentation;
+  duplicate keeps the source's (server side). A feature adds a tab by exporting an
 `InspectorTabDef` and adding one line to `INSPECTOR_TABS` (alphabetical; `order` sets position).
 A deck-level tab (e.g. a theme picker) reads `deck` and writes through `onDeckChange`; a new deck
 field also needs a place in `DeckDraft`, `useDeckBuilder` and the save payloads.

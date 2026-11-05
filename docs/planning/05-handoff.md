@@ -255,6 +255,31 @@ yet).
   `backend/tests/integration/tenancy-isolation.test.ts`, `frontend/lib/proxy/index.ts`,
   `frontend/features/library/components/LibraryCard.tsx`, migration ids (220; 210 is the folders package's).
 
+**Light deck themes** (branch `feat/light-deck-themes` from `feat/embeds`; not pushed, no PR yet).
+Owner request: decks were all dark while the app is light-first.
+- Backend (`backend/docs/wiki/modules/themes.md`): every preset has a light and a dark palette (Graph
+  paper light = the app's paper, ink and ember; all pass `contrastFailures` and the new
+  `chartContrastFailures`). Decks store `theme.mode`; new decks are light unless the request sends the
+  creator's mode (deck create `theme.mode`; `themeMode` on AI decks, imports, Use template, poll
+  convert); duplicate / save as template keep the source's; brand kits take their mode from their stage
+  colour. Deck answers carry `themeTokens`, host and screen state `deckTheme` (a live session keeps its
+  snapshot), the remote state `theme`, library cards `details.theme`, reports and public results the
+  session `theme`. Migration `240-deck-theme-mode` (230 is the audience-pace package's): existing decks
+  that chose a look → dark, the rest → light; idempotent.
+- Frontend (`features/live-surfaces.md` "Deck theme", `presentation-builder.md` "Deck theme in the
+  builder"): `data-deck-mode` scopes in `tokens.css` carry each mode's stage, phone and app tokens; the
+  `dark:` variant follows a dark deck scope. Builder canvas and thumbnails, host console, presenter view,
+  audience window, screen stage, phones, remote, report panels and library card previews draw the deck's
+  mode; the Theme tab has a Light / Dark switch and two-mode swatches. New decks and new brand kits start
+  in the app theme (`useAppThemeMode`, hydration-safe).
+- Not changed on purpose: Home's "Live now" card keeps its dark highlight (`className="dark"`, no deck
+  theme in its data); the landing samples keep the `:root` dark stage. A running session cannot be
+  restyled (the API refuses deck edits while live, theme included). The workspace default theme stays
+  preset + kit; light or dark is each creator's.
+- Likely merge conflicts: `frontend/features/library/components/LibraryCard.tsx`,
+  `frontend/features/presentations/theme/tokens.css`, `backend/src/modules/presentations/crud.service.ts`,
+  migration ids.
+
 ## Left to do (nothing is half-merged)
 
 - (**W2-D phase 2** offline answers is built, branch `feat/offline-answers`: `submitAnswer` in

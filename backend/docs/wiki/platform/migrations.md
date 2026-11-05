@@ -80,3 +80,12 @@ sessions from `updatedAt` (else `startedAt`). See `modules/presentations-live.md
 
 `syncIndexes()` for `screentokens` (W4-D): `tokenHash` unique, `{presentationId, createdAt}`,
 `workspaceId`. See `modules/embeds.md`.
+
+## 240-deck-theme-mode
+
+Light deck themes: stores `theme.mode` on every deck that has none (workspace templates included).
+A deck that chose a look (preset `ocean`, `forest`, `grape`, `mono` or `classic`, a `brandKitId` or
+`overrides`) gets `dark`, the stage it was made on; every other deck (the plain Graph paper default,
+the old `amber` alias, unknown ids, a missing or null `theme`) gets `light`, the new default. Raw
+pipeline updates (`$mergeObjects` over `$ifNull: ['$theme', {}]`); idempotent, both steps only touch
+decks still without a mode. Session snapshots are not touched. See `modules/themes.md`.

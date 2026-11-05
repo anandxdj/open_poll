@@ -454,34 +454,56 @@ has a runtime.
 - Every live surface colours itself through `--deck-*` variables via Tailwind colours
   `deck-*` (`bg-deck-stage-bg`, `text-deck-accent/40`, `border-deck-correct/50`…), registered with
   `@theme inline` in `tokens.css` (imported by `app/globals.css`). No raw palette colours in live
-  UI; the phone's result states (correct / wrong / received) use the app's theme-aware `success`,
-  `destructive` and `info`, because the audience surface follows the app's light or dark theme.
-- Defaults are the Graph paper look (`../ui/design-system.md`): audience surfaces (`bg`, `fg`,
-  `surface`, `secondary`, `muted-fg`, `border`, `input`, `ring`, `primary`, `primary-fg`) follow the
-  app's light/dark tokens; the stage is always dark, the app's warm graphite (`stage-bg` #141413,
-  `stage-chrome`, `stage-panel`, `stage-fg` #f2f1ec); `accent` is the brand ember (#f97316), the
-  status accents match the app (green correct and live, red danger), `rank-1..3` gold / silver /
-  bronze, and `cloud-1..12` start with the app's categorical chart hues.
-- `.stage-grid` (in `tokens.css`) draws the graph paper in the stage's own ink behind the ready,
-  lobby and end screens; a running slide has a plain stage.
+  UI; the phone's result states (correct / wrong / received) use the app's `success`, `destructive`
+  and `info`, which a deck scope sets to its own mode.
+- **Light or dark.** A deck is light or dark (`theme.mode`, light by default; backend
+  `modules/themes.md`). `DeckThemeProvider` marks its scope `data-deck-mode="light|dark"` and
+  `tokens.css` gives that scope the Graph paper look of the mode, for the stage **and** the phones:
+  - light: the app's light tokens — paper stage `#f6f6f3` with white chrome and panels, ink
+    `#171717`, the ember fill `#cf460c` with white text (`stage-ink`), text colours that keep 4.5:1
+    on paper and white (`correct-soft` `#15803d`, `danger-soft` `#b91c1c`, `accent-soft` `#b93d0b`,
+    gold / silver / bronze ranks), the cloud in the 700/800 chart steps, a paper `stage-scrim`;
+  - dark: the warm graphite stage (`#141413`, `stage-fg` `#f2f1ec`), the brand ember `#f97316`, the
+    400-step cloud colours, the app's dark tokens on phones.
+  Each mode block also sets the app's own tokens (`--background`, `--primary`, `--muted-foreground`,
+  `--success`…, `color-scheme`), so Button, Input and `text-muted-foreground` inside a deck follow the
+  deck, not the viewer's app theme. The `dark:` variant (`app/globals.css`) applies in a dark deck
+  scope and not in a light deck drawn on a dark page.
+- Outside any deck scope `:root` keeps the look from before modes (a dark stage, audience tokens
+  following the app): what the landing samples use.
+- `.stage-grid` draws the graph paper in the stage's own ink behind the ready, lobby and end screens;
+  a running slide has a plain stage. `qr-bg` / `qr-fg` keep QR codes dark on white in both modes.
 - Stage chrome (host header and controls, lobby, ready, end, response counter, leaderboard) uses
   sentence case and 14px+ labels, neutral outline pills for secondary controls, the accent only on
   the main action (Start, Next) and the join code; ending the session is an ink (`stage-fg`)
-  button, not red.
-- `<DeckThemeProvider theme={{ tokens: { primary: '#…' } }}>` sets overrides as inline variables
-  on a `display: contents` element; inside it the shadcn tokens (`--primary`, `--background`…)
-  are remapped to the deck ones so `Button`/`Input` follow. `DECK_TOKENS` lists every token.
-- **Session themes (W3-A).** The live store keeps the session's `theme` snapshot (host `SessionView`,
-  participant `live-state`, code lookup). `LiveDeckTheme` (`features/themes/LiveDeckTheme.tsx`) wraps the
-  host console and participant shell in `DeckThemeProvider theme={deckThemeFrom(theme)}`. The built-in
-  look (`custom: false`) maps to nothing. A custom theme sets the stage tokens, the accents, correct and
-  wrong, `cloud-1..12` from its chart colours, and on phones only `primary`/`primary-fg`/`ring` (phones keep
-  following the app's light or dark theme). `DeckTheme` also carries fonts (the provider sets the body
-  `font-family`, `--theme-font-heading` for `h1`–`h3`, and loads Google Fonts stylesheets with
-  `<link precedence>`), a logo (`StageLobby`, the participant header) and a stage background picture
-  (`Stage`, under the stage colour at the kit's overlay). `useDeckTheme()` reads them.
+  button, not red. `Timer` and the 2x2 `Board` have a `stage` and a phone tone; both follow the mode.
+- `<DeckThemeProvider theme={{ mode, tokens: { primary: '#…' } }}>` sets the mode and overrides as
+  inline variables on a `display: contents` element; inside it the shadcn tokens (`--primary`,
+  `--background`, `--card`…) are remapped to the deck ones (after the mode blocks, so a custom
+  theme's inline values win). `DECK_TOKENS` lists every token. Without a theme the scope has no mode.
+- **Which theme a surface draws (`features/themes/LiveDeckTheme.tsx`).** The live store keeps the
+  session's `theme` snapshot (host `SessionView`, participant `live-state`, code lookup) and, on the
+  host and screen stores, `deckTheme` (host state: the deck's theme as it is now). A live session
+  (lobby, active) draws its snapshot, so editing the deck never restyles it; otherwise (ready screen,
+  ended) the deck's current theme, else the last snapshot; until either is known, the app's mode
+  (`useAppThemeMode`). Host console, presenter view, audience window (mirrors the presenter's store),
+  screen stage and participant shell use it; the phone remote wraps itself in the remote state's
+  `theme`; session reports draw each result panel in the session's snapshot (dark for sessions from
+  before themes).
+- `deckThemeFrom(tokens)` (`features/themes/deckTheme.ts`): the mode (snapshots from before modes
+  have none and stay dark); for the built-in look (`custom: false`) nothing more; for a custom theme
+  the palette for the stage (`stage-*`, accent, correct, wrong, `cloud-1..12` from its chart colours)
+  and the phones (`bg`, `fg`, `surface`, `muted-fg`, `secondary` / `border` / `input` mixed from the
+  text, `primary`, `ring`). Every built-in palette passes the API's contrast checks in both modes.
+  `DeckTheme` also carries fonts (the provider sets the body `font-family`, `--theme-font-heading` for
+  `h1`–`h3`, and loads Google Fonts stylesheets with `<link precedence>`), a logo (`StageLobby`, the
+  participant header) and a stage background picture (`Stage`, under the stage colour at the kit's
+  overlay). `useDeckTheme()` reads them.
 - `tests/unit/theme.tokens.test.ts` fails on a `deck-*` utility or `var(--deck-*)` that names no
-  token, and when `DECK_TOKENS` and `tokens.css` drift.
+  token, when `DECK_TOKENS` and `tokens.css` drift, when a mode block misses a token or an app
+  token, and when the light or dark block loses contrast (text 4.5:1 on the stage and panels, marks
+  3:1, cloud words, text on the accent). `tests/unit/themes.test.tsx` covers `deckThemeFrom`, the
+  provider's `data-deck-mode` and the library card mapping.
 
 ## i18n (live routes only)
 
@@ -520,6 +542,6 @@ has a runtime.
   slice, the audience snapshot, presenter view and paused phone markup). Shared fixtures:
   `tests/unit/live.fixtures.ts`.
 - E2E (`bun run test:e2e`): `e2e/live-flow.spec.ts`, `e2e/live-session.spec.ts`, `e2e/offline-answers.spec.ts`,
-  `e2e/presenter.spec.ts`,
+  `e2e/presenter.spec.ts`, `e2e/deck-themes.spec.ts`,
   `e2e/content-slides.spec.ts`, `e2e/select-answer.spec.ts`, `e2e/advanced-slides.spec.ts` — see
   [`../testing/e2e.md`](../testing/e2e.md).

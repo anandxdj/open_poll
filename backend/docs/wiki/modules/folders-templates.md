@@ -84,7 +84,8 @@ TemplateSummary = { id, source: 'starter' | 'workspace', title, description, cat
 - **Use** creates an ordinary draft deck in the caller's workspace: from a starter through
   `createPresentation` (the workspace's default theme applies), from a workspace template through
   `copyDeckForWorkspace` with `templateSourceId` = the template. Title: the body's, else the
-  template's.
+  template's. Light or dark: the body's `themeMode` (the builder sends the app theme in use), else
+  light for a starter and the template's own for a workspace template (`modules/themes.md`).
 - Starter decks live in code: a deploy updates them for everyone. `tests/templates.seeds.test.ts`
   parses each with the create schema, so a broken seed fails CI, not a user.
 - Audit: `template.create` (`meta {sourceId, title}`), `template.use` (`{templateId, title}`),

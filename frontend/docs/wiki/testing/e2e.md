@@ -139,6 +139,17 @@ lookup's HTTP status (404 until a session was opened).
   Rename folder and Delete folder from the folder menu (the app's AlertDialog; the items stay at the
   top level, checked through the API). ~10 s.
 
+- `e2e/deck-themes.spec.ts` — light deck themes: a deck built in the light app is light in the builder
+  (canvas and rail thumbnail, ink question), the host console (ready, lobby, running slide), the
+  presenter view and the phone; the Theme tab's Dark switch turns the canvas, the next session's stage
+  and the phone graphite while the builder stays light, and a live session cannot be restyled; a deck
+  built in the dark app is dark and stays dark when the app goes light; a light deck run through a
+  heading, a quiz reveal, a word cloud, a leaderboard and the end screen; an API deck without a mode
+  and a template used in the light app are light, the same template in the dark app dark. Colours are
+  read with `getComputedStyle` (paper `rgb(246, 246, 243)`, graphite `rgb(20, 20, 19)`, dark phone
+  `rgb(13, 13, 12)`); the app theme is set like the profile switch does (`localStorage.theme`).
+  Screenshots: `test-results/deck-themes-*.png`. ~45 s.
+
 - `e2e/templates.spec.ts` — W3-B2 templates: the four starter templates on `/templates`, Use template
   on Team retro opens the builder with its nine slides; Save as template… from a library card (hidden
   from the library), the template under "Saved in this workspace", Use template opens it with its two
