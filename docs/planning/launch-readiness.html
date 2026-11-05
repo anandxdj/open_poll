@@ -256,14 +256,15 @@ footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
 
 <header class="hero">
   <div class="wrap">
-    <p class="eyebrow">Open Poll · release status · Sun 1 Nov 2026</p>
-    <h1>Built and tested. Not <em>shipped</em> yet.</h1>
+    <p class="eyebrow">Open Poll · release status · Thu 5 Nov 2026 (test pass 1 Nov)</p>
+    <h1>Built, tested and rehearsed. Not <em>shipped</em> yet.</h1>
     <p class="lede">
-      The product is <strong>feature-complete for a first release</strong>, and its core flows now pass
-      end-to-end tests after <strong>18 bugs were fixed today</strong>. Your decisions are built too:
+      The product is <strong>feature-complete for a first release</strong>, and its core flows pass
+      end-to-end tests after <strong>18 bugs were fixed on 1 Nov</strong>. Your decisions are built too:
       duplicating decks and polls, editing your profile, idle sessions that end on their own, and new decks that
-      start with a plain poll question. None of it is live yet: production still runs code from before the
-      roadmap work. A few launch basics are also missing: legal text, error tracking, backups and payments.
+      start with a plain poll question. <strong>The migration rehearsal on a copy of production passed on 5 Nov.</strong>
+      Production runs <span class="mono">main</span> on both sides since your deploy that morning; the open stack ships
+      in the release window. A few launch basics are also missing: legal text, error tracking, backups and payments.
     </p>
 
     <div class="meters">
@@ -277,17 +278,17 @@ footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
       </div>
       <div class="meter">
         <p class="eyebrow">Launch checklist</p>
-        <div class="big">5<small>/ 19 done</small></div>
-        <div class="track" role="img" aria-label="5 done, 4 in progress, 1 waiting on you, 9 not started">
-          <span class="seg-done" style="width:26.3%"></span>
-          <span class="seg-run" style="width:21.1%"></span>
+        <div class="big">8<small>/ 19 done</small></div>
+        <div class="track" role="img" aria-label="8 done, 2 in progress, 1 waiting on you, 8 not started">
+          <span class="seg-done" style="width:42.1%"></span>
+          <span class="seg-run" style="width:10.5%"></span>
           <span class="seg-block" style="width:5.3%"></span>
         </div>
         <div class="keys">
-          <span><i class="seg-done"></i>5 done</span>
-          <span><i class="seg-run"></i>4 in progress</span>
+          <span><i class="seg-done"></i>8 done</span>
+          <span><i class="seg-run"></i>2 in progress</span>
           <span><i class="seg-block"></i>1 waiting on you</span>
-          <span><i style="background:var(--raised)"></i>9 not started</span>
+          <span><i style="background:var(--raised)"></i>8 not started</span>
         </div>
       </div>
       <div class="meter">
@@ -309,7 +310,7 @@ footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
       <div class="section-head">
         <p class="eyebrow">Where we are</p>
         <h2>From built to live, in seven steps</h2>
-        <p>Steps 1 and 2 are done. We are on step 3: the new work is merged and tested locally, and it needs to be pushed and the release commit rebuilt.</p>
+        <p>Steps 1 to 4 are done. Next is the release window, once the production settings are in.</p>
       </div>
       <ol class="pipeline">
         <li class="stage">
@@ -322,21 +323,21 @@ footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
           <span class="chip c-done">Done</span>
           <p>423 scenarios mapped, 9 new e2e spec files, 18 bugs fixed, your decisions built.</p>
         </li>
-        <li class="stage here">
-          <span class="here-tag">You are here</span>
+        <li class="stage">
           <span class="n">03</span><h3>Release commit and CI</h3>
-          <span class="chip c-run">Rebuild</span>
-          <p>18 new commits are tested locally and waiting to be pushed. Then R gets rebuilt and goes through CI.</p>
+          <span class="chip c-done">Done</span>
+          <p>R holds the whole stack plus MCP. Every CI job is green, Playwright included.</p>
         </li>
         <li class="stage">
           <span class="n">04</span><h3>Rehearse migrations</h3>
-          <span class="chip c-block">Your OK</span>
-          <p>Needs a copy of the production database. Its address is in your backup <span class="mono">.env</span>.</p>
+          <span class="chip c-done">Passed</span>
+          <p>5 Nov, on a copy of production: migrations 160–200 in under a second, old data, a live session and MCP all checked.</p>
         </li>
-        <li class="stage">
+        <li class="stage here">
+          <span class="here-tag">You are here</span>
           <span class="n">05</span><h3>Release window</h3>
-          <span class="chip c-idle">Not started</span>
-          <p>Deploy the backend, merge 9 PRs, Vercel builds. About 30 minutes.</p>
+          <span class="chip c-block">Your move</span>
+          <p>Production settings first. Then deploy the backend, merge 9 PRs, Vercel builds. About 30 minutes.</p>
         </li>
         <li class="stage">
           <span class="n">06</span><h3>Launch basics</h3>
@@ -360,12 +361,12 @@ footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
       </div>
       <div class="tracks">
         <div class="trackcard">
-          <header><h3>Build</h3><span class="mono">2 of 4 done</span></header>
+          <header><h3>Build</h3><span class="mono">4 of 4 done</span></header>
           <ul class="items">
-            <li><span class="what">Product features built</span><span class="chip c-done">Done</span><span class="why">19 of 26 roadmap packages plus MCP, and today: duplicate decks and polls, profile editing, idle sessions ending on their own.</span></li>
+            <li><span class="what">Product features built</span><span class="chip c-done">Done</span><span class="why">19 of 26 roadmap packages plus MCP, and on 1 Nov: duplicate decks and polls, profile editing, idle sessions ending on their own.</span></li>
             <li><span class="what">Bugs from the test pass fixed</span><span class="chip c-done">Done</span><span class="why">18 fixed, plus an edited name that Google sign-in used to overwrite.</span></li>
-            <li><span class="what">Release commit R rebuilt</span><span class="chip c-run">Next</span><span class="why">The last R (<span class="mono">8ee828e</span>) predates today's 18 new commits. They need a push, then a rebuild.</span></li>
-            <li><span class="what">CI green on R</span><span class="chip c-run">After rebuild</span><span class="why">The previous R passed every job except Playwright, which was still running. GitGuardian only flagged test passwords; an ignore file is added.</span></li>
+            <li><span class="what">Release commit R rebuilt</span><span class="chip c-done">Done</span><span class="why">R is the head of <span class="mono">feat/mcp-agents</span> (PR #13). Rebuilt on 5 Nov for docs only; the rehearsal ran from <span class="mono">32a967e</span>.</span></li>
+            <li><span class="what">CI green on R</span><span class="chip c-done">Done</span><span class="why">Every job green on <span class="mono">32a967e</span>, Playwright included. GitGuardian only flags test passwords; resolve them in its dashboard.</span></li>
           </ul>
         </div>
         <div class="trackcard">
@@ -380,11 +381,11 @@ footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
           </ul>
         </div>
         <div class="trackcard">
-          <header><h3>Ship</h3><span class="mono">1 of 4 done</span></header>
+          <header><h3>Ship</h3><span class="mono">2 of 4 done</span></header>
           <ul class="items">
-            <li><span class="what">Rehearse migrations on a copy of production</span><span class="chip c-block">Your OK</span><span class="why">Migrations 001–200 have never run on real data. The production database address is in <span class="mono">backend/.env.user-backup</span>; I need your go-ahead to copy it.</span></li>
-            <li><span class="what">Production settings</span><span class="chip c-idle">Not started</span><span class="why">VPS and Vercel values, starting with <span class="mono">NEXT_PUBLIC_SITE_URL=https://open-poll.anands.dev</span>. Today the live site tells search engines its address is <span class="mono">localhost:3000</span>.</span></li>
-            <li><span class="what">Release window</span><span class="chip c-idle">Not started</span><span class="why">Backend first, then merge #8 → #16 and #13, then Vercel. The plan is written, rollback included.</span></li>
+            <li><span class="what">Rehearse migrations on a copy of production</span><span class="chip c-done">Passed</span><span class="why">5 Nov. Your deploy of <span class="mono">main</span> had already applied 001–150; 160–200 applied cleanly in 0.3 s. Nothing hits the plan limits, and your old MCP tokens keep working.</span></li>
+            <li><span class="what">Production settings</span><span class="chip c-block">Your move</span><span class="why">VPS and Vercel values, starting with <span class="mono">NEXT_PUBLIC_SITE_URL=https://open-poll.anands.dev</span>. Today the live site tells search engines its address is <span class="mono">localhost:3000</span>.</span></li>
+            <li><span class="what">Release window</span><span class="chip c-idle">Not started</span><span class="why">Backend first, then merge #8 → #16 and #13, then Vercel. The plan is written, rollback included; tag the running image as <span class="mono">pre-release</span> first.</span></li>
             <li><span class="what">App and API on one site</span><span class="chip c-done">Done</span><span class="why"><span class="mono">open-poll.anands.dev</span> already serves the app and shares the site with the API, so Safari keeps people signed in.</span></li>
           </ul>
         </div>
@@ -418,7 +419,7 @@ footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
             <li><span>Sign up, verify the email, log in, reset the password, stay signed in, log out<small>Playwright</small></span></li>
             <li><span>Quick polls: build, draft, publish, vote anonymously and with a name, one vote per person, close, publish results<small>Playwright</small></span></li>
             <li><span>Library, sessions and exports, Q&amp;A and reactions, CSV imports, brand kits, members and roles, SSO and SCIM (test provider), custom domains, privacy<small>Playwright</small></span></li>
-            <li><span>Today's additions: duplicate a deck and a poll; rename yourself and change your password; idle lobbies and sessions ending on their own<small>Playwright for the first two; the idle job in integration tests, including two servers sharing one lock</small></span></li>
+            <li><span>1 Nov additions: duplicate a deck and a poll; rename yourself and change your password; idle lobbies and sessions ending on their own<small>Playwright for the first two; the idle job in integration tests, including two servers sharing one lock</small></span></li>
             <li><span>Vote integrity, workspace isolation, billing webhooks, migrations, load smoke<small>Backend unit and integration tests</small></span></li>
           </ul>
         </div>
@@ -429,7 +430,7 @@ footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
             <li><span>Google login, a real SSO provider (Okta, Entra), Stripe checkout<small>No keys in this environment</small></span></li>
             <li><span>Real PowerPoint files through Gotenberg, Google Drive import<small>Disabled mode only</small></span></li>
             <li><span>A room of hundreds of real phones<small>Only a synthetic answer storm</small></span></li>
-            <li><span>The production deployment itself<small>Never deployed; first comes the migration rehearsal</small></span></li>
+            <li><span>The release on production itself<small>Rehearsed on a copy on 5 Nov; production runs <span class="mono">main</span> until the window</small></span></li>
             <li><span>The presenter role in the UI, and a host or phone losing its connection in a real browser<small>Unit and backend tests only</small></span></li>
           </ul>
         </div>
@@ -439,7 +440,7 @@ footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
         <div class="cov-head">
           <div>
             <h3>423 scenarios, and how each is tested</h3>
-            <p class="note">One bar per area of the product. ▲ marks areas that gained end-to-end tests today.</p>
+            <p class="note">One bar per area of the product. ▲ marks areas that gained end-to-end tests on 1 Nov.</p>
           </div>
           <div class="legend">
             <span><i class="l-e2e"></i>End to end (Playwright)</span>
@@ -468,7 +469,7 @@ footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
   <section class="block">
     <div class="wrap">
       <div class="section-head">
-        <p class="eyebrow">Found and fixed today · 18</p>
+        <p class="eyebrow">Found and fixed on 1 Nov · 18</p>
         <h2>What the test pass caught</h2>
         <p>All fixed and committed. The new end-to-end tests now guard each one.</p>
       </div>
@@ -515,7 +516,7 @@ footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
       <div class="section-head">
         <p class="eyebrow">Your decisions · 7 of 8 settled</p>
         <h2>What you decided, and what was built</h2>
-        <p>You asked for the recommended option on each. Everything that could be done in code is done and tested; the release date still waits for the rehearsal.</p>
+        <p>You asked for the recommended option on each. Everything that could be done in code is done and tested, and the rehearsal passed; only the release date is open.</p>
       </div>
       <div class="decisions">
         <article class="decision decided">
@@ -551,9 +552,9 @@ footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
           <p>Connecting Claude and ChatGPT ships with this release.</p>
         </article>
         <article class="decision">
-          <div class="top"><h3>Release date</h3><span class="chip c-decide">After the rehearsal</span></div>
+          <div class="top"><h3>Release date</h3><span class="chip c-decide">Yours to set</span></div>
           <p>The release needs a 30-minute window with no live sessions, a fresh database backup, and you at the VPS.</p>
-          <p class="rec"><b>Recommend:</b> set the date once the rehearsal passes.</p>
+          <p class="rec"><b>Recommend:</b> the rehearsal passed, so pick a date as soon as the production settings are in.</p>
         </article>
       </div>
     </div>
@@ -567,12 +568,11 @@ footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
         <p>Everything else I can do from here.</p>
       </div>
       <ol class="needs">
-        <li><span class="idx">01</span><span class="what">Your OK to push today's 18 commits and rebuild the release commit</span><span class="unlocks">Then CI runs on the new R.</span></li>
-        <li><span class="idx">02</span><span class="what">Your OK to copy the production database for the rehearsal</span><span class="unlocks">Its address is in <span class="mono">backend/.env.user-backup</span> (MongoDB Atlas). The copy holds real user data; I delete it after the rehearsal.</span></li>
-        <li><span class="idx">03</span><span class="what">Production settings on the VPS and in Vercel</span><span class="unlocks">Site address <span class="mono">https://open-poll.anands.dev</span>, signing and encryption secrets, the public API address, a real storage bucket.</span></li>
-        <li><span class="idx">04</span><span class="what">Terms of use and privacy policy text</span><span class="unlocks">Required before inviting real users.</span></li>
-        <li><span class="idx">05</span><span class="what">An error-tracking account (for example Sentry)</span><span class="unlocks">No key exists in either <span class="mono">.env</span>; once there is one, I wire it in.</span></li>
-        <li><span class="idx">06</span><span class="what">Stripe live keys and a tax decision</span><span class="unlocks">Payments track: checkout, plans and invoices are already built.</span></li>
+        <li><span class="idx">01</span><span class="what">Production settings on the VPS and in Vercel</span><span class="unlocks">Site address <span class="mono">https://open-poll.anands.dev</span>, signing and encryption secrets, the public API address, a real storage bucket.</span></li>
+        <li><span class="idx">02</span><span class="what">A release date, and you at the VPS for 30 minutes</span><span class="unlocks">Tag the running image as <span class="mono">openpoll-backend:pre-release</span>, take a fresh backup, deploy R, merge the stack.</span></li>
+        <li><span class="idx">03</span><span class="what">Terms of use and privacy policy text</span><span class="unlocks">Required before inviting real users.</span></li>
+        <li><span class="idx">04</span><span class="what">An error-tracking account (for example Sentry)</span><span class="unlocks">No key exists in either <span class="mono">.env</span>; once there is one, I wire it in.</span></li>
+        <li><span class="idx">05</span><span class="what">Stripe live keys and a tax decision</span><span class="unlocks">Payments track: checkout, plans and invoices are already built.</span></li>
       </ol>
     </div>
   </section>
@@ -582,7 +582,7 @@ footer.src code { font-family: var(--font-mono); font-size: 0.76rem; }
   <div class="wrap">
     <div>
       <p>Sources: <code>docs/planning/06-merge-and-deploy.md</code>, <code>docs/planning/07-product-test-plan.md</code>, <code>docs/planning/scenario-inventory.md</code>, <code>docs/planning/05-handoff.md</code>.</p>
-      <p>Branches: <code>feat/editor-v2</code> is 18 commits (this page included) ahead of PR #16 and not pushed; <code>feat/mcp-agents</code> at <code>8ee828e</code> (PR #13, the previous release commit R).</p>
+      <p>Branches: <code>feat/editor-v2</code> (PR #16) and <code>feat/mcp-agents</code> (PR #13, the release commit R) are pushed. The rehearsal ran from R = <code>32a967e</code>; R was rebuilt on 5 Nov for docs only.</p>
       <p>Coverage counts: 423 scenarios from the inventory. "Before" is the start of the 1 Nov test pass; "Now" adds the 32 scenarios the new specs cover (30 from the test pass, plus duplicate and profile).</p>
     </div>
   </div>
