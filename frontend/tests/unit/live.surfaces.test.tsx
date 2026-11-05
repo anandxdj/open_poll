@@ -246,6 +246,44 @@ describe("participant slide", () => {
     expect(html).toContain("Answer locked in!");
   });
 
+  const pendingFor = (status: "queued" | "refused", code: string | null = null) => ({
+    [SLIDE_IDS[0]]: { clientAnswerId: "x1", slideId: SLIDE_IDS[0], slideIndex: 0, status, code, message: null },
+  });
+
+  test("an answer in the offline queue: 'Saved — will sync' instead of the form", () => {
+    const html = participant({ phase: "open", timing, pendingAnswers: pendingFor("queued") });
+    expect(html).toContain("Saved — will sync");
+    expect(html).toContain("saved on this device");
+    expect(html).not.toContain("Submit Answer");
+    // Also after the timer ran out or voting closed: it may still count (slide ticket grace).
+    expect(participant({ phase: "closed", pendingAnswers: pendingFor("queued") })).toContain("Saved — will sync");
+  });
+
+  test("once the server took it, the queued state gives way to 'locked in'", () => {
+    const html = participant({ phase: "open", timing, submittedSlideIndex: 0, pendingAnswers: pendingFor("queued") });
+    expect(html).toContain("Answer locked in!");
+    expect(html).not.toContain("Saved — will sync");
+  });
+
+  test("a queued answer refused for good says why (time ran out, voting closed, other)", () => {
+    expect(participant({ phase: "closed", pendingAnswers: pendingFor("refused", "TIME_UP") })).toContain(
+      "Your answer arrived after time ran out"
+    );
+    const closed = participant({ phase: "revealed", reveal: revealed, pendingAnswers: pendingFor("refused", "NOT_ACCEPTING") });
+    expect(closed).toContain("Voting closed before your answer arrived");
+    expect(closed).toContain("It was not counted.");
+    expect(closed).not.toContain("Time&#x27;s up!");
+    expect(participant({ phase: "closed", pendingAnswers: pendingFor("refused", null) })).toContain(
+      "Your saved answer could not be sent"
+    );
+  });
+
+  test("after a reveal a still-queued answer no longer says 'will sync'", () => {
+    const html = participant({ phase: "revealed", reveal: revealed, pendingAnswers: pendingFor("queued") });
+    expect(html).not.toContain("Saved — will sync");
+    expect(html).toContain("Time&#x27;s up!");
+  });
+
   test("a content slide's participant view says to look at the screen", () => {
     const heading = getSlideRuntime("heading")!;
     const html = renderWith(

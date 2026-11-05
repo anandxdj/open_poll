@@ -1,6 +1,6 @@
 import { apiClient } from "@/lib/api-client";
 import type {
-  AnswerPayload,
+  AnswerRequest,
   AnswerResult,
   ParticipantLiveState,
   ParticipantState,
@@ -26,22 +26,24 @@ export const joinPresentation = async (presentationId: string, name: string, dev
     })
   ).data.data;
 
+/**
+ * How long one answer request may take before it counts as unreachable (then
+ * the answer is retried, and finally queued offline). Without it a request on
+ * a dead connection could hang for minutes.
+ */
+export const ANSWER_REQUEST_TIMEOUT_MS = 10_000;
+
+/** `POST /:id/answer` → `AnswerResult`. Errors: see `LIVE_ERROR_CODES` (`NOT_ACCEPTING`, `TIME_UP`, …). */
 export const submitAnswer = async (
   presentationId: string,
-  input: AnswerPayload & {
-    participantId: string;
-    participantToken: string;
-    slideIndex: number;
-    sessionId?: string;
-    slideId?: string;
-    /** Idempotency key (≤ 64 chars): repeating an accepted answer with it returns the original, `replay: true`. */
-    clientAnswerId?: string;
-    /** From `question:started` / `live-state`: lets a late answer through the grace period. */
-    slideTicket?: string;
-    /** Held offline before sending (stored as `via: "offline"`). */
-    offline?: boolean;
-  }
-) => (await apiClient.post<ApiOk<AnswerResult>>(`/presentations/${presentationId}/answer`, input)).data.data;
+  input: AnswerRequest,
+  options: { timeoutMs?: number } = {}
+) =>
+  (
+    await apiClient.post<ApiOk<AnswerResult>>(`/presentations/${presentationId}/answer`, input, {
+      timeout: options.timeoutMs ?? ANSWER_REQUEST_TIMEOUT_MS,
+    })
+  ).data.data;
 
 export const getParticipantState = async (presentationId: string, participantId: string, token: string) =>
   (

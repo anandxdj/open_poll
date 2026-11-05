@@ -1,24 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Hourglass, XCircle } from "lucide-react";
+import { CheckCircle2, CloudAlert, CloudUpload, Hourglass, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import type { AnswerPayload, LiveSlide } from "../../types";
 import { LIVE_ERROR_CODES } from "../../live/errors";
+import { pendingAnswerKey, type PendingAnswer } from "../../live/reducer";
 import { useLive } from "../../live/store";
 import { useCountdown } from "../../live/useCountdown";
 import type { SlideRuntime } from "../../slides/runtime";
 import { isGradedSlide } from "../../slides/shared";
 import { Timer } from "../stage/Timer";
 
+/** Title of a queued answer the server refused for good, by its code. */
+export function refusalTitleKey(code: string | null) {
+  if (code === LIVE_ERROR_CODES.timeUp) return "syncRefusedTimeUp" as const;
+  if (code === LIVE_ERROR_CODES.notAccepting) return "syncRefusedClosed" as const;
+  return "syncRefusedOther" as const;
+}
+
 /**
  * A `response` slide on the participant's phone: timer, question, then
- * either the type's answer form or the shell-owned states (submitted, voting
- * closed, time's up, result after reveal). The slide's phase (`open` →
- * `closed` → `revealed`, and back to `open` on a reopen) comes from the
- * store, so a revisit shows the stored phase and result.
+ * either the type's answer form or the shell-owned states (submitted, saved
+ * offline, refused, voting closed, time's up, result after reveal). The
+ * slide's phase (`open` → `closed` → `revealed`, and back to `open` on a
+ * reopen) comes from the store, so a revisit shows the stored phase and
+ * result. An answer in the offline queue shows "Saved — will sync" until the
+ * server takes it (then "locked in") or refuses it (then why).
  */
 export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime: SlideRuntime }) {
   const t = useTranslations("live.participant");
@@ -29,6 +39,7 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
   const me = useLive((s) => s.me);
   const submittedSlideIndex = useLive((s) => s.submittedSlideIndex);
   const submitAnswer = useLive((s) => s.submitAnswer);
+  const pending: PendingAnswer | undefined = useLive((s) => s.pendingAnswers[pendingAnswerKey(s.slideId, slide.slideIndex)]);
   const [submitting, setSubmitting] = useState(false);
 
   const { timed, secondsLeft, progress, expired } = useCountdown(timing, slide.timeLimit ?? 30);
@@ -105,6 +116,18 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
             </span>
           </div>
           <p className="text-sm text-deck-muted-fg">{t("waitingAdvance")}</p>
+        </div>
+      ) : !hasAnswered && pending?.status === "refused" ? (
+        <div role="status" className="text-center py-8 space-y-2">
+          <CloudAlert className="mx-auto size-10 text-destructive" aria-hidden="true" />
+          <p className="text-base font-semibold">{t(refusalTitleKey(pending.code))}</p>
+          <p className="text-sm text-deck-muted-fg">{t("syncRefusedHint")}</p>
+        </div>
+      ) : !hasAnswered && !reveal && pending?.status === "queued" ? (
+        <div role="status" className="text-center py-8 space-y-2">
+          <CloudUpload className="mx-auto size-10 text-deck-primary motion-safe:animate-pulse" aria-hidden="true" />
+          <p className="text-base font-semibold">{t("savedOffline")}</p>
+          <p className="text-sm text-deck-muted-fg">{t("savedOfflineHint")}</p>
         </div>
       ) : reveal && !hasAnswered ? (
         <div className="text-center py-8 space-y-2">
