@@ -137,6 +137,138 @@ export interface SessionView {
   retainUntil: string | null;
   /** The deck theme snapshotted when the session opened (W3-A); null for sessions from before. */
   theme: ThemeTokens | null;
+  /** Audience pace (W2-F): when the slides opened, when they close on their own, when they closed. Null for presenter pace. */
+  audience: AudienceWindowView | null;
+}
+
+// ---------------------------------------------------------------------------
+// Audience pace (W2-F)
+// ---------------------------------------------------------------------------
+
+/** Why an audience-paced session stopped taking answers. */
+export type AudienceCloseReason = 'host' | 'schedule' | 'ended';
+
+/** The answer window of an audience-paced session: every response slide is open between `openedAt` and the close. */
+export interface AudienceWindowView {
+  /** null while the session waits in its lobby. */
+  openedAt: string | null;
+  /** When the slides close on their own (the `audience-autoclose` job); null = until the host closes them. */
+  closesAt: string | null;
+  closedAt: string | null;
+  closeReason: AudienceCloseReason | null;
+}
+
+export interface AudienceAssessmentSettings {
+  enabled: boolean;
+  passingScorePercentage: number;
+  /** null = unlimited (capped at `AUDIENCE_UNLIMITED_ATTEMPTS`). */
+  maxAttempts: number | null;
+}
+
+/** One submitted attempt of a participant (audience pace). */
+export interface AudienceAttemptResult {
+  number: number;
+  submittedAt: string;
+  /** Points of graded slides; no speed points in audience pace. */
+  score: number;
+  /** Points available on graded slides. */
+  maxScore: number;
+  /** round(score / maxScore × 100); null when the deck has no graded slide. */
+  percentage: number | null;
+  correctCount: number;
+  answeredCount: number;
+  /** Response slides in the deck. */
+  totalQuestions: number;
+  /** Against `passingScorePercentage` when the assessment is on; else null. */
+  passed: boolean | null;
+}
+
+/** `POST /:id/host/open-audience` body. */
+export interface OpenAudienceBody {
+  /** ISO time in the future (at most 30 days ahead); omitted or null = until the host closes. */
+  closesAt?: string | null;
+}
+
+/** One slide of an audience-paced deck as the participant sees it. */
+export interface AudienceSlideView {
+  slideId: string;
+  slideIndex: number;
+  lifecycle: SlideLifecycle;
+  slide: ParticipantSlide;
+  /** `shown` for slides without answers; response slides `open` or `closed`. */
+  phase: SlidePhase;
+  /** Open response slides: send it back as `slideTicket` (grace after `closesAt`). */
+  slideTicket: string | null;
+  /** Answered in the participant's current attempt. */
+  answered: boolean;
+  /** The participant's answer in the current attempt (what they sent), when answered. */
+  response: { optionIndex: number | null; text: string | null; payload: unknown } | null;
+  /** Graded slides, once the answer key may be shown (`AudienceParticipantView.final`): right or wrong. */
+  isCorrect: boolean | null;
+  score: number | null;
+  /** select_answer explanation, under the same rule as `isCorrect`. */
+  explanation: string | null;
+  /** The slide's results, when `resultsVisibility` allows (and, for graded slides of an assessment, once final). */
+  results: SlideResultsView | null;
+}
+
+/** The participant's own run through an audience-paced deck (`live-state.audience`). */
+export interface AudienceParticipantView {
+  /** `waiting`: lobby, the host has not opened the slides; `open`; `closed`: no more answers (closed, or the session ended). */
+  status: 'waiting' | 'open' | 'closed';
+  window: AudienceWindowView;
+  resultsVisibility: ResultsVisibility;
+  assessment: AudienceAssessmentSettings;
+  /** The current attempt (1, 2, …) and whether it was submitted. */
+  attempt: { number: number; submitted: boolean; submittedAt: string | null };
+  /** Submitted attempts, oldest first. */
+  attempts: AudienceAttemptResult[];
+  /** Attempts still allowed after the current one; null = unlimited. */
+  attemptsLeft: number | null;
+  canRetry: boolean;
+  /** Nothing can change any more (passed, out of attempts, closed, or a submitted run without an assessment): answer keys may show. */
+  final: boolean;
+  slides: AudienceSlideView[];
+}
+
+/** One participant on the host's audience dashboard. */
+export interface AudienceParticipantProgress {
+  participantId: string;
+  name: string;
+  joinedAt: string;
+  kicked: boolean;
+  attempt: number;
+  /** Response slides answered in the current attempt. */
+  answeredCount: number;
+  submitted: boolean;
+  /** The latest submitted attempt. */
+  lastResult: AudienceAttemptResult | null;
+}
+
+/** `host/state.audience`: progress of an audience-paced session. */
+export interface HostAudienceView {
+  window: AudienceWindowView;
+  resultsVisibility: ResultsVisibility;
+  assessment: AudienceAssessmentSettings;
+  totalQuestions: number;
+  participantCount: number;
+  /** Participants who answered at least one slide in their current attempt. */
+  startedCount: number;
+  /** Participants whose current attempt is submitted. */
+  completedCount: number;
+  passedCount: number;
+  failedCount: number;
+  /** Response slides in deck order; `answeredCount` = participants whose current attempt answered it. */
+  slides: { slideId: string; slideIndex: number; type: string; label: string; scored: boolean; answeredCount: number }[];
+  participants: AudienceParticipantProgress[];
+}
+
+/** `POST /:id/audience/{submit,retry}` body. */
+export interface AudienceAttemptBody {
+  participantId: string;
+  participantToken: string;
+  /** submit: the attempt being submitted. */
+  attempt?: number;
 }
 
 /** Results of one response slide (host view; also what `question:revealed` broadcasts). */
@@ -190,6 +322,8 @@ export interface HostStateResponse<TPresentation = Record<string, unknown>> {
   slideStates: SlideStateView[];
   /** Results of every visited response slide, by slideId. */
   distributions: Record<string, SlideResultsView>;
+  /** Audience-paced sessions (W2-F): who is in, progress per slide, completions. Null for presenter pace. */
+  audience: HostAudienceView | null;
 }
 
 /** `GET /:id/sessions` (newest first). Full reports live under `/api/sessions` (W2-C). */
@@ -235,6 +369,10 @@ export interface CodeLookupResponse {
   questionPausedRemainingMs?: number | null;
   /** Response slides only: the timer's whole budget (ms), null when untimed. */
   questionDurationMs?: number | null;
+  /** The session's nickname rule (deck setting `nickname`): `optional` and `off` join as "Guest NNNN". */
+  nickname: NicknameMode;
+  /** Audience pace (W2-F): the live session's answer window; null otherwise. */
+  audience: AudienceWindowView | null;
 }
 
 /** `POST /:id/join`. */
@@ -315,6 +453,8 @@ export interface ParticipantLiveState {
   };
   /** Final standings once the session has ended. */
   finalLeaderboard: LeaderboardEntry[] | null;
+  /** Audience pace (W2-F): the participant's own run through the deck; null for presenter pace. */
+  audience: AudienceParticipantView | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -420,6 +560,19 @@ export interface PresentationEventPayloads {
    * participant's own room; the participant's sockets then leave the deck's rooms.
    */
   'participant:kicked': { participantId: string; name: string; participantCount: number };
+  /** Audience pace (W2-F): every response slide is open; participants go at their own pace. Also sent when `closesAt` changes. */
+  'audience:opened': { openedAt: string; closesAt: string | null; serverNow: string };
+  /** Audience pace: no more answers (the host closed, the closing time passed, or the session ended). */
+  'audience:closed': { closedAt: string; reason: AudienceCloseReason };
+  /** Host only: a participant submitted an attempt or started a new one. */
+  'audience:progress': {
+    participantId: string;
+    name: string;
+    attempt: number;
+    submitted: boolean;
+    percentage: number | null;
+    passed: boolean | null;
+  };
 }
 
 export type TimerAction = 'pause' | 'resume' | 'extend' | 'skip';
@@ -477,7 +630,22 @@ export const LIVE_ERROR_CODES = {
   timerState: 'TIMER_STATE',
   /** 404 on kick: no such participant in the live session. */
   participantNotFound: 'PARTICIPANT_NOT_FOUND',
+  /** 409 on audience commands for a presenter-paced deck or session (W2-F). */
+  notAudiencePaced: 'NOT_AUDIENCE_PACED',
+  /** 409 on slide commands (goto, start's slide moves) for an audience-paced session: participants move themselves. */
+  audiencePaced: 'AUDIENCE_PACED',
+  /** 409 on answers / submit: this attempt was already submitted. */
+  attemptSubmitted: 'ATTEMPT_SUBMITTED',
+  /** 409 on answers / submit: the attempt named is not the participant's current one. */
+  attemptStale: 'ATTEMPT_STALE',
+  /** 409 on retry: no attempt left, already passed, not submitted yet, or the slides closed. */
+  retryNotAllowed: 'RETRY_NOT_ALLOWED',
+  /** 400 on audience participant calls before the host opened the slides. */
+  audienceNotOpen: 'AUDIENCE_NOT_OPEN',
 } as const;
+
+/** Ceiling of "unlimited" attempts (`assessment.maxAttempts: null`). */
+export const AUDIENCE_UNLIMITED_ATTEMPTS = 100;
 
 // ---------------------------------------------------------------------------
 // Presenter tools (W2-A): timer, kick

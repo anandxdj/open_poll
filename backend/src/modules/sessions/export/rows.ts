@@ -216,6 +216,8 @@ export async function* participantBatches(
       sessionId: sid,
       participantId: { $in: batch.map((p) => new mongoose.Types.ObjectId(p.participantId)) },
     })
+      // An audience-paced retry (W2-F) answers a slide again: the latest attempt is the one kept.
+      .sort({ attempt: 1, _id: 1 })
       .select(ANSWER_FIELDS)
       .lean();
     const answers: AnswerIndex = new Map();

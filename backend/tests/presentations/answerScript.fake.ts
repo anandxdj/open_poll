@@ -25,8 +25,8 @@ const deadlinesOf = (redis: FakeRedis) => {
 };
 
 export const runFakeAnswerScript = (redis: FakeRedis, keys: string[], argv: string[]): Reply => {
-  const [meta, slides, kicked, tokens, answered, results, scores, correct, rate, dirty, dirtySlides, dist, disp, feed] =
-    keys as [string, string, string, string, string, string, string, string, string, string, string, string, string, string];
+  const [meta, slides, kicked, tokens, answered, results, scores, correct, rate, dirty, dirtySlides, dist, disp, feed, attemptsKey] =
+    keys as [string, string, string, string, string, string, string, string, string, string, string, string, string, string, string];
   const until = deadlinesOf(redis);
 
   const hget = (key: string, field: string) => redis.read(key, 'hash')?.value.get(field) ?? null;
@@ -74,6 +74,12 @@ export const runFakeAnswerScript = (redis: FakeRedis, keys: string[], argv: stri
 
   // 5. window state
   if (hget(meta, 'status') === 'ended') return ['CLOSED'];
+  // audience pace: the running attempt (v2)
+  const expected = argv[17] ?? '';
+  if (expected !== '') {
+    const current = (attemptsKey ? hget(attemptsKey, pid) : null) ?? '1';
+    if (current !== expected) return ['ATTEMPT', current];
+  }
   if (!window.open) return ['CLOSED'];
   if (window.pausedAtMs !== null && window.pausedAtMs !== undefined) {
     if (now > window.pausedAtMs + Number(argv[15])) return ['PAUSED'];

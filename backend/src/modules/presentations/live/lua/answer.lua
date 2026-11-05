@@ -1,6 +1,7 @@
--- openpoll:answer v1
+-- openpoll:answer v2
 --
--- One atomic step per accepted answer (W2-D). answer.service.ts grades the
+-- One atomic step per accepted answer (W2-D; v2 adds the audience-paced
+-- attempt check, W2-F). answer.service.ts grades the
 -- payload in JS first (slide types own grading), then this script decides and
 -- writes: window check, participant auth, rate limit, dedup, the type's Redis
 -- ops, scores, the stored result and the coalescer's dirty mark. Nothing is
@@ -9,16 +10,20 @@
 -- KEYS (all in the session's hash-tag slot):
 --   1 meta  2 slides  3 kicked  4 tokens  5 answered:{slide}  6 results:{slide}
 --   7 scores  8 correct  9 rate:{participant}  10 dirty  11 dirty:slides
---   12 dist:{slide}  13 disp:{slide}  14 feed:{slide}
+--   12 dist:{slide}  13 disp:{slide}  14 feed:{slide}  15 attempts
+--   (5 and 6 are the attempt's own keys in audience pace: answered/results:{slide}:a<n>)
 -- ARGV:
 --   1 participantId  2 participantToken  3 slideId  4 slideIndex  5 startedAtMs
 --   6 nowMs  7 ticketOk ('1'|'0')  8 score  9 isCorrect ('1'|'0')
 --   10 stored result JSON  11 ops JSON (RedisOp[])  12 rateMax  13 rateWindowMs
 --   14 dirtyWindowMs  15 ttlSec  16 graceMs  17 ticketGraceMs
+--   18 expected attempt state ('' = none: presenter pace; else "<n>", which
+--      the participant's entry in KEYS[15] must equal, missing counting as "1")
 --
 -- Replies: {'OK', answeredCount, ownsDirtyWindow(0|1)}, {'DUP', storedJson,
--- answeredCount} or {REASON} with REASON one of CLOSED, NO_WINDOW, STALE,
--- NO_TOKEN, BAD_TOKEN, KICKED, RATE_LIMITED, PAUSED, TIME_UP, BAD_OP.
+-- answeredCount}, {'ATTEMPT', currentState} or {REASON} with REASON one of
+-- CLOSED, NO_WINDOW, STALE, NO_TOKEN, BAD_TOKEN, KICKED, RATE_LIMITED, PAUSED,
+-- TIME_UP, BAD_OP.
 
 local pid = ARGV[1]
 local slideId = ARGV[3]
@@ -57,6 +62,13 @@ end
 --    slide. A timed slide takes answers until its deadline plus grace; a valid
 --    slide ticket stretches that grace.
 if redis.call('HGET', KEYS[1], 'status') == 'ended' then return {'CLOSED'} end
+-- Audience pace: the answer must belong to the participant's running attempt
+-- (not one already submitted, nor one a retry replaced).
+local expected = ARGV[18]
+if expected ~= nil and expected ~= '' then
+  local current = redis.call('HGET', KEYS[15], pid) or '1'
+  if current ~= expected then return {'ATTEMPT', current} end
+end
 if not window.open then return {'CLOSED'} end
 -- A paused timer takes no answers (W2-A), except those already on their way
 -- when the pause began (the same grace as the deadline's).

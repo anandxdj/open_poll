@@ -121,7 +121,7 @@ export const slidePhase = (lifecycle: SlideLifecycle, state: ISlideState | null,
 // restart degrades but never reopens a closed slide.
 // ---------------------------------------------------------------------------
 
-export const ANSWER_WINDOW_VERSION = 4;
+export const ANSWER_WINDOW_VERSION = 5;
 
 export interface AnswerWindow {
   v: typeof ANSWER_WINDOW_VERSION;
@@ -141,6 +141,12 @@ export interface AnswerWindow {
   pausedMs: number;
   /** Mask profanity in this window's text answers (deck setting `profanityFilter`, word clouds and open answers). */
   profanityFilter: boolean;
+  /**
+   * Audience pace (W2-F): one of the session's open-at-once slides. Answers are
+   * per attempt (the script checks the participant's attempt), score without
+   * speed points, and never auto-reveal; `endsAtMs` is the session's closing time.
+   */
+  audience: boolean;
   /** The slide type's `acceptConfig(slide)` snapshot (answer keys, counts, points). */
   cfg: unknown;
 }
@@ -151,11 +157,16 @@ export const PROFANITY_FILTERED_TYPES = new Set(['wordcloud', 'open_ended']);
 export interface AnswerWindowOptions {
   /** The session's `settingsSnapshot.profanityFilter`. */
   profanityFilter?: boolean;
+  /** The session is audience-paced (W2-F). */
+  audience?: boolean;
 }
 
-/** Window options from the session's settings snapshot. */
-export const windowOptions = (session: Pick<IPresentationSession, 'settingsSnapshot'>): AnswerWindowOptions => ({
+/** Window options from the session's settings snapshot and pace. */
+export const windowOptions = (
+  session: Pick<IPresentationSession, 'settingsSnapshot'> & Partial<Pick<IPresentationSession, 'pace'>>
+): AnswerWindowOptions => ({
   profanityFilter: Boolean(session.settingsSnapshot?.profanityFilter),
+  audience: session.pace === 'audience',
 });
 
 export const buildAnswerWindow = (
@@ -179,6 +190,7 @@ export const buildAnswerWindow = (
     pausedAtMs: state.pausedAt ? state.pausedAt.getTime() : null,
     pausedMs: state.pausedMs ?? 0,
     profanityFilter: Boolean(options.profanityFilter) && PROFANITY_FILTERED_TYPES.has(def.type),
+    audience: Boolean(options.audience),
     cfg: def.acceptConfig ? def.acceptConfig(slide) : null,
   };
 };

@@ -43,6 +43,8 @@ interface SeedOptions {
   status?: string;
   participants?: Record<string, string>;
   kicked?: string[];
+  /** Audience pace (W2-F): participantId → attempt state (`"<n>"` / `"<n>:done"`). */
+  attempts?: Record<string, string>;
 }
 
 const NOW = 1_800_000_000_000;
@@ -180,6 +182,18 @@ const scenarios: Scenario[] = [
     seed: { status: 'ended' },
     steps: [(s, l) => input(s, l, P[0]!, { ticketOk: true })],
   },
+  {
+    name: 'audience pace (v2): an answer counts only for the running attempt, with its own dedup per attempt',
+    seed: { attempts: { [P[1]!]: '1:done', [P[2]!]: '2' } },
+    steps: [
+      (s, l) => input(s, l, P[0]!, { attempt: 1, expectedAttempt: '1' }), // no entry = attempt 1, running: taken
+      (s, l) => input(s, l, P[1]!, { attempt: 1, expectedAttempt: '1' }), // attempt 1 submitted: refused
+      (s, l) => input(s, l, P[2]!, { attempt: 1, expectedAttempt: '1' }), // already on attempt 2: refused
+      (s, l) => input(s, l, P[2]!, { attempt: 2, expectedAttempt: '2' }), // attempt 2: taken (its own keys)
+      (s, l) => input(s, l, P[0]!, { attempt: 1, expectedAttempt: '1' }), // a second answer: DUP, before any attempt check
+      (s, l) => input(s, l, P[1]!), // presenter pace (no expected state): no attempt check
+    ],
+  },
 ];
 
 const tryEach = async (name: string, backend: Harness, scenario: Scenario, ids: { sid: string; slideId: string }) => {
@@ -198,6 +212,7 @@ const realBackend: Harness = {
     await redisClient.hSet(k.slides(sid), slideId, windowJson(slideId, options.window));
     await redisClient.hSet(k.tokens(sid), options.participants ?? tokens);
     for (const id of options.kicked ?? []) await redisClient.sAdd(k.kicked(sid), id);
+    if (options.attempts) await redisClient.hSet(k.attempts(sid), options.attempts);
   },
   run: (call) => runAnswerScript(call),
   async dump(sid, slideId) {
@@ -234,12 +249,14 @@ const fakeBackend = (fake: FakeRedis): Harness => ({
     await fake.hSet(k.slides(sid), slideId, windowJson(slideId, options.window));
     await fake.hSet(k.tokens(sid), options.participants ?? tokens);
     for (const id of options.kicked ?? []) await fake.sAdd(k.kicked(sid), id);
+    if (options.attempts) await fake.hSet(k.attempts(sid), options.attempts);
   },
   async run(call) {
     const raw = runFakeAnswerScript(fake, scriptKeys(call), scriptArguments(call));
     const status = String(raw[0]);
     if (status === 'OK') return { status: 'OK', answeredCount: Number(raw[1]), ownsDirtyWindow: Number(raw[2]) === 1 };
     if (status === 'DUP') return { status: 'DUP', storedJson: String(raw[1]), answeredCount: Number(raw[2]) };
+    if (status === 'ATTEMPT') return { status: 'ATTEMPT', current: String(raw[1]) };
     return { status } as AnswerScriptReply;
   },
   async dump(sid, slideId) {

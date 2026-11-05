@@ -65,6 +65,15 @@ export const publishSessionEnded = async (presentationId: string, sessionId: str
 /** The current slide's timer changed (pause, resume, extend, skip). */
 export const publishSlideTiming = publisher('slide:timing');
 
+/** Audience pace (W2-F): every response slide is open (or the closing time changed). */
+export const publishAudienceOpened = publisher('audience:opened');
+
+/** Audience pace: answers stopped. */
+export const publishAudienceClosed = publisher('audience:closed');
+
+/** Audience pace, host only: a participant submitted an attempt or started a new one. */
+export const publishAudienceProgress = publisher('audience:progress');
+
 /** A participant was removed: told to the host, then to the participant itself. */
 export const publishParticipantKicked = async (
   presentationId: string,

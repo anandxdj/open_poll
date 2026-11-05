@@ -91,15 +91,22 @@ export const idleLimitMs = (status: string, thresholds: IdleThresholds): number 
 /**
  * Why the idle-session job should end this session now, or null to leave it:
  * a live lobby idle for `lobbyHours` (`lobby_idle`), a live presented session
- * idle for `liveHours` (`live_idle`). Ended sessions, and sessions with no
- * known activity time, are left alone.
+ * idle for `liveHours` (`live_idle`). Ended sessions, sessions with no known
+ * activity time, and audience-paced sessions before their closing time are
+ * left alone.
  */
 export const idleEndReason = (
-  session: Pick<IPresentationSession, 'isLive' | 'status'> & Partial<ActivityFields>,
+  session: Pick<IPresentationSession, 'isLive' | 'status'> &
+    Partial<ActivityFields> &
+    Partial<Pick<IPresentationSession, 'pace' | 'audience'>>,
   now: Date,
   thresholds: IdleThresholds
 ): IdleEndReason | null => {
   if (!session.isLive) return null;
+  // An audience-paced session open until a closing time (W2-F) is not idle before
+  // that time: an assessment may sit open for days between participants.
+  const audience = session.pace === 'audience' ? session.audience : null;
+  if (audience?.closesAt && !audience.closedAt && audience.closesAt.getTime() > now.getTime()) return null;
   const limitMs = idleLimitMs(session.status, thresholds);
   const last = lastActivityOf(session);
   if (limitMs === null || !last) return null;

@@ -363,6 +363,8 @@ export const getTakeHome = async (sessionId: string, participantId: string, toke
   const sid = String(session._id);
   const slides = exportSlidesOf(session);
   const stored = await PresentationAnswerModel.find({ sessionId: session._id, participantId: participant._id })
+    // The latest attempt of an audience-paced retry (W2-F) wins the map below.
+    .sort({ attempt: 1, _id: 1 })
     .select('participantId slideId optionIndex text payload isCorrect score timeMs createdAt')
     .lean();
   const answers = new Map(stored.filter((a) => a.slideId).map((a) => [String(a.slideId), toStoredAnswer(a)]));

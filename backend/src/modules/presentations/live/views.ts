@@ -106,6 +106,15 @@ export const buildSessionView = async (
     audienceCap: session.entitlementsSnapshot?.audienceCap ?? null,
     retainUntil: iso(session.retainUntil),
     theme: session.themeSnapshot ?? null,
+    audience:
+      session.pace === 'audience'
+        ? {
+            openedAt: iso(session.audience?.openedAt),
+            closesAt: iso(session.audience?.closesAt),
+            closedAt: iso(session.audience?.closedAt),
+            closeReason: session.audience?.closeReason ?? null,
+          }
+        : null,
   };
 };
 

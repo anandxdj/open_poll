@@ -571,6 +571,9 @@ describe('golden: participant slide payload (sanitize)', () => {
       pace: 'presenter',
       // W3-A: the session's theme snapshot (the built-in look here).
       theme: expect.objectContaining({ presetId: 'graph-paper', custom: false }),
+      // W2-F: the session's nickname rule, and the audience window (presenter pace: none).
+      nickname: 'required',
+      audience: null,
     });
 
     await PresentationService.advanceSlide(pid, OWNER_ID, 4);

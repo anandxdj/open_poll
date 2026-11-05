@@ -84,6 +84,8 @@ const ALLOWED: readonly Allowed[] = [
   ...bothAliases('/api/presentations/:id/answer', 'participant answer, participant token', ['POST']),
   ...bothAliases('/api/presentations/:id/me', 'participant state, participant token', ['GET']),
   ...bothAliases('/api/presentations/:id/live-state', 'participant resync, participant token', ['GET']),
+  ...bothAliases('/api/presentations/:id/audience/submit', 'audience pace: a participant submits an attempt, participant token', ['POST']),
+  ...bothAliases('/api/presentations/:id/audience/retry', 'audience pace: a participant retries an assessment, participant token', ['POST']),
   { path: '/api/presentations/:presentationId/qna*', reason: 'participant Q&A, participant token (the host side runs workspace context)' },
   { path: '/api/sessions/:sessionId/me', methods: ['GET'], reason: 'participant take-home, participant token' },
   { path: '/api/sessions/:sessionId/participants/me', methods: ['DELETE'], reason: 'a participant removes their own answers, participant token' },

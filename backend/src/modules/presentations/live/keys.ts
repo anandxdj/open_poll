@@ -35,6 +35,21 @@ export const k = {
   feed: (sid: string, slideId: string) => `${session(sid)}:feed:${slideId}`, // LIST newest-first raw entries (lpush_trim ops)
   results: (sid: string, slideId: string) => `${session(sid)}:results:${slideId}`, // HASH pid -> full answer JSON (StoredAnswerResult)
   /**
+   * Audience pace (W2-F): `answered` / `results` of one attempt. Attempt 1 uses
+   * the plain keys above (presenter pace never has another); a retry's answers
+   * go to `:a<n>` keys, so the dedup and stored results are per attempt.
+   */
+  answeredInAttempt: (sid: string, slideId: string, attempt: number) =>
+    attempt > 1 ? `${session(sid)}:answered:${slideId}:a${attempt}` : `${session(sid)}:answered:${slideId}`,
+  resultsInAttempt: (sid: string, slideId: string, attempt: number) =>
+    attempt > 1 ? `${session(sid)}:results:${slideId}:a${attempt}` : `${session(sid)}:results:${slideId}`,
+  /**
+   * HASH (audience pace): participantId → its attempt state, `"<n>"` while it
+   * runs, `"<n>:done"` once submitted; missing = `"1"`. The answer script checks
+   * it, so no answer lands in a submitted or replaced attempt.
+   */
+  attempts: (sid: string) => `${session(sid)}:attempts`,
+  /**
    * STRING (PX 250): the coalescer's window flag. The answer that sets it
    * (`SET NX PX`) owns the window and publishes one `answer:received` per
    * dirty slide when it ends. Never in `allSessionKeys` — a 6h TTL would
@@ -72,6 +87,7 @@ export const sessionWideKeys = (sid: string) => [
   k.tokens(sid),
   k.seats(sid),
   k.kicked(sid),
+  k.attempts(sid),
 ];
 
 /** Every key of one session, given its slide ids. */
