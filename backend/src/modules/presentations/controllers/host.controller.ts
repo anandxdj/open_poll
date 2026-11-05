@@ -4,6 +4,7 @@ import { ApiResponse } from '../../../common/utils/ApiResponse';
 import type { WorkspaceRequest } from '../../../common/tenancy/workspaceContext.middleware';
 import type { HostCommandResponse } from '../live/contract';
 import { requireParam, requireUser } from './helpers';
+import { RemoteService } from '../../remote/remote.service';
 
 /** The deck document as before, plus the session the command acted on. */
 const commandResponse = ({ presentation, session }: HostCommandResult): HostCommandResponse => ({
@@ -43,6 +44,52 @@ export class PresentationHostController {
   static reveal = command('Answers revealed', (id, req) => PresentationService.revealCurrentSlide(id, req));
 
   static end = command('Presentation ended', (id, req) => PresentationService.endPresentation(id, req));
+
+  static timer = command('Timer updated', (id, req) => PresentationService.timerCommand(id, req, req.body));
+
+  static skip = command('Timer skipped', (id, req) => PresentationService.skipTimer(id, req));
+
+  static async kick(req: WorkspaceRequest, res: Response, next: NextFunction) {
+    try {
+      requireUser(req);
+      const kicked = await PresentationService.kickParticipant(
+        requireParam(req, 'id'),
+        req,
+        requireParam(req, 'participantId')
+      );
+      return ApiResponse.ok(res, 'Participant removed', kicked);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async remoteStatus(req: WorkspaceRequest, res: Response, next: NextFunction) {
+    try {
+      requireUser(req);
+      return ApiResponse.ok(res, 'Remote status fetched', await RemoteService.status(requireParam(req, 'id'), req));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async createRemoteToken(req: WorkspaceRequest, res: Response, next: NextFunction) {
+    try {
+      const user = requireUser(req);
+      const created = await RemoteService.createToken(requireParam(req, 'id'), req, user.id);
+      return ApiResponse.created(res, 'Remote pairing code created', created);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async revokeRemoteToken(req: WorkspaceRequest, res: Response, next: NextFunction) {
+    try {
+      requireUser(req);
+      return ApiResponse.ok(res, 'Remote unpaired', await RemoteService.revoke(requireParam(req, 'id'), req));
+    } catch (error) {
+      next(error);
+    }
+  }
 
   static async hostState(req: WorkspaceRequest, res: Response, next: NextFunction) {
     try {

@@ -207,6 +207,34 @@ test("mid-session: embedding turned on from the Embed dialog, and a new screen s
   await expect(hostPage.getByRole("button", { name: "Start", exact: true })).toBeEnabled();
 });
 
+test("a removed participant leaves the stage embed at once, and the screen learns nothing about them", async ({
+  browser,
+  contexts,
+  host,
+}) => {
+  const deck = await host.createDeck(`E2E embed kick ${Date.now()}`, [SELECT]);
+  await allowEmbedding(host, deck._id);
+  const { token } = await api<{ token: string }>(host, "POST", "/embeds/screen-tokens", { presentationId: deck._id, label: "Hall" });
+  await api(host, "POST", `/presentations/${deck._id}/host/open-lobby`);
+  await api(host, "POST", `/presentations/${deck._id}/join`, { name: "Ada" });
+  const rude = await api<{ participantId: string }>(host, "POST", `/presentations/${deck._id}/join`, { name: "RudeNickname" });
+
+  const { page: site } = await openHostSite(
+    contexts,
+    browser,
+    `<iframe src="${FRONTEND}/embed/stage/${deck._id}?token=${token}" width="960" height="540" style="border:0"></iframe>`,
+    "/kick"
+  );
+  const screen = site.frameLocator("iframe");
+  await expect(screen.getByText("RudeNickname", { exact: true })).toBeVisible();
+  await expect(screen.getByText("2 JOINED")).toBeVisible();
+
+  await api(host, "POST", `/presentations/${deck._id}/host/participants/${rude.participantId}/kick`);
+  await expect(screen.getByText("RudeNickname", { exact: true })).toHaveCount(0);
+  await expect(screen.getByText("1 JOINED")).toBeVisible();
+  await expect(screen.getByText("Ada", { exact: true })).toBeVisible();
+});
+
 test("the stage embed follows the session live, from a screen link made in the Embed dialog", async ({
   browser,
   contexts,

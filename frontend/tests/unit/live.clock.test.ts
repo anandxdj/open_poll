@@ -61,8 +61,35 @@ describe("countdownAt", () => {
   });
 
   test("an untimed window has no timer and never expires", () => {
-    expect(countdownAt(timing(null), T0 + 1e9, 30)).toEqual({ timed: false, msLeft: 0, secondsLeft: 0, progress: 1, expired: false });
+    expect(countdownAt(timing(null), T0 + 1e9, 30)).toEqual({
+      timed: false,
+      paused: false,
+      msLeft: 0,
+      secondsLeft: 0,
+      progress: 1,
+      expired: false,
+    });
     expect(countdownAt(null, T0, 30).timed).toBe(false);
+  });
+
+  test("a paused timer (W2-A) shows its frozen time left and never expires", () => {
+    const paused = { endsAt: null, clockOffsetMs: 0, pausedRemainingMs: 12_400, durationMs: 30_000 };
+    expect(countdownAt(paused, T0 + 1e9, 30)).toEqual({
+      timed: true,
+      paused: true,
+      msLeft: 12_400,
+      secondsLeft: 13,
+      progress: 12_400 / 30_000,
+      expired: false,
+    });
+    expect(countdownAt({ ...paused, pausedRemainingMs: 0 }, T0, 30)).toMatchObject({ paused: true, expired: false });
+  });
+
+  test("an extended timer (W2-A) uses the server's budget instead of the slide's time limit", () => {
+    // 30 s slide + 30 s extension: 50 s left must not be capped at 30 s.
+    const extended = { endsAt: at(50), clockOffsetMs: 0, durationMs: 60_000 };
+    expect(countdownAt(extended, T0, 30)).toMatchObject({ timed: true, paused: false, msLeft: 50_000, secondsLeft: 50 });
+    expect(countdownAt(extended, T0, 30).progress).toBeCloseTo(50 / 60);
   });
 
   test("without a client clock (server render) shows the full budget", () => {

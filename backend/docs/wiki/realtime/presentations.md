@@ -22,6 +22,8 @@ protocol (and its `quiz_*` rooms) was removed in W2-D phase 2; the envelope stil
 | `live:leave` | `{ presentationId }` (or the bare id) | leaves every room of that presentation | ack `{ ok }` |
 | `answer:submit` | the `POST /:id/answer` body plus `presentationId` (the socket must have joined as that participant; the participant token inside is the identity) | none | ack with the REST envelope: `{ success, status, message, code?, data: AnswerResult \| null }` |
 | `live:resync` | `{ presentationId, role, accessToken? \| participantId + participantToken \| screenToken }` | none | ack `{ ok: true, role, seq, state }` (`ParticipantLiveState` or `HostStateResponse`) or `{ ok: false, error }` |
+| `remote:join` | `{ token, deviceKey }` (phone remote, W2-A; `modules/remote/remote.socket.ts`) | `live:{pid}`, `live:{pid}:remote` | ack `{ ok: true, state: RemoteState }` or `{ ok: false, error }` |
+| `remote:command` | `{ command: next \| prev \| reveal \| close \| extend30 \| pause \| resume }` (after `remote:join`) | none | ack `{ ok: true, command, state }` or `{ ok: false, error, code?, message? }` |
 
 Authorization:
 - **host** — the user needs `deck:host` on the deck (`PresentationService.canHost`: its creator, or an active member of the deck's workspace whose role allows hosting). The user comes from
@@ -45,11 +47,20 @@ client retry rule: [`../modules/presentations-live.md`](../modules/presentations
 | host | `live:{pid}`, `live:{pid}:host` |
 | participant | `live:{pid}`, `live:{pid}:p:{participantId}` |
 | screen | `live:{pid}`, `live:{pid}:screen` (host events only through their screen view, `envelope.md`) |
+| phone remote | `live:{pid}`, `live:{pid}:remote` |
+
+A removed participant's sockets leave every room of the deck (`presentations:control`
+`{kind: 'participant-leave'}`, applied by each instance with `io.local`); a revoked remote's
+sockets leave theirs (`remote:control` `{kind: 'revoke'}`) and receive `remote:revoked`. A screen
+whose link is turned off, or whose deck stops allowing embedding, leaves the deck's rooms the same
+way (`embeds:screen-revoked`, `screen:revoked`, `modules/embeds.md`).
 
 ## Server → client
 
 - `live:event` — the v1 envelope, to the `live:*` room of its audience. (There is no `quiz:event`
   copy any more.)
+- `remote:revoked` `{ presentationId }` — to a phone remote's sockets when its pairing is revoked or
+  replaced.
 
 ## Event types
 
@@ -71,6 +82,9 @@ of other sessions. Payload types: `PresentationEventPayloads` in
 | `leaderboard:shown` | all | `{ slideId, slideIndex, slide, leaderboard[], participantCount, isLastSlide }` |
 | `session:ended` | all | `{ runNumber, endedAt, leaderboard[] (≤100), participantCount, answerCount }` |
 | `quiz:ended` | all | `{ leaderboard[], participantCount }` — legacy copy of `session:ended` |
+| `slide:timing` | all | `{ slideId, slideIndex, action: pause\|resume\|extend\|skip, startedAt, endsAt (null while paused), pausedRemainingMs, durationMs, addedSeconds, serverNow }` |
+| `participant:kicked` | host + `participant:<id>` | `{ participantId, name, participantCount }` — published twice (host room, then the removed participant's room) |
+| `remote:connected` / `remote:disconnected` | host | `{ at }` — the paired phone remote's presence (`events/remote.ts`; `sessionId` null) |
 
 `distribution.kind`: `options` (select) | `text` (type) | `words` (wordcloud) | `responses`
 (open_ended) | `scales` (per-statement averages) | `ranking` (Borda items + voters).

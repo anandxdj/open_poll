@@ -451,6 +451,49 @@ describeIntegration('embeds, oEmbed and screens', () => {
     expect(resync.state.qna.highlightedId).toBe(approvedId);
   });
 
+  it('follows the presenter tools: timer pause and extend reach screens, a kick tells them nothing but leaves them clean', async () => {
+    const deck = await createDeck([SELECT]);
+    await allowEmbed(deck._id);
+    const { token } = (await createToken(deck._id)).body.data;
+    const screen = await screenSocket(deck._id, token);
+    expect(screen.ack).toEqual({ ok: true, role: 'screen' });
+
+    await host(deck._id, 'open-lobby');
+    const join = async (name: string) => (await call('POST', `/api/presentations/${deck._id}/join`, { body: { name } })).body.data as { participantId: string };
+    const ada = await join('Ada');
+    const rude = await join('RudeNickname');
+    await waitFor(() => screen.events.filter((e) => e.type === 'participant:joined').length === 2, 'both joins on the screen');
+    expect((await stage(token)).body.data.participants.map((p: { name: string }) => p.name)).toEqual(['Ada', 'RudeNickname']);
+
+    // Kick: the screen gets an empty signal (no id, no name, no count) and the stage leaves them out.
+    const kicked = await call('POST', `/api/presentations/${deck._id}/host/participants/${rude.participantId}/kick`, { user: alice, workspaceId: wsA });
+    expect(kicked.status).toBe(200);
+    await waitFor(() => screen.events.some((e) => e.type === 'participant:kicked'), 'the kick signal');
+    const at = screen.events.findIndex((e) => e.type === 'participant:kicked');
+    expect(screen.events[at]!.payload).toEqual({});
+    expect(JSON.stringify(screen.events.slice(at))).not.toContain('RudeNickname');
+    const afterKick = (await stage(token)).body.data;
+    expect(afterKick.participants.map((p: { name: string }) => p.name)).toEqual(['Ada']);
+    expect(JSON.stringify(afterKick)).not.toContain('RudeNickname');
+
+    // Timer: pause and extend arrive as `slide:timing` (an `all` event).
+    await host(deck._id, 'start');
+    await waitFor(() => screen.events.some((e) => e.type === 'question:started'), 'question on the screen');
+    expect((await call('POST', `/api/presentations/${deck._id}/host/timer`, { user: alice, workspaceId: wsA, body: { action: 'pause' } })).status).toBe(200);
+    await waitFor(() => screen.events.some((e) => e.type === 'slide:timing' && e.payload.action === 'pause'), 'pause on the screen');
+    const paused = screen.events.find((e) => e.type === 'slide:timing' && e.payload.action === 'pause')!;
+    expect(paused.payload.endsAt).toBeNull();
+    expect(paused.payload.pausedRemainingMs).toBeGreaterThan(0);
+    expect((await stage(token)).body.data.session.current.pausedRemainingMs).toBeGreaterThan(0);
+    expect((await call('POST', `/api/presentations/${deck._id}/host/timer`, { user: alice, workspaceId: wsA, body: { action: 'resume' } })).status).toBe(200);
+    expect((await call('POST', `/api/presentations/${deck._id}/host/timer`, { user: alice, workspaceId: wsA, body: { action: 'extend', seconds: 30 } })).status).toBe(200);
+    await waitFor(() => screen.events.some((e) => e.type === 'slide:timing' && e.payload.action === 'extend'), 'extend on the screen');
+
+    // Never remote data: those events are host-only and have no screen view.
+    expect(screen.events.some((e) => e.type.startsWith('remote:'))).toBe(false);
+    void ada;
+  });
+
   // ---------------------------------------------------------------------------
   // oEmbed
   // ---------------------------------------------------------------------------

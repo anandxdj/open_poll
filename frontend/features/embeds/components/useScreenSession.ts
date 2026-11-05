@@ -108,6 +108,9 @@ export function useScreenSession(presentationId: string, screenToken: string) {
       if (event.type === "question:started" || event.type === "slide:closed" || event.type === "question:revealed") {
         requestRefresh("visible");
       }
+      // A participant was removed: the screen is told nothing about them, it re-reads the
+      // state, which leaves removed participants out (W2-A kick).
+      if (event.type === "participant:kicked") requestRefresh("visible");
     },
     onResync: requestRefresh,
     // The host presented again (a new session): read which one is live.

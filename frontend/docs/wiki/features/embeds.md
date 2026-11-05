@@ -66,6 +66,10 @@ reducer is reused; nothing on this surface can send a host command.
   re-reads on every (re)join, return to the tab, `seq` reset, foreign session, and on
   `question:started`, `slide:closed` and `question:revealed` (a revealed slide's answer key only
   comes with the state). A `seq` gap is **not** a reason: a screen does not get every host event.
+- Presenter tools (W2-A): `slide:timing` (pause, resume, extend, skip) reaches screens like every
+  `all` event and the host reducer applies it; a kick reaches a screen only as an empty
+  `participant:kicked` signal, on which it re-reads its state (removed participants are not in it).
+  Phone-remote events never reach screens.
 - Problems: 404 → "This embed isn't available"; 403 → "Embedding is turned off"; the socket's
   `screen:revoked` → "This screen link was turned off" (`reason: revoked`) or "Embedding is turned off"
   (`reason: embed_disabled`, the deck stopped allowing embedding: every screen goes at once); a failed

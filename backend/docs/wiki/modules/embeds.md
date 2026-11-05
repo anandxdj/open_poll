@@ -110,7 +110,7 @@ shape (`HostStateResponse`, `presentations-live.md`), built by the same code
   depth. A new response type that reports its key under another name must add it there
   (`tests/embeds.stageSafe.test.ts` runs every registered response type and fails until its
   fixture exists).
-- `session.hostUserId` is null.
+- `session.hostUserId` is null, and removed (kicked) participants are left out of `participants`.
 - `qna`: the followed session's **public Q&A** (`listForScreen` in `qna.service.ts`: visible and
   answered questions, `highlightedId`, the Q&A settings view; the participant list's shape with
   `mine`/`upvoted` false; never pending questions, never participant ids), so a screen that joins
@@ -134,7 +134,12 @@ module that owns the event (`common/realtime/screenViews.ts`, see `realtime/enve
 | --- | --- |
 | `answer:received` | `stripAnswerKeys(payload)` (live counts without the key; registered in `presentations.socket.ts`) |
 | `reaction:burst` | as is (registered in `reactions.socket.ts`) |
+| `participant:kicked` | `{}`: an empty signal, no id, name or count (W2-A kick); the screen re-reads its state, which leaves removed participants out (registered in `presentations.socket.ts`) |
 | `qna:question` | none (questions waiting for moderation stay with the host) |
+| `remote:connected`, `remote:disconnected` | none: phone-remote data never reaches screens (W2-A) |
+
+`slide:timing` (timer paused, resumed, extended or skipped, W2-A) is an `all` event, so screens get
+it like everyone; the screen state's session view carries a paused slide's `pausedRemainingMs`.
 
 ## Add-in panes
 

@@ -3,6 +3,8 @@ import * as crud from './crud.service';
 import * as session from './live/session.service';
 import * as answers from './live/answer.service';
 import * as participants from './live/participant.service';
+import * as timing from './live/timing.service';
+import * as moderation from './live/moderation.service';
 import type { Actor } from './access';
 import type { PolicyContext } from '../../common/tenancy/policy';
 import type { ListContext } from './crud.service';
@@ -133,6 +135,34 @@ export class PresentationService {
 
   static endPresentation(presentationId: string, actor: Actor) {
     return session.endPresentation(presentationId, actor);
+  }
+
+  // ---------- Presenter tools (W2-A) ----------
+
+  /** Pause, resume or extend the current slide's timer. */
+  static timerCommand(presentationId: string, actor: Actor, body: { action: 'pause' | 'resume' | 'extend'; seconds?: number }) {
+    return timing.timerCommand(presentationId, actor, body);
+  }
+
+  static pauseTimer(presentationId: string, actor: Actor) {
+    return timing.pauseTimer(presentationId, actor);
+  }
+
+  static resumeTimer(presentationId: string, actor: Actor) {
+    return timing.resumeTimer(presentationId, actor);
+  }
+
+  static extendTimer(presentationId: string, actor: Actor, seconds?: number) {
+    return timing.extendTimer(presentationId, actor, seconds);
+  }
+
+  /** Time's up now on the current slide. */
+  static skipTimer(presentationId: string, actor: Actor) {
+    return timing.skipTimer(presentationId, actor);
+  }
+
+  static kickParticipant(presentationId: string, actor: Actor, participantId: string) {
+    return moderation.kickParticipant(presentationId, actor, participantId);
   }
 
   static getHostState(presentationId: string, actor: Actor) {

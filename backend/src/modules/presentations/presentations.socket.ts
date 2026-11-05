@@ -3,7 +3,7 @@ import { redisClient } from '../../common/config/redis';
 import { ApiError } from '../../common/utils/ApiError';
 import { resolveSocketUserId } from '../../common/realtime/auth';
 import { liveSeqKey } from '../../common/realtime/publish';
-import { SOCKET_EVENTS, type LiveRole } from '../../common/realtime/events';
+import { REALTIME_CHANNELS, SOCKET_EVENTS, type LiveRole } from '../../common/realtime/events';
 import { registerSocketModule } from '../../common/realtime/registry';
 import { registerScreenView } from '../../common/realtime/screenViews';
 import { allowJoin, isValidObjectId, leavePresentationRooms, liveRooms } from '../../common/realtime/rooms';
@@ -13,6 +13,7 @@ import { getScreenState } from '../embeds/stage.service';
 import { stripAnswerKeys } from '../embeds/stageSafe';
 import { screenTokensOf } from '../embeds/screenSockets';
 import { submitPresentationAnswerSchema } from './presentations.schema';
+import { applyPresentationsControl } from './live/control';
 import {
   LIVE_ERROR_CODES,
   type AnswerSubmitAck,
@@ -238,9 +239,16 @@ const handleLiveResync = async (socket: Socket, data: LiveResyncPayload | null, 
 // A screen draws the live results as answers arrive, like the host's stage, but
 // `answer:received` is only ever sent before the reveal: its answer key stays home.
 registerScreenView('answer:received', (payload) => stripAnswerKeys(payload));
+// A removed participant must leave the projected lobby, but a screen gets nothing
+// about them (W2-A kick): an empty signal, on which it re-reads its state, which
+// leaves removed participants out.
+registerScreenView('participant:kicked', () => ({}));
 
 export const presentationsSocketModule = registerSocketModule({
   name: 'presentations',
+
+  // Kicked participants leave the deck's rooms on every instance (W2-A).
+  channels: { [REALTIME_CHANNELS.presentationsControl]: applyPresentationsControl },
 
   onConnection(socket) {
     // The only join: `live:*` rooms, with an ack reporting the outcome. (The legacy

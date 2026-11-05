@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { containsProfanity, maskProfanity } from '../src/modules/qna/profanity';
+import { containsProfanity, maskProfanity } from '../src/common/utils/profanity';
 
 describe('Q&A profanity filter', () => {
   it('masks whole blocked words with asterisks of the same length', () => {

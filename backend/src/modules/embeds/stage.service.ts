@@ -29,8 +29,8 @@ export interface ScreenDeck {
  * `GET /api/embeds/stage` and the `screen` role's `live:resync`: the host
  * state's shape (so the stage renders it with the host's reducer) over a
  * stage-safe deck. Results of slides that are not revealed yet keep their
- * counts but lose their answer key (`stripAnswerKeys`); the host's user id is
- * not sent.
+ * counts but lose their answer key (`stripAnswerKeys`); the host's user id and
+ * removed (kicked) participants are not sent.
  */
 export type ScreenStateResponse = HostStateResponse<ScreenDeck> & {
   /**
@@ -87,7 +87,8 @@ export function toScreenState(
     presentation: deck,
     serverNow: state.serverNow,
     session: state.session ? { ...state.session, hostUserId: null } : null,
-    participants: state.participants,
+    // A removed participant (W2-A) is gone from the screen: no name, no row.
+    participants: state.participants.filter((participant) => !participant.kicked),
     answeredCount: state.answeredCount,
     liveDistribution,
     leaderboard: state.leaderboard,

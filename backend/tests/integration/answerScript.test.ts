@@ -32,7 +32,14 @@ interface Harness {
 }
 
 interface SeedOptions {
-  window?: Partial<{ open: boolean; endsAtMs: number | null; slideIndex: number; startedAtMs: number }>;
+  window?: Partial<{
+    open: boolean;
+    endsAtMs: number | null;
+    slideIndex: number;
+    startedAtMs: number;
+    pausedAtMs: number | null;
+    pausedRemainingMs: number | null;
+  }>;
   status?: string;
   participants?: Record<string, string>;
   kicked?: string[];
@@ -43,7 +50,7 @@ const STARTED = NOW - 5_000;
 
 const windowJson = (slideId: string, options: SeedOptions['window'] = {}) =>
   JSON.stringify({
-    v: 3,
+    v: 4,
     slideId,
     slideIndex: 0,
     type: 'select_answer',
@@ -52,6 +59,8 @@ const windowJson = (slideId: string, options: SeedOptions['window'] = {}) =>
     startedAtMs: STARTED,
     endsAtMs: null,
     pausedRemainingMs: null,
+    pausedAtMs: null,
+    pausedMs: 0,
     cfg: null,
     ...options,
   });
@@ -150,6 +159,15 @@ const scenarios: Scenario[] = [
       (s, l) => input(s, l, P[0]!, { nowMs: NOW - 1_000 + 750 }), // exactly at the grace edge: taken
       (s, l) => input(s, l, P[1]!, { ticketOk: true }), // 1 s late with a ticket: taken
       (s, l) => input(s, l, P[2]!, { ticketOk: true, nowMs: NOW - 1_000 + 15_001 }), // past the ticket grace
+    ],
+  },
+  {
+    name: 'paused timer (W2-A): answers already on their way within 750 ms are taken, later ones refused, even with a ticket',
+    seed: { window: { endsAtMs: null, pausedAtMs: NOW - 1_000, pausedRemainingMs: 4_000 } },
+    steps: [
+      (s, l) => input(s, l, P[0]!, { nowMs: NOW - 1_000 + 750 }), // in flight when the pause began: taken
+      (s, l) => input(s, l, P[1]!, { ticketOk: true }), // 1 s into the pause: refused
+      (s, l) => input(s, l, P[1]!), // and again: still refused, nothing written
     ],
   },
   {
@@ -268,6 +286,16 @@ describeIntegration('answer script (real Redis)', () => {
       expect(real.state).toEqual(fake.state);
     });
   }
+
+  it('refuses answers on a paused window after the in-flight grace (W2-A)', async () => {
+    const sid = oid();
+    const slideId = oid();
+    sessions.push(sid);
+    await realBackend.seed(sid, slideId, { window: { endsAtMs: null, pausedAtMs: NOW - 1_000, pausedRemainingMs: 4_000 } });
+    expect((await realBackend.run(input(sid, slideId, P[0]!, { nowMs: NOW - 1_000 + 750 }))).status).toBe('OK');
+    expect(await realBackend.run(input(sid, slideId, P[1]!, { ticketOk: true }))).toEqual({ status: 'PAUSED' });
+    expect(Boolean(await redisClient.sIsMember(k.answered(sid, slideId), P[1]!))).toBe(false);
+  });
 
   it('replies the way the contract says', async () => {
     const sid = oid();

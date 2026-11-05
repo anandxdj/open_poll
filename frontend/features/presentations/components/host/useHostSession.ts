@@ -10,12 +10,15 @@ import {
   endSession,
   getHostState,
   gotoSlide,
+  kickParticipant,
   openLobby,
   reopenVoting,
   revealResults,
+  skipTimer,
   startSession,
+  timerCommand,
 } from "../../api/host";
-import { LIVE_ERROR_CODES } from "../../live/errors";
+import { getApiErrorCode, LIVE_ERROR_CODES } from "../../live/errors";
 import { useLive, useLiveStore } from "../../live/store";
 import { useCountdown } from "../../live/useCountdown";
 import { useLiveSocket, type ResyncReason } from "../../live/useLiveSocket";
@@ -26,7 +29,7 @@ const HOST_AUTH: LiveSocketAuth = { role: "host" };
 
 /** Resyncs triggered by the stream itself (gaps, tab focus) run at most this often. */
 const RESYNC_MIN_INTERVAL_MS = 1_000;
-type CommandName = "start" | "openLobby" | "goto" | "close" | "reopen" | "reveal" | "end";
+type CommandName = "start" | "openLobby" | "goto" | "close" | "reopen" | "reveal" | "end" | "timer" | "skip";
 
 /**
  * Host-side session driver. On mount it only **reads** `GET /:id/host/state`
@@ -148,6 +151,7 @@ export function useHostSession(presentationId: string) {
       if (outcome.code === LIVE_ERROR_CODES.sessionAlreadyLive) return t("errors.alreadyLive");
       if (outcome.code === LIVE_ERROR_CODES.noLiveSession) return t("errors.noLiveSession");
       if (outcome.code === LIVE_ERROR_CODES.sessionBusy) return t("errors.busy");
+      if (outcome.code === LIVE_ERROR_CODES.noTimer) return t("errors.noTimer");
       return outcome.message || t(`errors.${name}`);
     },
     [t]
@@ -202,6 +206,44 @@ export function useHostSession(presentationId: string) {
   const reopen = useCallback(() => run("reopen", () => reopenVoting(presentationId)), [run, presentationId]);
   const reveal = useCallback(() => run("reveal", () => revealResults(presentationId)), [run, presentationId]);
 
+  // Timer tools (W2-A): pause, resume, +seconds, and "time's up now".
+  const pauseTimer = useCallback(() => run("timer", () => timerCommand(presentationId, "pause")), [run, presentationId]);
+  const resumeTimer = useCallback(() => run("timer", () => timerCommand(presentationId, "resume")), [run, presentationId]);
+  const extendTimer = useCallback(
+    (seconds = 30) => run("timer", () => timerCommand(presentationId, "extend", seconds)),
+    [run, presentationId]
+  );
+  const skip = useCallback(() => run("skip", () => skipTimer(presentationId)), [run, presentationId]);
+
+  /**
+   * Removes a participant (callers confirm first, in the app's own dialog). Not
+   * a slide command, so it does not take the command lock; the list updates from
+   * `participant:kicked`, and from the response right away.
+   */
+  const kick = useCallback(
+    async (participantId: string, name: string) => {
+      try {
+        const kicked = await kickParticipant(presentationId, participantId);
+        store.getState().dispatch({
+          type: "live/event",
+          event: {
+            type: "participant:kicked",
+            sessionId: store.getState().sessionId,
+            payload: { participantId: kicked.participantId, name: kicked.name, participantCount: kicked.participantCount },
+            emittedAt: new Date().toISOString(),
+          },
+        });
+        toast.success(t("toasts.kicked", { name }));
+        return true;
+      } catch (err: unknown) {
+        if (getApiErrorCode(err) === LIVE_ERROR_CODES.participantNotFound) void refresh();
+        toast.error(getApiErrorMessage(err) || t("errors.kick"));
+        return false;
+      }
+    },
+    [presentationId, store, t, refresh]
+  );
+
   // Callers confirm first (EndSessionDialog): native confirm() is suppressed in embedded browsers.
   const end = useCallback(async () => {
     const response = await run("end", () => endSession(presentationId));
@@ -217,6 +259,7 @@ export function useHostSession(presentationId: string) {
   // `reveal` acts on whatever slide is current when it lands.
   const revealKey = `${sessionId}:${slideId}:${timing?.startedAt ?? ""}:${timing?.endsAt ?? ""}`;
   useEffect(() => {
+    // A paused timer has no deadline and never expires (`countdown.paused`).
     if (status !== "active" || phase !== "open" || !timing?.endsAt || !countdown.expired) return;
     if (busy || autoRevealKey.current === revealKey) return;
     autoRevealKey.current = revealKey;
@@ -243,5 +286,12 @@ export function useHostSession(presentationId: string) {
     reopenVoting: reopen,
     reveal,
     end,
+    pauseTimer,
+    resumeTimer,
+    extendTimer,
+    skip,
+    kick,
   };
 }
+
+export type HostSession = ReturnType<typeof useHostSession>;

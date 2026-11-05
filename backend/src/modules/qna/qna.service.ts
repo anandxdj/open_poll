@@ -26,7 +26,7 @@ import {
 } from './qna.contract';
 import { QNA_KEY_TTL_SEC, qnaKeys } from './qna.keys';
 import { QnaQuestionModel, QnaUpvoteModel, type IQnaQuestion } from './qna.model';
-import { maskProfanity } from './profanity';
+import { maskProfanity } from '../../common/utils/profanity';
 import type { AskQuestionInput, HostListStatus, HostUpdateQuestionInput } from './qna.schema';
 
 /** The slide type whose `board` lifecycle opens Q&A while it is on screen. */

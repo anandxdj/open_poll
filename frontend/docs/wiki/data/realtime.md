@@ -43,7 +43,10 @@ last_updated: 2026-11-05
   (`types/realtime.ts`, mirror of `backend/src/modules/presentations/live/contract.ts`). Types:
   `session:lobby`, `participant:joined`, `slide:shown`, `question:started` (with `slideTicket`),
   `slide:closed`, `answer:received` (host only, coalesced: one per dirty slide per 250 ms, with the
-  distribution), `question:revealed`, `leaderboard:shown`, `session:ended`
+  distribution), `question:revealed`, `leaderboard:shown`, `session:ended`, `slide:timing` (W2-A:
+  pause / resume / extend / skip, `endsAt` null while paused), `participant:kicked` (host, and the
+  removed participant's own room), and the presenter module's `remote:connected` /
+  `remote:disconnected` (host)
   (legacy copies `lobby:opened` and `quiz:ended` are ignored by the reducer).
 - **Session scoping**: an envelope whose `sessionId` is not the session the surface follows is
   **ignored** (the reducer records only its `seq`; `onForeignSession` lets the surface check which
@@ -78,6 +81,12 @@ last_updated: 2026-11-05
 - **State recovery**: on refresh/late join the participant's code lookup returns the live slide,
   its `currentSlideId`, phase and timing; `live-state` adds results, standings and whether the
   slide was answered — render immediately, then follow socket events.
+- **Phone remote (W2-A)**: `features/remote/useRemote.ts` uses the shared socket without a live store:
+  `remote:join {token, deviceKey}` on every (re)connect, `remote:command {command}` with a 5 s ack,
+  `remote:revoked` ends it; the socket is in `live:{pid}` (public events) and the page re-reads its
+  state over REST on slide events. Wire names: `LIVE_SOCKET_EVENTS.remoteJoin|remoteCommand|remoteRevoked`.
+- **Audience window (W2-A)**: no socket at all; it renders the presenter view's live store, mirrored
+  over a `BroadcastChannel` (`features/presenter/audienceChannel.ts`).
 - **New lobby / session**: `session:lobby` belongs to a *new* session, so it arrives as a foreign
   envelope for participants of the previous one (they keep their finished screen and are offered
   to join); it no longer wipes anybody's credentials (they are stored per session).

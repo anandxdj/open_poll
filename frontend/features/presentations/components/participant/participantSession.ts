@@ -20,6 +20,8 @@ export interface DeviceRecord {
   name?: string;
   /** Session last joined with this code. */
   lastSessionId?: string;
+  /** A session the host removed this device from: it shows "you were removed" instead of the join form. */
+  kickedSessionId?: string;
 }
 
 const PREFIX = "openpoll_participant_";
@@ -56,7 +58,12 @@ const str = (value: unknown): string | undefined => (typeof value === "string" &
 
 export function readDevice(code: string): DeviceRecord {
   const raw = readJson(deviceKey(code));
-  return { deviceToken: str(raw.deviceToken), name: str(raw.name), lastSessionId: str(raw.lastSessionId) };
+  return {
+    deviceToken: str(raw.deviceToken),
+    name: str(raw.name),
+    lastSessionId: str(raw.lastSessionId),
+    kickedSessionId: str(raw.kickedSessionId),
+  };
 }
 
 export function writeDevice(code: string, patch: DeviceRecord) {

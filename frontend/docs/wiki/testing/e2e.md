@@ -91,6 +91,14 @@ lookup's HTTP status (404 until a session was opened).
   offline and is sent when the deck opens again in that browser (IndexedDB); a queued answer that
   arrives after the host closed voting is refused with "Voting closed before your answer arrived".
   ~35 s.
+- `e2e/presenter.spec.ts` — W2-A presenter experience: the presenter view's notes, next slide,
+  clock and responses, and the audience window opened from it following every move (two pages,
+  BroadcastChannel; a reload of the audience window catches up); removing a participant through the
+  app's dialog (the phone shows "You were removed from this session", also after a reload; the others
+  answer on); pausing the timer (the phone and the stage show "Paused" with a frozen value, Submit
+  waits), +30 s while paused, resume, skip and the auto-reveal; a second browser context as the phone
+  remote (pairing link from the presenter view, a second phone refused, next from the lobby, pause /
+  resume, reveal, unpair). ~35 s.
 - `e2e/content-slides.spec.ts` — content slides: a deck of all eight content types presented
   fullscreen **without a lobby or any participant** (F key, arrow-key and button navigation, each
   stage layout, end; the run is on record with 0 participants), and a mixed deck (heading → word

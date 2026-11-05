@@ -123,7 +123,8 @@ shares a Redis server its own adapter `key` (`RedisAdapterOptions`). Operations:
 
 - **New event types**: add them to the module's `events/<module>.ts` with `defineLiveEvents`, prefixed
   by module (`slide:`, `session:`, `qna:`, `reaction:`, `remote:`, `presence:`). A new module adds
-  one spread line to `LIVE_EVENTS` and one `export *` in `events/index.ts`.
+  one spread line to `LIVE_EVENTS` and one `export *` in `events/index.ts` (W2-A added
+  `events/remote.ts`).
 - **New client events or channels**: call `registerSocketModule` in the module's `*.socket.ts` and
   add one import line to `modules.ts`. Channel handlers deliver with `io.local`.
 - Document the module's events, rooms and audiences in `realtime/<module>.md`.

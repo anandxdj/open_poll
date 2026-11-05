@@ -50,7 +50,8 @@ export function JoinGate({ code, rejoin = false }: { code: string; rejoin?: bool
     } catch (err: unknown) {
       const errorCode = getApiErrorCode(err);
       if (errorCode === LIVE_ERROR_CODES.sessionFull) toast.error(t("sessionFull"));
-      else if (errorCode === LIVE_ERROR_CODES.participantKicked) toast.error(t("kickedTitle"));
+      // Removed from this session: the shell shows the "you were removed" screen.
+      else if (errorCode === LIVE_ERROR_CODES.participantKicked) store.getState().dispatch({ type: "participant/lost", reason: "kicked" });
       else toast.error(getApiErrorMessage(err) || t("joinFailed"));
     } finally {
       setJoining(false);

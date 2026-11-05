@@ -18,7 +18,7 @@ import type {
   SlidePhase,
   SlideResultsView,
 } from "../types";
-import { isRealtimeEvent } from "../types/realtime";
+import { isRealtimeEvent, type RealtimePayloads } from "../types/realtime";
 import { clockOffsetFrom } from "./clock";
 import type { ThemeTokens } from "@/features/themes/types";
 
@@ -48,8 +48,12 @@ export type ParticipantLostReason = "kicked" | "stale" | "missing";
 export interface LiveTiming {
   /** When the answer window opened (server clock). */
   startedAt: string | null;
-  /** Deadline (server clock); null = untimed, open until the host closes it. */
+  /** Deadline (server clock); null = untimed (open until the host closes it), or paused. */
   endsAt: string | null;
+  /** The host paused the timer (W2-A): the time left, frozen; null while it runs or when untimed. */
+  pausedRemainingMs?: number | null;
+  /** The timer's whole budget (time limit plus extensions, ms), when known. */
+  durationMs?: number | null;
   /**
    * Server clock minus client clock (ms), measured when this window arrived:
    * from the `serverNow` of the same event or REST response, else the latest
@@ -131,6 +135,8 @@ export interface LiveState {
    * participant). The shell reacts (kicked screen, or rejoin).
    */
   lost: ParticipantLostReason | null;
+  /** Host: when the followed session opened (server clock), for the presenter's session clock. */
+  sessionStartedAt: string | null;
   /** Highest envelope `seq` seen for this deck (any session); null before the first event. */
   lastSeq: number | null;
   /** Sub-reducer state, keyed by the prefix the module registered with. */
@@ -211,6 +217,7 @@ export function createInitialLiveState(
     submittedSlideIndex: null,
     pendingAnswers: {},
     lost: null,
+    sessionStartedAt: null,
     lastSeq: null,
     modules: initialModuleState(),
     ...init,
@@ -337,6 +344,7 @@ const withSeq = (state: LiveState, event: PresentationRealtimeEvent): LiveState 
 /** Everything that belongs to one session; cleared when the followed session changes. */
 const sessionScoped = (): Partial<LiveState> => ({
   runNumber: null,
+  sessionStartedAt: null,
   currentSlideIndex: -1,
   slideId: null,
   phase: null,
@@ -359,6 +367,24 @@ const sessionScoped = (): Partial<LiveState> => ({
 /** Moves to another session (or none): resets the session-scoped state. No-op for the same session. */
 const followSession = (state: LiveState, sessionId: string | null): LiveState =>
   state.sessionId === sessionId ? state : { ...state, ...sessionScoped(), sessionId };
+
+/**
+ * An answer window's timing. The pause and budget fields (W2-A) are only set
+ * when the server sent numbers, so a window without them looks as it always did.
+ */
+const windowTiming = (
+  startedAt: string | null,
+  endsAt: string | null,
+  clockOffsetMs: number,
+  pausedRemainingMs?: number | null,
+  durationMs?: number | null
+): LiveTiming => ({
+  startedAt,
+  endsAt,
+  clockOffsetMs,
+  ...(typeof pausedRemainingMs === "number" ? { pausedRemainingMs } : {}),
+  ...(typeof durationMs === "number" ? { durationMs } : {}),
+});
 
 // ---------- Core reducer ----------
 
@@ -574,9 +600,10 @@ function applySessionView(
     slideId: session.currentSlideId,
     phase: session.status === "active" ? (current?.phase ?? null) : null,
     isLastSlide: current?.isLastSlide ?? false,
+    sessionStartedAt: session.startedAt ?? state.sessionStartedAt,
     timing:
       session.status === "active" && current?.phase === "open"
-        ? { startedAt: current.openedAt, endsAt: current.endsAt, clockOffsetMs: clockOffsetMs ?? 0 }
+        ? windowTiming(current.openedAt, current.endsAt, clockOffsetMs ?? 0, current.pausedRemainingMs, current.durationMs)
         : null,
   };
   const results = next.slideId ? next.results[next.slideId] : undefined;
@@ -632,11 +659,55 @@ function hostCommand(state: LiveState, response: HostCommandResponse): LiveState
     answeredCount: sameSlide ? Math.max(state.answeredCount, answered) : answered,
     // Keep a revealed payload that arrived first (it carries the final distribution).
     reveal: sameSlide && next.phase === "revealed" && state.reveal ? state.reveal : next.reveal,
-    timing: sameSlide && next.phase === "open" && state.timing ? state.timing : next.timing,
+    timing: keepTiming(sameSlide, next, state),
   };
 }
 
+/**
+ * A command response keeps the timing that events already brought for the same
+ * window, unless the response is about a newer timer change: a pause, resume,
+ * extend or skip changes the deadline or the frozen time while the window
+ * (`startedAt`) stays the same.
+ */
+function keepTiming(sameSlide: boolean, next: LiveState, state: LiveState): LiveTiming | null {
+  if (!sameSlide || next.phase !== "open" || !state.timing || !next.timing) return next.timing;
+  const same =
+    state.timing.startedAt === next.timing.startedAt &&
+    state.timing.endsAt === next.timing.endsAt &&
+    (state.timing.pausedRemainingMs ?? null) === (next.timing.pausedRemainingMs ?? null);
+  return same ? state.timing : next.timing;
+}
+
 const deckQuestion = (state: LiveState, slideIndex: number) => state.deck?.slides[slideIndex]?.question ?? "";
+
+function removeParticipant(state: LiveState, participantId: string): LiveState {
+  if (!state.participants.some((p) => p.participantId === participantId)) return state;
+  return {
+    ...state,
+    participants: state.participants.filter((p) => p.participantId !== participantId),
+    leaderboard: state.leaderboard.filter((entry) => entry.participantId !== participantId),
+  };
+}
+
+/**
+ * `slide:timing` (host and participants): the open slide's timer was paused,
+ * resumed, extended or skipped. Only the window on screen changes (same slide,
+ * same `startedAt`); a stale event for an older window is ignored.
+ */
+function slideTiming(
+  state: LiveState,
+  p: RealtimePayloads["slide:timing"],
+  receivedAt: number | undefined
+): LiveState {
+  if (state.slideId !== p.slideId || state.phase !== "open") return state;
+  if (state.timing?.startedAt && state.timing.startedAt !== p.startedAt) return state;
+  const clockOffsetMs = offsetOr(state, p.serverNow, receivedAt);
+  return {
+    ...state,
+    clockOffsetMs,
+    timing: windowTiming(p.startedAt, p.endsAt, clockOffsetMs ?? 0, p.pausedRemainingMs, p.durationMs),
+  };
+}
 
 function addParticipant(state: LiveState, participantId: string, name: string): LiveState {
   if (state.participants.some((p) => p.participantId === participantId)) return state;
@@ -663,6 +734,12 @@ function hostEvent(state: LiveState, event: PresentationRealtimeEvent, receivedA
   if (isRealtimeEvent(event, "participant:joined")) {
     return addParticipant(state, event.payload.participantId, event.payload.name);
   }
+
+  if (isRealtimeEvent(event, "participant:kicked")) {
+    return removeParticipant(state, event.payload.participantId);
+  }
+
+  if (isRealtimeEvent(event, "slide:timing")) return slideTiming(state, event.payload, receivedAt);
 
   if (isRealtimeEvent(event, "answer:received")) {
     const { slideId, slideIndex, answeredCount, participantCount, distribution } = event.payload;
@@ -831,7 +908,13 @@ function participantInfoLoaded(
       slide: info.currentSlide,
       timing:
         info.currentSlidePhase === "open"
-          ? { startedAt: info.questionStartedAt ?? null, endsAt: info.questionEndsAt ?? null, clockOffsetMs: clockOffsetMs ?? 0 }
+          ? windowTiming(
+              info.questionStartedAt ?? null,
+              info.questionEndsAt ?? null,
+              clockOffsetMs ?? 0,
+              info.questionPausedRemainingMs,
+              info.questionDurationMs
+            )
           : null,
     };
   }
@@ -892,7 +975,7 @@ function participantLiveState(state: LiveState, live: ParticipantLiveState, rece
     slide: current.slide ?? leaderboardSlide(current.slideIndex, live.totalSlides),
     timing:
       live.status === "active" && current.phase === "open"
-        ? { startedAt: current.startedAt, endsAt: current.endsAt, clockOffsetMs: clockOffsetMs ?? 0 }
+        ? windowTiming(current.startedAt, current.endsAt, clockOffsetMs ?? 0, current.pausedRemainingMs, current.durationMs)
         : null,
     slideTicket: live.status === "active" && current.phase === "open" ? (current.slideTicket ?? null) : null,
     reveal:
@@ -917,6 +1000,16 @@ function participantEvent(
   if (isRealtimeEvent(event, "participant:joined")) {
     return addParticipant(state, event.payload.participantId, event.payload.name);
   }
+
+  if (isRealtimeEvent(event, "participant:kicked")) {
+    // Only the removed participant's own room gets it; anyone else just drops the name.
+    if (state.self && event.payload.participantId === state.self.participantId) {
+      return { ...state, lost: "kicked", self: null, me: null, submittedSlideIndex: null, pendingAnswers: {} };
+    }
+    return removeParticipant(state, event.payload.participantId);
+  }
+
+  if (isRealtimeEvent(event, "slide:timing")) return slideTiming(state, event.payload, receivedAt);
 
   if (isRealtimeEvent(event, "session:lobby")) {
     return {

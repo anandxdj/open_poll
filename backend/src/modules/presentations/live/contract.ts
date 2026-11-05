@@ -32,6 +32,8 @@ export interface DeckSettings {
     assessment: { enabled: boolean; passingScorePercentage: number; maxAttempts: number | null };
   };
   embed: { allowed: boolean };
+  /** Mask profanity in word-cloud and open-ended answers (W2-A); off by default. Q&A is always masked. */
+  profanityFilter: boolean;
 }
 
 export interface DeckThemeRef {
@@ -92,9 +94,14 @@ export interface SlideStateView {
   phase: SlidePhase;
   /** When the slide was first shown, or (response slides) last opened. */
   openedAt: string | null;
-  /** Answer deadline; null while untimed or for slides without an answer window. */
+  /** Answer deadline; null while untimed, while the timer is paused, or for slides without an answer window. */
   endsAt: string | null;
+  /** Time left while the timer is paused (W2-A); null while it runs or when untimed. */
   pausedRemainingMs: number | null;
+  /** When the running pause began; null unless paused. */
+  pausedAt: string | null;
+  /** The timer's whole budget (time limit plus extensions, ms); null when untimed. */
+  durationMs: number | null;
   closedAt: string | null;
   revealedAt: string | null;
   answeredCount: number;
@@ -221,9 +228,13 @@ export interface CodeLookupResponse {
   currentSlide?: ParticipantSlide;
   currentSlideId?: string;
   currentSlidePhase?: SlidePhase;
-  /** Response slides only. `questionEndsAt` is null while the slide is untimed and open. */
+  /** Response slides only. `questionEndsAt` is null while the slide is untimed and open, or paused. */
   questionStartedAt?: string;
   questionEndsAt?: string | null;
+  /** Response slides only: time left while the timer is paused (W2-A), else null. */
+  questionPausedRemainingMs?: number | null;
+  /** Response slides only: the timer's whole budget (ms), null when untimed. */
+  questionDurationMs?: number | null;
 }
 
 /** `POST /:id/join`. */
@@ -279,7 +290,12 @@ export interface ParticipantLiveState {
     isLastSlide: boolean;
     slide: ParticipantSlide;
     startedAt: string | null;
+    /** null while untimed or paused. */
     endsAt: string | null;
+    /** Time left while the timer is paused (W2-A), else null. */
+    pausedRemainingMs: number | null;
+    /** The timer's whole budget (time limit plus extensions, ms); null when untimed. */
+    durationMs: number | null;
     /** Open response slides only: send it back as `slideTicket` with the answer. */
     slideTicket: string | null;
     /** Revealed response slides only. */
@@ -393,6 +409,35 @@ export interface PresentationEventPayloads {
   };
   /** Legacy copy of `session:ended`. */
   'quiz:ended': { leaderboard: LeaderboardEntry[]; participantCount: number };
+  /**
+   * The current response slide's timer changed (W2-A): paused, resumed, extended,
+   * or skipped (time's up now). `endsAt` is null while paused; then
+   * `pausedRemainingMs` is the frozen time left.
+   */
+  'slide:timing': SlideTimingPayload;
+  /**
+   * The host removed a participant (W2-A). Sent to the host room and to the removed
+   * participant's own room; the participant's sockets then leave the deck's rooms.
+   */
+  'participant:kicked': { participantId: string; name: string; participantCount: number };
+}
+
+export type TimerAction = 'pause' | 'resume' | 'extend' | 'skip';
+
+export interface SlideTimingPayload {
+  slideId: string;
+  slideIndex: number;
+  action: TimerAction;
+  /** The window's opening time (unchanged by timer actions: it identifies the run of the slide). */
+  startedAt: string;
+  /** New deadline; null while paused. */
+  endsAt: string | null;
+  pausedRemainingMs: number | null;
+  /** The timer's whole budget now (time limit plus extensions, ms). */
+  durationMs: number | null;
+  /** Seconds added by an `extend`, else 0. */
+  addedSeconds: number;
+  serverNow: string;
 }
 
 export type PresentationLiveEventType = keyof PresentationEventPayloads;
@@ -424,7 +469,34 @@ export const LIVE_ERROR_CODES = {
   alreadyAnswered: 'ALREADY_ANSWERED',
   /** 429 on answers: more than the per-participant budget of attempts. */
   answerRateLimited: 'RATE_LIMITED',
+  /** 409 on answers: the host paused the timer; retry with the same `clientAnswerId` once it resumes. */
+  slidePaused: 'SLIDE_PAUSED',
+  /** 400 on timer commands: the current slide has no running (or paused) timer, or its window is closed. */
+  noTimer: 'NO_TIMER',
+  /** 400 on resume / 409 on pause: the timer is not paused / already paused. */
+  timerState: 'TIMER_STATE',
+  /** 404 on kick: no such participant in the live session. */
+  participantNotFound: 'PARTICIPANT_NOT_FOUND',
 } as const;
+
+// ---------------------------------------------------------------------------
+// Presenter tools (W2-A): timer, kick
+// ---------------------------------------------------------------------------
+
+/** `POST /:id/host/timer`. `seconds` (5–600, default 30) applies to `extend`. */
+export interface TimerCommandBody {
+  action: 'pause' | 'resume' | 'extend';
+  seconds?: number;
+}
+
+/** `POST /:id/host/participants/:pid/kick`. Idempotent: kicking twice answers the same. */
+export interface KickResponse {
+  participantId: string;
+  name: string;
+  kicked: true;
+  /** Participants left in the session. */
+  participantCount: number;
+}
 
 // ---------------------------------------------------------------------------
 // Answers (REST `POST /:id/answer` and socket `answer:submit`)

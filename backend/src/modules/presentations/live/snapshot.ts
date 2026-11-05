@@ -161,7 +161,8 @@ export const buildSessionSnapshot = async (session: IPresentationSession): Promi
   const [slideStats, finalLeaderboard, participantCount] = await Promise.all([
     computeSlideStats(session, counts),
     getStoredLeaderboard(sid, FINAL_LEADERBOARD_SIZE),
-    PresentationParticipantModel.countDocuments({ sessionId: sid }),
+    // Participants the host removed are not counted (as in the live count).
+    PresentationParticipantModel.countDocuments({ sessionId: sid, kickedAt: null }),
   ]);
   return {
     participantCount,
