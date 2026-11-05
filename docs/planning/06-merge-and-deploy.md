@@ -1,16 +1,16 @@
 ---
-summary: How to merge the open PR stack (#8–#16 and #13) into main and ship it in one release, with a migration rehearsal on a copy of production data first.
+summary: How to merge the open PR stack (#8–#16 and #13) into main and ship it in one release. The migration rehearsal on a copy of production passed on 2026-11-05.
 status: draft
-last_updated: 2026-11-01
+last_updated: 2026-11-05
 ---
 
 # Merge and deploy plan
 
-Nothing from the roadmap work after `#6`/`#7` is live. This plan gets the open stack onto `main`, the
-backend onto the VPS and the frontend onto Vercel in one short window, after proving the database
-migrations on a copy of production.
+Production runs `main` (#6, #7) on both sides since 2026-11-05. Nothing from the open stack is live. This plan
+gets the stack onto `main`, the backend onto the VPS and the frontend onto Vercel in one short window. The
+remaining database migrations (`160`–`200`) were proven on a copy of production on 2026-11-05.
 
-## Where things stand (2026-11-01)
+## Where things stand (2026-11-05)
 
 **GitHub.** `main` = `8101faf` (#6, #7). No branch protection; `delete_branch_on_merge` is off.
 
@@ -23,15 +23,16 @@ migrations on a copy of production.
 | #12 | `feat/custom-domains` | #11 | green except GitGuardian |
 | #14 | `feat/landing-trim` | #12 | green |
 | #15 | `feat/app-shell-v2` | #14 | green |
-| #16 | `feat/editor-v2` (`0023e44`) | #15 | green |
-| #13 | `feat/mcp-agents` (`9a9f94f`) | #12 | green, **not** in #16 |
+| #16 | `feat/editor-v2` | #15 | green except GitGuardian |
+| #13 | `feat/mcp-agents` (= `R`) | #12 | green except GitGuardian; contains #14–#16 |
 
 - `feat/editor-v2` contains #8–#12 and #14–#16; local and origin branches match.
 - #13 forks from #12 and ships in this release (owner decision, 2026-11-01).
 - **`R` is the head of `feat/mcp-agents` (PR #13).** It holds the whole stack plus MCP.
   - First built 2026-11-01 as `7fde277`, with green CI.
   - Rebuilt the same day after the fixes from the product test pass (`07-product-test-plan.md`) landed on
-    `feat/editor-v2`.
+    `feat/editor-v2` (`32a967e`, every CI job green, Playwright included). The rehearsal ran from `32a967e`.
+  - Rebuilt again on 2026-11-05 to carry this document. That rebuild changes docs only.
   - Every `<R>` below means `git rev-parse origin/feat/mcp-agents` at the time of the window. Check that CI on
     that exact commit is green.
 - **Merging `feat/editor-v2` into `feat/mcp-agents`** conflicts in one place only: the `last_updated` front-matter
@@ -41,7 +42,9 @@ migrations on a copy of production.
     `mcptokens`, OAuth clients and grants, with TTL indexes.
   - It stores only hashes, so it needs no `ENCRYPTION_KEY`.
   - `API_PUBLIC_URL` becomes the OAuth issuer that connectors see (`<origin>/mcp`).
-- **GitGuardian failures are false positives.** All five flags are throwaway passwords for e2e test accounts:
+- **GitGuardian failures are false positives.** The stack adds `.gitguardian.yaml` (ignoring `frontend/e2e/**`
+  and `backend/tests/**`), but the check still fails until the incidents are resolved in the dashboard.
+  All five flags are throwaway passwords for e2e test accounts:
   - `frontend/e2e/privacy.spec.ts`, `backend/tests/integration/privacy.test.ts` (#9)
   - `frontend/e2e/brand.spec.ts` (#10)
   - `frontend/e2e/sso.spec.ts` (#11)
@@ -51,10 +54,17 @@ migrations on a copy of production.
 - **Frontend:** Vercel, at `open-poll.anands.dev` (custom domain) and `open-poll.vercel.app`. It deploys `main` automatically, and `NEXT_PUBLIC_*` values are baked in at build time.
   `NEXT_PUBLIC_SITE_URL` is unset there today, so canonical, `og:url`, `robots.txt` and `sitemap.xml` all
   say `http://localhost:3000`.
-- **Backend:** VPS, `docker-compose.yml` + Traefik, `openpoll-backend.anands.dev`. It runs pre-Wave-0 code
-  (`GET /api/plans` → 404). The container command is `bun run start:prod` = `bun scripts/migrate.ts && bun src/app.ts`,
-  so migrations run on every start.
-- **Migrations to apply on production:** all of `001`–`200` (the runner did not exist in the deployed code).
+- **Backend:** VPS, `docker-compose.yml` + Traefik, `openpoll-backend.anands.dev`. The owner deployed `main`
+  (`8101faf`) on 2026-11-05 at 07:47 UTC. Until then it ran pre-Wave-0 code, while Vercel already served the
+  `main` frontend, so the workspace, billing and session-history calls returned 404. Now `GET /api/plans` returns
+  200, and there is no `/.well-known/oauth-authorization-server` yet (that comes with #13).
+  The container command is `bun run start:prod` = `bun scripts/migrate.ts && bun src/app.ts`, so migrations run on
+  every start.
+- **Database:** MongoDB Atlas, server 8.0, database `open-poll-platform`. On 2026-11-05: 4 users, 51 polls
+  (50 assessments), 7 responses, 1 deck, 0 sessions, 3 personal MCP tokens.
+- **Migrations already applied on production:** `001`–`150`, by the 2026-11-05 deploy of `main`. No dump was taken
+  before they ran.
+- **Migrations left to apply:** `160`–`200`. On the production copy they took 0.3 s together (see Phase 1).
 
 ## Decisions for the owner (before Phase 1)
 
@@ -69,15 +79,15 @@ migrations on a copy of production.
    - Both are on `anands.dev`, so they are the same site and the refresh cookie survives Safari.
    - Use this address everywhere: `NEXT_PUBLIC_SITE_URL`, `FRONTEND_URL`, and the redirect target for
      `open-poll.vercel.app` (Vercel → Domains → redirect).
-4. **Window.** About 30 minutes with no live sessions. Migration `030` changes the Redis keys, and it marks any
-   deck still in `lobby`/`active` as `ended`.
+4. **Window.** About 30 minutes with no live sessions. Migration `030` (Redis keys, decks left in
+   `lobby`/`active` marked `ended`) already ran with the `main` deploy, so the remaining migrations only add
+   indexes and backfill `lastActivityAt` on live sessions.
 
 ## Phase 0: tidy the PRs
 
 1. In the GitGuardian dashboard, resolve the five incidents above as "test credential / false positive".
 2. Re-run the GitGuardian check on #9–#12, or ignore it: without branch protection it does not block merging.
-3. Leave the ignore file for later, as one small PR to `main` after the release (Phase 4).
-   Adding it to #8 now would push a commit through the whole stack.
+3. The ignore file is already in the stack (`7ee1346`, on `feat/editor-v2`), so it reaches `main` with the release.
 4. **Build the release commit, `R`.** Done 2026-11-01, and redone each time the stack changes. Bring #13 up to date with the stack top, so its head holds everything
    that ships:
    ```bash
@@ -96,14 +106,56 @@ migrations on a copy of production.
 
 ## Phase 1: rehearse the migrations on a copy of production
 
-Do this a day or more before the window. The dump holds real user data: keep it off shared disks and delete
-it at the end.
+**Done 2026-11-05, passed.** The steps below stay as the recipe for a re-run, for example if a new migration
+lands before the window.
 
-1. **On the VPS, record what runs now.** This is the rollback target.
+### Result (2026-11-05, from `R` = `32a967e`)
+
+- **Copy.** Production dumped at 07:52 UTC, after the `main` deploy, into Mongo 8.0 (same major as Atlas).
+  134 documents restored, none failed.
+- **Migrations.** `migrate status` listed `001`–`150` applied and `160`–`200` pending. `160`–`200` applied in
+  313 ms (`160` 63 ms, `170` 34 ms, `180` 126 ms, `190` 58 ms, `200` 32 ms; 1.1 s for the whole command).
+  A second run reported `Applied 0, already applied 14`.
+- **Checks after, all as expected.**
+  - Users without `defaultWorkspaceId`: 0. Polls and decks without `workspaceId`: 0. Orphan polls: 0.
+  - Participants and answers without `sessionId`: 0. Legacy quizzes: none to convert.
+  - Ended sessions past retention: 0. Polls at or over the 100-answer cap: 0. All 4 workspaces are on Free.
+  - `scripts/plan-impact.ts`: 0 polls stop accepting answers, 0 sessions deleted, 0 expiring in 30 days.
+- **Rehearsal backend booted clean** on port 5099. `/health`, `/ready`, `/api/plans`, the socket handshake and
+  `/.well-known/oauth-authorization-server` all answered.
+- **Clicked through in the browser**, signed in as the owner's account on the copy:
+  - Home and the Library list all 52 items (51 polls, 1 deck).
+  - The old deck "redis for beginners" opens in the builder with its 5 slides.
+  - A new session on that deck: a phone-width tab joined with the code, answered, Reveal showed "Correct!",
+    End session worked, and the session report lists the run.
+  - An old poll's analytics shows its 3 responses. A recent assessment at `/p/<id>` scored 3 of 3.
+- **MCP.**
+  - A token shaped like the 3 production tokens (poll scopes, no `workspaceId`) still works on `R`: 9 poll
+    tools, and `list_polls` and `create_assessment` succeed in the default workspace. The owner's agents keep
+    working after the release.
+  - Settings → MCP labels those tokens "Polls only" and asks for a new token to reach decks and sessions.
+  - A token generated in Settings lists 33 tools, and `create_deck` and `list_decks` work.
+- **Logs.** No errors from the backend or the frontend dev server.
+- **Torn down.** Containers, worktree, dump and test credentials deleted the same day.
+
+### Tips from the 2026-11-05 run
+
+- The Mongo tools aren't installed locally. Run them from the image instead, with the URI passed through the
+  environment so it stays out of the process list:
+  `docker run --rm -e MONGO_URI -v <dir>:/dump mongo:7 mongodump --uri "$MONGO_URI" --db open-poll-platform --gzip --archive=/dump/<file>.gz`
+- Production accounts sign in with OIDC and have no password. To sign in on the copy, set a throwaway password
+  there only: `NODE_ENV=development MONGO_URI=<copy> REDIS_URL=<rehearsal redis> bun scripts/seed-e2e-user.ts <email> <password> <name>`.
+  Never point that script at production.
+- In the Claude app's browser pane, a background tab stalls page transitions. Bring the phone tab to the front
+  before you answer.
+
+### Recipe
+
+1. **On the VPS, record what runs now.** This is the rollback target. Since 2026-11-05 it is the `main` image.
    ```bash
    git -C <checkout> rev-parse HEAD
    docker image ls | grep openpoll
-   docker tag <current backend image> openpoll-backend:pre-roadmap
+   docker tag <current backend image> openpoll-backend:pre-release
    ```
 2. **Dump production Mongo.** If it is Atlas, also take an on-demand snapshot. Note the server version.
    ```bash
@@ -207,12 +259,14 @@ new backend for the few minutes between steps 3 and 5, so keep that gap short.
 
 1. **No live sessions.** Check: `db.presentations.countDocuments({status: {$in: ["lobby","active"]}})`.
    Announce the window if anyone uses it.
-2. **Fresh backup.** Repeat the `mongodump` from Phase 1, step 2: the rehearsal dump is older.
+2. **Fresh backup and rollback tag.** Repeat the `mongodump` from Phase 1, step 2: the rehearsal dump is gone.
+   The 2026-11-05 rehearsal ran from a laptop, so Phase 1, step 1 (tag the running image as
+   `openpoll-backend:pre-release`) still needs doing on the VPS. Do it now if it hasn't been done.
 3. **Deploy the backend.**
    ```bash
    cd <checkout> && git fetch && git checkout <R>
    docker compose build openpoll-backend
-   docker compose run --rm openpoll-backend bun run migrate   # same output as the rehearsal
+   docker compose run --rm openpoll-backend bun run migrate   # same output as the rehearsal: applies 160–200
    docker compose up -d openpoll-backend                      # start:prod migrates again: "Applied 0"
    docker compose logs -f openpoll-backend
    ```
@@ -252,8 +306,8 @@ new backend for the few minutes between steps 3 and 5, so keep that gap short.
    - Settings: connect Claude through the consent page with connector URL
      `https://openpoll-backend.anands.dev/mcp`. Ask it to list your decks, then disconnect it.
      A personal MCP token works with `mcp-remote`.
-9. **Watch for one hour.** That covers the first `privacy-retention-purge` tick: look for
-   `[Privacy] Retention purge` in the logs, and check it removed only what Phase 1 predicted.
+9. **Watch for one hour.** That covers the first `privacy-retention-purge` tick (the job is new with #9; `main`
+   doesn't have it). Look for `[Privacy] Retention purge` in the logs. Phase 1 predicted it removes nothing.
 
 ## Rollback
 
@@ -261,8 +315,9 @@ Migrations only go forward, so a rollback means restoring the data.
 
 1. `docker compose stop openpoll-backend`.
 2. `mongorestore --drop --gzip --archive=<pre-window dump>` into the production database.
-3. Run the old image: retag `openpoll-backend:pre-roadmap`, or check out the recorded commit and rebuild.
-   Then `docker compose up -d`.
+3. Run the old image: retag `openpoll-backend:pre-release` (the `main` image, tagged in Phase 1 step 1), or check
+   out `8101faf` and rebuild. Then `docker compose up -d`. The restored data is at `150`, exactly what `main`
+   runs on today.
 4. In Vercel, promote the previous production deployment.
 
 Anything written after the window is lost on restore, so make the call within the first hour. `main` keeps the
@@ -270,7 +325,7 @@ merged code; the next deploy simply ships it again once fixed.
 
 ## Phase 4: clean-up after the release
 
-- Add `.gitguardian.yaml` with `paths-ignore` for `frontend/e2e/**` and `backend/tests/**` (one PR to `main`).
+- Resolve the five GitGuardian incidents in the dashboard. `.gitguardian.yaml` reaches `main` with the release.
 - Protect `main`: require the CI checks and allow merge commits only.
 - Delete merged branches, local and remote:
   - `feat/*` from this stack
