@@ -31,6 +31,7 @@ or the default one) with `creatorId` from the session. Neither is read from the 
 | --- | --- |
 | `deck.schema.ts` | Request, outline and lenient LLM-output Zod schemas, limits (`DECK_LIMITS`), warning codes. |
 | `slideMappers.ts` | `DECK_SLIDE_MAPPERS`: deck kind → registry type, prompt hint, `map()`; `availableKinds()`, `toRegistrySlide()` (registry `safeParse`). |
+| `agentMappers.ts`, `agent.schema.ts` | MCP only (`modules/mcp.md`): agent-only kinds (image, video, instructions, Q&A, hundred points, 2x2, guess the number, pin on image, leaderboard) and the agent slide contract. Not offered to the in-app AI: `availableKinds()` lists `DECK_SLIDE_MAPPERS` alone. |
 | `prompts.ts` | Outline / slides / repair prompts; source-text delimiting. |
 | `deck.service.ts` | `DeckService.generate`: outline, batched slide generation, repair, create, usage. |
 | `llm.ts` | `DeckLlm` client (provider chain from `AiService.invokeStructured`), timeouts, `setDeckLlm()` for tests. |

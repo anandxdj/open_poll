@@ -6,6 +6,7 @@ import { ApiError } from '../../common/utils/ApiError';
 import { UserModel } from '../auth/auth.model';
 import type { AuthRequest } from '../auth/auth.middleware';
 import { McpTokenModel } from '../mcp/mcp.token.model';
+import { McpGrantModel } from '../mcp/oauth/oauth.grant.model';
 import { WorkspaceModel } from '../workspaces/workspace.model';
 import { WorkspaceMemberModel } from '../workspaces/workspaceMember.model';
 import { buildUserExport } from './privacy.export';
@@ -224,8 +225,9 @@ export class PrivacyService {
     user.deletionRequestedAt = now;
     user.set('refreshToken', undefined);
     await user.save();
-    // MCP tokens act as the user: they go now, whatever happens next.
+    // MCP tokens and connected apps act as the user: they go now, whatever happens next.
     await McpTokenModel.deleteMany({ userId: user._id });
+    await McpGrantModel.deleteMany({ userId: user._id });
     await redisClient.del(reauthKey(userId)).catch(() => {});
 
     const purgeAt = new Date(now.getTime() + DELETION_GRACE_DAYS * DAY_MS);

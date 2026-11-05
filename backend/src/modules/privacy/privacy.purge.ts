@@ -7,6 +7,7 @@ import { UserModel } from '../auth/auth.model';
 import { syncSeatsAfterMembershipChange } from '../billing/seatSync';
 import { ImportJobModel } from '../imports/import.model';
 import { McpTokenModel } from '../mcp/mcp.token.model';
+import { McpGrantModel } from '../mcp/oauth/oauth.grant.model';
 import { PollModel } from '../polls/polls.model';
 import { PresentationModel, PresentationSessionModel } from '../presentations/presentations.model';
 import { AnalyticsModel } from '../responses/analytics.model';
@@ -146,6 +147,7 @@ export async function purgeAccount(userId: Types.ObjectId) {
 
   await Promise.all([
     McpTokenModel.deleteMany({ userId }),
+    McpGrantModel.deleteMany({ userId }),
     DataExportJobModel.deleteMany({ userId }),
     WorkspaceMemberModel.deleteMany({ userId }),
     WorkspaceGroupModel.updateMany({ memberIds: userId }, { $pull: { memberIds: userId } }),

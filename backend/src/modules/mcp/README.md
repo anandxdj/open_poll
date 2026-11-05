@@ -1,38 +1,29 @@
 # MCP Integration
 
-Lets any MCP client (Claude, etc.) act as a logged-in Open Poll user via a
-per-user Personal Access Token (PAT). Same-service — mounted on the existing
-Express app. No cookies/JWT for the MCP surface; PAT only.
+Lets any MCP client (Claude, ChatGPT, Cursor, Claude Desktop) act for an Open Poll user: draft
+decks with every slide type, run them live with a room, and read the results back, plus the
+original async poll and assessment tools. Mounted on the main Express app at `/mcp` (Streamable
+HTTP, stateless).
 
-## How it works
+**The contract lives in the wiki: [`backend/docs/wiki/modules/mcp.md`](../../../docs/wiki/modules/mcp.md)**
+(request path, context and workspace pinning, scopes, every tool, the slide contract, results and
+privacy, resources, prompts, OAuth, tests). This file keeps the file map and the design notes of
+the poll tools.
 
-1. User opens **Settings → MCP**, generates a token (`opoll_mcp_...`).
-2. UI shows a copyable **connector config** (token embedded) **once**.
-3. User pastes config into their MCP client.
-4. Client calls `POST /mcp` with `Authorization: Bearer opoll_mcp_...`.
-5. Server resolves token → user, exposes scoped tools, every query scoped to
-   that user's default workspace (the one last switched to in the app) and
-   authorized with the workspace policy on top of the token scopes.
+## Two ways to connect
 
-```
-MCP client ──Bearer opoll_mcp_xxx──► POST /mcp
-   └─ mcpAuth (PAT→user) ─ mcpRateLimit (per-token) ─ McpServer ─► PollService / ResponseService
-```
+1. **Connector by URL (OAuth 2.1).** Add `<origin>/mcp` as a custom connector in Claude or ChatGPT.
+   The client discovers the authorization server from the 401, registers itself, and sends the user
+   to `/oauth/consent` on the frontend to pick a workspace and permissions. Tokens rotate; the user
+   disconnects the app in Settings → MCP.
+2. **Personal access token.** Settings → MCP → Generate token (`opoll_mcp_…`), optionally pinned to a
+   workspace; paste the `mcp-remote` config it comes with into a file-configured client.
 
-## Endpoints
-
-| Route | Auth | Purpose |
-|---|---|---|
-| `POST/GET/DELETE /mcp` | PAT (Bearer) | MCP Streamable HTTP transport |
-| `POST /api/mcp/tokens` | cookie/JWT | Issue token (returns raw token + config, once) |
-| `GET /api/mcp/tokens` | cookie/JWT | List active tokens (metadata only, no secret) |
-| `DELETE /api/mcp/tokens/:tokenId` | cookie/JWT | Revoke token |
-
-## Tools (v1)
+## Poll tools (v1)
 
 | Tool | Scope | Maps to |
 |---|---|---|
-| `list_polls` | `poll:read` | `PollService.listPolls` (default workspace) |
+| `list_polls` | `poll:read` | `PollService.listPolls` |
 | `get_poll` | `poll:read` | `PollService.getPollById` (+`deck:read`) |
 | `create_poll` | `poll:create` | `PollService.createPoll` (ungraded polls only) |
 | `create_assessment` | `poll:create` | `PollService.createPoll` with `pollType: TRIAL` |
@@ -40,9 +31,6 @@ MCP client ──Bearer opoll_mcp_xxx──► POST /mcp
 | `convert_poll_to_assessment` | `poll:edit` | `PollService.updatePoll` → `pollType: TRIAL` |
 | `get_poll_analytics` | `analytics:read` | `ResponseService.getPollAnalytics` (aggregate only) |
 | `get_share_link` | `poll:read` | `${FRONTEND_URL}/p/:pollId` |
-
-**Excluded by design:** delete, close, publish-results, account/billing/auth.
-Deletion and closing stay web-only.
 
 ### Create defaults differ from REST
 
@@ -128,101 +116,79 @@ The server instructions tell agents to read it back before reporting success, wh
 turns a silent off-by-one into something the user sees.
 
 Slide-based decks (`wordcloud`, `ranking`, `scales`, join codes, leaderboards) are the
-separate `presentations` entity and are **not** exposed via MCP.
+separate `presentations` entity, with their own deck, live and results tools.
 
 ## Security model
 
-- Only the **sha256 hash** of the token is stored (`hashToken`); raw shown once.
-- Token carries **scopes**; every tool calls `assertScope` before running.
-- Every write re-checks `poll.creatorId === user.id` (`assertPollOwner`).
-- **No delete tool, no delete scope** — deletion unreachable via MCP.
-- Per-token rate limit (Redis, 120 req/min, fails open).
-- Max 5 tokens/user. Optional `expiresAt` (checked on resolve).
-- Analytics returns aggregate counts only — no individual voter identities.
+- Tokens (PATs, OAuth access and refresh tokens, client secrets) are stored as **sha256 hashes**;
+  raw values are shown or sent once.
+- Every tool checks its **scope** (`handleMcpTool`, fails closed on unknown names) and then the
+  **workspace policy** of the pinned workspace (`assertCan` / `authorizeDeck`): a scope never widens
+  a role.
+- Membership is re-checked on every call; removed members and deleted accounts lose access at once.
+- No delete tools: deleting decks, polls and sessions stays in the web app. `open_lobby` refuses to
+  replace a live session unless `restart: true`.
+- Results carry aggregates and the leaderboard top 10 only; audience text is labelled as data.
+- Per-token (per-grant) rate limit, 120 requests a minute (Redis, fails open). OAuth endpoints have
+  their own per-IP limits.
+- Audit: `[McpAudit]` log line per call; `audit()` events for writes (`actorType: 'api'`) and for
+  connecting or disconnecting an OAuth app.
 
 ## Config
 
-The connector config users copy needs the backend's public origin. `getMcpPublicUrl(req)`
-resolves it in this order:
+`getMcpPublicUrl(req)` gives the origin used in the PAT connector config and as the OAuth issuer:
 
-1. `API_PUBLIC_URL` — operator override; only needed when the public origin differs
-   from the one users reach the API on.
-2. The requesting origin (`x-forwarded-host`/`host` + `x-forwarded-proto`). `app.ts`
-   sets `trust proxy`, so this is correct behind Vercel. This is the production path —
-   no env var required.
-3. `VERCEL_PROJECT_PRODUCTION_URL`, then `VERCEL_URL`, for non-request callers.
+1. `API_PUBLIC_URL`, the operator override, needed only when the public origin differs from the one
+   users reach the API on.
+2. The requesting origin (`x-forwarded-host`/`host` + `x-forwarded-proto`; `trust proxy` is set).
+3. `VERCEL_PROJECT_PRODUCTION_URL`, then `VERCEL_URL`.
 4. `http://localhost:PORT` in development.
 
-Vercel routes both `/mcp` and `/mcp/(.*)` to the backend service — `mcp-remote` POSTs
-to bare `/mcp`, which the `/mcp/(.*)` pattern alone does not match.
+Vercel routes `/mcp`, `/mcp/(.*)`, the two OAuth `/.well-known` documents and
+`/oauth/(authorize|token|register|revoke)` to the backend.
 
 ## Files
 
 ```
-mcp.constants.ts          scopes, tool→scope map, connector config builder
-mcp.token.model.ts        McpToken schema (hash, prefix, last4, scopes, expiry)
-mcp.token.service.ts      issue / list / revoke / resolve
-mcp.schema.ts             zod for token creation
-mcp.settings.controller.ts + mcp.settings.route.ts   /api/mcp/tokens
-mcp.auth.ts               Bearer PAT → req.mcp
+mcp.constants.ts          scopes and labels, token prefixes, public URL, connector config
+mcp.context.ts            McpUserContext, workspaceScope (pinned workspace), audit helper
+mcp.tools.ts              dispatcher: scope check, MCP_TOOL_SCOPES, server instructions
+tools/                    tool definitions: context, decks, live, results, polls (+ result views)
+mcp.server.ts             McpServer per request: tools from the table, resources, prompts
+mcp.resources.ts          openpoll:// resources (read through the tools)
+mcp.prompts.ts            run_retro, quiz_from_document, summarize_session
+mcp.route.ts              /mcp stateless Streamable HTTP handler
+mcp.auth.ts               Bearer PAT or OAuth access token → req.mcp; 401 with resource_metadata
 mcp.rateLimit.ts          per-token Redis limiter
-mcp.tools.ts              tool logic + scope/owner enforcement
-mcp.server.ts             McpServer + tool registration (zod input schemas)
-mcp.route.ts              /mcp Streamable HTTP handler
+mcp.token.model.ts        McpToken (hash, prefix, last4, scopes, workspaceId, expiry)
+mcp.token.service.ts      issue / list / revoke / resolve PATs
+mcp.schema.ts             zod for token creation and consent approval
+mcp.settings.*.ts         /api/mcp/tokens and /api/mcp/grants
+oauth/oauth.service.ts    authorization server: clients, consent, codes, tokens, refresh, revoke
+oauth/oauth.route.ts      /.well-known metadata and /oauth endpoints (pre-CORS)
+oauth/oauth.consent.*.ts  /api/oauth/requests (the consent page's API)
+oauth/*.model.ts          OAuthClient, McpGrant
 ```
-Frontend: `frontend/features/mcp/` (`api/mcp.api.ts`, `components/McpSettingsSection.tsx`),
-mounted in `app/(dashboard)/settings/page.tsx`.
+Slide contract: `../ai/deck/agent.schema.ts`, `../ai/deck/agentMappers.ts`.
+Frontend: `frontend/features/mcp/` (settings section, consent page component, API) and
+`frontend/app/oauth/consent/page.tsx`.
 
 ## Status
 
 ### Done
-- [x] Token model, service, settings endpoints (Phase 1 backend)
-- [x] Settings → MCP tab: generate / copy config / list / revoke (Phase 1 frontend)
-- [x] MCP server + 8 tools, scope + owner enforcement, per-token rate limit (Phase 2)
-- [x] Wired into `app.ts` (`/mcp`, `/api/mcp`) and settings page
-- [x] Backend typecheck clean; MCP frontend lints clean
-- [x] `API_PUBLIC_URL` documented in `.env.example`
-- [x] Prompt-injection containment: analytics aggregate-only + labeled
+- [x] PATs, settings, poll tools, scope and owner enforcement, rate limit, audit line
+- [x] Schema-enforced assessments and the grading echo (see above)
+- [x] Tool table: one definition per tool for schema, scope and handler
+- [x] Workspace-pinned context resolved per call; PATs can be pinned
+- [x] Stateless transport (multi-instance safe; replaces the in-memory session map)
+- [x] Deck tools with every registered slide type; live control; results, Q&A, insights
+- [x] Resources and prompts
+- [x] OAuth 2.1 with discovery, dynamic registration, PKCE, rotating refresh tokens, consent page,
+      connected apps
+- [x] Integration tests through the real app for the deck → live → results loop and the OAuth flow
 
 ### To do
-- [x] Connector-config origin derived from the request, so production needs no
-      `API_PUBLIC_URL`; `/mcp` and `/mcp/(.*)` both routed in `vercel.json`
-- [ ] **Manual end-to-end test with a real MCP client** (Claude Desktop via
-      `mcp-remote`): connect, list/create/edit poll, read analytics, get share link.
-- [ ] **Token expiry UX** — model supports `expiresAt`, but issue flow always
-      sets none and UI has no expiry picker. Add if desired.
-- [ ] **`lastUsedAt` display** already wired in UI; confirm it updates (fire-and-forget
-      write in `resolveToken`).
-- [ ] **Stateful transport cleanup** — `mcp.route.ts` keeps sessions in an
-      in-memory `Map` keyed by session id, now idle-evicted after 30 min. Fine for
-      single instance; for multi-instance deploys either use sticky sessions or
-      move to stateless mode.
-- [x] **Audit log** — `[McpAudit]` line per tool call (tool, tokenId, userId, ok/error).
-- [x] **Session ownership check** — sessions are bound to the userId that created
-      them; a request bearing another user's token for the same session id is
-      rejected (403) instead of silently executing as the original user.
-- [x] **Poll schema reuse** — `create_poll`/`edit_poll` validate through the same
-      `createPollSchema`/`updatePollSchema` as the REST API instead of a hand-rolled
-      duplicate, so defaults/constraints can't silently drift.
-- [x] **pollId validation** — malformed ids rejected as `400` before hitting Mongoose.
-- [ ] **Revoke-all / rotate** convenience action (optional).
-- [x] **Schema-enforced assessments** — `create_assessment` /
-      `convert_poll_to_assessment` put `correctOptionIndices` in the emitted
-      JSON Schema `required`, so a client cannot even compose an ungradeable
-      assessment; `create_poll` has no answer fields at all.
-- [x] **Single source of truth for input shapes** — `mcp.tools.ts` exports the
-      zod shapes `mcp.server.ts` registers, so the advertised schema and the
-      executed validation cannot drift (the original `pollType` bug).
-- [x] **`MCP_TOOL_SCOPES` is live** — `assertToolScope` reads the map and fails
-      closed on an unknown tool instead of the map being dead documentation.
-- [x] **Grading echo** — every graded write returns `grading` with each correct
-      index resolved to its option text, so a wrong-but-valid index is visible.
-- [x] **AI path matches** — `AiService` generates a TRIAL against
-      `generatedTrialSchema`, which also requires `correctOptionIndices`.
-- [x] **REST path matches** — `POST /api/polls` validates with
-      `createPollRequestSchema` and `PollService` re-checks on create/update, so a
-      published assessment cannot be ungradeable from any surface.
-- [x] **Publish-by-default documented** — field/tool descriptions, server
-      instructions, and "Create defaults differ from REST" above.
-- [ ] **v2 tools** (deferred): `close_poll` behind a `poll:close` scope.
-- [ ] Rename `prefix`/`last4` display if you want a nicer masked format in the UI.
+- [ ] Manual check with Claude.ai and ChatGPT custom connectors against a public https deployment.
+- [ ] ChatGPT deep-research `search`/`fetch` tools, if wanted.
+- [ ] Token expiry picker for PATs (the model supports `expiresAt`).
+- [ ] `close_poll` behind a `poll:close` scope (deferred).

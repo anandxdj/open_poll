@@ -13,6 +13,9 @@
     { "source": "/api/(.*)", "destination": { "service": "backend" } },
     { "source": "/mcp", "destination": { "service": "backend" } },
     { "source": "/mcp/(.*)", "destination": { "service": "backend" } },
+    { "source": "/.well-known/oauth-authorization-server", "destination": { "service": "backend" } },
+    { "source": "/.well-known/oauth-protected-resource(.*)", "destination": { "service": "backend" } },
+    { "source": "/oauth/(authorize|token|register|revoke)", "destination": { "service": "backend" } },
     { "source": "/socket.io/(.*)", "destination": { "service": "backend" } },
     { "source": "/auth/callback", "destination": { "service": "backend" } },
     { "source": "/(.*)", "destination": { "service": "frontend" } }

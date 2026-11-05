@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 import { ApiError } from '../../common/utils/ApiError';
 import { copyTitle } from '../../common/utils/copyTitle';
 import { redisClient } from '../../common/config/redis';
@@ -136,11 +137,25 @@ export const listPresentations = async (ctx: ListContext) => {
   return PresentationModel.find({ $or: scopes, deletedAt: null }).sort({ updatedAt: -1 });
 };
 
-export const updatePresentation = async (presentationId: string, actor: Actor, data: UpdatePresentationInput) => {
+const deckChanged = () =>
+  new ApiError(409, 'The deck changed since it was read; read it again and retry', 'DECK_CHANGED');
+
+/**
+ * `expectedVersion` (the `__v` the caller read) turns a read-modify-write of
+ * the slides into a compare-and-set: another save in between is a 409
+ * instead of a silent lost update. Saves are versioned (optimisticConcurrency).
+ */
+export const updatePresentation = async (
+  presentationId: string,
+  actor: Actor,
+  data: UpdatePresentationInput,
+  options: { expectedVersion?: number } = {},
+) => {
   const presentation = await authorizeDeck(presentationId, actor, 'deck:edit');
   if (presentation.status !== 'draft' && presentation.status !== 'ended') {
     throw ApiError.badRequest('Cannot edit a presentation deck while a live session is running');
   }
+  if (options.expectedVersion !== undefined && presentation.get('__v') !== options.expectedVersion) throw deckChanged();
   if (data.slides !== undefined) {
     const workspaceId =
       presentation.workspaceId ?? (typeof actor !== 'string' && actor.workspace ? actor.workspace._id : undefined);
@@ -161,7 +176,12 @@ export const updatePresentation = async (presentationId: string, actor: Actor, d
       if (theme[key] !== undefined) presentation.set(`theme.${key}`, theme[key]);
     }
   }
-  await presentation.save();
+  try {
+    await presentation.save();
+  } catch (error) {
+    if (error instanceof mongoose.Error.VersionError) throw deckChanged();
+    throw error;
+  }
   return presentation;
 };
 

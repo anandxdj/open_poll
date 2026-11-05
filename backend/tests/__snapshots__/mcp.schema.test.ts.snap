@@ -1,0 +1,199 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`MCP tools/list emits an object input schema for every tool, with the required fields agents must send 1`] = `
+{
+  "add_slides": {
+    "required": [
+      "deckId",
+      "slides",
+    ],
+    "scope": "deck:write",
+  },
+  "close_voting": {
+    "required": [
+      "deckId",
+    ],
+    "scope": "session:run",
+  },
+  "convert_poll_to_assessment": {
+    "required": [
+      "pollId",
+      "questions",
+    ],
+    "scope": "poll:edit",
+  },
+  "create_assessment": {
+    "required": [
+      "title",
+      "questions",
+    ],
+    "scope": "poll:create",
+  },
+  "create_deck": {
+    "required": [
+      "title",
+      "slides",
+    ],
+    "scope": "deck:write",
+  },
+  "create_poll": {
+    "required": [
+      "title",
+      "questions",
+    ],
+    "scope": "poll:create",
+  },
+  "edit_poll": {
+    "required": [
+      "pollId",
+    ],
+    "scope": "poll:edit",
+  },
+  "end_session": {
+    "required": [
+      "deckId",
+    ],
+    "scope": "session:run",
+  },
+  "get_context": {
+    "required": [],
+    "scope": null,
+  },
+  "get_deck": {
+    "required": [
+      "deckId",
+    ],
+    "scope": "deck:read",
+  },
+  "get_insights": {
+    "required": [],
+    "scope": "results:read",
+  },
+  "get_join_link": {
+    "required": [
+      "deckId",
+    ],
+    "scope": "deck:read",
+  },
+  "get_live_state": {
+    "required": [
+      "deckId",
+    ],
+    "scope": "session:run",
+  },
+  "get_poll": {
+    "required": [
+      "pollId",
+    ],
+    "scope": "poll:read",
+  },
+  "get_poll_analytics": {
+    "required": [
+      "pollId",
+    ],
+    "scope": "analytics:read",
+  },
+  "get_qna": {
+    "required": [
+      "deckId",
+    ],
+    "scope": "results:read",
+  },
+  "get_session_results": {
+    "required": [],
+    "scope": "results:read",
+  },
+  "get_share_link": {
+    "required": [
+      "pollId",
+    ],
+    "scope": "poll:read",
+  },
+  "go_to_slide": {
+    "required": [
+      "deckId",
+    ],
+    "scope": "session:run",
+  },
+  "list_decks": {
+    "required": [],
+    "scope": "deck:read",
+  },
+  "list_polls": {
+    "required": [],
+    "scope": "poll:read",
+  },
+  "list_sessions": {
+    "required": [
+      "deckId",
+    ],
+    "scope": "results:read",
+  },
+  "list_slide_types": {
+    "required": [],
+    "scope": "deck:read",
+  },
+  "list_themes": {
+    "required": [],
+    "scope": "deck:read",
+  },
+  "next_slide": {
+    "required": [
+      "deckId",
+    ],
+    "scope": "session:run",
+  },
+  "open_lobby": {
+    "required": [
+      "deckId",
+    ],
+    "scope": "session:run",
+  },
+  "previous_slide": {
+    "required": [
+      "deckId",
+    ],
+    "scope": "session:run",
+  },
+  "remove_slides": {
+    "required": [
+      "deckId",
+      "slideIds",
+    ],
+    "scope": "deck:write",
+  },
+  "reorder_slides": {
+    "required": [
+      "deckId",
+      "slideIds",
+    ],
+    "scope": "deck:write",
+  },
+  "reveal_results": {
+    "required": [
+      "deckId",
+    ],
+    "scope": "session:run",
+  },
+  "start_session": {
+    "required": [
+      "deckId",
+    ],
+    "scope": "session:run",
+  },
+  "update_deck": {
+    "required": [
+      "deckId",
+    ],
+    "scope": "deck:write",
+  },
+  "update_slide": {
+    "required": [
+      "deckId",
+      "slideId",
+      "slide",
+    ],
+    "scope": "deck:write",
+  },
+}
+`;

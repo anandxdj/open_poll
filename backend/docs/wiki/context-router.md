@@ -1,7 +1,7 @@
 ---
 summary: Minimal-context routing guide for loading only required docs per task.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-10-26
 ---
 
 # Context Router
@@ -35,6 +35,11 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/quiz-roadmap.md` (phases / what to build next)
 - Add `backend/docs/wiki/realtime/presentations.md` only if touching events.
 - Answer hot path (Lua script, replays, grace/tickets, coalescer, write-behind, auto-reveal, socket `answer:submit`/`live:resync`): the "Answer path" section of `modules/presentations-live.md`.
+
+### MCP server for AI agents (deck, live and results tools, resources, prompts, personal tokens, OAuth connectors)
+- `backend/docs/wiki/modules/mcp.md`
+- Add `backend/src/modules/mcp/README.md` only for the poll tools' design notes (polls vs assessments, publish defaults).
+- Add `backend/docs/wiki/modules/presentations-live.md` only if changing what a live command does.
 
 ### Workspace insights (the analytics overview's data: activity over a date range)
 - `backend/docs/wiki/modules/insights.md`

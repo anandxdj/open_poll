@@ -11,6 +11,7 @@ import {
 import { McpTokenModel } from './mcp.token.model';
 import { UserModel } from '../auth/auth.model';
 import { isAccountUsable } from '../auth/auth.service';
+import { resolveWorkspaceContext } from '../../common/tenancy/workspaceContext.middleware';
 
 function generateRawToken(): string {
   const random = crypto.randomBytes(32).toString('base64url');
@@ -23,6 +24,7 @@ function toTokenMeta(doc: {
   last4: string;
   label: string;
   scopes: McpScope[];
+  workspaceId?: unknown;
   lastUsedAt?: Date | null;
   expiresAt?: Date | null;
   createdAt: Date;
@@ -33,6 +35,7 @@ function toTokenMeta(doc: {
     last4: doc.last4,
     label: doc.label,
     scopes: doc.scopes,
+    workspaceId: doc.workspaceId ? String(doc.workspaceId) : null,
     lastUsedAt: doc.lastUsedAt ?? null,
     expiresAt: doc.expiresAt ?? null,
     createdAt: doc.createdAt,
@@ -42,8 +45,12 @@ function toTokenMeta(doc: {
 export class McpTokenService {
   // baseUrl comes from the caller's request origin so the copied connector config
   // points at this deployment rather than localhost. Omitted callers fall back to
-  // getMcpPublicUrl()'s env-based resolution.
-  static async issueToken(userId: string, label: string, baseUrl?: string) {
+  // getMcpPublicUrl()'s env-based resolution. workspaceId pins the token to one
+  // workspace (the caller must be an active member); without it the token follows
+  // the user's default workspace.
+  static async issueToken(userId: string, label: string, baseUrl?: string, workspaceId?: string) {
+    if (workspaceId) await resolveWorkspaceContext(userId, workspaceId);
+
     const activeCount = await McpTokenModel.countDocuments({ userId });
     if (activeCount >= MCP_MAX_TOKENS_PER_USER) {
       throw ApiError.badRequest(`You can have at most ${MCP_MAX_TOKENS_PER_USER} active MCP tokens`);
@@ -62,6 +69,7 @@ export class McpTokenService {
       last4,
       label,
       scopes: [...MCP_SCOPES],
+      workspaceId: workspaceId ?? null,
     });
 
     return {
@@ -109,6 +117,7 @@ export class McpTokenService {
       tokenId: String(doc._id),
       tokenHash,
       scopes: doc.scopes as McpScope[],
+      workspaceId: doc.workspaceId ? String(doc.workspaceId) : null,
       user: {
         id: String(user._id),
         email: user.email,

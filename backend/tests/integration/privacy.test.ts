@@ -6,6 +6,7 @@ import { generateAccessToken } from '../../src/common/utils/jwt.utils';
 import { AuditEventModel } from '../../src/modules/audit/audit.model';
 import { UserModel } from '../../src/modules/auth/auth.model';
 import { McpTokenModel } from '../../src/modules/mcp/mcp.token.model';
+import { McpGrantModel } from '../../src/modules/mcp/oauth/oauth.grant.model';
 import { PollModel } from '../../src/modules/polls/polls.model';
 import {
   PresentationAnswerModel,
@@ -27,6 +28,18 @@ import { describeIntegration, resetTestData, startTestServer, type TestServer } 
 type Body<T = any> = { success: boolean; message: string; code?: string; details?: any; data: T };
 
 const DAY = 24 * 60 * 60 * 1000;
+
+const connectedApp = (userId: string, hashSeed: string) => ({
+  userId,
+  workspaceId: new mongoose.Types.ObjectId(),
+  clientId: 'client-1',
+  clientName: 'Claude',
+  scopes: ['deck:read' as const],
+  accessTokenHash: `${hashSeed}-access`,
+  accessExpiresAt: new Date(Date.now() + 3600_000),
+  refreshTokenHash: `${hashSeed}-refresh`,
+  refreshExpiresAt: new Date(Date.now() + 86400_000),
+});
 
 describeIntegration('privacy over HTTP', () => {
   let server: TestServer;
@@ -108,6 +121,7 @@ describeIntegration('privacy over HTTP', () => {
       await createPresentation(server, alice, { title: 'Alice kickoff deck' });
       await createPoll(server, bob, { title: 'Bob secret poll' });
       await McpTokenModel.create({ userId: alice.id, tokenHash: 'hash-never-exported', prefix: 'op_mcp', last4: 'abcd', label: 'Laptop', scopes: [] });
+      await McpGrantModel.create(connectedApp(alice.id, 'grant-hash-never-exported'));
 
       const res = await server.request('/api/me/export', { method: 'POST', headers: alice.headers });
       expect(res.status).toBe(200);
@@ -119,6 +133,7 @@ describeIntegration('privacy over HTTP', () => {
         'activity.json',
         'exports.json',
         'imports.json',
+        'mcp-connected-apps.json',
         'mcp-tokens.json',
         'poll-responses.json',
         'polls.json',
@@ -134,9 +149,11 @@ describeIntegration('privacy over HTTP', () => {
       expect(read('presentations.json').map((p: { title: string }) => p.title)).toEqual(['Alice kickoff deck']);
       expect(read('workspaces.json')).toEqual([expect.objectContaining({ type: 'personal', role: 'owner' })]);
       expect(read('mcp-tokens.json')).toEqual([expect.objectContaining({ label: 'Laptop', last4: 'abcd' })]);
+      expect(read('mcp-connected-apps.json')).toEqual([expect.objectContaining({ clientName: 'Claude', scopes: ['deck:read'] })]);
       const everything = Object.values(files).map((bytes) => strFromU8(bytes)).join('\n');
       expect(everything).not.toContain('Bob secret poll');
       expect(everything).not.toContain('hash-never-exported');
+      expect(everything).not.toContain('grant-hash-never-exported');
       expect(everything).not.toContain('$2'); // no bcrypt hash
 
       expect(await DataExportJobModel.countDocuments({ userId: alice.id, status: 'delivered' })).toBe(1);
@@ -192,12 +209,14 @@ describeIntegration('privacy over HTTP', () => {
 
     it('signs the account out everywhere until its owner signs in again, which cancels the deletion', async () => {
       await McpTokenModel.create({ userId: alice.id, tokenHash: 'mcp-hash', prefix: 'op_mcp', last4: 'wxyz', label: 'CLI', scopes: [] });
+      await McpGrantModel.create(connectedApp(alice.id, 'grant-hash'));
       const fresh = freshSignIn(alice);
       const res = await api('DELETE', '/api/me', fresh);
       expect(res.status).toBe(200);
       expect(Date.parse(res.body.data.purgeAt) - Date.now()).toBeGreaterThan(29.9 * DAY);
       expect((await api('GET', '/api/auth/me', fresh)).status).toBe(401);
       expect(await McpTokenModel.countDocuments({ userId: alice.id })).toBe(0);
+      expect(await McpGrantModel.countDocuments({ userId: alice.id })).toBe(0);
       const stored = await UserModel.findById(alice.id).select('+refreshToken').lean();
       expect(stored!.deletionRequestedAt).toBeInstanceOf(Date);
       expect(stored!.refreshToken).toBeUndefined();

@@ -1,102 +1,42 @@
-import { Router } from 'express';
-import { randomUUID } from 'node:crypto';
+import { Router, type Response } from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { mcpAuth, type McpAuthRequest } from './mcp.auth';
 import { mcpRateLimit } from './mcp.rateLimit';
 import { createMcpServer } from './mcp.server';
 
 const router = Router();
 
-interface McpSession {
-  transport: StreamableHTTPServerTransport;
-  userId: string;
-  lastAccessedAt: number;
-}
-
-const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
-const sessions = new Map<string, McpSession>();
-
-function evictStaleSessions() {
-  const now = Date.now();
-  for (const [sessionId, session] of sessions) {
-    if (now - session.lastAccessedAt > SESSION_IDLE_TIMEOUT_MS) {
-      session.transport.close().catch(() => {});
-      sessions.delete(sessionId);
-    }
-  }
-}
-
-async function handleMcpRequest(req: McpAuthRequest, res: any) {
+/**
+ * Stateless Streamable HTTP: every POST gets its own server and transport,
+ * built from the bearer token on that request. Nothing is kept between
+ * requests, so any backend instance can answer any call, and a token's scopes
+ * and pinned workspace are never older than the request. Clients that still
+ * send an Mcp-Session-Id header are served the same way (stateless transports
+ * do not check it).
+ */
+async function handleMcpRequest(req: McpAuthRequest, res: Response) {
   if (!req.mcp) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
 
-  evictStaleSessions();
+  const server = createMcpServer({
+    userId: req.mcp.user.id,
+    tokenId: req.mcp.tokenId,
+    scopes: req.mcp.scopes,
+    workspaceId: req.mcp.workspaceId,
+    kind: req.mcp.kind,
+    clientId: req.mcp.clientId,
+  });
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
 
-  const sessionIdHeader = req.headers['mcp-session-id'];
-  const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+  res.on('close', () => {
+    void transport.close().catch(() => {});
+    void server.close().catch(() => {});
+  });
 
   try {
-    let session = sessionId ? sessions.get(sessionId) : undefined;
-
-    if (session && session.userId !== req.mcp.user.id) {
-      res.status(403).json({
-        jsonrpc: '2.0',
-        error: { code: -32000, message: 'Session does not belong to this token' },
-        id: null,
-      });
-      return;
-    }
-
-    if (!session && sessionId) {
-      res.status(200).json({
-        jsonrpc: '2.0',
-        error: { code: -32000, message: 'Session not found' },
-        id: null,
-      });
-      return;
-    }
-
-    let transport: StreamableHTTPServerTransport;
-
-    if (!session && isInitializeRequest(req.body)) {
-      transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => randomUUID(),
-        onsessioninitialized: (newSessionId) => {
-          sessions.set(newSessionId, {
-            transport,
-            userId: req.mcp!.user.id,
-            lastAccessedAt: Date.now(),
-          });
-        },
-      });
-
-      transport.onclose = () => {
-        const sid = transport.sessionId;
-        if (sid) sessions.delete(sid);
-      };
-
-      const server = createMcpServer({
-        userId: req.mcp.user.id,
-        tokenId: req.mcp.tokenId,
-        scopes: req.mcp.scopes,
-      });
-
-      await server.connect(transport);
-    } else if (!session) {
-      res.status(200).json({
-        jsonrpc: '2.0',
-        error: { code: -32000, message: 'Bad Request: No valid session ID provided' },
-        id: null,
-      });
-      return;
-    } else {
-      transport = session.transport;
-      session.lastAccessedAt = Date.now();
-    }
-
+    await server.connect(transport);
     await transport.handleRequest(req, res, req.body);
   } catch (error) {
     console.error('[MCP] Request error:', error);
@@ -110,8 +50,17 @@ async function handleMcpRequest(req: McpAuthRequest, res: any) {
   }
 }
 
+/** No server-initiated stream and no session to delete in stateless mode. */
+function methodNotAllowed(_req: McpAuthRequest, res: Response) {
+  res.status(405).set('Allow', 'POST').json({
+    jsonrpc: '2.0',
+    error: { code: -32000, message: 'Method not allowed: this server is stateless, use POST' },
+    id: null,
+  });
+}
+
 router.post('/', mcpAuth, mcpRateLimit, handleMcpRequest);
-router.get('/', mcpAuth, mcpRateLimit, handleMcpRequest);
-router.delete('/', mcpAuth, mcpRateLimit, handleMcpRequest);
+router.get('/', mcpAuth, methodNotAllowed);
+router.delete('/', mcpAuth, methodNotAllowed);
 
 export default router;

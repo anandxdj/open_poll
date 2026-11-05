@@ -106,7 +106,7 @@ describe("carrying an invitation through sign-in", () => {
     expect(takeInviteRedirect(null)).toBeNull();
   });
 
-  test("the privacy page is the one other page a sign-in may return to", () => {
+  test("the privacy page is a page a sign-in may return to", () => {
     expect(takeInviteRedirect("/settings/privacy")).toBe("/settings/privacy");
     rememberInvite("/settings/privacy", 1_000);
     expect(takeInviteRedirect(null, 2_000)).toBe("/settings/privacy");
