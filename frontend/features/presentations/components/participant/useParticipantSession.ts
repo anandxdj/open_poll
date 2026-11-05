@@ -7,9 +7,12 @@ import { useLive, useLiveStore } from "../../live/store";
 import { useLiveSocket } from "../../live/useLiveSocket";
 import type { PresentationRealtimeEvent } from "../../types";
 import { forgetCredentials, readCredentials, readDevice, writeDevice } from "./participantSession";
+import { audienceSliceOf } from "./audience/audienceSlice";
 
 /** Events after which the participant re-reads own score, rank and last answer. */
 const REFRESH_ME_ON = new Set(["slide:closed", "question:revealed", "leaderboard:shown", "session:ended"]);
+/** Audience pace (W2-F): the slides opened, closed, or the session ended — re-read the whole run. */
+const RESYNC_ON = new Set(["audience:opened", "audience:closed", "session:ended"]);
 
 export type ParticipantLoad = "loading" | "ready" | "not-found";
 
@@ -129,6 +132,9 @@ export function useParticipantSession(code: string) {
     {
       onEvent: (event) => {
         if (REFRESH_ME_ON.has(event.type)) void store.getState().loadMe();
+        if (RESYNC_ON.has(event.type) && (event.type !== "session:ended" || audienceSliceOf(store.getState()).pace === "audience")) {
+          void store.getState().loadLiveState();
+        }
       },
       onResync: resync,
       onForeignSession,

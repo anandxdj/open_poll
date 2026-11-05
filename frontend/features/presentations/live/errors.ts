@@ -36,6 +36,18 @@ export const LIVE_ERROR_CODES = {
   timerState: "TIMER_STATE",
   /** 404 on kick: no such participant in the live session. */
   participantNotFound: "PARTICIPANT_NOT_FOUND",
+  /** 409 on audience commands for a presenter-paced deck or session (W2-F). */
+  notAudiencePaced: "NOT_AUDIENCE_PACED",
+  /** 409 on slide commands for an audience-paced session: participants move themselves. */
+  audiencePaced: "AUDIENCE_PACED",
+  /** 409 on answers / submit: this attempt was already submitted. */
+  attemptSubmitted: "ATTEMPT_SUBMITTED",
+  /** 409 on answers / submit: not the participant's current attempt. */
+  attemptStale: "ATTEMPT_STALE",
+  /** 409 on retry: no attempt left, passed, not submitted, or closed. */
+  retryNotAllowed: "RETRY_NOT_ALLOWED",
+  /** 400 on audience calls before the host opened the slides. */
+  audienceNotOpen: "AUDIENCE_NOT_OPEN",
 } as const;
 
 export type LiveErrorCode = (typeof LIVE_ERROR_CODES)[keyof typeof LIVE_ERROR_CODES];
