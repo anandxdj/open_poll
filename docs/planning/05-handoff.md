@@ -225,10 +225,15 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
 
 ## Left to do (nothing is half-merged)
 
-- **W2-D phase 2** (unblocked, W1-A2 and W2-D phase 1 are merged; plugs into the single `submitAnswer`): frontend offline queue (`submitAnswer`: socket ack → REST →
-  IndexedDB, in `live/store` + `live/offline/**`), frontend contract types (`slideTicket`, `AnswerResult`,
-  error codes `NOT_ACCEPTING`, `TIME_UP`, `ALREADY_ANSWERED`, `RATE_LIMITED`, `NOT_JOINED`), await the
-  `live:join` ack before `answer:submit` after a reconnect, remove the legacy `quiz:event` dual-emit.
+- (**W2-D phase 2** offline answers is built, branch `feat/offline-answers`: `submitAnswer` in
+  `frontend/features/presentations/live/store.ts` sends socket `answer:submit` (3 s ack, only after the
+  `live:join` ack) → REST → an IndexedDB queue (`live/offline/`, keyed by `clientAnswerId`, backoff,
+  survives a reload, "Saved — will sync", clear message on a final refusal); contract types
+  (`AnswerRequest`, `AnswerSubmitAck`, `LiveResyncAck`, the error codes); the legacy `quiz:join` /
+  `quiz:event` dual-emit and the Q&A participant-event bridge are removed. See
+  `frontend/docs/wiki/features/live-surfaces.md` "Answers" and `e2e/offline-answers.spec.ts`. Not done:
+  the client still resyncs over REST, not `live:resync`; the legacy event *types* `lobby:opened` /
+  `quiz:ended` are still published.)
 - **W2-A** presenter view + remote + timer/kick, **W2-F** audience pace, **W3-B2**
   folders/templates/duplicate/co-editing. (**W3-D** SAML, per-workspace OIDC and SCIM are built:
   `backend/docs/wiki/modules/sso-scim.md`, `docs/deploy/sso.md`.) (**W3-A** themes and brand kits are built:
@@ -244,7 +249,7 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   `backend/docs/wiki/quiz-roadmap.md`; push the branch and open a PR (ask the owner first).
 
 Remaining merge order (from the plan; flexible when a later package is ready early and conflicts are
-trivial, note deviations here): W2-D phase 2 → W2-A (adds the NotesTab and the `notes` field of the
+trivial, note deviations here): W2-D phase 2 (built, awaiting merge) → W2-A (adds the NotesTab and the `notes` field of the
 frontend `Presentation` type) → W2-F; Wave 3: W3-D and W3-B2 (W3-B1 is merged), W3-A after W2-A, then
 Wave 4 A → B → C → D → E; then the close-out.
 
@@ -327,7 +332,7 @@ Wave 4 A → B → C → D → E; then the close-out.
 - **W2-B (merged):** the participant Q&A tab shows until the deck is known not to use Q&A (the slot's
   `when` has no store access and runs at render, so an unknown deck counts as available; W1-A2's store
   now makes a proper fix possible); `QnaParticipantSync` bridges participant-addressed events from
-  `live:event` and goes away with the legacy `quiz:event` dual-emit (W2-D phase 2); the W2-A audience
+  `live:event` (removed in W2-D phase 2 with the legacy `quiz:event` dual-emit); the W2-A audience
   window must forward `reaction:burst`; add a Q&A section to session reports and exports (W2-C).
 - **Test registries:** `features/registrations` registers modules process-wide as soon as a unit test
   imports a host/participant surface, so unit tests that count slot entries or compare whole live

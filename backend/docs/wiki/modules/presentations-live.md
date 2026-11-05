@@ -39,7 +39,8 @@ between runs), `currentSlideIndex`, `questionStartedAt`, `questionEndsAt`, `acti
 blocked while a session is live.
 
 Participants and answers carry `sessionId`; answers also carry `slideId` (plus `slideIndex` for
-exports), `clientAnswerId` and `via` (`rest` today; `socket`/`offline` from W2-D). A participant
+exports), `clientAnswerId` and `via` (`rest`, `socket`, or `offline` for an answer the client held
+in its offline queue). A participant
 belongs to one session: a device that joins a later session becomes a new participant there.
 
 ## Slide phases
@@ -406,8 +407,10 @@ Runbook:
   answers are keyed by `{sessionId, slideId, participantId}`.
 - **W2-D** (done): the answer path is one Redis script (below); `clientAnswerId` and `via`
   (`rest`/`socket`/`offline`) are stored; `psess:{sid}:results` holds what reconciliation needs.
-  Phase 2 (frontend): the offline queue and `submitAnswer` in `live/store.ts` (socket ack 3 s →
-  REST → queue) call `answer:submit` / `POST /answer` with a stable `clientAnswerId`, the slide's
-  ticket and `offline: true` for queued answers, then the legacy `quiz:event` dual-emit goes.
+  Phase 2 (done, frontend): `submitAnswer` in `frontend/features/presentations/live/store.ts`
+  (socket `answer:submit` with a 3 s ack, only after the `live:join` ack → REST → the IndexedDB
+  queue in `live/offline/`) sends a stable `clientAnswerId`, the slide's ticket and `offline: true`
+  for queued answers (`frontend/docs/wiki/features/live-surfaces.md`, "Answers"). The legacy
+  `quiz:join` / `quiz:event` protocol is gone.
 - **W2-F**: `pace: 'audience'` opens every response slide in `:slides`; `settings.audiencePaced`
   is snapshotted.
