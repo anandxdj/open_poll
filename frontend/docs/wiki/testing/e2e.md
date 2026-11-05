@@ -99,6 +99,15 @@ lookup's HTTP status (404 until a session was opened).
   waits), +30 s while paused, resume, skip and the auto-reveal; a second browser context as the phone
   remote (pairing link from the presenter view, a second phone refused, next from the lobby, pause /
   resume, reveal, unpair). ~35 s.
+- `e2e/audience-pace.spec.ts` — W2-F audience pace with converted polls (created and converted through the
+  API): the builder's Pace tab (attempts, results after each answer, optional nicknames; checked through
+  `host.getDeck`), the host dashboard instead of the stage; a converted TRIAL with two participants at
+  different speeds (Ada answers and passes while Bob has not started, Bob fails at 50 %, tries again and
+  passes; right/wrong, explanation and results only once final; the dashboard's rows, stats and progress),
+  **Close now** through the app's dialog; a converted poll with results after each answer, a guest
+  ("Guest NNNN") and a named participant, results on the answered question only, progress per question,
+  close (the unanswered question says "Closed before you answered") and **End session**. Participant
+  contexts keep the Next.js dev-tools button, so Next / Back are matched exactly. ~25 s.
 - `e2e/content-slides.spec.ts` — content slides: a deck of all eight content types presented
   fullscreen **without a lobby or any participant** (F key, arrow-key and button navigation, each
   stage layout, end; the run is on record with 0 participants), and a mixed deck (heading → word

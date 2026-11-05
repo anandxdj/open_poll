@@ -1,5 +1,5 @@
 ---
-summary: Live deck surfaces — host console, presenter view and audience window, phone remote, participant shell, stage — their session-aware flows, and their extension points: live store/reducer, slots, slide runtime registry, deck theme tokens, live i18n.
+summary: Live deck surfaces — host console, presenter view and audience window, phone remote, participant shell, stage, audience pace (participant run, host dashboard) — their session-aware flows, and their extension points: live store/reducer, slots, slide runtime registry, deck theme tokens, live i18n.
 status: active
 last_updated: 2026-11-05
 ---
@@ -36,6 +36,7 @@ is `backend/docs/wiki/modules/presentations-live.md`: every presentation is a **
 | Audience window | `features/presenter/{components/AudienceWindow.tsx,audienceChannel.ts,useFullscreen.ts}` | The stage only, mirrored from the presenter view over a BroadcastChannel. |
 | Presenter extras | `features/presenter/{soundCues.ts,remoteState.ts,module.ts,register.ts}` | Optional sound cues; the `remote` live slice (phone remote presence). |
 | Phone remote | `features/remote/{RemoteConsole.tsx,useRemote.ts,api.ts}` | `/remote/<token>`: big buttons over its own socket. |
+| Audience pace | `components/participant/audience/{AudienceRun,AudienceSlideCard,AudienceSummary,AudienceResults,audienceSlice,register}.ts(x)`, `components/host/{AudienceDashboard.tsx,useAudiencePaced.ts}` | W2-F: the participant's own run through an audience-paced deck, and the host's dashboard; see [Audience pace](#audience-pace-w2-f). |
 
 Both surfaces import `features/registrations.ts` first, so every module registration has run
 before their first render.
@@ -358,6 +359,65 @@ with a 5 s ack: **Previous**, **Next** (starts slide 1 from the lobby), **Reveal
 answered", up next and the speaker notes. Final screens: the link no longer works (unpaired, replaced,
 expired), the pairing belongs to another phone, the presenter unpaired it (`remote:revoked`).
 
+## Audience pace (W2-F)
+
+Server contract: `backend/docs/wiki/modules/presentations-live.md` → "Audience pace (W2-F)". A deck
+with `pace: "audience"` opens every response slide at once and each participant moves through the
+deck on their own; there is no current slide and no timer.
+
+**Live slice** (`components/participant/audience/audienceSlice.ts`, registered by
+`audience/register.ts` from `features/registrations.ts`; `state.modules.audience`, read with
+`audienceSliceOf(state)`): `pace` and `nickname` (code lookup, `live-state`), `participant` (the run:
+`live-state.audience`, or the view a submit / retry answered with — `live/module audience/view`),
+`answered` (slides accepted since that view: `participant/submitted` with `slideId`,
+`participant/answer-synced`), `host` (`host/state.audience`), `window` (`audience:opened` /
+`audience:closed`, command responses).
+
+**Answers.** `submitAnswer(payload, target?)` takes the slide to answer when it is not the current
+one: `{slideId, slideIndex, slideTicket, attempt}`; the body carries them (and `attempt`), so the
+socket → REST → offline queue path is the same, and a queued answer of an earlier attempt replays as
+that attempt. An accepted targeted answer re-reads `live-state` (not `/me`). `ATTEMPT_SUBMITTED` /
+`ATTEMPT_STALE` toast "That attempt is over" and re-read.
+
+**Participant** (`components/participant/audience/`): `ParticipantShell` renders `AudienceRun` instead
+of the slide body when the slice's pace is `audience` (lobby, active and ended). `AudienceRun`: the
+waiting screen until the host opens; then the progress ("2 of 5 answered", bar), the closing time
+("Closes in 12 min" / at a time / "Closed"), an "Attempt n" badge, a numbered slide strip (44 px
+buttons, answered ones tinted, content slides dashed), the slide, Back / Next (Finish on the last
+slide) and the summary page. `AudienceSlideCard`: content slides show themselves (`mode="audience"`);
+a response slide shows the type's form while open and unanswered in the current attempt, "Saved —
+will sync" / the refusal for a queued answer, then "Answer saved" (ungraded) or "Answer locked in"
+(graded) with "Your answer: …", right or wrong with the points and the explanation once `final`, and
+`AudienceResults` (bars for choices, top words and answers, scale averages, rankings; correct marks only
+when the server sent them) when `resultsVisibility` allows; hints say when results come. `AudienceSummary`:
+before submitting, the answered count, jump buttons to unanswered slides and **Submit answers** (the
+offline queue is flushed first; queued answers block the submit with "Saving your answers…"); "See
+my result" once closed; after submitting, the percentage and points, Passed / Not passed with the pass
+mark, attempts left, earlier attempts, **Try again** (`canRetry`, opens slide 1 of the new attempt)
+and **Review answers**. On `audience:opened`, `audience:closed` and `session:ended` (audience pace)
+`useParticipantSession` re-reads `live-state`. `JoinGate` follows the nickname rule: `required` as
+before, `optional` ("Nickname (optional)", empty joins as "Guest NNNN"), `off` (no field).
+
+**Host** (`components/host/AudienceDashboard.tsx`, `useAudiencePaced()`): the host console and the
+presenter view render the dashboard instead of the stage (and ignore the slide keys) for an
+audience-paced session (the live session's pace, else the deck's). It shows the status (Not open yet,
+Lobby open, Open, Closed, Ended), the settings line (assessment, results on phones), the closing time,
+the join link, code and QR; **Open to participants** (with an optional "Close automatically at" date and
+time; empty takes the deck's default duration), **Open lobby first**, **Save closing time** and **Close
+now** while open (confirmed in the app's `AlertDialog`, never `confirm()`), **Open again** after a close,
+**End session** (`EndSessionDialog`), **Run again** after the end; stats (participants, started, finished
+"n of m", passed and not passed with an assessment); progress per question (participants whose current
+attempt answered it) and who is in (progress n/m, attempt, In progress / Not started / Passed · 80% /
+Not passed · 40% / Removed); the `endScreen` slot once ended. `useHostSession` adds `openAudience(closesAt?)`,
+`closeAudience()` and `refresh`, and re-reads host state (at most once a second) on `answer:received`,
+`participant:joined`, `participant:kicked` and `audience:*` for an audience-paced deck.
+
+**i18n:** `live.audience.*` (phone), `live.participant.nickname{Optional,Off}*` (join form),
+`presenter.audiencePace.*` and `presenter.errors.{openAudience,closeAudience}` (dashboard).
+
+**Fixed on the way:** the multi-select answer form was interactive only in `mode="live"`; like every
+other form it is now inert only in `preview`, so converted multi-choice polls work at audience pace.
+
 ## Slide runtime registry (`slides/runtime.ts`)
 
 ```ts
@@ -517,9 +577,11 @@ has a runtime.
   and validation mirroring the backend, editors, board / pin / points helpers, views),
   `media.test.tsx`, `theme.tokens.test.ts`, `presenter.test.tsx` (W2-A: `slide:timing` and
   `participant:kicked` in the reducer, paused countdowns, `SLIDE_PAUSED` retried, the remote presence
-  slice, the audience snapshot, presenter view and paused phone markup). Shared fixtures:
+  slice, the audience snapshot, presenter view and paused phone markup), `audience.test.tsx` (W2-F: the
+  audience slice, targeted answers with ticket and attempt, the Pace tab helpers, the multi-select form in
+  audience mode, the phone run / result and the dashboard markup). Shared fixtures:
   `tests/unit/live.fixtures.ts`.
 - E2E (`bun run test:e2e`): `e2e/live-flow.spec.ts`, `e2e/live-session.spec.ts`, `e2e/offline-answers.spec.ts`,
-  `e2e/presenter.spec.ts`,
+  `e2e/presenter.spec.ts`, `e2e/audience-pace.spec.ts`,
   `e2e/content-slides.spec.ts`, `e2e/select-answer.spec.ts`, `e2e/advanced-slides.spec.ts` — see
   [`../testing/e2e.md`](../testing/e2e.md).

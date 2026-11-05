@@ -70,6 +70,13 @@ deploy runbook (no live sessions during the deploy): `modules/presentations-live
 `{workspaceId, folderId, updatedAt:-1}` on `polls` (createIndex). Idempotent, no backfill. See
 `modules/folders-templates.md`.
 
+## 230-audience-pace
+
+Replaces the answers' unique index `{sessionId, slideId, participantId}` (030) with
+`answer_once_per_attempt` `{sessionId, slideId, participantId, attempt}` (created first, then the old one
+dropped) and creates `audience_autoclose` `{'audience.closesAt': 1}` on `presentationsessions`, partial on
+live sessions with a closing time. Idempotent. See `modules/presentations-live.md` → Audience pace.
+
 ## 200-session-activity
 
 Creates the idle-session job's index on `presentationsessions` (`live_sessions_by_activity`:

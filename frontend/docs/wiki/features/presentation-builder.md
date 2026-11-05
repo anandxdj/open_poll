@@ -193,7 +193,14 @@ interface InspectorTabProps {
 ```
 
 Built in: **Content** (`tabs/ContentTab.tsx`: question + the type's `Editor`) and **Settings**
-(`tabs/SettingsTab.tsx`: time limit, points, speed bonus). **Theme** (`features/themes/components/ThemeTab.tsx`,
+(`tabs/SettingsTab.tsx`: time limit, points, speed bonus). **Pace** (`tabs/PaceSettings.tsx`, order 35,
+W2-F) is deck-level: presenter pace or audience pace (radio cards), and for audience pace results on phones
+(after each answer / when you close the questions / never), "Close automatically" N minutes after opening
+(`settings.audiencePaced.closeAfterMinutes`), the assessment (switch, pass mark %, attempts 1–10 or
+unlimited); plus the nickname rule (required / optional / off) for both paces. It reads the deck with
+`GET /presentations/:id` and saves each change on its own with `PATCH` (`pace` or `settings`; number fields on
+blur or Enter, checked against the backend limits by `parseBounded`), like the Audience tab, so the revision
+does not change and a new deck must be saved first. **Theme** (`features/themes/components/ThemeTab.tsx`,
 order 40, W3-A) is deck-level: presets and the workspace's brand kits as swatches (kits only when the
 plan has `brand_kits`), and an accent override with its contrast shown. It saves the deck's `theme` on
 its own with `PATCH /presentations/:id` (not through drafts), so a new deck must be saved first;

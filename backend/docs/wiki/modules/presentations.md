@@ -6,7 +6,8 @@ last_updated: 2026-11-05
 
 # Presentations Module (`src/modules/presentations/`)
 
-`modules/presentations` runs presenter-paced live decks. The host drives a slide deck;
+`modules/presentations` runs live decks, presenter-paced or audience-paced (W2-F: every question
+open at once, each participant at their own pace, see `presentations-live.md`). The host drives a slide deck;
 participants join with a 6-digit code or QR scan and a nickname (no account), answer
 timed slides on their phone, and earn points on scored slides. Leaderboard slides show
 standings mid-deck; final standings show on `end`.
@@ -37,7 +38,8 @@ feature in `modules/polls` — see `modules/polls.md`.
 | `live/coalescer.ts` | One host `answer:received` per dirty slide per 250 ms window, exactly once across instances. |
 | `live/ticket.ts` | Slide tickets (HMAC) that stretch the timer grace. |
 | `live/autoReveal.ts`, `live/autoRevealWorker.ts` | Schedule (`live:autoreveal` ZSET) and poller of the 1.5 s auto-reveal of scored timed slides. |
-| `live/participant.service.ts` | `joinPresentation` (audience cap), `verifyParticipant`, `isAuthorizedParticipant`, `getParticipantState` (`/me`), `getParticipantLiveState` (`/live-state`). |
+| `live/participant.service.ts` | `joinPresentation` (audience cap, nickname rule: "Guest NNNN"), `verifyParticipant`, `isAuthorizedParticipant`, `getParticipantState` (`/me`), `getParticipantLiveState` (`/live-state`). |
+| `live/audience.service.ts`, `live/audienceState.ts`, `live/attempts.ts`, `live/audienceAutoClose.ts` | Audience pace (W2-F): `openAudience` / `closeAudience`, `submitAttempt` / `retryAttempt`, the `audience-autoclose` sweep; settings, attempt scoring and the participant / host views; attempt states; the job. See [`presentations-live.md`](./presentations-live.md#audience-pace-w2-f). |
 | `live/distribution.ts` | `computeSlideDistributionHelper` (registry `distribution`), `replayDistribution` (from stored answers), `getLeaderboard`, `getStoredLeaderboard`, `getParticipantCount`. |
 | `live/snapshot.ts` | End-of-session reconciliation (Redis results → missing Mongo answers, participant totals) and the snapshot (`slideStats`, `finalLeaderboard`, counts). |
 | `live/views.ts` | `SessionView`, `SlideStateView`, `SessionListItem` builders. |
@@ -47,8 +49,8 @@ feature in `modules/polls` — see `modules/polls.md`.
 | `slides/` | Slide type registry (below). |
 | `models/{presentation,session,participant,answer}.model.ts` | Mongoose models; `presentations.model.ts` is the barrel to import from. |
 | `presentations.schema.ts` | Request schemas; the slide schema dispatches to the registry. |
-| `routes/{participant,crud,host}.route.ts` | Sub-routers composed (in that match order) by `presentations.route.ts`. |
-| `controllers/{participant,crud,host}.controller.ts` | Thin HTTP handlers calling the facade. |
+| `routes/{participant,crud,host,audience}.route.ts` | Sub-routers composed (in that match order) by `presentations.route.ts`. |
+| `controllers/{participant,crud,host,audience}.controller.ts` | Thin HTTP handlers calling the facade. |
 | `presentations.socket.ts` | Socket handlers: joins, `answer:submit` (acked), `live:resync` (see `realtime/presentations.md`). |
 
 ## Slide type registry (`slides/`)
@@ -185,7 +187,7 @@ Exports: one column per guess / per item / per item and axis / x and y.
     until migration 020; the policy then falls back to `creatorId`), `folderId`, `pace`
     (`presenter` | `audience`), `settings` (`audienceLocale`, `nickname`,
     `showResultsOnDevices`, `qna{}`, `reactions{enabled, emojis ≤6}`, `quiz{leaderboard,
-    showCorrectOnDevices}`, `audiencePaced{resultsVisibility, assessment{}}`, `embed{allowed}`),
+    showCorrectOnDevices}`, `audiencePaced{resultsVisibility, closeAfterMinutes, assessment{}}`, `embed{allowed}`),
     `theme` (`{presetId:'graph-paper', brandKitId, overrides}`, see `modules/themes.md`), `isTemplate`, `templateSourceId`
     (workspace templates, `modules/folders-templates.md`), `revision` (co-editing: +1 per title/slide save),
     `legacy` (`{source:'poll'|'quiz', sourceId}` or null), `deletedAt` (trash: 404 and hidden
@@ -202,14 +204,16 @@ Exports: one column per guess / per item / per item and axis / x and y.
   (`participantCount`, `answerCount`, `finalLeaderboard`, `slideStats`) and `retainUntil`.
   Unique partial `{presentationId}` where `isLive` (one live session per deck). Full field
   list: [`presentations-live.md`](./presentations-live.md).
-- **PresentationParticipant** — `{ presentationId, sessionId, name, deviceId, token, score, correctCount, kickedAt, locale }`,
+- **PresentationParticipant** — `{ presentationId, sessionId, name, deviceId, token, score, correctCount, kickedAt, locale, audience }`
+  (`audience`: `{attempt, attempts[]}` of an audience-paced run, null until the first submit),
   unique partial `(sessionId, deviceId)` → refresh-safe idempotent join within a session.
   `deviceId` comes from a server-signed device token, so clients cannot mint identities.
   `token` is a 48-hex-char secret returned **only to the joiner** (never broadcast); required
   on every answer and on the socket room join.
-- **PresentationAnswer** — `{ presentationId, sessionId, participantId, slideId, slideIndex, optionIndex|text|payload, isCorrect, score, timeMs, clientAnswerId, via }`,
-  unique partial `(sessionId, slideId, participantId)` — durable backstop against double
-  answers — plus `(sessionId, slideId)`.
+- **PresentationAnswer** — `{ presentationId, sessionId, participantId, slideId, slideIndex, optionIndex|text|payload, isCorrect, score, timeMs, clientAnswerId, via, attempt }`,
+  unique partial `(sessionId, slideId, participantId, attempt)` (`answer_once_per_attempt`, migration
+  230; `attempt` is 1 except for audience-paced retries) — durable backstop against double answers —
+  plus `(sessionId, slideId)`.
 
 ## Session flow
 
@@ -319,7 +323,8 @@ Creator (JWT + workspace context):
   `legacy` mark. A pre-workspace deck (creator only) has its media checked against the new
   workspace and drops its brand kit and folder.
 - Host controls: `GET /:id/host/state`, `POST /:id/host/{open-lobby,start,goto,advance,close,reopen,reveal,end}`,
-  `GET /:id/sessions`
+  `GET /:id/sessions`; audience pace (W2-F): `POST /:id/host/{open-audience,close-audience}`
+- Audience pace, participants (participant token): `POST /:id/audience/{submit,retry}`
 - AI drafts: `POST /api/ai/generate-quiz` — `{ topic, slideCount, slideTypes[], tone }` →
   `{ title, slides[] }`, every slide validated against `presentationSlideSchema` (see `modules/ai.md`).
 
@@ -360,6 +365,9 @@ See `realtime/presentations.md` for the event contract.
   against a real Redis (and parity with its JS port), socket answers and resync, auto-reveal, the
   score race on real Mongo, two instances with and without the Socket.io adapter, `/metrics`
   (`testing/integration.md`).
+- `tests/integration/audiencePace.test.ts` — audience pace (W2-F): a converted TRIAL and a converted poll
+  end to end, no speed points, results visibility, attempts, pass/fail and retries, the auto-close job,
+  refusals (presenter pace, templates, slide commands, other workspaces).
 - `tests/integration/sessions.test.ts` — sessions through `createApp()` (two runs with
   independent results, navigation, reveal, untimed close, reconciliation, audience cap,
   workspace scoping); `tests/integration/migration-030.test.ts` — migration 030 on fixtures.

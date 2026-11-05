@@ -1,5 +1,5 @@
 ---
-summary: Live session engine contract — sessions, slide phases, host commands, presenter tools (timer, kick, phone remote), participant resync, events, Redis keys, error codes.
+summary: Live session engine contract — sessions, slide phases, host commands, presenter tools (timer, kick, phone remote), audience pace (open/close, attempts, auto-close), participant resync, events, Redis keys, error codes.
 status: active
 last_updated: 2026-11-05
 ---
@@ -22,7 +22,7 @@ participants, answers, scores and a final snapshot. At most one session per deck
 | --- | --- |
 | `runNumber` | 1, 2, 3, … per deck (`presentation.sessionCount` after open) |
 | `status` | `lobby` → `active` → `ended`; `isLive` while not `ended` |
-| `pace` | `presenter` (one slide open at a time); `audience` (W2-F) |
+| `pace` | `presenter` (one slide open at a time); `audience` (every response slide open at once, [Audience pace](#audience-pace-w2-f)) |
 | `joinCode` | The deck's join code at open (codes are per deck and stable across runs) |
 | `currentSlideId`, `currentSlideIndex` | -1 / null in the lobby |
 | `slideStates` | slideId → `{openedAt, endsAt, pausedRemainingMs, pausedAt, pausedMs, closedAt, revealedAt}` for every visited slide (the pause fields: [Presenter tools](#presenter-tools-w2-a)) |
@@ -32,6 +32,7 @@ participants, answers, scores and a final snapshot. At most one session per deck
 | `endReason` | `host` (End Session, or a new lobby replacing it), `lobby_idle` / `live_idle` (ended by the idle-session job); null for sessions ended before it was recorded |
 | `lastActivityAt` | Last host command, join or answer while live; see [Idle sessions](#idle-sessions-end-on-their-own) |
 | `share` | Result-sharing link (token, `includeNames`, `expiresAt`); see [sessions](./sessions.md) |
+| `audience` | Audience pace (W2-F): `{openedAt, closesAt, closedAt, closeReason: host\|schedule\|ended}`; null for presenter pace. See [Audience pace](#audience-pace-w2-f) |
 
 The deck keeps a **mirror** of its live session — `status` (`draft` before the first run, `ended`
 between runs), `currentSlideIndex`, `questionStartedAt`, `questionEndsAt`, `activeSessionId`,
@@ -114,8 +115,8 @@ Presenter routes that are not slide commands (they return their own bodies):
 
 | Route | Rate limit (per IP) | Notes |
 | --- | --- | --- |
-| `GET /code/:code` | 60/min + 5000/min global | Adds `sessionId`, `pace`, `currentSlideId`, `currentSlidePhase`. `questionEndsAt` is null for an untimed open slide and while paused; after an early close/reveal it is the close time. `questionPausedRemainingMs` (paused) and `questionDurationMs` (the timer's budget) for response slides. |
-| `POST /:id/join` | 500 / 5 min | `{name, deviceToken?, locale?}` → `JoinResponse` (adds `sessionId`). Joins the **live** session. 403 `SESSION_FULL` when the session already has `audienceCap` participants (a rejoin with the same `deviceToken` always succeeds). 403 `PARTICIPANT_KICKED` for removed participants (checked before a seat is taken). |
+| `GET /code/:code` | 60/min + 5000/min global | Adds `sessionId`, `pace`, `currentSlideId`, `currentSlidePhase`, `nickname` (the session's nickname rule) and `audience` (the audience window, null for presenter pace). `questionEndsAt` is null for an untimed open slide and while paused; after an early close/reveal it is the close time. `questionPausedRemainingMs` (paused) and `questionDurationMs` (the timer's budget) for response slides. |
+| `POST /:id/join` | 500 / 5 min | `{name?, deviceToken?, locale?}` → `JoinResponse` (adds `sessionId`). `name` is required unless the nickname rule is `optional` or `off` ("Guest NNNN", [Audience pace](#audience-pace-w2-f)). Joins the **live** session. 403 `SESSION_FULL` when the session already has `audienceCap` participants (a rejoin with the same `deviceToken` always succeeds). 403 `PARTICIPANT_KICKED` for removed participants (checked before a seat is taken). |
 | `POST /:id/answer` | 2000/min | Unchanged body plus optional `sessionId`, `slideId`, `clientAnswerId` (≤ 64 chars), `slideTicket`, `offline`. `slideIndex` stays required and must match the slide. Returns `AnswerResult`; see [Answer path](#answer-path) for the replay rule, grace and errors. 409 `PARTICIPANT_STALE` when the participant belongs to an ended session. |
 | `GET /:id/me?participantId&token` | 600/min | Adds `sessionId`; `lastAnswer` (with `slideId`) once the current slide is no longer `open`. |
 | `GET /:id/live-state?participantId&token` | 600/min | `ParticipantLiveState`: session status, settings, theme, current slide (sanitized) with phase and timing (`pausedRemainingMs`, `durationMs` included), results when revealed, leaderboard on system slides, the participant's own standing, final standings once ended. Use it to resync after any reconnect or `seq` gap. |
@@ -145,6 +146,9 @@ Envelope v1 with `sessionId` set (see `realtime/envelope.md`). Payload types:
 | `slide:timing` | all | `timer` / `skip` — `{slideId, slideIndex, action: pause\|resume\|extend\|skip, startedAt, endsAt \| null, pausedRemainingMs, durationMs, addedSeconds, serverNow}` |
 | `participant:kicked` | host + the removed participant | `kick` — `{participantId, name, participantCount}` (two publishes; other phones never get it) |
 | `remote:connected` / `remote:disconnected` | host | the paired phone remote's first socket joined / last socket left (or the pairing was revoked) — `{at}`; `sessionId` null |
+| `audience:opened` | all | audience pace: `open-audience` (also a changed closing time) — `{openedAt, closesAt \| null, serverNow}` |
+| `audience:closed` | all | audience pace: the slides closed — `{closedAt, reason: host\|schedule}` |
+| `audience:progress` | host only | audience pace: a submit or retry — `{participantId, name, attempt, submitted, percentage, passed}` |
 
 Clients ignore events whose `sessionId` is not their session's. `showResultsOnDevices` and
 `quiz.showCorrectOnDevices` are presentation choices applied by the participant UI; results are
@@ -167,7 +171,8 @@ not secret once revealed.
    unknown window or a different run of the slide than the one graded (`STALE`: reload once) →
    participant token (`NO_TOKEN` falls back to Mongo and re-mirrors the token once; `BAD_TOKEN` 401)
    → kicked (403) → per-participant rate limit → **dedup** (already answered) → session ended →
-   window closed → **paused** (`PAUSED` after 750 ms of pause, W2-A) → deadline → validate the
+   **attempt** (audience pace, `ATTEMPT`: see [Audience pace](#attempts-on-the-answer-path)) → window
+   closed → **paused** (`PAUSED` after 750 ms of pause, W2-A) → deadline → validate the
    type's ops → write: `SADD answered`, `ZINCRBY scores`,
    `HINCRBY correct` when correct, every op of the type (`hincrby`, `hsetnx`, `lpush_trim`, run
    generically, never per type), the stored result in `results`, TTL refresh, and the coalescer
@@ -228,6 +233,7 @@ before acting. Unscored and untimed slides never auto-reveal.
 | 409 | `ALREADY_ANSWERED` | answered already and this is not a replay |
 | 409 | `SLIDE_PAUSED` | the host paused the timer (more than 750 ms ago); clients retry with the same `clientAnswerId` once it resumes |
 | 409 | `PARTICIPANT_STALE` | the participant belongs to another session |
+| 409 | `ATTEMPT_SUBMITTED` / `ATTEMPT_STALE` | audience pace: the attempt was submitted / is not the current one |
 | 429 | `RATE_LIMITED` | more than 30 authenticated attempts in 10 s by this participant (any channel) |
 
 ### Socket: `answer:submit` and `live:resync`
@@ -305,7 +311,8 @@ A host who walks away would otherwise leave the session live for good: the deck 
 - a **presented** (`active`) session with no activity for `SESSION_IDLE_LIVE_HOURS` (default
   **12**) ends.
 
-Both are hours, 1–8760, validated at boot (`env.sessionIdle`; `backend/.env.example`).
+Both are hours, 1–8760, validated at boot (`env.sessionIdle`; `backend/.env.example`). An
+audience-paced session open until a closing time is not idle before that time (W2-F).
 
 **Activity** is a host command (open lobby, start, goto/advance, close, reopen, reveal), a
 participant joining, or an accepted answer, kept as the session's `lastActivityAt`
@@ -339,13 +346,15 @@ Session-scoped and hash-tagged, so one session's keys share a Cluster slot (Lua-
 | `presentation:{pid}:active` | STRING | live session id |
 | `psess:{<sid>}:meta` | HASH | `presentationId`, `pace`, `status`, `cap` (`''` = unlimited), `runNumber`, `totalSlides` |
 | `psess:{<sid>}:current` | STRING | current slideId (presenter pace) |
-| `psess:{<sid>}:slides` | HASH | slideId → answer window JSON `{v: 4, slideId, slideIndex, type, scored, open, startedAtMs, endsAtMs \| null, pausedRemainingMs, pausedAtMs, pausedMs, profanityFilter, cfg}` (an entry of another version is dropped and rebuilt) |
+| `psess:{<sid>}:slides` | HASH | slideId → answer window JSON `{v: 5, slideId, slideIndex, type, scored, open, startedAtMs, endsAtMs \| null, pausedRemainingMs, pausedAtMs, pausedMs, profanityFilter, audience, cfg}` (an entry of another version is dropped and rebuilt) |
 | `psess:{<sid>}:scores` / `:correct` / `:names` / `:tokens` | ZSET / HASH | standings, correct counts, nicknames, participant secrets |
 | `psess:{<sid>}:seats` | SET | deviceIds holding a seat (audience cap; SADD-then-SCARD never over-admits) |
 | `psess:{<sid>}:kicked` | SET | removed participantIds |
 | `psess:{<sid>}:answered:{slideId}` | SET | dedup + answered count (written only by the answer script) |
 | `psess:{<sid>}:dist:{slideId}` / `:disp:{slideId}` / `:feed:{slideId}` | HASH / HASH / LIST | the slide type's counters |
 | `psess:{<sid>}:results:{slideId}` | HASH | participantId → full answer JSON (`/me` results and reconciliation) |
+| `psess:{<sid>}:answered:{slideId}:a<n>` / `:results:{slideId}:a<n>` | SET / HASH | audience pace: dedup and stored results of attempt n ≥ 2 |
+| `psess:{<sid>}:attempts` | HASH | audience pace: participantId → `"<n>"` (attempt n running) or `"<n>:done"` (submitted); missing = `"1"` |
 | `psess:{<sid>}:dirty` | STRING (PX 250) | coalescer window flag (`SET NX PX`); never part of the 6 h key set |
 | `psess:{<sid>}:dirty:slides` | SET | slideIds answered since the last host update (60 s TTL) |
 | `psess:{<sid>}:rate:{participantId}` | STRING (PX 10 s) | the participant's answer-attempt counter |
@@ -366,7 +375,9 @@ host commands — retry), `NO_LIVE_SESSION` (400, host commands that need one),
 `NOT_ACCEPTING` (400), `TIME_UP` (400), `ALREADY_ANSWERED` (409), `SLIDE_PAUSED` (409) and
 `RATE_LIMITED` (429), see [Answer path](#answer-path). Presenter tools add `NO_TIMER` (400),
 `TIMER_STATE` (400/409), `PARTICIPANT_NOT_FOUND` (404); the remote adds `REMOTE_INVALID` (404),
-`REMOTE_BOUND` (403), `REMOTE_DEVICE_REQUIRED` (400). Messages are for humans.
+`REMOTE_BOUND` (403), `REMOTE_DEVICE_REQUIRED` (400). Audience pace adds `NOT_AUDIENCE_PACED` (409),
+`AUDIENCE_PACED` (409), `AUDIENCE_NOT_OPEN` (400), `ATTEMPT_SUBMITTED` / `ATTEMPT_STALE` (409),
+`RETRY_NOT_ALLOWED` (409). Messages are for humans.
 
 ## Migration 030 and deploy runbook
 
@@ -533,5 +544,116 @@ of word-cloud entries and open-ended answers on the answer path (the window carr
   queue in `live/offline/`) sends a stable `clientAnswerId`, the slide's ticket and `offline: true`
   for queued answers (`frontend/docs/wiki/features/live-surfaces.md`, "Answers"). The legacy
   `quiz:join` / `quiz:event` protocol is gone.
-- **W2-F**: `pace: 'audience'` opens every response slide in `:slides`; `settings.audiencePaced`
-  is snapshotted.
+- **W2-F** (done, [Audience pace](#audience-pace-w2-f)): `open-audience` / `close-audience`, attempts on
+  the answer path, submit and retry, the `audience-autoclose` job, migration 230; frontend in
+  `frontend/docs/wiki/features/live-surfaces.md` ("Audience pace").
+
+## Audience pace (W2-F)
+
+Code: `live/audience.service.ts` (commands, the auto-close sweep), `live/audienceState.ts` (settings,
+attempt scoring, the participant and host views), `live/attempts.ts` (attempt states),
+`live/audienceAutoClose.ts` (the job), `routes/audience.route.ts`, `controllers/audience.controller.ts`.
+Tests: `tests/integration/audiencePace.test.ts`, the attempt scenario in
+`tests/integration/answerScript.test.ts`.
+
+A deck with `pace: 'audience'` opens **every response slide at once**; each participant moves
+through the deck on their own. There is no current slide (`currentSlideIndex` −1, `current` null),
+no timer and no speed points. The pace is snapshotted on the session, with `settings.audiencePaced`:
+
+| Setting | Meaning |
+| --- | --- |
+| `resultsVisibility` | `after_submit` (a slide's results once the participant answered it), `after_close` (once the slides closed), `never`. Default `after_close`. |
+| `closeAfterMinutes` | 1–43200 or null: `open-audience` without `closesAt` closes that long after opening. |
+| `assessment.enabled` | Graded slides count towards a score; each submitted attempt passes or fails at `passingScorePercentage`. |
+| `assessment.maxAttempts` | 1–10, or null = unlimited (capped at `AUDIENCE_UNLIMITED_ATTEMPTS` = 100). Without an assessment there is one attempt. |
+
+`settings.nickname` (`required` / `optional` / `off`) applies to joins in both paces: `optional`
+takes the typed name or makes one, `off` always makes one — "Guest NNNN" (`guestName`); `required`
+refuses an empty name (400 "Name is required"). The code lookup carries `nickname`.
+
+### Host commands
+
+| Command | Body | Effect | Events |
+| --- | --- | --- | --- |
+| `POST /:id/host/open-audience` | `{closesAt?}`: ISO time in the future, ≤ 30 days ahead; null = no closing time; omitted = `closeAfterMinutes` from now (or the closing time already set on an open session) | Opens every response slide (`openedAt`, `endsAt` = the closing time) from the lobby, or opens a **new** session straight away. On an open session it only changes the closing time; on a closed one it opens the slides again (answers given stay). 409 `NOT_AUDIENCE_PACED` (presenter-paced deck or live session), 409 `TEMPLATE_NOT_PRESENTABLE`, 400 for a bad `closesAt`. | `audience:opened` |
+| `POST /:id/host/close-audience` | — | Closes every open slide; the session stays live, so results shown `after_close` appear. Idempotent. 400 `AUDIENCE_NOT_OPEN` before opening, 409 `NOT_AUDIENCE_PACED`. | `audience:closed {reason: 'host'}` |
+
+`start` on an audience-paced deck (lobby or no live session) is `open-audience` with no body.
+`goto` / `advance` on an audience-paced session are 409 `AUDIENCE_PACED`; `close`, `reopen`,
+`reveal`, `timer` and `skip` find no current slide (400). `end` closes every open slide and the
+audience window (`closeReason: 'ended'`), then ends as usual. Both routes run `authenticate()` →
+`workspaceContext()` → `deck:host`, rate limited 60/min per IP. The command responses are
+`HostCommandResponse`; `SessionView.audience` = `{openedAt, closesAt, closedAt, closeReason}`
+(null for presenter pace), also on the session document (`audience`).
+
+### Participants
+
+| Route | Body | Notes |
+| --- | --- | --- |
+| `POST /:id/answer` (and socket `answer:submit`) | as before, plus `attempt?` (the client sends its current attempt) | Any **open** slide of the session by `slideId` + `slideIndex`. No speed points (graded as if instant); `timeMs` keeps the real time. |
+| `POST /:id/audience/submit` | `{participantId, participantToken, attempt?}` | Locks the attempt (the answer script refuses answers for it from then on), scores it from its stored answers and records it on the participant (`audience.attempts[]`). Returns `AudienceParticipantView`. Submitting again returns the same view; 409 `ATTEMPT_STALE` for another attempt; also works after the slides closed or the session ended (to see the score). |
+| `POST /:id/audience/retry` | `{participantId, participantToken}` | Next attempt of a failed assessment while attempts are left and the slides are open: the attempt state moves on and the leaderboard score goes back to 0 (the latest attempt counts). A double click starts one attempt. 409 `RETRY_NOT_ALLOWED` (no assessment, not submitted, passed, no attempt left, closed). |
+
+Both are public (participant token; allow-listed in the tenancy test), rate limited 600/min per IP,
+400 `AUDIENCE_NOT_OPEN` before the host opened the slides, 409 `NOT_AUDIENCE_PACED` for presenter pace.
+
+`GET /:id/live-state` adds `audience: AudienceParticipantView` (null for presenter pace): `status`
+(`waiting` | `open` | `closed`), the window, `resultsVisibility`, `assessment`, `attempt {number,
+submitted, submittedAt}`, `attempts[]` (`AudienceAttemptResult`: `score`, `maxScore`, `percentage`,
+`correctCount`, `answeredCount`, `totalQuestions`, `passed`), `attemptsLeft`, `canRetry`, `final` and
+every slide (`AudienceSlideView`: sanitized slide, phase, `slideTicket` while open, `answered` and
+`response` in the current attempt, `isCorrect` / `score` / `explanation`, `results`).
+
+- **Answer keys** (right or wrong, the select_answer explanation) show only once `final`: the slides
+  closed, or the attempt is submitted and nothing can change (no assessment, passed, or out of
+  attempts). Results of graded slides of an assessment follow the same rule; other results follow
+  `resultsVisibility`.
+- **Scoring.** `score` = points of graded slides answered right (no speed share), `maxScore` = the
+  points of every graded slide, `percentage` = round(score / maxScore × 100) (null without graded
+  slides), `passed` = percentage ≥ pass mark (null without an assessment).
+- **Results** count every attempt's answers: the distribution and its `answeredCount` are the
+  responses of all attempts (as `slideStats` after the end).
+
+### Host view
+
+`GET /:id/host/state` adds `audience: HostAudienceView` for audience-paced sessions: the window and
+settings, `totalQuestions`, `participantCount`, `startedCount`, `completedCount` (current attempt
+submitted), `passedCount` / `failedCount` (latest result), per response slide `answeredCount`
+(participants whose **current** attempt answered it) and per participant `attempt`, `answeredCount`,
+`submitted`, `lastResult`, `kicked` (Redis dedup sets while live, stored answers once ended). The
+host-only `audience:progress {participantId, name, attempt, submitted, percentage, passed}` is
+published on every submit and retry; `answer:received` (coalesced) still goes out per answered slide.
+
+### Attempts on the answer path
+
+The answer script (v2) takes the participant's attempt state from `psess:{sid}:attempts` (KEYS[15],
+`"<n>"` running, `"<n>:done"` submitted, missing = `"1"`) and an expected state in ARGV[18]: after the
+dedup check (so replays still answer `replay: true`) and the ended check, a state other than the
+expected `"<n>"` replies `{'ATTEMPT', current}` → 409 `ATTEMPT_SUBMITTED` (that attempt was
+submitted) or `ATTEMPT_STALE` (another attempt; a client that named no attempt is re-graded once
+against the current one). Presenter pace sends an empty expected state: no check. Attempt n ≥ 2
+dedups and stores its results in `answered:{slide}:a<n>` / `results:{slide}:a<n>` (attempt 1 keeps
+the plain keys), so an offline answer of attempt 1 replays as attempt 1 even after a retry. The
+counters (`dist`, `disp`, `feed`) are shared by all attempts. Answers carry `attempt` in Mongo
+(unique `{sessionId, slideId, participantId, attempt}`, migration 230); reconciliation walks every
+attempt, and a participant's final `score` / `correctCount` are their latest attempt's.
+
+Answer windows (version 5) carry `audience: true`: no auto-reveal, `endsAtMs` is the closing time
+(so answers stop at `closesAt` + 750 ms grace, + 15 s with the slide's ticket, before the job runs).
+
+### Closing time and the `audience-autoclose` job
+
+`audience-autoclose` (`live/audienceAutoClose.ts`, every 30 s, one instance per tick) finds live
+sessions with `audience.closesAt` ≤ now and no `closedAt` (index `audience_autoclose`, partial on
+live sessions with a closing time, migration 230), re-reads each, and closes it like the host
+(`closeReason: 'schedule'`; a passing closing time does not count as activity) → `audience:closed`.
+The idle-session job leaves an audience-paced session alone before its closing time
+(`idleEndReason`), so an assessment can stay open for days.
+
+### Migration 230
+
+`230-audience-pace.ts`: creates `answer_once_per_attempt` (`{sessionId, slideId, participantId,
+attempt}`, unique, partial on `sessionId`), then drops migration 030's
+`sessionId_1_slideId_1_participantId_1`; creates `audience_autoclose`. Idempotent; old answers have
+no `attempt` (null in the index) and count as attempt 1. Deploy with no live session (the answer
+window version changes; windows are rebuilt from the session on the next answer anyway).

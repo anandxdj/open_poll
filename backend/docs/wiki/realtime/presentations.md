@@ -79,6 +79,9 @@ of other sessions. Payload types: `PresentationEventPayloads` in
 | `slide:timing` | all | `{ slideId, slideIndex, action: pause\|resume\|extend\|skip, startedAt, endsAt (null while paused), pausedRemainingMs, durationMs, addedSeconds, serverNow }` |
 | `participant:kicked` | host + `participant:<id>` | `{ participantId, name, participantCount }` — published twice (host room, then the removed participant's room) |
 | `remote:connected` / `remote:disconnected` | host | `{ at }` — the paired phone remote's presence (`events/remote.ts`; `sessionId` null) |
+| `audience:opened` | all | `{ openedAt, closesAt (null = until closed), serverNow }` — audience pace (W2-F): every response slide open (or the closing time changed) |
+| `audience:closed` | all | `{ closedAt, reason: host\|schedule }` — audience pace: no more answers |
+| `audience:progress` | **host only** (forced) | `{ participantId, name, attempt, submitted, percentage, passed }` — audience pace: a submit or retry |
 
 `distribution.kind`: `options` (select) | `text` (type) | `words` (wordcloud) | `responses`
 (open_ended) | `scales` (per-statement averages) | `ranking` (Borda items + voters).
