@@ -42,7 +42,7 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
   const pending: PendingAnswer | undefined = useLive((s) => s.pendingAnswers[pendingAnswerKey(s.slideId, slide.slideIndex)]);
   const [submitting, setSubmitting] = useState(false);
 
-  const { timed, secondsLeft, progress, expired } = useCountdown(timing, slide.timeLimit ?? 30);
+  const { timed, paused, secondsLeft, progress, expired } = useCountdown(timing, slide.timeLimit ?? 30);
   const hasAnswered = submittedSlideIndex === slide.slideIndex;
   // `me` is read after reveals and may still describe the previous slide.
   const lastAnswer =
@@ -52,6 +52,11 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
   const graded = isGradedSlide(slide);
 
   const submit = async (payload: AnswerPayload) => {
+    // A paused timer takes no answers: the pick stays on the form until the host resumes.
+    if (paused) {
+      toast.info(t("pausedHint"));
+      return;
+    }
     setSubmitting(true);
     try {
       const result = await submitAnswer(payload);
@@ -62,6 +67,7 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
         else if (result.code === LIVE_ERROR_CODES.notAccepting) toast.error(t("votingClosed"));
         else if (result.code === LIVE_ERROR_CODES.timeUp) toast.error(t("timesUp"));
         else if (result.code === LIVE_ERROR_CODES.rateLimited) toast.error(t("tooManyAttempts"));
+        else if (result.code === LIVE_ERROR_CODES.slidePaused) toast.error(t("pausedHint"));
         else toast.error(result.message || t("submitFailed"));
       }
     } finally {
@@ -72,7 +78,7 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
   return (
     <div className="w-full space-y-6">
       {phase === "open" && timed && !reveal && secondsLeft > 0 && (
-        <Timer secondsLeft={secondsLeft} progress={progress} />
+        <Timer secondsLeft={secondsLeft} progress={progress} paused={paused} />
       )}
       <div className="space-y-2 text-center">
         <span className="text-sm tabular-nums text-deck-muted-fg">
@@ -156,6 +162,13 @@ export function ParticipantSlide({ slide, runtime }: { slide: LiveSlide; runtime
         </div>
       ) : (
         <div className="space-y-4">
+          {paused && (
+            // The form stays (and keeps what was picked); sending waits for the host to resume.
+            <p role="status" className="rounded-xl border border-deck-border bg-deck-surface px-4 py-3 text-center text-sm text-deck-muted-fg">
+              <span className="block font-semibold text-deck-fg">{t("pausedTitle")}</span>
+              {t("pausedHint")}
+            </p>
+          )}
           <runtime.ParticipantView
             // Fresh form state per question (and per re-run of the same slide).
             key={`${slide.slideIndex}:${timing?.startedAt ?? ""}`}

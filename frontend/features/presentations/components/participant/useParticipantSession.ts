@@ -6,7 +6,7 @@ import { getPresentationByCode } from "../../api/participant";
 import { useLive, useLiveStore } from "../../live/store";
 import { useLiveSocket } from "../../live/useLiveSocket";
 import type { PresentationRealtimeEvent } from "../../types";
-import { forgetCredentials, readCredentials, readDevice } from "./participantSession";
+import { forgetCredentials, readCredentials, readDevice, writeDevice } from "./participantSession";
 
 /** Events after which the participant re-reads own score, rank and last answer. */
 const REFRESH_ME_ON = new Set(["slide:closed", "question:revealed", "leaderboard:shown", "session:ended"]);
@@ -58,6 +58,11 @@ export function useParticipantSession(code: string) {
         receivedAt,
       });
       setLoad("ready");
+      // Removed from this session earlier (W2-A): no join form, the "removed" screen again.
+      if (liveSessionId && readDevice(code).kickedSessionId === liveSessionId) {
+        store.getState().dispatch({ type: "participant/lost", reason: "kicked" });
+        return;
+      }
       if (credentials) await store.getState().loadLiveState();
     } catch {
       setLoad("not-found");
@@ -78,6 +83,7 @@ export function useParticipantSession(code: string) {
       previous = state.lost;
       if (!state.lost) return;
       forgetCredentials(code, state.sessionId);
+      if (state.lost === "kicked" && state.sessionId) writeDevice(code, { kickedSessionId: state.sessionId });
       if (state.lost !== "kicked") {
         setRejoin(true);
         void loadInfo();

@@ -31,9 +31,14 @@ export interface SlideStateView {
   scored: boolean;
   phase: SlidePhase;
   openedAt: string | null;
-  /** Answer deadline; null while untimed or for slides without an answer window. */
+  /** Answer deadline; null while untimed, while the timer is paused, or for slides without an answer window. */
   endsAt: string | null;
+  /** Time left while the timer is paused (W2-A); null while it runs or when untimed. */
   pausedRemainingMs: number | null;
+  /** When the running pause began (absent from older APIs). */
+  pausedAt?: string | null;
+  /** The timer's whole budget (time limit plus extensions, ms); null when untimed (absent from older APIs). */
+  durationMs?: number | null;
   closedAt: string | null;
   revealedAt: string | null;
   answeredCount: number;
@@ -92,6 +97,8 @@ export interface DeckSettings {
     assessment: { enabled: boolean; passingScorePercentage: number; maxAttempts: number | null };
   };
   embed: { allowed: boolean };
+  /** Mask profanity in word-cloud and open-ended answers (W2-A); absent from older APIs. */
+  profanityFilter?: boolean;
 }
 
 // ---------- Slides and results ----------
@@ -291,9 +298,13 @@ export interface PublicPresentationInfo {
   currentSlide?: LiveSlide;
   currentSlideId?: string;
   currentSlidePhase?: SlidePhase;
-  /** Response slides only. `questionEndsAt` is null while the slide is untimed and open. */
+  /** Response slides only. `questionEndsAt` is null while the slide is untimed and open, or paused. */
   questionStartedAt?: string;
   questionEndsAt?: string | null;
+  /** Response slides only: time left while the timer is paused (W2-A). */
+  questionPausedRemainingMs?: number | null;
+  /** Response slides only: the timer's whole budget (ms), null when untimed. */
+  questionDurationMs?: number | null;
   /** The live session's theme snapshot, so the join screen already looks like the deck. */
   theme?: ThemeTokens | null;
 }
@@ -317,7 +328,12 @@ export interface ParticipantLiveState {
     isLastSlide: boolean;
     slide: LiveSlide;
     startedAt: string | null;
+    /** null while untimed or paused. */
     endsAt: string | null;
+    /** Time left while the timer is paused (W2-A). */
+    pausedRemainingMs?: number | null;
+    /** The timer's whole budget (ms), null when untimed. */
+    durationMs?: number | null;
     /** Open response slides only: send it back as `slideTicket` with the answer (late answers need it). */
     slideTicket: string | null;
     /** Revealed response slides only. */
@@ -364,3 +380,80 @@ export interface HostState {
 
 /** `POST /:id/host/{open-lobby,start,goto,close,reopen,reveal,end}`: the deck plus the session acted on. */
 export type HostCommandResponse = Presentation & { session: SessionView };
+
+// ---------- Presenter tools (W2-A) ----------
+
+/** `POST /:id/host/participants/:pid/kick`. */
+export interface KickResponse {
+  participantId: string;
+  name: string;
+  kicked: true;
+  participantCount: number;
+}
+
+export type TimerAction = "pause" | "resume" | "extend" | "skip";
+
+/** `POST /:id/host/remote-token` (201): the pairing token, shown once (only its hash is stored). */
+export interface RemoteTokenCreated {
+  token: string;
+  /** App path of the remote page: `/remote/<token>`. */
+  path: string;
+  expiresAt: string;
+}
+
+/** `GET|DELETE /:id/host/remote-token`. */
+export interface RemoteStatus {
+  paired: boolean;
+  bound: boolean;
+  boundAt: string | null;
+  expiresAt: string | null;
+  connected: boolean;
+}
+
+export type RemoteCommand = "next" | "prev" | "reveal" | "close" | "extend30" | "pause" | "resume";
+
+/** The slide a phone remote shows (speaker notes included: the remote is the presenter's device). */
+export interface RemoteSlideView {
+  slideId: string;
+  slideIndex: number;
+  type: string;
+  lifecycle: SlideLifecycle;
+  title: string;
+  phase: SlidePhase;
+  isLastSlide: boolean;
+  timed: boolean;
+  startedAt: string | null;
+  endsAt: string | null;
+  pausedRemainingMs: number | null;
+  durationMs: number | null;
+  answeredCount: number;
+  notes: string;
+}
+
+/** `GET /api/remote/:token/state`, the `remote:join` ack and every `remote:command` ack. */
+export interface RemoteState {
+  presentationId: string;
+  title: string;
+  status: SessionStatus | "draft";
+  sessionId: string | null;
+  joinCode: string;
+  participantCount: number;
+  totalSlides: number;
+  currentSlideIndex: number;
+  slide: RemoteSlideView | null;
+  next: { slideIndex: number; type: string; title: string } | null;
+  serverNow: string;
+}
+
+export type RemoteJoinAck =
+  | { ok: true; state: RemoteState }
+  | { ok: false; error: "INVALID_PAYLOAD" | "RATE_LIMITED" | "REMOTE_INVALID" | "REMOTE_BOUND" | "UNAVAILABLE" };
+
+export type RemoteCommandAck =
+  | { ok: true; command: RemoteCommand; state: RemoteState }
+  | {
+      ok: false;
+      error: "INVALID_PAYLOAD" | "NOT_JOINED" | "RATE_LIMITED" | "REMOTE_INVALID" | "FORBIDDEN" | "COMMAND_FAILED" | "UNAVAILABLE";
+      code?: string;
+      message?: string;
+    };

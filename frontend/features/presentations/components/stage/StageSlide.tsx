@@ -11,6 +11,8 @@ import { Timer } from "./Timer";
 export interface StageCountdown {
   /** False for an untimed answer window (no deadline). */
   timed: boolean;
+  /** The host paused the timer (frozen value). */
+  paused?: boolean;
   secondsLeft: number;
   progress: number;
 }
@@ -56,7 +58,7 @@ export function StageSlide({ slide, countdown }: { slide: PresentationSlide; cou
       {isResponse ? (
         <>
           {phase === "open" && !reveal && countdown.timed && countdown.secondsLeft > 0 && (
-            <Timer secondsLeft={countdown.secondsLeft} progress={countdown.progress} />
+            <Timer secondsLeft={countdown.secondsLeft} progress={countdown.progress} paused={countdown.paused} tone="stage" />
           )}
           {phase && phase !== "shown" && (
             <p className="text-center text-sm font-medium text-deck-stage-fg/70">

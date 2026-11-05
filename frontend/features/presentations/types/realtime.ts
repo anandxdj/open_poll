@@ -23,6 +23,12 @@ export const LIVE_SOCKET_EVENTS = {
   event: "live:event",
   answerSubmit: "answer:submit",
   resync: "live:resync",
+  /** Phone remote (W2-A): `{token, deviceKey}` → `RemoteJoinAck`. */
+  remoteJoin: "remote:join",
+  /** Phone remote: `{command}` → `RemoteCommandAck`. */
+  remoteCommand: "remote:command",
+  /** Server → remote: the pairing was revoked or replaced. */
+  remoteRevoked: "remote:revoked",
 } as const;
 
 export type PresentationRealtimeEventType =
@@ -36,7 +42,9 @@ export type PresentationRealtimeEventType =
   | "question:revealed"
   | "leaderboard:shown"
   | "session:ended"
-  | "quiz:ended";
+  | "quiz:ended"
+  | "slide:timing"
+  | "participant:kicked";
 
 /**
  * Payload of each core event type. Mirror of `PresentationEventPayloads` in
@@ -123,6 +131,23 @@ export interface RealtimePayloads {
   };
   /** Legacy copy of `session:ended`, sent right after it — ignored by the reducer. */
   "quiz:ended": { leaderboard: LeaderboardEntry[]; participantCount: number };
+  /**
+   * The current response slide's timer was paused, resumed, extended or skipped (W2-A).
+   * `endsAt` is null while paused; `pausedRemainingMs` is then the frozen time left.
+   */
+  "slide:timing": {
+    slideId: string;
+    slideIndex: number;
+    action: "pause" | "resume" | "extend" | "skip";
+    startedAt: string;
+    endsAt: string | null;
+    pausedRemainingMs: number | null;
+    durationMs: number | null;
+    addedSeconds: number;
+    serverNow: string;
+  };
+  /** The host removed a participant (W2-A): to the host room and to that participant's own room. */
+  "participant:kicked": { participantId: string; name: string; participantCount: number };
 }
 
 /**
