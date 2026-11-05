@@ -1,23 +1,26 @@
 import { cn } from "@/lib/utils";
+import { LiveAiMockup } from "../mockups/LiveAiMockup";
+import { LivePollAnimation } from "../mockups/LivePollAnimation";
+import { SharePollMockup } from "../mockups/SharePollMockup";
+import { PlotPanel } from "../shared/PlotPanel";
 import { container, sectionY } from "../shared/styles";
 import { SectionHeading } from "../shared/SectionHeading";
-import { BuildArt, JoinArt, ShareArt } from "./StepArt";
 
 const steps = [
   {
     title: "Build or bring a deck",
-    body: "Start blank, import a PowerPoint, PDF, Google Slides link or question sheet, or describe a topic and review the outline AI drafts for you.",
-    art: BuildArt,
+    body: "Start blank, import a PowerPoint, PDF, Google Slides link or question sheet, or describe a topic and review the outline AI drafts, speaker notes included.",
+    visual: <LiveAiMockup />,
   },
   {
     title: "Go live with a join code",
-    body: "Open the lobby and show the code or QR code. People join from their phones, no account needed, and answer as you present.",
-    art: JoinArt,
+    body: "Show the code or QR code on screen. People join from their phones with just a nickname, no account needed, and answer as you present.",
+    visual: <SharePollMockup />,
   },
   {
-    title: "Review and share",
-    body: "Every run is saved as a session report. Export it, share a read-only results link, or run the deck again.",
-    art: ShareArt,
+    title: "Watch the answers come in",
+    body: "Results fill the screen as people answer. The audience can ask and upvote questions and send reactions while you talk.",
+    visual: <LivePollAnimation />,
   },
 ];
 
@@ -29,38 +32,22 @@ export function Steps() {
       className={`${sectionY} scroll-mt-20 border-t border-border bg-card`}
     >
       <div className={container}>
-        <SectionHeading
-          id="how-title"
-          title="Live in three steps"
-          description="From a blank page to a room full of answers, usually in one sitting."
-        />
+        <SectionHeading id="how-title" title="Live in three steps" />
 
-        {/* A real sequence: numbered stations on one rule that runs across the row on lg. */}
-        <ol className="mt-12 grid grid-cols-1 gap-12 md:mt-16 lg:grid-cols-3 lg:gap-0">
+        {/* A real sequence: numbered rows, words and picture trading sides on lg. */}
+        <ol className="mt-12 space-y-16 md:mt-16 lg:space-y-24">
           {steps.map((step, i) => (
-            <li key={step.title} className="lg:pr-10">
-              <div className="flex items-center">
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-foreground font-mono text-sm font-medium tabular-nums text-background">
+            <li key={step.title} className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12 lg:gap-16">
+              <div className={cn("max-w-xl lg:col-span-5", i % 2 === 1 && "lg:order-2")}>
+                <span className="flex size-11 items-center justify-center rounded-full bg-foreground font-mono text-sm font-medium tabular-nums text-background">
                   {i + 1}
                 </span>
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "ml-4 h-px flex-1 bg-foreground/15 lg:ml-0",
-                    // Reaches the next station across the column gap; the last one stops at the edge.
-                    i < steps.length - 1 && "lg:-mr-10",
-                  )}
-                />
+                <h3 className="mt-6 text-balance text-3xl font-semibold leading-[1.05] tracking-[-0.035em] sm:text-4xl">
+                  {step.title}
+                </h3>
+                <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">{step.body}</p>
               </div>
-              {/* Picture over words on phones and in the three lg columns; side by side in
-                  between, where a full-width picture would stretch thin. */}
-              <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 sm:items-center sm:gap-8 lg:grid-cols-1 lg:items-start lg:gap-6">
-                <step.art />
-                <div>
-                  <h3 className="text-2xl font-semibold tracking-[-0.03em]">{step.title}</h3>
-                  <p className="mt-3 max-w-md text-base leading-relaxed text-muted-foreground">{step.body}</p>
-                </div>
-              </div>
+              <PlotPanel className={cn("min-w-0 lg:col-span-7", i % 2 === 1 && "lg:order-1")}>{step.visual}</PlotPanel>
             </li>
           ))}
         </ol>

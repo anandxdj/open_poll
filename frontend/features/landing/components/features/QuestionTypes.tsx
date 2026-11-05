@@ -5,21 +5,13 @@ import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-mot
 import {
   CircleCheckBig,
   Cloud,
-  Coins,
-  Grid2x2,
-  Hash,
-  ListOrdered,
   MapPin,
-  MessageSquareText,
   MessagesSquare,
   Pause,
   Play,
-  SlidersHorizontal,
-  TextCursorInput,
   Trophy,
   type LucideIcon,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { useMounted } from "@/hooks/use-mounted";
 import { cn } from "@/lib/utils";
 import { container, sectionY } from "../shared/styles";
@@ -34,21 +26,17 @@ interface QuestionType {
   icon: LucideIcon;
 }
 
-/** The slide types a deck can hold (features/presentations/slides/types); descriptions follow their meta. */
+/** A few of the slide types a deck can hold (features/presentations/slides/types); descriptions follow their meta. */
 const TYPES: QuestionType[] = [
   { id: "multiple-choice", label: "Multiple choice", description: "Scored or not. The fastest correct answer earns the most.", icon: CircleCheckBig },
-  { id: "type-answer", label: "Type answer", description: "Free text matched against the answers you accept.", icon: TextCursorInput },
   { id: "word-cloud", label: "Word cloud", description: "Words grow with every repeat.", icon: Cloud },
-  { id: "open-ended", label: "Open ended", description: "Free-form responses on a card wall.", icon: MessageSquareText },
-  { id: "scales", label: "Scales", description: "Rate statements on a slider and see live averages.", icon: SlidersHorizontal },
-  { id: "ranking", label: "Ranking", description: "Order items; the combined ranking shows at the reveal.", icon: ListOrdered },
-  { id: "guess-number", label: "Guess the number", description: "Everyone picks a number; score the closest guesses.", icon: Hash },
-  { id: "hundred-points", label: "100 points", description: "Share 100 points between your items and see where they go.", icon: Coins },
-  { id: "grid", label: "2 by 2 grid", description: "Place items on two axes, like effort and impact.", icon: Grid2x2 },
   { id: "pin", label: "Pin on image", description: "Drop a pin on your image; optionally score the right area.", icon: MapPin },
   { id: "qna", label: "Q&A", description: "The audience asks and upvotes; you pick what goes on screen.", icon: MessagesSquare },
   { id: "leaderboard", label: "Leaderboard", description: "Quiz standings between questions, no answers collected.", icon: Trophy },
 ];
+
+/** The slide types without a tab, named under the list so the page still says they exist. */
+const MORE_TYPES = "Type answer, Open ended, Scales, Ranking, Guess the number, 100 points and 2 by 2 grid";
 
 /** How long each type stays on the stage while the section plays by itself. */
 const DWELL_MS = 6500;
@@ -121,11 +109,13 @@ export function QuestionTypes() {
         <SectionHeading
           id="question-types-title"
           title="From a quick poll to a full quiz"
-          description="Twelve ways for a room to answer. Pick one to see how its results arrive on the big screen."
+          description="Pick a slide type to see how its results arrive on the big screen."
         />
 
         <div
-          className="mt-12 grid grid-cols-1 gap-6 md:mt-16 lg:grid-cols-12 lg:gap-12"
+          // On lg the stage spans both rows: the tabs sit in the first, the "seven more" line under them.
+          // The 1fr row takes the stage's extra height, so the line stays right below the tabs.
+          className="mt-12 grid grid-cols-1 gap-6 md:mt-16 lg:grid-cols-12 lg:grid-rows-[auto_1fr] lg:gap-x-12 lg:gap-y-6"
           onPointerEnter={() => setHovering(true)}
           onPointerLeave={() => setHovering(false)}
           onFocus={() => setFocused(true)}
@@ -195,7 +185,7 @@ export function QuestionTypes() {
             id="qt-panel"
             role="tabpanel"
             aria-labelledby={`qt-tab-${current.id}`}
-            className="min-w-0 lg:sticky lg:top-24 lg:col-span-8 lg:self-start"
+            className="min-w-0 lg:sticky lg:top-24 lg:col-span-8 lg:row-span-2 lg:self-start"
           >
             {/* The stage follows the app theme: a sheet with the scene on graph paper. */}
             <div
@@ -206,7 +196,6 @@ export function QuestionTypes() {
                 <div className="flex min-w-0 items-center gap-2.5 text-sm font-medium">
                   <current.icon className="size-4 shrink-0 text-accent-ink" aria-hidden="true" />
                   <span className="truncate">{current.label}</span>
-                  <Badge variant="outline">Sample</Badge>
                 </div>
                 {canAutoplay ? (
                   <button
@@ -253,12 +242,11 @@ export function QuestionTypes() {
             </div>
             <p className="mt-4 text-base text-muted-foreground lg:hidden">{current.description}</p>
           </div>
-        </div>
 
-        <p className="mt-10 max-w-2xl text-base text-muted-foreground">
-          Add headings, text, bullets, images, big numbers, quotes and video between questions to tell the story
-          around them.
-        </p>
+          <p className="text-sm leading-relaxed text-muted-foreground lg:col-span-4 lg:col-start-1 lg:row-start-2">
+            Seven more types: {MORE_TYPES}.
+          </p>
+        </div>
       </div>
     </section>
   );

@@ -6,7 +6,6 @@ export * from "./components/hero/Navbar";
 export * from "./components/features/Capabilities";
 export * from "./components/features/QuestionTypes";
 export * from "./components/features/Steps";
-export * from "./components/features/ShowcaseSections";
 export * from "./components/cta/FinalCta";
 export * from "./components/faq/Faq";
 export * from "./components/social/Footer";

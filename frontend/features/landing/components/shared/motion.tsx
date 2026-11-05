@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useInView, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
 import { useMounted } from "@/hooks/use-mounted";
 
 /** The brand curve, `--ease-brand` in globals.css. */
@@ -30,13 +30,6 @@ export function useStepper(steps: number, ms: number, play = true) {
   }, [play, reduce, steps, ms]);
 
   return reduce ? steps - 1 : step;
-}
-
-/** True once the element has been half on screen; illustrations start playing from there. */
-export function useSeen<T extends Element>(amount = 0.5) {
-  const ref = useRef<T>(null);
-  const seen = useInView(ref, { once: true, amount });
-  return [ref, seen] as const;
 }
 
 /**

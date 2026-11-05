@@ -100,7 +100,7 @@ Motion shows results arriving; it never decorates. 150-250ms UI transitions on
 
 - One load-in on the hero. No fade-and-slide-up on sections.
 - Illustrations play once, the first time they are half on screen, then hold
-  their last frame (`useSeen`, `useStepper`, `CountUp` in
+  their last frame (`useStepper`, `CountUp` in
   `features/landing/components/shared/motion.tsx`).
 - Only two things loop: the hero's sample session and the question-types
   stage, which moves to the next slide type every 6.5s while on screen. It

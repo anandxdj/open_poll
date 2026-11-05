@@ -5,7 +5,6 @@ import { FinalCta } from "./cta/FinalCta";
 import { Faq } from "./faq/Faq";
 import { Capabilities } from "./features/Capabilities";
 import { QuestionTypes } from "./features/QuestionTypes";
-import { ShowcaseSections } from "./features/ShowcaseSections";
 import { Steps } from "./features/Steps";
 import { Hero } from "./hero/Hero";
 import { Navbar } from "./hero/Navbar";
@@ -27,7 +26,6 @@ export function LandingPage() {
           <Hero />
           <QuestionTypes />
           <Steps />
-          <ShowcaseSections />
           <Capabilities />
           <Pricing />
           <Faq />

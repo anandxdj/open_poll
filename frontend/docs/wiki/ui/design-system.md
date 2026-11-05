@@ -72,7 +72,7 @@ columns, the sentence in 5, bottom-aligned).
 150-250ms for UI transitions, `cubic-bezier(0.32, 0.72, 0, 1)` (`--ease-brand`) for larger moves. Nothing
 delays a task. Motion shows results arriving, never decoration. Landing: one load-in for the hero and no
 section reveals; product illustrations play once when half on screen and hold their last frame
-(`features/landing/components/shared/motion.tsx`: `useSeen`, `useStepper`, `CountUp`, `ease`). Two things
+(`features/landing/components/shared/motion.tsx`: `useStepper`, `CountUp`, `ease`). Two things
 loop: the hero's sample session and the question-types stage (autoplay every 6.5s while on screen, paused on
 hover/focus, a pause button, stopped for good once a type is picked; the `.mk-progress` line is its timer).
 `prefers-reduced-motion` stops all of it and shows settled frames (`.mk-surface` collapses animations and
@@ -96,13 +96,14 @@ first frame depends on reduced motion renders after mount (`useMounted`), or hyd
 Utilities kept for older screens, restyled flat: `bezel-outer`/`bezel-inner` (one bordered surface),
 `bg-radial-glow` (a faint accent light), `skeleton`, `noise`, `animate-ai-glow`, `custom-scrollbar`, `scrollbar-none`.
 Marketing and sign-in: `mk-focus`, `mk-skip-link`, `.mk-surface`, `.mk-grid` (40px graph paper fading toward
-the bottom), `.mk-grid-flat` (the same grid without the fade, for `PlotPanel`, `ArtFrame` illustrations and the
+the bottom), `.mk-grid-flat` (the same grid without the fade, for `PlotPanel` illustrations, the question-types stage and the
 sign-in aside) and `.mk-progress` (the stage's countdown line).
 
 ## Marketing and sign-in surfaces
 
 See [`../features/landing-auth.md`](../features/landing-auth.md). Rules: copy states only what the product does;
-product illustrations are labelled "Sample" and exposed as one image, and sit on graph paper (`PlotPanel`);
+product illustrations are exposed as one image whose label says what they show, and sit on graph paper
+(`PlotPanel`); the hero preview carries the page's one "Sample session" badge;
 sample sessions (the hero, the question-types stage, the sign-in aside) follow the app theme and show answers
 as `ResultRow` cards; the real projected stage stays dark (`features/live-surfaces.md`), and the library's mini
 deck screens and the builder's slide thumbnails keep its dark look (`<div className="dark ...">` re-applies the
