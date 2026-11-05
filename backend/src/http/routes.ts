@@ -77,7 +77,6 @@ const MOUNTS: readonly Mount[] = [
   ['/api/me', accountRouter], // Profile and password (auth module); the rest of /api/me is privacy's.
   ['/api/me', privacyRouter],
   ['/api/oauth', mcpOAuthConsentRouter],
-  ['/api/oembed', oembedRouter],
   ['/api/plans', plansRouter],
   ['/api/public/domains', publicDomainsRouter],
   ['/api/public/results', publicResultsRouter],
@@ -107,6 +106,8 @@ export const LARGE_JSON_PATHS = ['/api/presentations', '/api/quizzes'];
  * - Remote MCP connectors (Claude, ChatGPT, browser-based clients) call the
  *   OAuth metadata, registration and token endpoints from origins we do not
  *   know; they read no cookies, so they answer any origin.
+ * - oEmbed consumers (CMSs, chat apps, embed libraries in the browser) ask from
+ *   any origin and send no cookies; the router answers any origin itself.
  */
 export function mountPreParserRoutes(app: Express): void {
   app.use('/api/billing/webhook', express.raw({ type: 'application/json', limit: '1mb' }), billingWebhookRouter);
@@ -121,6 +122,7 @@ export function mountPreParserRoutes(app: Express): void {
     scimRouter,
   );
   app.use('/metrics', metricsRouter);
+  app.use('/api/oembed', oembedRouter);
   app.use('/.well-known', wellKnownRouter());
   app.use('/oauth', oauthRouter());
 }

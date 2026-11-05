@@ -444,6 +444,65 @@ describeIntegration('audience pace (W2-F)', () => {
     expect((await liveState(pid, ada)).audience.status).toBe('closed');
   }, 20_000);
 
+  it('gives a screen the room\'s progress, never answers or people, until the results may show', async () => {
+    const screenFor = async (pid: string) => {
+      const created = await call('POST', '/api/embeds/screen-tokens', { user: host, body: { presentationId: pid, label: 'Hall' } });
+      expect(created.status).toBe(201);
+      return created.body.data.token as string;
+    };
+    const stage = async (token: string) =>
+      ((await (await server.request('/api/embeds/stage', { headers: { 'x-screen-token': token } })).json()) as Body).data;
+
+    const deck = await convert(POLL, { embed: { allowed: true }, audiencePaced: { resultsVisibility: 'after_close' } });
+    const token = await screenFor(deck._id);
+    expect((await hostCommand(deck._id, 'open-audience')).status).toBe(200);
+    const ada = await join(deck._id, 'Ada');
+    await join(deck._id, 'Bob');
+
+    const socket = server.connectSocket();
+    sockets.push(socket);
+    const events: Envelope[] = [];
+    socket.on('live:event', (event: Envelope) => events.push(event));
+    await waitFor(() => socket.connected, 'screen socket connect');
+    expect(await socket.timeout(3000).emitWithAck('live:join', { presentationId: deck._id, role: 'screen', screenToken: token })).toEqual({
+      ok: true,
+      role: 'screen',
+    });
+
+    expect((await answer(deck._id, ada, deck.slides[0]!, 0, { optionIndex: 0 })).status).toBe(200);
+    await settleLiveEngine();
+    // The coalesced update reaches the screen as counts only.
+    await waitFor(() => events.some((e) => e.type === 'answer:received'), 'answer:received on the screen');
+    const update = events.find((e) => e.type === 'answer:received')!;
+    expect(update.payload).toEqual({ slideId: deck.slides[0]!._id, slideIndex: 0, answeredCount: 1, participantCount: 2, audience: true });
+
+    // While open: progress counts, no per-participant rows, no results, no standings.
+    const open = await stage(token);
+    expect(open.audience).toMatchObject({ participantCount: 2, startedCount: 1, completedCount: 0, participants: [] });
+    expect(open.audience.slides.map((slide: any) => slide.answeredCount)).toEqual([1, 0]);
+    expect(open.distributions).toEqual({});
+    expect(open.liveDistribution).toBeNull();
+    expect(open.leaderboard).toEqual([]);
+    // The host sees the full dashboard.
+    expect((await hostState(deck._id)).audience.participants).toHaveLength(2);
+
+    // After closing, results set to show "after close" appear on the screen too.
+    expect((await hostCommand(deck._id, 'close-audience')).status).toBe(200);
+    await waitFor(() => events.some((e) => e.type === 'audience:closed'), 'audience:closed on the screen');
+    const closed = await stage(token);
+    expect(closed.distributions[deck.slides[0]!._id].distribution.counts).toEqual([1, 0]);
+    await hostCommand(deck._id, 'end');
+
+    // Results "never": not even after the close.
+    const hidden = await convert({ ...POLL, title: 'Never' }, { embed: { allowed: true }, audiencePaced: { resultsVisibility: 'never' } });
+    const hiddenToken = await screenFor(hidden._id);
+    expect((await hostCommand(hidden._id, 'open-audience')).status).toBe(200);
+    const cy = await join(hidden._id, 'Cy');
+    expect((await answer(hidden._id, cy, hidden.slides[0]!, 0, { optionIndex: 1 })).status).toBe(200);
+    expect((await hostCommand(hidden._id, 'close-audience')).status).toBe(200);
+    expect((await stage(hiddenToken)).distributions).toEqual({});
+  }, 20_000);
+
   it('refuses presenter-paced decks and sessions, templates, slide commands, bad closing times and other workspaces', async () => {
     // A presenter-paced deck.
     const presenter = await call('POST', '/', {

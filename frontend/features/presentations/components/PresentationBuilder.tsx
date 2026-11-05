@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { AiDeckBanner } from "@/features/ai/deck/AiDeckBanner";
+import { EmbedDialog } from "@/features/embeds/components/EmbedDialog";
+import { useCanEmbedDecks } from "@/features/embeds/useCanEmbed";
 import { ImportQuestionsDialog } from "@/features/imports";
 import { blankSlide } from "../slides/editor";
 import type { PresentationSlide, PresentationSlideType } from "../types/deck";
@@ -23,6 +25,8 @@ import { TemplateNotice } from "@/features/templates/components/TemplateNotice";
 export function PresentationBuilder() {
   const builder = useDeckBuilder();
   const [importOpen, setImportOpen] = useState(false);
+  const [embedOpen, setEmbedOpen] = useState(false);
+  const canEmbed = useCanEmbedDecks();
   const presence = useDeckPresence(builder.isTemplate ? null : builder.editId);
 
   if (builder.loading) {
@@ -55,6 +59,8 @@ export function PresentationBuilder() {
               onSave={() => void builder.handleSave()}
               onSaveDraft={builder.handleSaveDraft}
               onPresent={() => void builder.handleSave("present")}
+              // Templates are not presented, so not embedded either.
+              onEmbed={canEmbed && !builder.isTemplate ? () => setEmbedOpen(true) : undefined}
               presence={<PresenceAvatars presence={presence} />}
             />
             {builder.conflict ? (
@@ -101,6 +107,10 @@ export function PresentationBuilder() {
         isEditing={Boolean(builder.editId)}
         onDeckCreated={({ presentation, source }) => builder.handleDeckCreated(presentation, source)}
       />
+
+      {builder.editId && embedOpen ? (
+        <EmbedDialog open onOpenChange={setEmbedOpen} presentationId={builder.editId} title={builder.title} />
+      ) : null}
 
       <ImportQuestionsDialog
         open={importOpen}

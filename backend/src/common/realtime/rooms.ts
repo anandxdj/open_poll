@@ -10,6 +10,8 @@ export const liveRooms = {
   /** Everyone following the deck: host, screens and participants. */
   all: (presentationId: string) => `live:${presentationId}`,
   host: (presentationId: string) => `live:${presentationId}:host`,
+  /** Read-only screens (W4-D): stage-safe copies of the host events that have a screen view. */
+  screen: (presentationId: string) => `live:${presentationId}:screen`,
   participant: (presentationId: string, participantId: string) =>
     `live:${presentationId}:p:${participantId}`,
 };

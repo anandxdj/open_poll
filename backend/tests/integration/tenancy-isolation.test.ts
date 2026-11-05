@@ -49,7 +49,8 @@ const ALLOWED: readonly Allowed[] = [
   { path: '/api/capabilities', reason: 'public deployment capabilities, no tenant data' },
   { path: '/api/plans', reason: 'public plan catalogue' },
   { path: '/api/themes/presets', methods: ['GET'], reason: 'built-in themes and font choices, the same for everyone' },
-  { path: '/api/oembed', reason: 'public oEmbed discovery of published embeds', planned: true },
+  { path: '/api/oembed', reason: 'public oEmbed discovery of published embeds (only decks that allow embedding)' },
+  { path: '/api/embeds/policy', methods: ['GET'], reason: 'embed page policy for the frontend proxy: allowed or not, and the frame-ancestors sites; no tenant data' },
   { path: '/api/public/*', reason: 'public by design: shared results by token, domain resolution for TLS' },
   { path: '/api/billing/webhook', reason: 'Stripe webhook, authenticated by signature' },
   { path: '/api/sso/*', reason: 'pre-sign-in SSO flow (discover, login redirect, ACS, metadata, callback)' },
@@ -67,6 +68,7 @@ const ALLOWED: readonly Allowed[] = [
   { methods: ['GET'], path: '/api/imports/templates/questions.:format', reason: 'static question-file template (CSV or Excel), no tenant data; rate limited' },
   { methods: ['GET'], path: '/api/imports/:id', reason: 'import job status: ImportService.get requires the job’s creator who is still an active member of its workspace (404 otherwise)' },
   { path: '/api/invites/:token*', reason: 'the single-use token is the credential; accepting also needs the invited verified email' },
+  { path: '/api/embeds/stage', methods: ['GET'], reason: 'screen token (X-Screen-Token) is the credential; reads one deck’s stage-safe state' },
   {
     methods: ['GET'],
     path: '/api/remote/:token/state',

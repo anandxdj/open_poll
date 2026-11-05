@@ -6,8 +6,12 @@ import { useLive } from "../../live/store";
 import { SlotOutlet } from "../../live/slots";
 import { Leaderboard } from "./Leaderboard";
 
-/** End-of-session screen: final standings, host actions, then `endScreen` slot entries. */
-export function StageEnd({ actions }: { actions?: ReactNode }) {
+/**
+ * End-of-session screen: final standings, host actions, then `endScreen` slot
+ * entries. A read-only screen (W4-D) shows the standings only: the slot's
+ * host links lead to signed-in pages.
+ */
+export function StageEnd({ actions, slots = true }: { actions?: ReactNode; slots?: boolean }) {
   const t = useTranslations("live.leaderboard");
   const tp = useTranslations("presenter.end");
   const leaderboard = useLive((s) => s.leaderboard);
@@ -18,7 +22,7 @@ export function StageEnd({ actions }: { actions?: ReactNode }) {
       <h2 className="text-4xl font-semibold tracking-[-0.04em] text-deck-stage-fg sm:text-5xl">{tp("title")}</h2>
       <Leaderboard entries={leaderboard} title={t("finalStandings")} final />
       {actions && <div className="flex flex-wrap items-center justify-center gap-3 pt-2">{actions}</div>}
-      {presentationId && <SlotOutlet name="endScreen" props={{ role: "host", presentationId }} />}
+      {slots && presentationId && <SlotOutlet name="endScreen" props={{ role: "host", presentationId }} />}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   ArrowRightLeft,
   BarChart3,
   Check,
+  Code2,
   Copy,
   CopyPlus,
   ExternalLink,
@@ -48,6 +49,8 @@ import {
 import { slideTypeMeta } from "@/features/presentations/slides/meta";
 import { sessionsPath } from "@/features/sessions/query";
 import type { PresentationSlideType } from "@/features/presentations/types/deck";
+import { EmbedDialog } from "@/features/embeds/components/EmbedDialog";
+import { useCanEmbedDecks } from "@/features/embeds/useCanEmbed";
 import { SaveAsTemplateDialog } from "@/features/templates/components/SaveAsTemplateDialog";
 import { ShareDialog } from "@/features/workspaces/sharing/components/ShareDialog";
 import { useCanShareDecks } from "@/features/workspaces/sharing/useCanShare";
@@ -97,6 +100,8 @@ export function LibraryCard({ card, onRemoved, onChanged, onDuplicated, onMove, 
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [embedOpen, setEmbedOpen] = useState(false);
+  const canEmbed = useCanEmbedDecks();
   const [templateOpen, setTemplateOpen] = useState(false);
   const canShareDecks = useCanShareDecks();
   const isPoll = card.entityType === "poll";
@@ -222,6 +227,11 @@ export function LibraryCard({ card, onRemoved, onChanged, onDuplicated, onMove, 
                       <Users /> Share with team…
                     </DropdownMenuItem>
                   ) : null}
+                  {canEmbed ? (
+                    <DropdownMenuItem onSelect={() => setEmbedOpen(true)}>
+                      <Code2 /> Embed…
+                    </DropdownMenuItem>
+                  ) : null}
                 </>
               )}
               {onMove ? (
@@ -312,6 +322,15 @@ export function LibraryCard({ card, onRemoved, onChanged, onDuplicated, onMove, 
 
       {!isPoll && shareOpen ? (
         <ShareDialog open onOpenChange={setShareOpen} resourceType="presentation" resourceId={card.id} title={card.title} />
+      ) : null}
+      {!isPoll && embedOpen ? (
+        <EmbedDialog
+          open
+          onOpenChange={setEmbedOpen}
+          presentationId={card.id}
+          title={card.title}
+          joinCode={card.details.joinCode}
+        />
       ) : null}
       {!isPoll ? (
         <SaveAsTemplateDialog open={templateOpen} onOpenChange={setTemplateOpen} deckId={card.id} deckTitle={card.title} />

@@ -63,6 +63,9 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Session history, the session report, exports, public results links (`/r/[token]`), the participant results page (`/live/[code]/summary`) or the end-screen links to them.
 - **Action**: Read `frontend/docs/wiki/features/sessions.md`
 
+- **Task**: Embeds and screens (W4-D): the `/embed/*` pages (live, results, stage), postMessage resize, the embed proxy step and framing headers, the read-only screen stage, the Embed dialog and screen links, Settings → Workspace → Embedding, the add-in panes (`/addins/*`) and their manifests.
+- **Action**: Read `frontend/docs/wiki/features/embeds.md` (add `features/live-surfaces.md` only for the store/stage internals)
+
 - **Task**: Importing decks or questions (the Import dialog, PowerPoint/PDF/Google Slides jobs, CSV/Excel questions, the builder's "Import questions").
 - **Action**: Read `frontend/docs/wiki/features/imports.md`
 

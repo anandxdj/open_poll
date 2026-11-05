@@ -134,7 +134,10 @@
     "disabledToast": "Public link turned off.",
     "failed": "Couldn't update sharing.",
     "needsEnd": "End the session to share its results.",
-    "done": "Done"
+    "done": "Done",
+    "embedLabel": "Embed code",
+    "embedTitle": "Session results",
+    "embedHint": "Shows these results on your website. The presentation must allow embedding (Embed in the deck's menu)."
   },
   "public": {
     "kicker": "Shared results",

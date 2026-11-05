@@ -63,6 +63,12 @@ Moves each deck's stored run into legacy session #1, backfills `sessionId`/`slid
 decks left live, swaps the per-deck unique indexes for session-scoped ones. Details and the
 deploy runbook (no live sessions during the deploy): `modules/presentations-live.md`.
 
+## 200-session-activity
+
+Creates the idle-session job's index on `presentationsessions` (`live_sessions_by_activity`:
+`{status, lastActivityAt}`, partial on `isLive: true`) and backfills `lastActivityAt` of live
+sessions from `updatedAt` (else `startedAt`). See `modules/presentations-live.md` → Idle sessions.
+
 ## 210-folders
 
 `FolderModel.syncIndexes()` for the new `folders` collection (`folder_name_per_parent`, unique
@@ -70,15 +76,14 @@ deploy runbook (no live sessions during the deploy): `modules/presentations-live
 `{workspaceId, folderId, updatedAt:-1}` on `polls` (createIndex). Idempotent, no backfill. See
 `modules/folders-templates.md`.
 
+## 220-screen-tokens
+
+`syncIndexes()` for `screentokens` (W4-D): `tokenHash` unique, `{presentationId, createdAt}`,
+`workspaceId`. See `modules/embeds.md`.
+
 ## 230-audience-pace
 
 Replaces the answers' unique index `{sessionId, slideId, participantId}` (030) with
 `answer_once_per_attempt` `{sessionId, slideId, participantId, attempt}` (created first, then the old one
 dropped) and creates `audience_autoclose` `{'audience.closesAt': 1}` on `presentationsessions`, partial on
 live sessions with a closing time. Idempotent. See `modules/presentations-live.md` → Audience pace.
-
-## 200-session-activity
-
-Creates the idle-session job's index on `presentationsessions` (`live_sessions_by_activity`:
-`{status, lastActivityAt}`, partial on `isLive: true`) and backfills `lastActivityAt` of live
-sessions from `updatedAt` (else `startedAt`). See `modules/presentations-live.md` → Idle sessions.

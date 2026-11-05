@@ -24,7 +24,7 @@ is `backend/docs/wiki/modules/presentations-live.md`: every presentation is a **
 | Host session | `components/host/useHostSession.ts` | Reads host state on mount (never opens anything), follows the socket, resyncs, runs one host command at a time, timer-driven reveal. |
 | Host commands | `components/host/hostCommands.ts` | `sendHostCommand`: one retry on `SESSION_BUSY`, flags `SESSION_ALREADY_LIVE`/`NO_LIVE_SESSION` as "console out of date". |
 | Host chrome | `components/host/{HostHeader,HostControls,LeaderboardModal,useJoinLink}.tsx` | Top bar (+ `hostToolbar` slot, a link to the presenter view), bottom bar (back/forward, voting phase controls), standings overlay, join link copy. |
-| Stage | `components/stage/Stage.tsx` | What the audience sees: ready, lobby, running slide, end. Controls come in as props (`readyActions`, `lobbyActions`, `endActions`, `overlays`) so a screen-only surface can reuse it. |
+| Stage | `components/stage/Stage.tsx` | What the audience sees: ready, lobby, running slide, end. Controls come in as props (`readyActions`, `lobbyActions`, `endActions`, `overlays`) so a screen-only surface reuses it: the read-only screen stage of `features/embeds` (`surface="screen"`, no actions; `StageReady` then says it waits for the presenter and `StageEnd` shows no `endScreen` slot). |
 | Stage parts | `components/stage/{StageReady,StageLobby,StageSlide,StageEnd,ResponseCounter,StageView,Leaderboard,Timer}.tsx` | `StageView` looks the slide type up in the runtime registry; `Leaderboard` and `Timer` are shared with the participant. |
 | Participant shell | `components/participant/ParticipantShell.tsx` | Own live store; nickname gate, notices, slots, slide body. |
 | Participant session | `components/participant/useParticipantSession.ts` | Code lookup → credentials of that session → `live-state`; socket, resyncs, lost credentials, "a new session is live". |
@@ -296,7 +296,7 @@ getSlotEntries(slot, props?)
 | `participantBody` | same | Replaces the slide tab's body; the first entry whose `when` matches wins. |
 | `participantFooter` | same | Under the participant main area. |
 | `endScreen` | `{role, presentationId}` | After the standings on the host and participant end screens. |
-| `stageOverlays` | `{surface: 'host' \| 'screen', presentationId}` | Inside the stage `<main>` (absolutely positioned layers), every status. |
+| `stageOverlays` | `{surface: 'host' \| 'screen', presentationId}` | Inside the stage `<main>` (absolutely positioned layers), every status. `screen` is the read-only stage of `features/embeds`. |
 | `hostToolbar` | `{presentationId}` | Start of the host header's right-hand group. |
 | `presenterPanels` | `{presentationId}` | Under the presenter view's side panels (W2-A; Q&A registers its panel here). |
 
@@ -411,6 +411,12 @@ attempt answered it) and who is in (progress n/m, attempt, In progress / Not sta
 Not passed · 40% / Removed); the `endScreen` slot once ended. `useHostSession` adds `openAudience(closesAt?)`,
 `closeAudience()` and `refresh`, and re-reads host state (at most once a second) on `answer:received`,
 `participant:joined`, `participant:kicked` and `audience:*` for an audience-paced deck.
+
+**Stage** (`components/stage/StageAudience.tsx`): while an audience-paced session runs, `Stage` (the
+audience window and room screens; the host console and presenter view show the dashboard instead) shows
+"Answer at your own pace", the join link, code and QR, the closing time, participants, finished and
+progress per question from the slice's `host` view — never a name, an answer or a result ("Answers are
+closed" once closed). Room screens get a counts-only `audience` view (`frontend/docs/wiki/features/embeds.md`).
 
 **i18n:** `live.audience.*` (phone), `live.participant.nickname{Optional,Off}*` (join form),
 `presenter.audiencePace.*` and `presenter.errors.{openAudience,closeAudience}` (dashboard).

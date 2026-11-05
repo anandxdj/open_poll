@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import { parseOrigin } from '../embeds/origins';
+
+/** Sites a workspace may list for its embeds (W4-D). */
+export const MAX_EMBED_ORIGINS = 20;
 
 const workspaceName = z.string().trim().min(1, 'Name is required').max(120, 'Name is too long');
 
@@ -29,6 +33,26 @@ export const updateWorkspaceSchema = z
           })
           .nullable()
           .optional(),
+        /**
+         * Sites that may frame this workspace's embeds (W4-D, `workspace:manage`);
+         * empty = any site. Origins only (`https://example.com`, `https://*.example.com`).
+         */
+        embedAllowedOrigins: z
+          .array(z.string().trim().min(1).max(253))
+          .max(MAX_EMBED_ORIGINS, `Up to ${MAX_EMBED_ORIGINS} sites`)
+          .transform((origins, ctx) => {
+            const out: string[] = [];
+            for (const raw of origins) {
+              const origin = parseOrigin(raw);
+              if (!origin) {
+                ctx.addIssue({ code: 'custom', message: `"${raw}" is not a site address like https://example.com` });
+                return z.NEVER;
+              }
+              if (!out.includes(origin)) out.push(origin);
+            }
+            return out;
+          })
+          .optional(),
       })
       .optional(),
   })
@@ -37,7 +61,8 @@ export const updateWorkspaceSchema = z
       body.name !== undefined ||
       body.settings?.retentionDays !== undefined ||
       body.settings?.defaultTheme !== undefined ||
-      body.settings?.requireSso !== undefined,
+      body.settings?.requireSso !== undefined ||
+      body.settings?.embedAllowedOrigins !== undefined,
     { message: 'Nothing to update' },
   );
 

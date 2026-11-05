@@ -1,6 +1,7 @@
 // Socket modules, imported for their `registerSocketModule` call.
 // Append-only, alphabetical by module, one import per line.
 import './polls.socket';
+import '../../modules/embeds/embeds.socket';
 import '../../modules/presentations/editor.socket';
 import '../../modules/presentations/presentations.socket';
 import '../../modules/reactions/reactions.socket';

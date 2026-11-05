@@ -207,11 +207,27 @@ test("a converted poll with results after submit: a guest sees results per answe
     .poll(async () => ((await host.getDeck(deck._id)) as unknown as { settings: Record<string, unknown> }).settings)
     .toMatchObject({ nickname: "optional", audiencePaced: { resultsVisibility: "after_submit" } });
 
+  // A room screen (W4-D embed) on the deck: allowed, with a screen link.
+  await api(host, `/presentations/${deck._id}`, { method: "PATCH", body: JSON.stringify({ settings: { embed: { allowed: true } } }) });
+  const { token: screenToken } = await api<{ token: string }>(host, "/embeds/screen-tokens", {
+    method: "POST",
+    body: JSON.stringify({ presentationId: deck._id, label: "Hall" }),
+  });
+
   // Host opens the questions straight away (no lobby).
   const hostPage = await host.open(`/presentation/host/${deck._id}`);
   const dashboard = hostPage.getByTestId("audience-dashboard");
   await dashboard.getByRole("button", { name: "Open to participants" }).click();
   await expect(dashboard.getByText("Open until you close it")).toBeVisible();
+
+  // The screen shows how to join and the room's progress, never anyone's answers.
+  const screenContext = await browser.newContext();
+  contexts.push(screenContext);
+  const screen = await screenContext.newPage();
+  await screen.goto(`/embed/stage/${deck._id}?token=${screenToken}`);
+  const screenStage = screen.getByTestId("stage-audience");
+  await expect(screenStage.getByRole("heading", { name: "Answer at your own pace" })).toBeVisible();
+  await expect(screenStage.getByText(deck.joinCode)).toBeVisible();
 
   // A guest (no nickname) and a named participant join while it runs.
   const guest = await joinOptional(browser, contexts, deck.joinCode);
@@ -241,6 +257,11 @@ test("a converted poll with results after submit: a guest sees results per answe
   await expect(progress.nth(1)).toContainText("0 of 2 answered");
   await expect(hostPage.getByTestId("audience-stat-participants")).toHaveText("2");
   await expect(hostPage.getByTestId("audience-stat-started")).toHaveText("1");
+  await expect(screen.getByTestId("stage-audience-participants")).toHaveText("2 participants");
+  await expect(screenStage.getByText("1 of 2 answered")).toBeVisible();
+  // No results, no names, no picks on the projected screen.
+  await expect(screenStage.getByText("Pizza", { exact: true })).toHaveCount(0);
+  await expect(screenStage.getByText(/Guest \d{4}|Linus/)).toHaveCount(0);
 
   // Linus answers on another phone; the guest's results count him too after a re-read.
   await answer(linus, "Salad");
@@ -253,6 +274,7 @@ test("a converted poll with results after submit: a guest sees results per answe
   await guest.getByRole("button", { name: "Next", exact: true }).click();
   await expect(guest.getByText("Closed before you answered")).toBeVisible();
   await expect(guest.getByRole("button", { name: "Submit Answer" })).toHaveCount(0);
+  await expect(screen.getByRole("heading", { name: "Answers are closed" })).toBeVisible();
 
   // End session through the app's dialog: the run is on record.
   await dashboard.getByRole("button", { name: "End session" }).click();

@@ -39,7 +39,8 @@ export type PresentationEventType = keyof typeof PRESENTATION_EVENTS;
 /** Name the presentations service publishes with. */
 export type QuizRealtimeEventType = PresentationEventType;
 
-export type LiveRole = 'host' | 'participant';
+/** `screen` (W4-D): a read-only stage that joined with a screen token. */
+export type LiveRole = 'host' | 'participant' | 'screen';
 
 export const PRESENTATION_SOCKET_EVENTS = {
   // The legacy `quiz:join` / `quiz:leave` / `quiz:event` protocol is gone (W2-D phase 2).

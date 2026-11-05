@@ -14,6 +14,7 @@ import {
   type AudienceSlice,
 } from "@/features/presentations/components/participant/audience/audienceSlice";
 import { AudienceDashboard } from "@/features/presentations/components/host/AudienceDashboard";
+import { Stage } from "@/features/presentations/components/stage/Stage";
 import type { HostSession } from "@/features/presentations/components/host/useHostSession";
 import {
   paceSettingsFrom,
@@ -336,5 +337,39 @@ describe("host dashboard", () => {
     expect(html).toContain("In progress");
     expect(html).toContain("Close now");
     expect(html).toContain("pass mark 60%");
+  });
+});
+
+describe("stage of an audience-paced session (host stage, audience window, room screen)", () => {
+  test("shows how to join and the room's progress, never a person", () => {
+    const view: HostAudienceView = {
+      window: { openedAt: "2026-11-05T10:00:00.000Z", closesAt: null, closedAt: null, closeReason: null },
+      resultsVisibility: "after_close",
+      assessment: { enabled: false, passingScorePercentage: 70, maxAttempts: 1 },
+      totalQuestions: 1,
+      participantCount: 3,
+      startedCount: 2,
+      completedCount: 1,
+      passedCount: 0,
+      failedCount: 0,
+      slides: [{ slideId: SLIDE_IDS[0]!, slideIndex: 0, type: "select_answer", label: "Pizza or salad?", scored: false, answeredCount: 2 }],
+      // A screen's state has no rows; even with them the stage shows none.
+      participants: [{ participantId: "a", name: "Ada", joinedAt: "x", kicked: false, attempt: 1, answeredCount: 1, submitted: true, lastResult: null }],
+    };
+    const store = createLiveStore("host", {
+      presentationId: PID,
+      sessionId: SID,
+      status: "active",
+      joinCode: "123456",
+      modules: { [AUDIENCE_PREFIX]: { ...initialAudienceSlice, pace: "audience", host: view, window: view.window } },
+    });
+    const join = { playUrl: "http://localhost/live/123456", copiedUrl: false, copiedCode: false, copyUrl: () => {}, copyCode: () => {} };
+    const html = render(store, <Stage surface="screen" join={join} countdown={{ timed: false, secondsLeft: 0, progress: 1 }} />);
+    expect(html).toContain("Answer at your own pace");
+    expect(html).toContain("123456");
+    expect(html).toContain("3 participants");
+    expect(html).toContain("1 of 3 finished");
+    expect(html).toContain("2 of 3 answered");
+    expect(html).not.toContain("Ada");
   });
 });

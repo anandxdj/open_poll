@@ -23,7 +23,7 @@ export function StageReady({ actions }: { actions?: ReactNode }) {
         <p className="truncate text-base text-deck-stage-fg/80">
           {title} <span className="font-mono text-sm text-deck-stage-fg/50">({totalSlides})</span>
         </p>
-        <p className="mx-auto max-w-md text-sm text-deck-stage-fg/60">{t("hint")}</p>
+        <p className="mx-auto max-w-md text-sm text-deck-stage-fg/60">{t(actions ? "hint" : "waiting")}</p>
       </div>
       {actions && <div className="flex flex-wrap items-center justify-center gap-3 pt-2">{actions}</div>}
     </div>

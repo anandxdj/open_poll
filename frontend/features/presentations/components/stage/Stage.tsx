@@ -8,6 +8,8 @@ import { getSlideRuntime } from "../../slides/runtime";
 import { ResponseCounter } from "./ResponseCounter";
 import { StageEnd } from "./StageEnd";
 import { StageLobby, type JoinLinkControls } from "./StageLobby";
+import { StageAudience } from "./StageAudience";
+import { audienceSliceOf } from "../participant/audience/audienceSlice";
 import { StageReady } from "./StageReady";
 import { StageSlide, type StageCountdown } from "./StageSlide";
 
@@ -35,6 +37,8 @@ export function Stage({ surface, join, countdown, readyActions, lobbyActions, en
   const status = useLive((s) => s.status);
   const presentationId = useLive((s) => s.presentationId);
   const slide = useLive((s) => s.deck?.slides[s.currentSlideIndex] ?? null);
+  // Audience pace (W2-F): no current slide while it runs; the stage shows how to join and the room's progress.
+  const audiencePaced = useLive((s) => audienceSliceOf(s).pace === "audience");
   const background = useDeckTheme()?.background ?? null;
   const overlay = background
     ? `color-mix(in srgb, var(--deck-stage-bg) ${Math.round(background.overlayOpacity * 100)}%, transparent)`
@@ -59,7 +63,9 @@ export function Stage({ surface, join, countdown, readyActions, lobbyActions, en
 
       {status === "lobby" && <StageLobby join={join} actions={lobbyActions} />}
 
-      {status === "active" && slide && (
+      {status === "active" && audiencePaced && <StageAudience join={join} />}
+
+      {status === "active" && !audiencePaced && slide && (
         <>
           {getSlideRuntime(slide.type)?.lifecycle === "response" && <ResponseCounter />}
           {overlays}
@@ -67,7 +73,7 @@ export function Stage({ surface, join, countdown, readyActions, lobbyActions, en
         </>
       )}
 
-      {status === "ended" && <StageEnd actions={endActions} />}
+      {status === "ended" && <StageEnd actions={endActions} slots={surface === "host"} />}
 
       {presentationId && <SlotOutlet name="stageOverlays" props={{ surface, presentationId }} />}
     </main>

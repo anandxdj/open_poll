@@ -192,6 +192,29 @@ lookup's HTTP status (404 until a session was opened).
   `beforeAll` instead of through the `host` fixture: `/api/auth/login` allows 10 logins per 5
   minutes per IP, which the whole suite shares. ~20 s.
 
+- `e2e/embeds.spec.ts` — W4-D embeds from another site: a tiny HTTP server on 127.0.0.1 (another origin
+  than the app's `localhost`; a `page.route` page counts as public to Chromium, whose local-network
+  protection would refuse to frame the local app at all) serves host pages that iframe the embeds. A
+  participant joins and answers inside `/embed/live/<code>` (the iframe from oEmbed's `html`), the host
+  console sees it, and the frame takes the heights the page posts; mid-session, the Embed dialog's
+  switch still works and a new screen shows the already approved, highlighted Q&A question at once; the builder's Embed dialog turns
+  embedding on and creates a screen link (real clicks), the stage embed follows lobby, joins, live
+  counts, reveal and end, the results embed shows the shared run, and turning the link off (in-place
+  confirmation, no `confirm()`) blanks the stage; `/live/<code>`, `/login` and the embed of a deck with
+  embedding off refuse to be framed (`frame-ancestors` console error, nothing renders), and opened
+  directly the latter says "Embedding is turned off"; Settings → Workspace → Embedding (an invalid
+  site refused, another site listed → ours refused, ours listed → framed, removed → any site).
+  Embedding is turned on through the API before the first page load: the proxy keeps policy answers
+  for 10 s, so each check uses a target the proxy has not seen. ~35 s.
+
+- `e2e/addins.spec.ts` — W4-D add-in panes as browser pages, with Office.js and the Teams library
+  blocked (`page.route` abort, so no network and no host): the PowerPoint pane (Microsoft 365
+  frame-ancestors, a foreign link refused, a pasted screen link shows the stage, follows the lobby,
+  is remembered after a reload, "Change screen link"); the Teams configuration page (tab address),
+  side panel (share button disabled outside a meeting, an attendee joins and answers there) and stage
+  page (live counts); the Zoom page (OWASP headers, the stage, "Embedding is turned off" at once,
+  without a reload, when the deck stops allowing it). ~15 s.
+
 - `e2e/landing-auth.spec.ts` — the landing and sign-in surfaces on public pages (no host needed): no
   horizontal overflow on a phone, tablet and desktop (landing, login, signup, forgot/reset password,
   privacy, terms), one h1 and one h2 per landing section, the mobile menu (toggle state, section links,

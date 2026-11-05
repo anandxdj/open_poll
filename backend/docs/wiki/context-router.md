@@ -43,6 +43,10 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - Add `backend/src/modules/mcp/README.md` only for the poll tools' design notes (polls vs assessments, publish defaults).
 - Add `backend/docs/wiki/modules/presentations-live.md` only if changing what a live command does.
 
+### Embeds, oEmbed, screen tokens, the `screen` socket role, add-in panes (W4-D)
+- `backend/docs/wiki/modules/embeds.md`
+- Add `backend/docs/wiki/realtime/envelope.md` only if touching screen views or the screen room.
+
 ### Workspace insights (the analytics overview's data: activity over a date range)
 - `backend/docs/wiki/modules/insights.md`
 

@@ -37,7 +37,8 @@ participants, answers, scores and a final snapshot. At most one session per deck
 The deck keeps a **mirror** of its live session — `status` (`draft` before the first run, `ended`
 between runs), `currentSlideIndex`, `questionStartedAt`, `questionEndsAt`, `activeSessionId`,
 `lastSessionAt`, `sessionCount`. Only `live/session.service.ts` writes them. Deck edits stay
-blocked while a session is live.
+blocked while a session is live, except the embedding switch `settings.embed.allowed` (W4-D,
+`modules/embeds.md`), which a presenter may need mid-session to put the stage on a second screen.
 
 Participants and answers carry `sessionId`; answers also carry `slideId` (plus `slideIndex` for
 exports), `clientAnswerId` and `via` (`rest`, `socket`, or `offline` for an answer the client held
@@ -108,7 +109,7 @@ Presenter routes that are not slide commands (they return their own bodies):
 
 | Route | Policy | Response |
 | --- | --- | --- |
-| `GET /:id/host/state` | `deck:host` | `HostStateResponse`: the legacy fields (`quiz`, `presentation`, `serverNow`, `participants`, `answeredCount`, `liveDistribution`, `leaderboard`) for `session`, plus `session` (live, else latest ended, else null), `slideStates` (visited slides) and `distributions` (slideId → results of every visited response slide). After `end` the results come from the stored snapshot. |
+| `GET /:id/host/state` | `deck:host` | `HostStateResponse` (built by `buildDeckLiveState`, which the read-only screen state of `modules/embeds.md` shares): the legacy fields (`quiz`, `presentation`, `serverNow`, `participants`, `answeredCount`, `liveDistribution`, `leaderboard`) for `session`, plus `session` (live, else latest ended, else null), `slideStates` (visited slides) and `distributions` (slideId → results of every visited response slide). After `end` the results come from the stored snapshot. |
 | `GET /:id/sessions` | `session:read` | `SessionListItem[]`, newest first. |
 
 ## Participant API (public)
@@ -259,7 +260,7 @@ checked by the script on every answer; the room only gates who may call. Two bud
 `{ok: true, role, seq, state}` — `state` is `ParticipantLiveState` (what `GET /:id/live-state` returns,
 ticket included) or `HostStateResponse` (what `GET /:id/host/state` returns) — or
 `{ok: false, error}` with `INVALID_PAYLOAD`, `RATE_LIMITED` (20 per socket per minute),
-`UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `UNAVAILABLE`. `seq` is the deck's envelope counter read
+`UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `UNAVAILABLE`. A `screen` (W4-D) resyncs with `screenToken` and gets the stage-safe screen state (`modules/embeds.md`). `seq` is the deck's envelope counter read
 before the state, so an event with a higher seq is either in the state or still to come. It does not
 join rooms.
 
@@ -623,6 +624,14 @@ submitted), `passedCount` / `failedCount` (latest result), per response slide `a
 `submitted`, `lastResult`, `kicked` (Redis dedup sets while live, stored answers once ended). The
 host-only `audience:progress {participantId, name, attempt, submitted, percentage, passed}` is
 published on every submit and retry; `answer:received` (coalesced) still goes out per answered slide.
+
+### Screens (W4-D)
+
+A room screen on an audience-paced deck gets the progress of the room, never a person: the screen
+state's `audience` has the counts without the per-participant rows, results stay out until the slides
+closed (never with results `never`), no standings while live, `answer:received` arrives as counts only
+(the coalescer marks audience-paced updates `audience: true`) and `audience:progress` not at all. See
+[`embeds.md`](./embeds.md) → The screen state.
 
 ### Attempts on the answer path
 

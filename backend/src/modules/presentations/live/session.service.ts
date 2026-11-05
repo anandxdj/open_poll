@@ -770,19 +770,35 @@ export const getHostState = async (
   actor: Actor
 ): Promise<HostStateResponse<IPresentation>> => {
   const presentation = await authorizeDeck(presentationId, actor, 'deck:host');
+  return (await buildDeckLiveState(presentation)).state;
+};
+
+/**
+ * The host state of a deck the caller was already allowed to see, plus the
+ * session it describes (the live one, else the latest). The read-only stage
+ * of a screen (W4-D, `modules/embeds`) starts from the same document and makes
+ * it stage-safe.
+ */
+export const buildDeckLiveState = async (
+  presentation: IPresentation
+): Promise<{ state: HostStateResponse<IPresentation>; session: IPresentationSession | null }> => {
+  const presentationId = String(presentation._id);
   const session = (await findLiveSession(presentationId)) ?? (await findLatestSession(presentationId));
   const base = { quiz: presentation, presentation, serverNow: new Date().toISOString() };
   if (!session) {
     return {
-      ...base,
       session: null,
-      participants: [],
-      answeredCount: 0,
-      liveDistribution: null,
-      leaderboard: [],
-      slideStates: [],
-      distributions: {},
-      audience: null,
+      state: {
+        ...base,
+        session: null,
+        participants: [],
+        answeredCount: 0,
+        liveDistribution: null,
+        leaderboard: [],
+        slideStates: [],
+        distributions: {},
+        audience: null,
+      },
     };
   }
 
@@ -822,7 +838,7 @@ export const getHostState = async (
   const kickedIds = new Set(kicked);
   const currentId = view.currentSlideId;
 
-  return {
+  const state: HostStateResponse<IPresentation> = {
     ...base,
     session: view,
     participants: participants.map((p) => ({
@@ -842,6 +858,7 @@ export const getHostState = async (
     distributions,
     audience: session.pace === 'audience' ? await hostAudienceView(session) : null,
   };
+  return { state, session };
 };
 
 /** The deck's sessions, newest first (the heavy snapshots stay out of the list). */

@@ -56,7 +56,8 @@ out. Accounts with `hasPassword: false` (from `/auth/me`) see why instead, with 
 `/forgot-password`. Rules mirrored in `features/profile/account.ts`), `settings/mcp`
 (`McpSettingsSection`, below), `settings/privacy` (`PrivacySettings`, below), `settings/workspace` (`WorkspaceSettings`:
 name, plan, **data retention** for owners and admins (`#retention`, `PATCH settings.retentionDays`; applies to
-sessions that end afterwards), team workspaces), `settings/billing` (`BillingSettings`).
+sessions that end afterwards), **embedding** sites (`#embedding`, `PATCH settings.embedAllowedOrigins`, W4-D,
+`features/embeds.md`), team workspaces), `settings/billing` (`BillingSettings`).
 
 ### Settings → MCP (`features/mcp/`)
 
