@@ -63,12 +63,29 @@ test("the presenter view shows notes and the next slide, and the audience window
   await expect(presenter.getByTestId("next-slide-preview")).toContainText(capital.question);
   await expect(stage.getByText("Ready to present")).toBeVisible();
 
-  // The audience window opens from the presenter view and mirrors its stage.
-  const [audience] = await Promise.all([
-    presenter.waitForEvent("popup"),
-    presenter.getByRole("button", { name: "Open audience window" }).click(),
-  ]);
-  await audience.waitForLoadState();
+  // The audience window opens from the presenter view and mirrors its stage. The button's
+  // window.open call is recorded rather than followed: GitHub's headless Chromium crashes the
+  // renderer on this popup (CI only, every run since PR #20; it passes locally in both the system
+  // Chromium and the bundled headless shell). The window is opened as a second tab of the same
+  // browser context instead, which shares the BroadcastChannel exactly as the popup does.
+  await presenter.evaluate(() => {
+    const calls: Array<[string, string, string]> = [];
+    (window as unknown as { __openCalls: typeof calls }).__openCalls = calls;
+    window.open = ((url?: string | URL, target?: string, features?: string) => {
+      calls.push([String(url), String(target), String(features)]);
+      return { closed: false, focus: () => {} } as unknown as Window;
+    }) as typeof window.open;
+  });
+  await presenter.getByRole("button", { name: "Open audience window" }).click();
+  const openCalls = await presenter.evaluate(
+    () => (window as unknown as { __openCalls: Array<[string, string, string]> }).__openCalls,
+  );
+  expect(openCalls).toHaveLength(1);
+  const [audienceUrl, , audienceFeatures] = openCalls[0];
+  expect(audienceUrl).toContain(`/presentation/${deck._id}/present`);
+  expect(audienceFeatures).toContain("popup");
+  const audience = await presenter.context().newPage();
+  await audience.goto(audienceUrl);
   const screen = audience.locator("main");
   await expect(screen.getByText("Ready to present")).toBeVisible();
   await expect(presenter.getByRole("button", { name: "Audience window open" })).toBeVisible();
