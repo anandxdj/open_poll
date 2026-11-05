@@ -1,0 +1,42 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "{{VERSION}}",
+  "id": "{{TEAMS_APP_ID}}",
+  "developer": {
+    "name": "{{PROVIDER_NAME}}",
+    "websiteUrl": "{{APP_ORIGIN}}",
+    "privacyUrl": "{{APP_ORIGIN}}/privacy",
+    "termsOfUseUrl": "{{APP_ORIGIN}}/terms"
+  },
+  "name": {
+    "short": "Open Poll",
+    "full": "Open Poll: live polls, quizzes and Q&A"
+  },
+  "description": {
+    "short": "Run live polls and quizzes in Teams meetings.",
+    "full": "Attendees join and answer your Open Poll deck in the meeting side panel while you put the live stage, with live results and standings, on the meeting screen. Add the tab with a screen link from Open Poll (the deck's menu, Embed, Stage for screens)."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#F97316",
+  "configurableTabs": [
+    {
+      "configurationUrl": "{{APP_ORIGIN}}/addins/teams/config",
+      "canUpdateConfiguration": true,
+      "scopes": ["team", "groupChat"],
+      "context": ["channelTab", "privateChatTab", "meetingChatTab", "meetingDetailsTab", "meetingSidePanel", "meetingStage"]
+    }
+  ],
+  "permissions": ["identity"],
+  "validDomains": ["{{APP_HOST}}"],
+  "authorization": {
+    "permissions": {
+      "resourceSpecific": [
+        { "name": "MeetingStage.Write.Chat", "type": "Delegated" }
+      ]
+    }
+  }
+}
