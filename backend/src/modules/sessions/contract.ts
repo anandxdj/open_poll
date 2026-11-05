@@ -1,3 +1,4 @@
+import type { ThemeTokens } from '../themes/resolve';
 import type { SlideKind, SlideLifecycle } from '../presentations/slides/types';
 import type {
   LeaderboardEntry,
@@ -130,6 +131,8 @@ export interface SessionReport {
   access: { export: boolean; share: boolean; delete: boolean };
   /** Export formats of the caller's workspace plan. */
   exports: { plan: string; csv: boolean; xlsx: boolean; pdf: boolean };
+  /** The theme the session ran with (its snapshot, light or dark): result panels look like the room's stage. Null for sessions from before themes. */
+  theme: ThemeTokens | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +161,8 @@ export interface PublicResults {
   slides: PublicResultSlide[];
   /** Top standings with names, only when the owner chose `includeNames`; otherwise null. */
   leaderboard: { rank: number; name: string; score: number; correctCount: number }[] | null;
+  /** The theme the session ran with (snapshot), or null. */
+  theme: ThemeTokens | null;
 }
 
 // ---------------------------------------------------------------------------

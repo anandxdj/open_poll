@@ -213,6 +213,7 @@ export const getReport = async (sessionId: string, req: WorkspaceRequest): Promi
       xlsx: features.features.export_xlsx,
       pdf: features.features.export_pdf,
     },
+    theme: (session.themeSnapshot as SessionReport['theme']) ?? null,
   };
 };
 
