@@ -92,6 +92,8 @@ test("a deck made in the light app is light everywhere; the Theme tab switches i
   await expect.poll(() => surfaceColor(hostPage.locator("main").getByRole("heading", { name: QUESTION }))).toBe(PAPER);
   await expect(ada.page.getByRole("button", { name: "Orange" })).toBeVisible();
   await expect.poll(() => surfaceColor(ada.page.getByRole("heading", { name: QUESTION }))).toBe(PAPER);
+  // Let the slide's entrance fade finish before the picture.
+  await hostPage.waitForTimeout(800);
   await hostPage.screenshot({ path: "test-results/deck-themes-stage-light.png" });
   await ada.page.screenshot({ path: "test-results/deck-themes-phone-light.png", fullPage: true });
 
