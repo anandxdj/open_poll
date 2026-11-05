@@ -49,6 +49,13 @@ describe('presentations route table', () => {
       'POST /:id/host/reopen (3)',
       'POST /:id/host/reveal (3)',
       'POST /:id/host/end (3)',
+      // W2-A presenter tools: timer (validates), skip, kick, the phone-remote pairing (rate limited when written).
+      'POST /:id/host/timer (4)',
+      'POST /:id/host/skip (3)',
+      'POST /:id/host/participants/:participantId/kick (3)',
+      'GET /:id/host/remote-token (3)',
+      'POST /:id/host/remote-token (4)',
+      'DELETE /:id/host/remote-token (4)',
       'GET /:id/sessions (3)',
     ]);
   });

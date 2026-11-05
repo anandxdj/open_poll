@@ -4,7 +4,7 @@ import { isSlideScored } from '../slides';
 import type { CurrentSlideView, SessionListItem, SessionView, SlideStateView } from './contract';
 import { getParticipantCount } from './distribution';
 import { k } from './keys';
-import { lifecycleOf, readSlideState, sessionSlides, slideIdOf, slidePhase, type Slide } from './state';
+import { lifecycleOf, readSlideState, sessionSlides, slideIdOf, slidePhase, timerBudgetMs, type Slide } from './state';
 
 /** Wire views of a session, built for host responses and lists. */
 
@@ -28,6 +28,8 @@ export const slideStateView = (
     openedAt: iso(state?.openedAt),
     endsAt: iso(state?.endsAt),
     pausedRemainingMs: state?.pausedRemainingMs ?? null,
+    pausedAt: iso(state?.pausedAt),
+    durationMs: lifecycle === 'response' ? timerBudgetMs(state) : null,
     closedAt: iso(state?.closedAt),
     revealedAt: iso(state?.revealedAt),
     answeredCount,

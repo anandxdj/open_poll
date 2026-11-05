@@ -137,6 +137,12 @@ export const gotoSlideSchema = z
 /** `POST /:id/host/advance` (legacy): an optional target index, default the next slide. */
 export const advanceSlideSchema = z.object({ slideIndex: z.number().int().min(0).optional() }).default({});
 
+/** `POST /:id/host/timer` (W2-A): pause, resume, or extend by `seconds` (5–600, default 30). */
+export const timerCommandSchema = z.object({
+  action: z.enum(['pause', 'resume', 'extend']),
+  seconds: z.number().int().min(5).max(600).optional(),
+});
+
 export const submitPresentationAnswerSchema = z
   .object({
     participantId: z.string().min(1),

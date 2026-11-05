@@ -22,6 +22,11 @@ export const PRESENTATION_EVENTS = defineLiveEvents({
   // The session ended (`quiz:ended` is the legacy copy).
   'session:ended': { audience: 'all' },
   'quiz:ended': { audience: 'all' },
+  // The current slide's timer paused, resumed, was extended or skipped (W2-A).
+  'slide:timing': { audience: 'all' },
+  // The host removed a participant (W2-A): published to the host room and to that
+  // participant's own room (never to everyone: other phones do not need the name).
+  'participant:kicked': { audience: 'host' },
 });
 
 export type PresentationEventType = keyof typeof PRESENTATION_EVENTS;

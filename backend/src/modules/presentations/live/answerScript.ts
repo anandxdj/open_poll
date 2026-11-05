@@ -53,6 +53,7 @@ export type AnswerScriptReject =
   | 'BAD_TOKEN'
   | 'KICKED'
   | 'RATE_LIMITED'
+  | 'PAUSED'
   | 'TIME_UP'
   | 'BAD_OP';
 

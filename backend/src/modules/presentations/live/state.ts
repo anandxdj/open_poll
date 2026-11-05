@@ -37,6 +37,8 @@ const EMPTY_STATE: ISlideState = {
   openedAt: null,
   endsAt: null,
   pausedRemainingMs: null,
+  pausedAt: null,
+  pausedMs: 0,
   closedAt: null,
   revealedAt: null,
 };
@@ -53,6 +55,8 @@ export const readSlideState = (
     openedAt: state.openedAt ?? null,
     endsAt: state.endsAt ?? null,
     pausedRemainingMs: state.pausedRemainingMs ?? null,
+    pausedAt: state.pausedAt ?? null,
+    pausedMs: state.pausedMs ?? 0,
     closedAt: state.closedAt ?? null,
     revealedAt: state.revealedAt ?? null,
   };
@@ -74,6 +78,34 @@ export const windowEnd = (state: ISlideState | null): Date | null => {
   return endsAt;
 };
 
+/** A paused timer: the remaining time is frozen in `pausedRemainingMs` and `endsAt` is null. */
+export const isPausedState = (state: ISlideState | null) => state?.pausedRemainingMs != null;
+
+/** Whether the window has a timer (running or paused). */
+export const isTimedState = (state: ISlideState | null) => Boolean(state?.endsAt) || isPausedState(state);
+
+/**
+ * The window's whole timer budget in ms — the slide's time limit plus every
+ * extension — derived from the stored state: running, `endsAt − openedAt −
+ * pausedMs`; paused, the time it ran before the pause plus what is left. Null
+ * while untimed.
+ */
+export const timerBudgetMs = (state: ISlideState | null): number | null => {
+  if (!state?.openedAt) return null;
+  const opened = state.openedAt.getTime();
+  if (state.pausedRemainingMs != null && state.pausedAt) {
+    return Math.max(0, state.pausedAt.getTime() - opened - state.pausedMs) + state.pausedRemainingMs;
+  }
+  if (!state.endsAt) return null;
+  return Math.max(0, state.endsAt.getTime() - opened - state.pausedMs);
+};
+
+/** Patch that ends a running pause (or nothing): used whenever a window closes. */
+export const endPausePatch = (state: ISlideState | null, now: Date): Partial<ISlideState> =>
+  state?.pausedAt
+    ? { pausedAt: null, pausedRemainingMs: null, pausedMs: state.pausedMs + Math.max(0, now.getTime() - state.pausedAt.getTime()) }
+    : { pausedAt: null, pausedRemainingMs: null };
+
 export const slidePhase = (lifecycle: SlideLifecycle, state: ISlideState | null, now = Date.now()): SlidePhase => {
   if (lifecycle !== 'response') return 'shown';
   if (state?.revealedAt) return 'revealed';
@@ -89,7 +121,7 @@ export const slidePhase = (lifecycle: SlideLifecycle, state: ISlideState | null,
 // restart degrades but never reopens a closed slide.
 // ---------------------------------------------------------------------------
 
-export const ANSWER_WINDOW_VERSION = 3;
+export const ANSWER_WINDOW_VERSION = 4;
 
 export interface AnswerWindow {
   v: typeof ANSWER_WINDOW_VERSION;
@@ -103,6 +135,10 @@ export interface AnswerWindow {
   /** null = untimed. */
   endsAtMs: number | null;
   pausedRemainingMs: number | null;
+  /** When the running pause began (ms); null while the timer runs. Answers are refused while paused. */
+  pausedAtMs: number | null;
+  /** Time spent in finished pauses (ms): speed scoring counts only the time the timer ran. */
+  pausedMs: number;
   /** The slide type's `acceptConfig(slide)` snapshot (answer keys, counts, points). */
   cfg: unknown;
 }
@@ -124,8 +160,20 @@ export const buildAnswerWindow = (
     startedAtMs: (state.openedAt ?? new Date(0)).getTime(),
     endsAtMs: state.endsAt ? state.endsAt.getTime() : null,
     pausedRemainingMs: state.pausedRemainingMs,
+    pausedAtMs: state.pausedAt ? state.pausedAt.getTime() : null,
+    pausedMs: state.pausedMs ?? 0,
     cfg: def.acceptConfig ? def.acceptConfig(slide) : null,
   };
+};
+
+/**
+ * Time the answer window's timer ran before `nowMs` (what speed scoring
+ * measures): paused time is left out, and an answer that lands during a pause
+ * counts as arriving when the pause began.
+ */
+export const activeElapsedMs = (window: Pick<AnswerWindow, 'startedAtMs' | 'pausedAtMs' | 'pausedMs'>, nowMs: number) => {
+  const until = window.pausedAtMs != null ? Math.min(nowMs, window.pausedAtMs) : nowMs;
+  return Math.max(0, until - window.startedAtMs - (window.pausedMs ?? 0));
 };
 
 /**

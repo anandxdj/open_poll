@@ -3,11 +3,12 @@ import { redisClient } from '../../common/config/redis';
 import { ApiError } from '../../common/utils/ApiError';
 import { resolveSocketUserId } from '../../common/realtime/auth';
 import { liveSeqKey } from '../../common/realtime/publish';
-import { SOCKET_EVENTS, type LiveRole } from '../../common/realtime/events';
+import { REALTIME_CHANNELS, SOCKET_EVENTS, type LiveRole } from '../../common/realtime/events';
 import { registerSocketModule } from '../../common/realtime/registry';
 import { allowJoin, isValidObjectId, leavePresentationRooms, liveRooms } from '../../common/realtime/rooms';
 import { PresentationService } from './presentations.service';
 import { submitPresentationAnswerSchema } from './presentations.schema';
+import { applyPresentationsControl } from './live/control';
 import {
   LIVE_ERROR_CODES,
   type AnswerSubmitAck,
@@ -209,6 +210,9 @@ const handleLiveResync = async (socket: Socket, data: LiveResyncPayload | null, 
 
 export const presentationsSocketModule = registerSocketModule({
   name: 'presentations',
+
+  // Kicked participants leave the deck's rooms on every instance (W2-A).
+  channels: { [REALTIME_CHANNELS.presentationsControl]: applyPresentationsControl },
 
   onConnection(socket) {
     // The only join: `live:*` rooms, with an ack reporting the outcome. (The legacy

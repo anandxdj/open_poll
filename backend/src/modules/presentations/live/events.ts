@@ -1,4 +1,4 @@
-import type { QuizRealtimeEventType } from '../../../common/realtime/events';
+import type { LiveAudience, QuizRealtimeEventType } from '../../../common/realtime/events';
 import { publishLiveEvent } from '../../../common/realtime/publish';
 import type { PresentationEventPayloads } from './contract';
 
@@ -15,9 +15,10 @@ export const publishPresentationEvent = async (
   presentationId: string,
   type: PresentationEventType,
   payload: Record<string, unknown>,
-  sessionId: string | null = null
+  sessionId: string | null = null,
+  audience?: LiveAudience
 ) => {
-  await publishLiveEvent({ presentationId, type, payload, sessionId });
+  await publishLiveEvent({ presentationId, type, payload, sessionId, ...(audience ? { audience } : {}) });
 };
 
 type Payload<T extends keyof PresentationEventPayloads> = PresentationEventPayloads[T];
@@ -59,4 +60,18 @@ export const publishSessionEnded = async (presentationId: string, sessionId: str
     leaderboard: payload.leaderboard,
     participantCount: payload.participantCount,
   });
+};
+
+/** The current slide's timer changed (pause, resume, extend, skip). */
+export const publishSlideTiming = publisher('slide:timing');
+
+/** A participant was removed: told to the host, then to the participant itself. */
+export const publishParticipantKicked = async (
+  presentationId: string,
+  sessionId: string,
+  payload: Payload<'participant:kicked'>
+) => {
+  const body = payload as Record<string, unknown>;
+  await publishPresentationEvent(presentationId, 'participant:kicked', body, sessionId, 'host');
+  await publishPresentationEvent(presentationId, 'participant:kicked', body, sessionId, `participant:${payload.participantId}`);
 };

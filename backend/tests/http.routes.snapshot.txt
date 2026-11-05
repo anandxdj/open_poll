@@ -151,6 +151,12 @@ POST /api/presentations/:id/host/close
 POST /api/presentations/:id/host/reopen
 POST /api/presentations/:id/host/reveal
 POST /api/presentations/:id/host/end
+POST /api/presentations/:id/host/timer
+POST /api/presentations/:id/host/skip
+POST /api/presentations/:id/host/participants/:participantId/kick
+GET /api/presentations/:id/host/remote-token
+POST /api/presentations/:id/host/remote-token
+DELETE /api/presentations/:id/host/remote-token
 GET /api/presentations/:id/sessions
 ROUTER /api/quizzes
 ROUTER /api/quizzes
@@ -176,6 +182,12 @@ POST /api/quizzes/:id/host/close
 POST /api/quizzes/:id/host/reopen
 POST /api/quizzes/:id/host/reveal
 POST /api/quizzes/:id/host/end
+POST /api/quizzes/:id/host/timer
+POST /api/quizzes/:id/host/skip
+POST /api/quizzes/:id/host/participants/:participantId/kick
+GET /api/quizzes/:id/host/remote-token
+POST /api/quizzes/:id/host/remote-token
+DELETE /api/quizzes/:id/host/remote-token
 GET /api/quizzes/:id/sessions
 ROUTER /api/mcp
 POST /api/mcp/tokens
@@ -237,6 +249,7 @@ GET /api/public/domains/tls-ask
 ROUTER /api/public/results
 GET /api/public/results/:token
 ROUTER /api/remote
+GET /api/remote/:token/state
 ROUTER /api/sessions
 GET /api/sessions
 GET /api/sessions/:sessionId/me

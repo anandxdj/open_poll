@@ -66,7 +66,11 @@ const ALLOWED: readonly Allowed[] = [
   { methods: ['GET'], path: '/api/imports/templates/questions.:format', reason: 'static question-file template (CSV or Excel), no tenant data; rate limited' },
   { methods: ['GET'], path: '/api/imports/:id', reason: 'import job status: ImportService.get requires the job’s creator who is still an active member of its workspace (404 otherwise)' },
   { path: '/api/invites/:token*', reason: 'the single-use token is the credential; accepting also needs the invited verified email' },
-  { path: '/api/remote/:token*', reason: 'remote-control token is the credential', planned: true },
+  {
+    methods: ['GET'],
+    path: '/api/remote/:token/state',
+    reason: 'phone remote (W2-A): the pairing token plus the bound device key are the credential; the pairing names its deck, and commands run as the pairing host under deck:host',
+  },
 
   // The workspaces module resolves the workspace named in the path inside the controller.
   { methods: ['GET', 'POST'], path: '/api/workspaces', reason: 'list the user’s workspaces / create a team workspace' },

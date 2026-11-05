@@ -10,7 +10,13 @@ import { runAnswerScript } from './answerScript';
 import { scheduleDirtyFlush } from './coalescer';
 import { k, touchTtls } from './keys';
 import { kickedError, verifyParticipant } from './participant.service';
-import { loadAnswerWindow, resolveLiveSessionId, type AnswerWindow, type StoredAnswerResult } from './state';
+import {
+  activeElapsedMs,
+  loadAnswerWindow,
+  resolveLiveSessionId,
+  type AnswerWindow,
+  type StoredAnswerResult,
+} from './state';
 import { verifySlideTicket } from './ticket';
 import { enqueueAnswerWrite } from './writeBehind';
 import { noteSessionActivity } from './activity';
@@ -39,6 +45,12 @@ const alreadyAnswered = () =>
   new ApiError(409, 'You already responded to this slide', LIVE_ERROR_CODES.alreadyAnswered);
 const tooManyAnswers = () =>
   new ApiError(429, 'Too many answers, slow down', LIVE_ERROR_CODES.answerRateLimited);
+const paused = () =>
+  new ApiError(
+    409,
+    'The presenter paused the timer — your answer goes through when it resumes',
+    LIVE_ERROR_CODES.slidePaused
+  );
 const staleParticipant = () =>
   new ApiError(409, 'Your session has ended — rejoin the presentation deck', LIVE_ERROR_CODES.participantStale);
 
@@ -121,7 +133,8 @@ const processAnswer = async (
     if (!window || !def?.accept || window.slideIndex !== data.slideIndex) throw notAccepting();
 
     const nowMs = Date.now();
-    const elapsedMs = Math.max(0, nowMs - window.startedAtMs);
+    // Speed scoring counts only the time the timer ran (paused time is left out).
+    const elapsedMs = activeElapsedMs(window, nowMs);
     const { accepted, isCorrect, score } = grade(def, window, data, elapsedMs);
     const { persist } = accepted;
     const stored: StoredAnswerResult = {
@@ -214,6 +227,8 @@ const processAnswer = async (
         throw kickedError();
       case 'RATE_LIMITED':
         throw tooManyAnswers();
+      case 'PAUSED':
+        throw paused();
       case 'TIME_UP':
         throw timeUp();
       case 'BAD_OP':
@@ -234,7 +249,7 @@ const rejectionReason = (error: unknown) => {
 /**
  * Accepts one answer (or replays it). Throws `ApiError`s the same way for both
  * channels: 400 `NOT_ACCEPTING`/`TIME_UP`/validation, 401 bad token, 403
- * `PARTICIPANT_KICKED`, 409 `ALREADY_ANSWERED`/`PARTICIPANT_STALE`, 429.
+ * `PARTICIPANT_KICKED`, 409 `ALREADY_ANSWERED`/`PARTICIPANT_STALE`/`SLIDE_PAUSED`, 429.
  */
 export const submitAnswer = async (
   presentationId: string,

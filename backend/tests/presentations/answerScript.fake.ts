@@ -45,7 +45,13 @@ export const runFakeAnswerScript = (redis: FakeRedis, keys: string[], argv: stri
   // 1. window
   const rawWindow = hget(slides, slideId);
   if (rawWindow === null) return ['NO_WINDOW'];
-  const window = JSON.parse(rawWindow) as { slideIndex: number; startedAtMs: number; open: boolean; endsAtMs: number | null };
+  const window = JSON.parse(rawWindow) as {
+    slideIndex: number;
+    startedAtMs: number;
+    open: boolean;
+    endsAtMs: number | null;
+    pausedAtMs?: number | null;
+  };
   if (window.slideIndex !== slideIndex || window.startedAtMs !== startedAt) return ['STALE'];
 
   // 2. who
@@ -69,6 +75,9 @@ export const runFakeAnswerScript = (redis: FakeRedis, keys: string[], argv: stri
   // 5. window state
   if (hget(meta, 'status') === 'ended') return ['CLOSED'];
   if (!window.open) return ['CLOSED'];
+  if (window.pausedAtMs !== null && window.pausedAtMs !== undefined) {
+    if (now > window.pausedAtMs + Number(argv[15])) return ['PAUSED'];
+  }
   if (window.endsAtMs !== null && window.endsAtMs !== undefined) {
     const grace = ticketOk ? Number(argv[16]) : Number(argv[15]);
     if (now > window.endsAtMs + grace) return ['TIME_UP'];
