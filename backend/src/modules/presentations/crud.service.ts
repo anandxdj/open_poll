@@ -19,7 +19,17 @@ import { allSessionKeys, k } from './live/keys';
 import { assertContentMediaInWorkspace } from './slides/types/content/media';
 import { assertThemeChoice, type ThemeChoice } from '../themes/themes.service';
 import { WorkspaceModel } from '../workspaces/workspace.model';
-import type { CreatePresentationInput, UpdatePresentationInput } from './presentations.schema';
+import {
+  MAX_DECK_SLIDES,
+  presentationSlideSchema,
+  type CreatePresentationInput,
+  type EditableSlide,
+  type InsertSlideInput,
+  type PatchSlideInput,
+  type ReorderSlidesInput,
+  type UpdatePresentationInput,
+} from './presentations.schema';
+import { deckChanged } from './revision';
 
 const generateJoinCode = () => crypto.randomInt(100000, 1000000).toString();
 
@@ -94,24 +104,49 @@ const copySlide = ({ _id, ...slide }: StoredSlide) => ({
  */
 export const duplicatePresentation = async (presentationId: string, ctx: PolicyContext) => {
   assertCan(ctx, 'deck:create');
-  const source = (await authorizeDeck(presentationId, ctx, 'deck:read')).toObject() as IPresentation;
+  const source = await authorizeDeck(presentationId, ctx, 'deck:read');
+  return copyDeckForWorkspace(source, ctx, { title: copyTitle(source.title, MAX_DECK_TITLE), keepFolder: true });
+};
+
+export interface DeckCopyOptions {
+  title: string;
+  /** Keep the source's folder (same workspace only). */
+  keepFolder?: boolean;
+  /** Make the copy a workspace template (W3-B2), hidden from the library. */
+  isTemplate?: boolean;
+  /** The template the copy was made from or the deck a template was saved from. */
+  templateSourceId?: mongoose.Types.ObjectId | null;
+}
+
+/**
+ * A new draft deck in the caller's current workspace with the content of
+ * `source`: every slide (new slide and option ids), pace, settings and theme.
+ * The caller has checked `deck:create` and read access to `source`. A source
+ * from another workspace (a pre-workspace deck) has its media checked against
+ * the new one and keeps no brand kit or folder. Shared by duplicate and the
+ * templates module ("Save as template", "Use template").
+ */
+export const copyDeckForWorkspace = async (source: IPresentation, ctx: PolicyContext, options: DeckCopyOptions) => {
+  const plain = (typeof source.toObject === 'function' ? source.toObject() : source) as IPresentation;
   // assertCan('deck:create') only passes with an active membership of a workspace.
   const workspaceId = String(ctx.workspace!._id);
-  const sameWorkspace = source.workspaceId != null && String(source.workspaceId) === workspaceId;
+  const sameWorkspace = plain.workspaceId != null && String(plain.workspaceId) === workspaceId;
 
-  const slides = (source.slides as StoredSlide[]).map(copySlide);
+  const slides = (plain.slides as StoredSlide[]).map(copySlide);
   if (!sameWorkspace) await assertContentMediaInWorkspace(slides, workspaceId);
-  const theme = source.theme ?? null;
+  const theme = plain.theme ?? null;
 
   return createWithJoinCode({
-    title: copyTitle(source.title, MAX_DECK_TITLE),
+    title: options.title,
     slides,
-    pace: source.pace,
-    settings: source.settings,
+    pace: plain.pace,
+    settings: plain.settings,
     ...(theme
       ? { theme: { presetId: theme.presetId, brandKitId: sameWorkspace ? theme.brandKitId : null, overrides: theme.overrides } }
       : {}),
-    folderId: sameWorkspace ? source.folderId : null,
+    folderId: options.keepFolder && sameWorkspace ? plain.folderId : null,
+    isTemplate: options.isTemplate ?? false,
+    templateSourceId: options.templateSourceId ?? null,
     creatorId: ctx.user!.id,
     workspaceId,
   });
@@ -134,35 +169,76 @@ export const listPresentations = async (ctx: ListContext) => {
   if (workspace.type === 'personal' && String(workspace.ownerId) === userId) {
     scopes.push({ workspaceId: null, creatorId: userId });
   }
-  return PresentationModel.find({ $or: scopes, deletedAt: null }).sort({ updatedAt: -1 });
+  // Templates live on the templates page (`modules/templates`), not among the decks.
+  return PresentationModel.find({ $or: scopes, deletedAt: null, isTemplate: { $ne: true } }).sort({ updatedAt: -1 });
 };
 
-const deckChanged = () =>
-  new ApiError(409, 'The deck changed since it was read; read it again and retry', 'DECK_CHANGED');
+/** Edits are refused while a session is live (the session runs on a snapshot, but the mirror would drift). */
+const assertEditable = (presentation: IPresentation) => {
+  if (presentation.status !== 'draft' && presentation.status !== 'ended') {
+    throw ApiError.badRequest('Cannot edit a presentation deck while a live session is running');
+  }
+};
+
+const currentRevision = (presentation: IPresentation) => presentation.revision ?? 0;
+
+/** The deck's workspace (or, for a deck from before workspaces, the actor's) for media checks. */
+const mediaWorkspaceOf = (presentation: IPresentation, actor: Actor) =>
+  presentation.workspaceId ?? (typeof actor !== 'string' && actor.workspace ? actor.workspace._id : undefined);
 
 /**
- * `expectedVersion` (the `__v` the caller read) turns a read-modify-write of
- * the slides into a compare-and-set: another save in between is a 409
- * instead of a silent lost update. Saves are versioned (optimisticConcurrency).
+ * Request slides as stored slides. A slide that names the id of one of the
+ * deck's slides keeps it (co-editors and the slide-level routes address
+ * slides by id); unknown and repeated ids are dropped and get a new one.
+ */
+const withKnownIds = (presentation: IPresentation, slides: EditableSlide[]): IPresentationSlide[] => {
+  const known = new Set(presentation.slides.map((slide) => String(slide._id)));
+  const used = new Set<string>();
+  // Request slides carry a string id; MCP passes stored slides with their ObjectId.
+  return slides.map(({ _id, ...slide }) => {
+    const id = _id == null ? null : String(_id).toLowerCase();
+    if (id && known.has(id) && !used.has(id)) {
+      used.add(id);
+      return { ...slide, _id: new mongoose.Types.ObjectId(id) } as unknown as IPresentationSlide;
+    }
+    return slide as unknown as IPresentationSlide;
+  });
+};
+
+export interface UpdateOptions {
+  /** The `__v` the caller read (MCP): any save in between is a 409. */
+  expectedVersion?: number;
+  /** The `revision` the caller read (`If-Match`): a title or slide save in between is a 409. */
+  expectedRevision?: number;
+}
+
+/**
+ * `expectedVersion` (the `__v` the caller read) and `expectedRevision` (the
+ * `revision`, from `If-Match`) turn a read-modify-write of the slides into a
+ * compare-and-set: another save in between is a 409 instead of a silent lost
+ * update. Saves are versioned (optimisticConcurrency), so two writers that
+ * both read the same revision cannot both win.
  */
 export const updatePresentation = async (
   presentationId: string,
   actor: Actor,
   data: UpdatePresentationInput,
-  options: { expectedVersion?: number } = {},
+  options: UpdateOptions = {},
 ) => {
   const presentation = await authorizeDeck(presentationId, actor, 'deck:edit');
-  if (presentation.status !== 'draft' && presentation.status !== 'ended') {
-    throw ApiError.badRequest('Cannot edit a presentation deck while a live session is running');
-  }
+  assertEditable(presentation);
   if (options.expectedVersion !== undefined && presentation.get('__v') !== options.expectedVersion) throw deckChanged();
+  if (options.expectedRevision !== undefined && currentRevision(presentation) !== options.expectedRevision) {
+    throw deckChanged(currentRevision(presentation));
+  }
   if (data.slides !== undefined) {
-    const workspaceId =
-      presentation.workspaceId ?? (typeof actor !== 'string' && actor.workspace ? actor.workspace._id : undefined);
+    const workspaceId = mediaWorkspaceOf(presentation, actor);
     if (workspaceId) await assertContentMediaInWorkspace(data.slides, String(workspaceId));
   }
+  const contentChanged = data.slides !== undefined || (data.title !== undefined && data.title !== presentation.title);
   if (data.title !== undefined) presentation.title = data.title;
-  if (data.slides !== undefined) presentation.slides = data.slides as IPresentationSlide[];
+  if (data.slides !== undefined) presentation.slides = withKnownIds(presentation, data.slides);
+  if (contentChanged) presentation.revision = currentRevision(presentation) + 1;
   if (data.pace !== undefined) presentation.pace = data.pace;
   // Settings are patched field by field: omitted fields keep their value.
   for (const [path, value] of toPaths(data.settings ?? {}, 'settings')) {
@@ -182,6 +258,138 @@ export const updatePresentation = async (
     if (error instanceof mongoose.Error.VersionError) throw deckChanged();
     throw error;
   }
+  return presentation;
+};
+
+// ---------- Slide-level edits (W3-B2) ----------
+
+/** Retries of a slide edit sent without `If-Match` when a concurrent save won the race. */
+const SLIDE_EDIT_ATTEMPTS = 3;
+
+const slideNotFound = () => new ApiError(404, 'Slide not found', 'SLIDE_NOT_FOUND');
+
+/**
+ * Runs one slide edit as a compare-and-set on the deck. With `expectedRevision`
+ * a save in between is a 409; without it the edit is re-applied on the fresh
+ * deck (it only touches the slide it names, so other people's edits survive).
+ * Every edit bumps `revision`.
+ */
+async function editSlides<T>(
+  presentationId: string,
+  actor: Actor,
+  expectedRevision: number | undefined,
+  apply: (presentation: IPresentation) => Promise<T> | T,
+): Promise<{ presentation: IPresentation; result: T }> {
+  for (let attempt = 1; ; attempt++) {
+    const presentation = await authorizeDeck(presentationId, actor, 'deck:edit');
+    assertEditable(presentation);
+    if (expectedRevision !== undefined && currentRevision(presentation) !== expectedRevision) {
+      throw deckChanged(currentRevision(presentation));
+    }
+    const result = await apply(presentation);
+    presentation.revision = currentRevision(presentation) + 1;
+    try {
+      await presentation.save();
+      return { presentation, result };
+    } catch (error) {
+      if (!(error instanceof mongoose.Error.VersionError)) throw error;
+      if (expectedRevision !== undefined || attempt >= SLIDE_EDIT_ATTEMPTS) throw deckChanged();
+    }
+  }
+}
+
+const indexOfSlide = (presentation: IPresentation, slideId: string) =>
+  mongoose.isValidObjectId(slideId)
+    ? presentation.slides.findIndex((slide) => String(slide._id) === slideId.toLowerCase())
+    : -1;
+
+/** Issues of a slide schema as one 400 message (the format `validate()` uses). */
+const invalidSlide = (issues: { path: PropertyKey[]; message: string }[]) =>
+  ApiError.badRequest(issues.map((issue) => `${issue.path.map(String).join('.')}: ${issue.message}`).join('; '));
+
+type StoredSlideDoc = IPresentationSlide & { toObject?: () => Record<string, unknown> };
+
+const plainSlide = (slide: StoredSlideDoc): Record<string, unknown> =>
+  slide.toObject ? slide.toObject() : { ...(slide as unknown as Record<string, unknown>) };
+
+/** Adds one slide at `index` (default: the end). Returns the deck and the new slide's id. */
+export const insertSlide = async (
+  presentationId: string,
+  actor: Actor,
+  input: InsertSlideInput,
+  expectedRevision?: number,
+) => {
+  const { presentation, result } = await editSlides(presentationId, actor, expectedRevision, async (deck) => {
+    if (deck.slides.length >= MAX_DECK_SLIDES) {
+      throw new ApiError(400, `A presentation deck holds at most ${MAX_DECK_SLIDES} slides`, 'TOO_MANY_SLIDES');
+    }
+    const workspaceId = mediaWorkspaceOf(deck, actor);
+    if (workspaceId) await assertContentMediaInWorkspace([input.slide], String(workspaceId));
+    const index = Math.min(input.index ?? deck.slides.length, deck.slides.length);
+    const _id = new mongoose.Types.ObjectId();
+    deck.slides.splice(index, 0, { ...input.slide, _id } as unknown as IPresentationSlide);
+    return String(_id);
+  });
+  return { presentation, slideId: result };
+};
+
+/**
+ * Changes some fields of one slide: they are merged onto the stored slide and
+ * the whole slide is validated again by its type (a `type` change included).
+ * The slide keeps its id and position.
+ */
+export const updateSlide = async (
+  presentationId: string,
+  actor: Actor,
+  slideId: string,
+  patch: PatchSlideInput,
+  expectedRevision?: number,
+) => {
+  const { presentation } = await editSlides(presentationId, actor, expectedRevision, async (deck) => {
+    const index = indexOfSlide(deck, slideId);
+    if (index < 0) throw slideNotFound();
+    const stored = deck.slides[index]! as StoredSlideDoc;
+    const { _id, kind, ...current } = plainSlide(stored);
+    const parsed = presentationSlideSchema.safeParse({ ...current, ...patch });
+    if (!parsed.success) throw invalidSlide(parsed.error.issues);
+    const workspaceId = mediaWorkspaceOf(deck, actor);
+    if (workspaceId) await assertContentMediaInWorkspace([parsed.data], String(workspaceId));
+    deck.slides.splice(index, 1, { ...parsed.data, _id: stored._id } as unknown as IPresentationSlide);
+  });
+  return presentation;
+};
+
+/** Removes one slide; a deck keeps at least one. */
+export const deleteSlide = async (presentationId: string, actor: Actor, slideId: string, expectedRevision?: number) => {
+  const { presentation } = await editSlides(presentationId, actor, expectedRevision, (deck) => {
+    const index = indexOfSlide(deck, slideId);
+    if (index < 0) throw slideNotFound();
+    if (deck.slides.length === 1) {
+      throw new ApiError(400, 'A presentation deck must contain at least one slide', 'LAST_SLIDE');
+    }
+    deck.slides.splice(index, 1);
+  });
+  return presentation;
+};
+
+/**
+ * Puts the slides in `order` (every slide id of the deck, once). An order that
+ * names other slides than the deck has now (someone added or removed one) is
+ * a 409 `DECK_CHANGED`: the caller is reordering a deck it has not seen.
+ */
+export const reorderSlides = async (
+  presentationId: string,
+  actor: Actor,
+  input: ReorderSlidesInput,
+  expectedRevision?: number,
+) => {
+  const { presentation } = await editSlides(presentationId, actor, expectedRevision, (deck) => {
+    const byId = new Map(deck.slides.map((slide) => [String(slide._id), slide as StoredSlideDoc]));
+    if (input.order.length !== byId.size || input.order.some((id) => !byId.has(id))) {
+      throw deckChanged(currentRevision(deck));
+    }
+    deck.slides = input.order.map((id) => plainSlide(byId.get(id)!)) as unknown as IPresentationSlide[];
+  });
   return presentation;
 };
 

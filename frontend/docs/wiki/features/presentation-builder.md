@@ -1,7 +1,7 @@
 ---
 summary: Deck builder layout, the slide meta and editor registries, inspector tabs, and slide-rail operations.
 status: active
-last_updated: 2026-10-30
+last_updated: 2026-11-05
 ---
 
 # Presentation Builder
@@ -17,7 +17,7 @@ Route `/presentation/create` (`app/(dashboard)/presentation/create/page.tsx`, `?
 | --- | --- | --- |
 | State | `components/builder/useDeckBuilder.ts` | Deck + selected slide, local draft (localStorage), silent backend drafts, explicit save, AI generation. |
 | Frame | `components/builder/BuilderShell.tsx` | A studio frame: the header bar across the top, the rail on the left (on top below `lg`), the stage on graph paper in the middle and the inspector as a 26rem panel on the right from `xl` (below `xl` it sits under the stage as a sheet and both scroll together). The app sidebar starts collapsed on builder routes (`isStudioPath` in `components/layouts/nav.ts`). |
-| Header | `components/builder/BuilderHeader.tsx` | Back to the library, the title edited in place (`Deck title`), AI generate (outline), Import questions (`features/imports`, optional `onImportQuestions`) and Save draft (ghost), then Save changes (outline) and Present (the one ember button: `handleSave("present")` saves, then opens `/presentation/host/[id]`). A new deck shows Create deck as the ember button and no Present. |
+| Header | `components/builder/BuilderHeader.tsx` | Back to the library, the title edited in place (`Deck title`), who else has the deck open (`presence` slot, see Co-editing safety), AI generate (outline), Import questions (`features/imports`, optional `onImportQuestions`) and Save draft (ghost), then Save changes (outline) and Present (the one ember button: `handleSave("present")` saves, then opens `/presentation/host/[id]`). A new deck shows Create deck as the ember button and no Present. |
 | Stage | `components/builder/SlideStage.tsx` | "Slide N of M" with the type, kind and time limit, the selected slide at full width (the rail's `SlideThumbnail`, the same `StageView`), and its speaker notes (`slide.notes`, host only, up to 5000 characters, saved with the deck). |
 | AI dialog | `components/AiPresentationModal.tsx` | "Whole deck" (default for a new deck; see [`ai-deck.md`](./ai-deck.md): outline review, speaker notes, creates the deck and `handleDeckCreated` switches the builder to it) and "Quick slides" (questions merged into this deck). `AiDeckBanner` shows the mock-data notice under the header for `?aiSource=mock`. |
 | Rail | `components/builder/SlideRail.tsx` | Paper column (`bg-sidebar`), the selected slide a white sheet; thumbnails (`SlideThumbnail`, scoped `dark` so the stage reads in light mode), select, reorder, duplicate, delete, "New slide" picker. |
@@ -223,4 +223,39 @@ doesn't apply. Tabs follow the WAI-ARIA tabs pattern (arrow keys, Home/End).
 - Save Draft and the silent save on unmount/AI result: `normalizeSlideForDraft` fills gaps
   (`Untitled Question`, `Option N`, `Item N`, …) so the API accepts an unfinished deck.
 - The local draft (localStorage key `openpoll_presentation_draft_<id|new>`) is written 250 ms after
-  each edit and on `beforeunload`.
+  each edit and on `beforeunload`, with the deck `revision` the edits started from. For a saved deck
+  it is written only when the title or slides differ from the copy last loaded or saved
+  (`deckSignature` in `deckDraft.ts`): opening a deck, selecting slides or undoing an edit leaves no
+  draft (and clears one), and on load a draft equal to the saved copy is dropped. Otherwise an
+  untouched builder's draft looked newer than a co-editor's save and, after a reload, showed the old
+  version behind a false conflict banner.
+- The silent save (on leaving, after an AI result) skips a deck equal to its saved copy: it would
+  only bump the revision and make a co-editor's next save look stale. Explicit Save draft, Save
+  changes and Present save as before.
+- A workspace template opened by a direct link (`isTemplate`) is not edited: the builder shows
+  `features/templates/components/TemplateNotice.tsx` (Use template) and writes no draft or save.
+- Payloads keep each slide's `_id`: the API keeps the ids of stored slides (new slides and unknown
+  ids get fresh ones), so slide ids no longer change on every save.
+
+## Co-editing safety (W3-B2)
+
+Backend contract: `backend/docs/wiki/modules/folders-templates.md` → Co-editing.
+
+- `useDeckBuilder` keeps the deck's `revision` (from the load, a create or a save response) and
+  sends it as `If-Match` on every update (`updatePresentation(id, payload, { revision })` in
+  `api/crud.ts`). Theme and Audience tab saves do not change the revision.
+- A refused save (409 `DECK_CHANGED`, `isDeckConflict`) shows `builder/ConflictBanner.tsx` under the
+  header (`role="alert"`): someone else saved, nothing was overwritten. **Reload latest version**
+  drops the local edits and loads the saved deck; **Save mine as a copy** creates a new deck
+  "<title> (my version)" from the local edits and opens it. While the banner is up, Save changes /
+  Save draft / Present only repeat the hint and send nothing, and the silent save on leaving is
+  skipped (the local draft keeps the edits).
+- A local draft that wins on load (newer than the saved deck) but recorded another revision than the
+  deck now has shows the banner straight away.
+- **Presence**: `builder/useDeckPresence.ts` joins the deck's editor presence on the shared socket
+  (`deck:join` with the access token, resent every 30 s; `presence:update`; `deck:leave` on unmount;
+  backend `realtime/editor.md`) while a saved deck is open, and `builder/PresenceAvatars.tsx` (passed
+  to `BuilderHeader` as `presence`, beside the title) shows the other editors' initials (up to four,
+  then `+N`; names in the tooltip and the `role="status"` label "Also editing: …") and "Open in
+  another tab" when the signed-in user has the deck open twice. `splitPresence` is unit tested
+  (`tests/unit/builder.presence.test.ts`).

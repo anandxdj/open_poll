@@ -8,6 +8,7 @@ import { authorizeDeck, getPresentationById, type Actor } from '../presentations
 import type { IPresentationSession } from '../presentations/models/session.model';
 import { PresentationService } from '../presentations/presentations.service';
 import { getParticipantCount } from '../presentations/live/distribution';
+import { LIVE_ERROR_CODES } from '../presentations/live/contract';
 import {
   findLatestSession,
   findLiveSession,
@@ -154,6 +155,10 @@ export const RemoteService = {
   /** A new pairing token (the previous one is revoked). The plain token is returned once. */
   async createToken(presentationId: string, actor: Actor, userId: string): Promise<RemoteTokenCreated> {
     const presentation = await authorizeDeck(presentationId, actor, 'deck:host');
+    // Templates (W3-B2) are never presented, so there is nothing for a remote to drive.
+    if (presentation.isTemplate) {
+      throw new ApiError(409, 'This is a template. Use it to make a deck, then present that deck.', LIVE_ERROR_CODES.templateNotPresentable);
+    }
     await revokeActive(presentationId);
     const token = `${TOKEN_PREFIX}${randomBytes(32).toString('base64url')}`;
     const expiresAt = new Date(Date.now() + REMOTE_TOKEN_TTL_MS);

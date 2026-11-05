@@ -24,6 +24,7 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { EndSessionDialog } from "@/features/presentations/components/host/EndSessionDialog";
+import { TemplateScreen } from "@/features/presentations/components/host/TemplateScreen";
 import { useHostSession } from "@/features/presentations/components/host/useHostSession";
 import { useJoinLink } from "@/features/presentations/components/host/useJoinLink";
 import { Stage } from "@/features/presentations/components/stage/Stage";
@@ -85,6 +86,7 @@ function PresenterView({ presentationId }: { presentationId: string }) {
   const title = useLive((s) => s.title);
   const joinCode = useLive((s) => s.joinCode);
   const hasDeck = useLive((s) => s.deck !== null);
+  const isTemplate = useLive((s) => s.deck?.isTemplate === true);
   const participantCount = useLive((s) => s.participants.length);
   const join = useJoinLink(joinCode);
   const isLive = status === "lobby" || status === "active";
@@ -140,6 +142,9 @@ function PresenterView({ presentationId }: { presentationId: string }) {
       </div>
     );
   }
+
+  // A workspace template (W3-B2) is never presented: offer a deck made from it instead.
+  if (isTemplate) return <TemplateScreen presentationId={presentationId} />;
 
   if (loadError || !hasDeck) {
     return (

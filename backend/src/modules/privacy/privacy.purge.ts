@@ -17,6 +17,7 @@ import { BrandKitModel } from '../themes/brandKit.model';
 import { ScimTokenModel } from '../scim/scimToken.model';
 import { SsoConnectionModel } from '../sso/ssoConnection.model';
 import { CustomDomainModel } from '../domains/customDomain.model';
+import { FolderModel } from '../folders/folder.model';
 import { ACTIVE_DOMAINS_KEY } from '../domains/domains.service';
 import { redisClient } from '../../common/config/redis';
 import { MediaAssetModel } from '../uploads/media.model';
@@ -69,7 +70,7 @@ async function purgeContent(filter: Record<string, unknown>) {
   }
 }
 
-/** A workspace and everything in it: content, sessions, files, brand kits, members, invites, groups, shares, counters. */
+/** A workspace and everything in it: content, sessions, files, brand kits, folders, members, invites, groups, shares, counters. */
 export async function purgeWorkspace(workspace: Pick<IWorkspace, '_id'>) {
   const workspaceId = workspace._id;
   // Its custom domains stop serving at once (the provisioner forgets them when an admin removes one;
@@ -85,6 +86,7 @@ export async function purgeWorkspace(workspace: Pick<IWorkspace, '_id'>) {
   await Promise.all([
     MediaAssetModel.deleteMany({ workspaceId }),
     BrandKitModel.deleteMany({ workspaceId }),
+    FolderModel.deleteMany({ workspaceId }),
     SsoConnectionModel.deleteMany({ workspaceId }),
     ScimTokenModel.deleteMany({ workspaceId }),
     ImportJobModel.deleteMany({ workspaceId }),

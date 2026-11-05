@@ -17,6 +17,7 @@ import { HostControls } from "./HostControls";
 import { HostHeader } from "./HostHeader";
 import { LeaderboardModal } from "./LeaderboardModal";
 import { useHostSession } from "./useHostSession";
+import { TemplateScreen } from "./TemplateScreen";
 import { useJoinLink } from "./useJoinLink";
 
 const primaryButton =
@@ -45,6 +46,7 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
   const status = useLive((s) => s.status);
   const joinCode = useLive((s) => s.joinCode);
   const hasDeck = useLive((s) => s.deck !== null);
+  const isTemplate = useLive((s) => s.deck?.isTemplate === true);
   const join = useJoinLink(joinCode);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -108,6 +110,10 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
       </div>
     );
   }
+
+  // A workspace template (W3-B2) opened by a direct link: the API refuses to present it
+  // (TEMPLATE_NOT_PRESENTABLE), so the console offers a deck made from it instead.
+  if (isTemplate) return <TemplateScreen presentationId={presentationId} />;
 
   const openLobbyButton = (variant: "outline" | "default" = "outline") => (
     <Button

@@ -63,6 +63,13 @@ Moves each deck's stored run into legacy session #1, backfills `sessionId`/`slid
 decks left live, swaps the per-deck unique indexes for session-scoped ones. Details and the
 deploy runbook (no live sessions during the deploy): `modules/presentations-live.md`.
 
+## 210-folders
+
+`FolderModel.syncIndexes()` for the new `folders` collection (`folder_name_per_parent`, unique
+`{workspaceId, parentId, nameKey}`) and `polls_workspace_folder_updated`
+`{workspaceId, folderId, updatedAt:-1}` on `polls` (createIndex). Idempotent, no backfill. See
+`modules/folders-templates.md`.
+
 ## 200-session-activity
 
 Creates the idle-session job's index on `presentationsessions` (`live_sessions_by_activity`:

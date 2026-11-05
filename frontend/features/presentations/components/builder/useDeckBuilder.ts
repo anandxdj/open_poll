@@ -8,7 +8,7 @@ import { useIsomorphicLayoutEffect } from "@/hooks/use-isomorphic-layout-effect"
 import { getApiErrorMessage } from "@/lib/api-error";
 import { builderParamsAfterGeneration } from "@/features/ai/deck/source";
 import { generatePresentationDraft } from "../../api/ai";
-import { createPresentation, getPresentation, updatePresentation } from "../../api/crud";
+import { createPresentation, getPresentation, isDeckConflict, updatePresentation } from "../../api/crud";
 import { blankSlide, cleanSlide } from "../../slides/editor";
 import type {
   GeneratedPresentationDraft,
@@ -20,6 +20,7 @@ import type {
 import {
   buildDraftStorageKey,
   clearDraft,
+  deckSignature,
   draftIsNewer,
   firstSlide,
   isDeckDirty,
@@ -37,6 +38,11 @@ import type { DeckThemeRef } from "@/features/themes/types";
 
 // Prevents double-creation across remounts/rapid saves during navigation.
 let isGlobalCreatingPresentation = false;
+
+/** Title of the deck "Save mine as a copy" makes after a conflict (the API allows 120 characters). */
+const myVersionTitle = (title: string) => `${(title.trim() || "Untitled deck").slice(0, 107)} (my version)`;
+
+const CONFLICT_PENDING = "Someone else saved this deck. Reload the latest version or save yours as a copy first.";
 
 /**
  * Deck builder state: the deck being edited, the selected slide, local
@@ -63,6 +69,19 @@ export function useDeckBuilder() {
   const draftHydratedRef = useRef(false);
   const draftDirtyRef = useRef(false);
   const [savingDraft, setSavingDraft] = useState(false);
+  // Co-editing (W3-B2): the deck revision these edits started from, sent as If-Match on every
+  // save. A save someone else made in between makes ours fail with 409 DECK_CHANGED, which
+  // shows the conflict banner instead of overwriting their edit.
+  const revisionRef = useRef<number | null>(null);
+  const [conflict, setConflict] = useState(false);
+  const conflictRef = useRef(false);
+  const [resolvingConflict, setResolvingConflict] = useState(false);
+  // Signature (`deckSignature`) of the saved copy: the last one loaded or saved. State equal to
+  // it has no unsaved edit, so no local draft is written and no save is sent. Null until the
+  // deck exists on the server.
+  const baselineRef = useRef<string | null>(null);
+  // A workspace template opened by a direct link: shown as a template (Use template), never edited.
+  const [isTemplate, setIsTemplate] = useState(false);
   // Set right before router.replace(...?id=<newId>) so the edit-loader effect
   // below doesn't immediately refetch and stomp the in-progress local state
   // with the (normalized-for-validation) version we just persisted.
@@ -77,6 +96,10 @@ export function useDeckBuilder() {
       isMountedRef.current = false;
     };
   }, []);
+  const markConflict = (value: boolean) => {
+    conflictRef.current = value;
+    if (isMountedRef.current) setConflict(value);
+  };
 
   useEffect(() => {
     const saved = loadDraft(draftStorageKey);
@@ -101,11 +124,38 @@ export function useDeckBuilder() {
     void (async () => {
       try {
         const presentation = await getPresentation(editId);
+        const serverSignature = deckSignature(presentation.title, presentation.slides);
+        baselineRef.current = serverSignature;
+        if (presentation.isTemplate) {
+          // Not edited here: the builder shows "Use template" instead, and nothing is saved on the way out.
+          isExplicitSaveRef.current = true;
+          clearDraft(draftStorageKey);
+          setTitle(presentation.title);
+          setSlides(presentation.slides.length > 0 ? presentation.slides : [firstSlide()]);
+          setTheme(presentation.theme ?? null);
+          setIsTemplate(true);
+          return;
+        }
+        let local = loadDraft(draftStorageKey);
+        // A local draft equal to the saved copy holds no edit: drop it (older builders wrote one on every open).
+        if (local && deckSignature(local.title, local.slides) === serverSignature) {
+          clearDraft(draftStorageKey);
+          local = null;
+        }
         // The draft restored on mount wins when it is newer than the saved deck:
         // overwriting it here lost every unsaved edit on a reload.
-        if (!draftIsNewer(loadDraft(draftStorageKey), presentation.updatedAt)) {
+        if (!draftIsNewer(local, presentation.updatedAt)) {
           setTitle(presentation.title);
           setSlides(presentation.slides);
+          revisionRef.current = presentation.revision ?? null;
+        } else {
+          // Its edits started from the revision it recorded (older drafts: assume the current one).
+          revisionRef.current = local?.revision ?? presentation.revision ?? null;
+          // Someone saved since: say so now rather than on the next save.
+          if (local?.revision !== undefined && presentation.revision !== undefined && local.revision !== presentation.revision) {
+            conflictRef.current = true;
+            setConflict(true);
+          }
         }
         setTheme(presentation.theme ?? null);
       } catch {
@@ -182,6 +232,8 @@ export function useDeckBuilder() {
 
     draftStateRef.current = { title: deck.title, slides: deck.slides, editId: deck._id };
     skipNextLoadIdRef.current = deck._id;
+    revisionRef.current = deck.revision ?? 0;
+    baselineRef.current = deckSignature(deck.title, deck.slides);
     setTitle(deck.title);
     setSlides(deck.slides.length > 0 ? deck.slides : [firstSlide()]);
     setActive(0);
@@ -214,29 +266,38 @@ export function useDeckBuilder() {
     // Until the saved deck has loaded, the state is the blank placeholder: saving it
     // would make a "newer" empty draft that wins over the deck on the next load.
     if (loading) return;
+    if (isTemplate) return;
     if (editId === null && !title.trim() && slides.length === 1 && !isSlideDirty(slides[0]!)) {
+      return;
+    }
+    // A saved deck as it was loaded or saved (opened, slides selected, edits undone): no local
+    // draft. One written here would look newer than a co-editor's later save and, after a
+    // reload, hide their version behind a false conflict.
+    if (editId !== null && baselineRef.current !== null && deckSignature(title, slides) === baselineRef.current) {
+      draftDirtyRef.current = false;
+      clearDraft(draftStorageKey);
       return;
     }
 
     draftDirtyRef.current = true;
     const timeout = window.setTimeout(() => {
-      saveDraft(draftStorageKey, { title, slides, active });
+      saveDraft(draftStorageKey, { title, slides, active, revision: revisionRef.current ?? undefined });
     }, 250);
 
     return () => window.clearTimeout(timeout);
-  }, [title, slides, active, draftStorageKey, editId, loading]);
+  }, [title, slides, active, draftStorageKey, editId, loading, isTemplate]);
 
   useEffect(() => {
     const onBeforeUnload = () => {
       if (!draftDirtyRef.current) return;
-      saveDraft(draftStorageKey, { title, slides, active });
+      saveDraft(draftStorageKey, { title, slides, active, revision: revisionRef.current ?? undefined });
     };
 
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       if (draftDirtyRef.current) {
-        saveDraft(draftStorageKey, { title, slides, active });
+        saveDraft(draftStorageKey, { title, slides, active, revision: revisionRef.current ?? undefined });
       }
     };
   }, [draftStorageKey, title, slides, active]);
@@ -259,6 +320,15 @@ export function useDeckBuilder() {
   const runPersistDraft = async (silent: boolean) => {
     const { title: t, slides: s, editId: id } = draftStateRef.current;
     if (!isDeckDirty(t, s)) return;
+    // A save would only be refused again; the banner says what to do.
+    if (conflictRef.current) {
+      if (!silent) toast.error(CONFLICT_PENDING);
+      return;
+    }
+    // The silent save (leaving, AI results) skips a deck with no edit since the last load or
+    // save: it would only bump the revision and make a co-editor's next save look stale.
+    // Clicking Save draft still saves (the user asked for it).
+    if (silent && id && baselineRef.current !== null && deckSignature(t, s) === baselineRef.current) return;
 
     isExplicitSaveRef.current = true;
     // Cross-instance guard only (e.g. dev StrictMode double-mount) — same
@@ -269,11 +339,15 @@ export function useDeckBuilder() {
     try {
       const payload = toDraftPayload(t, s);
       if (id) {
-        await updatePresentation(id, payload);
+        const saved = await updatePresentation(id, payload, { revision: revisionRef.current });
+        revisionRef.current = saved.revision ?? revisionRef.current;
+        baselineRef.current = deckSignature(t, s);
         clearDraft(buildDraftStorageKey(id));
         if (!silent) toast.success("Draft updated");
       } else {
         const created = await createPresentation(payload);
+        revisionRef.current = created.revision ?? 0;
+        baselineRef.current = deckSignature(t, s);
         // Set this directly (not just via the URL) so a later queued save —
         // possibly firing after this component unmounted — still targets the
         // same record instead of creating a duplicate.
@@ -287,9 +361,10 @@ export function useDeckBuilder() {
         }
         if (!silent) toast.success("Saved to drafts");
       }
-    } catch {
+    } catch (err) {
       isExplicitSaveRef.current = false;
-      if (!silent) toast.error("Could not save draft");
+      if (isDeckConflict(err)) markConflict(true);
+      else if (!silent) toast.error("Could not save draft");
     } finally {
       if (!id) isGlobalCreatingPresentation = false;
     }
@@ -319,12 +394,18 @@ export function useDeckBuilder() {
     return () => {
       if (isExplicitSaveRef.current) return;
       if (!draftHydratedRef.current) return;
+      // In a conflict the local draft keeps the edits; the saved deck is someone else's now.
+      if (conflictRef.current) return;
       void persistAsDraftRef.current?.(true);
     };
   }, []);
 
   /** Validates and saves the deck, then opens the library, or the host console when `next` is "present". */
   const handleSave = async (next: "library" | "present" = "library") => {
+    if (conflictRef.current) {
+      toast.error(CONFLICT_PENDING);
+      return;
+    }
     const cleaned = slides.map(cleanSlide);
 
     const error = validateDeck(title, cleaned);
@@ -338,7 +419,8 @@ export function useDeckBuilder() {
     try {
       const payload = toSavePayload(title, cleaned);
       if (editId) {
-        await updatePresentation(editId, payload);
+        const saved = await updatePresentation(editId, payload, { revision: revisionRef.current });
+        revisionRef.current = saved.revision ?? revisionRef.current;
         toast.success("Presentation deck updated!");
       } else {
         await createPresentation(payload);
@@ -348,9 +430,52 @@ export function useDeckBuilder() {
       router.push(next === "present" && editId ? `/presentation/host/${editId}` : "/polls");
     } catch (err) {
       isExplicitSaveRef.current = false;
-      toast.error(getApiErrorMessage(err) || "Failed to save presentation deck.");
+      if (isDeckConflict(err)) markConflict(true);
+      else toast.error(getApiErrorMessage(err) || "Failed to save presentation deck.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  /** Conflict: drop the local edits and load what is saved now. */
+  const reloadLatest = async () => {
+    if (!editId) return;
+    setResolvingConflict(true);
+    try {
+      const presentation = await getPresentation(editId);
+      clearDraft(draftStorageKey);
+      revisionRef.current = presentation.revision ?? null;
+      baselineRef.current = deckSignature(presentation.title, presentation.slides);
+      setTitle(presentation.title);
+      setSlides(presentation.slides.length > 0 ? presentation.slides : [firstSlide()]);
+      setTheme(presentation.theme ?? null);
+      setActive((current) => Math.min(current, Math.max(0, presentation.slides.length - 1)));
+      markConflict(false);
+      toast.success("Loaded the latest version.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) || "Could not load the latest version.");
+    } finally {
+      setResolvingConflict(false);
+    }
+  };
+
+  /** Conflict: keep the local edits as a new deck (the other person's save stays as it is) and open it. */
+  const saveMineAsCopy = async () => {
+    setResolvingConflict(true);
+    try {
+      const { title: t, slides: s } = draftStateRef.current;
+      const created = await createPresentation(toDraftPayload(myVersionTitle(t), s));
+      clearDraft(draftStorageKey);
+      // Nothing of this deck is left to write back on the way out.
+      draftDirtyRef.current = false;
+      isExplicitSaveRef.current = true;
+      markConflict(false);
+      toast.success("Your version is saved as a new deck.");
+      router.push(`/presentation/create?id=${created._id}`);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) || "Could not save your version.");
+    } finally {
+      setResolvingConflict(false);
     }
   };
 
@@ -374,6 +499,11 @@ export function useDeckBuilder() {
     savingDraft,
     handleSave,
     handleSaveDraft,
+    isTemplate,
+    conflict,
+    resolvingConflict,
+    reloadLatest,
+    saveMineAsCopy,
     aiOpen,
     setAiOpen,
     isAiGenerating,

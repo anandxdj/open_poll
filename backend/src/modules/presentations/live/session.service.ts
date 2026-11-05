@@ -486,11 +486,26 @@ const moveTo = async (
 // ---------------------------------------------------------------------------
 
 /**
+ * Workspace templates (W3-B2, `isTemplate`) are blueprints: they are never
+ * presented, a deck made from them is ("Use template").
+ */
+const assertPresentable = (presentation: IPresentation) => {
+  if (presentation.isTemplate) {
+    throw new ApiError(
+      409,
+      'This is a template. Use it to make a deck, then present that deck.',
+      LIVE_ERROR_CODES.templateNotPresentable
+    );
+  }
+};
+
+/**
  * Opens a new session in the lobby. A live session is ended first (snapshot
  * included); nothing is ever deleted, so every run stays in the history.
  */
 export const openLobby = async (presentationId: string, actor: Actor): Promise<HostCommandResult> => {
   const presentation = await authorizeDeck(presentationId, actor, 'deck:host');
+  assertPresentable(presentation);
   const live = await findLiveSession(presentationId);
   if (live) await finishSession(presentation, live);
 
@@ -510,6 +525,7 @@ export const openLobby = async (presentationId: string, actor: Actor): Promise<H
  */
 export const startSession = async (presentationId: string, actor: Actor): Promise<HostCommandResult> => {
   const presentation = await authorizeDeck(presentationId, actor, 'deck:host');
+  assertPresentable(presentation);
   const live: IPresentationSession | null = await findLiveSession(presentationId);
   if (live?.status === 'active') {
     throw new ApiError(

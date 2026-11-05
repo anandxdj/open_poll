@@ -27,6 +27,7 @@ describe('presentations route table', () => {
   // session list, and put workspaceContext() after authenticate() on every
   // creator and host route (+1 handler each; goto/advance also validate).
   // Duplicate adds a per-user rate limit between authenticate() and workspaceContext().
+  // W3-B2 adds the slide-level edits (insert, reorder, patch validate their body).
   it('matches the route list and middleware counts', () => {
     expect(listRoutes((presentationsRouter as any).stack)).toEqual([
       'GET /code/:code (3)',
@@ -39,6 +40,10 @@ describe('presentations route table', () => {
       'GET /:id (3)',
       'PATCH /:id (4)',
       'DELETE /:id (3)',
+      'POST /:id/slides (4)',
+      'POST /:id/slides/reorder (4)',
+      'PATCH /:id/slides/:slideId (4)',
+      'DELETE /:id/slides/:slideId (3)',
       'POST /:id/duplicate (4)',
       'GET /:id/host/state (3)',
       'POST /:id/host/open-lobby (3)',

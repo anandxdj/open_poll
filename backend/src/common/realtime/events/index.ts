@@ -1,10 +1,12 @@
 import type { LiveEventDefinition } from './envelope';
+import { EDITOR_PRESENCE_CHANNEL, EDITOR_SOCKET_EVENTS } from './editor';
 import { POLL_SOCKET_EVENTS } from './poll';
 import { PRESENTATION_EVENTS, PRESENTATION_SOCKET_EVENTS } from './presentation';
 import { QNA_EVENTS } from './qna';
 import { REACTION_EVENTS, REACTION_SOCKET_EVENTS } from './reactions';
 import { REMOTE_EVENTS, REMOTE_SOCKET_EVENTS } from './remote';
 
+export * from './editor';
 export * from './envelope';
 export * from './poll';
 export * from './presentation';
@@ -15,6 +17,7 @@ export * from './remote';
 /** Redis pub/sub channels. Every instance subscribes and delivers to its own sockets. */
 export const REALTIME_CHANNELS = {
   analyticsUpdate: 'analytics:update',
+  editorPresence: EDITOR_PRESENCE_CHANNEL,
   liveEvent: 'live:event',
   // Room changes every instance applies to its own sockets (W2-A: kicked participants, revoked remotes).
   presentationsControl: 'presentations:control',
@@ -24,6 +27,7 @@ export const REALTIME_CHANNELS = {
 /** Socket.io event names on the wire. */
 export const SOCKET_EVENTS = {
   liveEvent: 'live:event',
+  ...EDITOR_SOCKET_EVENTS,
   ...POLL_SOCKET_EVENTS,
   ...PRESENTATION_SOCKET_EVENTS,
   ...REACTION_SOCKET_EVENTS,

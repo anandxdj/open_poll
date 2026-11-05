@@ -55,6 +55,7 @@ describeIntegration('integration harness', () => {
   });
 
   it('answers stub module mounts with 404 until their package lands', async () => {
-    expect((await server.request('/api/templates', { headers: owner.headers })).status).toBe(404);
+    // /api/templates was the stub here until W3-B2 filled it; /api/embeds (W4-D) still is one.
+    expect((await server.request('/api/embeds', { headers: owner.headers })).status).toBe(404);
   });
 });

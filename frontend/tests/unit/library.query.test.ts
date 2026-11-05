@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  cardInFolder,
   cardKey,
   cardLinks,
   countsWithout,
@@ -25,6 +26,7 @@ const poll = (id: string, overrides: Partial<PollLibraryCard> = {}): PollLibrary
   id,
   title: `Poll ${id}`,
   status: "live",
+  folderId: null,
   createdAt: "2026-10-01T00:00:00.000Z",
   updatedAt: "2026-10-01T00:00:00.000Z",
   stats: { questionCount: 2, responseCount: 0 },
@@ -43,6 +45,7 @@ const deck = (id: string, overrides: Partial<PresentationLibraryCard["details"]>
   id,
   title: `Deck ${id}`,
   status: overrides.phase === "lobby" || overrides.phase === "active" ? "live" : overrides.phase === "ended" ? "ended" : "draft",
+  folderId: null,
   createdAt: "2026-10-01T00:00:00.000Z",
   updatedAt: "2026-10-01T00:00:00.000Z",
   stats: { slideCount: 3 },
@@ -58,7 +61,11 @@ describe("filters in the URL", () => {
       type: "presentation",
       status: "live",
       q: "kick",
+      folder: "all",
     });
+    expect(parseLibraryFilters(new URLSearchParams("folder=root")).folder).toBe("root");
+    expect(parseLibraryFilters(new URLSearchParams("folder=ABCDEF0123456789abcdef01")).folder).toBe("abcdef0123456789abcdef01");
+    expect(parseLibraryFilters(new URLSearchParams("folder=nope")).folder).toBe("all");
     expect(parseLibraryFilters(new URLSearchParams("type=quiz&status=open"))).toEqual(DEFAULT_FILTERS);
     // Server-component style searchParams objects, including repeated keys.
     expect(parseLibraryFilters({ type: ["poll", "presentation"], q: undefined })).toEqual({ ...DEFAULT_FILTERS, type: "poll" });
@@ -67,9 +74,10 @@ describe("filters in the URL", () => {
 
   test("serialises only non-default filters, trimming the search", () => {
     expect(filtersToSearch(DEFAULT_FILTERS)).toBe("");
-    expect(filtersToSearch({ type: "presentation", status: "all", q: "" })).toBe("?type=presentation");
-    expect(filtersToSearch({ type: "all", status: "draft", q: "  C++ (beta) " })).toBe("?status=draft&q=C%2B%2B+%28beta%29");
-    const roundTrip = { type: "poll", status: "ended", q: "retro" } as const;
+    expect(filtersToSearch({ ...DEFAULT_FILTERS, type: "presentation" })).toBe("?type=presentation");
+    expect(filtersToSearch({ ...DEFAULT_FILTERS, status: "draft", q: "  C++ (beta) " })).toBe("?status=draft&q=C%2B%2B+%28beta%29");
+    expect(filtersToSearch({ ...DEFAULT_FILTERS, folder: "root", type: "poll" })).toBe("?folder=root&type=poll");
+    const roundTrip = { type: "poll", status: "ended", q: "retro", folder: "abcdef0123456789abcdef01" } as const;
     expect(parseLibraryFilters(new URLSearchParams(filtersToSearch(roundTrip).slice(1)))).toEqual(roundTrip);
   });
 
@@ -80,13 +88,25 @@ describe("filters in the URL", () => {
 
   test("builds GET /api/library params", () => {
     expect(libraryRequestParams(DEFAULT_FILTERS)).toEqual({ limit: "24" });
-    expect(libraryRequestParams({ type: "poll", status: "live", q: " lunch " }, "abc", 10)).toEqual({
+    expect(libraryRequestParams({ type: "poll", status: "live", q: " lunch ", folder: "root" }, "abc", 10)).toEqual({
       limit: "10",
       type: "poll",
       status: "live",
+      folderId: "root",
       q: "lunch",
       cursor: "abc",
     });
+  });
+});
+
+describe("folders", () => {
+  test("tells whether a moved card still belongs in the folder filter", () => {
+    const filed = poll("1", { folderId: "f1" });
+    expect(cardInFolder(filed, "all")).toBe(true);
+    expect(cardInFolder(filed, "f1")).toBe(true);
+    expect(cardInFolder(filed, "f2")).toBe(false);
+    expect(cardInFolder(filed, "root")).toBe(false);
+    expect(cardInFolder(poll("2"), "root")).toBe(true);
   });
 });
 
@@ -169,7 +189,9 @@ describe("cards", () => {
   test("explains empty results for the active filters", () => {
     expect(emptyStateCopy(DEFAULT_FILTERS).title).toBe("Your library is empty");
     expect(emptyStateCopy({ ...DEFAULT_FILTERS, q: " zzz " }).body).toContain("“zzz”");
-    expect(emptyStateCopy({ type: "presentation", status: "live", q: "" }).title).toBe("No live presentations");
-    expect(emptyStateCopy({ type: "poll", status: "all", q: "" }).title).toBe("No polls yet");
+    expect(emptyStateCopy({ ...DEFAULT_FILTERS, type: "presentation", status: "live" }).title).toBe("No live presentations");
+    expect(emptyStateCopy({ ...DEFAULT_FILTERS, type: "poll" }).title).toBe("No polls yet");
+    expect(emptyStateCopy({ ...DEFAULT_FILTERS, folder: "abcdef0123456789abcdef01" }).title).toBe("This folder is empty");
+    expect(emptyStateCopy({ ...DEFAULT_FILTERS, folder: "root" }).title).toBe("Everything is in a folder");
   });
 });

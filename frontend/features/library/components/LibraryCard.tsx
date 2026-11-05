@@ -12,6 +12,9 @@ import {
   CopyPlus,
   ExternalLink,
   FileBarChart,
+  Folder,
+  FolderInput,
+  LayoutTemplate,
   Lock,
   MoreHorizontal,
   Pencil,
@@ -45,6 +48,7 @@ import {
 import { slideTypeMeta } from "@/features/presentations/slides/meta";
 import { sessionsPath } from "@/features/sessions/query";
 import type { PresentationSlideType } from "@/features/presentations/types/deck";
+import { SaveAsTemplateDialog } from "@/features/templates/components/SaveAsTemplateDialog";
 import { ShareDialog } from "@/features/workspaces/sharing/components/ShareDialog";
 import { useCanShareDecks } from "@/features/workspaces/sharing/useCanShare";
 import { getApiErrorMessage } from "@/lib/api-error";
@@ -69,6 +73,12 @@ interface LibraryCardProps {
   onChanged: (card: LibraryCardData) => void;
   /** A copy of this card's item was made; the list loads it. */
   onDuplicated?: () => void;
+  /** Opens "Move to folder" for this card (editors and up); no menu item without it. */
+  onMove?: (card: LibraryCardData) => void;
+  /** The folder it sits in, shown on the card when the list spans folders. */
+  folderName?: string | null;
+  /** Editors and up: "Save as template" on decks. */
+  canSaveTemplate?: boolean;
 }
 
 type Confirm = "delete" | "close" | null;
@@ -82,11 +92,12 @@ async function copyText(text: string, success: string) {
   }
 }
 
-export function LibraryCard({ card, onRemoved, onChanged, onDuplicated }: LibraryCardProps) {
+export function LibraryCard({ card, onRemoved, onChanged, onDuplicated, onMove, folderName, canSaveTemplate }: LibraryCardProps) {
   const router = useRouter();
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
   const canShareDecks = useCanShareDecks();
   const isPoll = card.entityType === "poll";
   const noun = isPoll ? (card.details.pollType === "TRIAL" ? "assessment" : "poll") : "deck";
@@ -213,9 +224,19 @@ export function LibraryCard({ card, onRemoved, onChanged, onDuplicated }: Librar
                   ) : null}
                 </>
               )}
+              {onMove ? (
+                <DropdownMenuItem onSelect={() => onMove(card)}>
+                  <FolderInput /> Move to folder…
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem onSelect={() => void handleDuplicate()}>
                 <CopyPlus /> Duplicate
               </DropdownMenuItem>
+              {!isPoll && canSaveTemplate ? (
+                <DropdownMenuItem onSelect={() => setTemplateOpen(true)}>
+                  <LayoutTemplate /> Save as template…
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onSelect={() => setConfirm("delete")}>
                 <Trash2 /> Delete {noun}
@@ -225,6 +246,13 @@ export function LibraryCard({ card, onRemoved, onChanged, onDuplicated }: Librar
         </div>
 
         {card.entityType === "poll" ? <PollMeta poll={card} /> : <DeckMeta deck={card} />}
+        {folderName ? (
+          <p className="mt-2 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+            <Folder className="size-3.5 shrink-0" aria-hidden="true" />
+            <span className="sr-only">In folder </span>
+            <span className="truncate">{folderName}</span>
+          </p>
+        ) : null}
         <p className="sr-only">
           {statusLabel(card)}. Updated {formatDistanceToNowStrict(new Date(card.updatedAt), { addSuffix: true })}.
         </p>
@@ -284,6 +312,9 @@ export function LibraryCard({ card, onRemoved, onChanged, onDuplicated }: Librar
 
       {!isPoll && shareOpen ? (
         <ShareDialog open onOpenChange={setShareOpen} resourceType="presentation" resourceId={card.id} title={card.title} />
+      ) : null}
+      {!isPoll ? (
+        <SaveAsTemplateDialog open={templateOpen} onOpenChange={setTemplateOpen} deckId={card.id} deckTitle={card.title} />
       ) : null}
 
       <AlertDialog open={confirm !== null} onOpenChange={(open) => !open && !busy && setConfirm(null)}>

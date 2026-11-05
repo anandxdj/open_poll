@@ -90,6 +90,13 @@ export interface IPresentation extends Document {
   sessionCount: number;
   isTemplate: boolean;
   templateSourceId: mongoose.Types.ObjectId | null;
+  /**
+   * Content revision for co-editing (W3-B2): +1 on every save that changes the
+   * title or the slides. Clients send it back as `If-Match` and get 409
+   * `DECK_CHANGED` when someone saved in between. Theme, settings and pace
+   * changes (field by field, no read-modify-write of the slides) leave it alone.
+   */
+  revision: number;
   /** Set when the deck was converted from a poll or copied from the legacy quizzes collection. */
   legacy: IPresentationLegacy | null;
   /** Trash: hidden from lists and lookups. */
@@ -260,6 +267,7 @@ const PresentationSchema = new Schema<IPresentation>(
     sessionCount: { type: Number, default: 0 },
     isTemplate: { type: Boolean, default: false },
     templateSourceId: { type: Schema.Types.ObjectId, ref: 'Presentation', default: null },
+    revision: { type: Number, default: 0, min: 0 },
     legacy: { type: LegacySchema, default: null },
     deletedAt: { type: Date, default: null },
     slides: {

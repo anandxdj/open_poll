@@ -436,6 +436,13 @@ describeIntegration('presenter tools (W2-A)', () => {
     expect((await call('DELETE', `/${aliceDeck._id}/host/remote-token`, { user: bob })).status).toBe(403);
     expect(await RemoteTokenModel.countDocuments({ presentationId: aliceDeck._id })).toBe(0);
 
+    // A template (W3-B2) is never presented: no remote for it either.
+    const { PresentationModel: Decks } = await import('../../src/modules/presentations/models/presentation.model');
+    const template = await createDeck([QUIZ]);
+    await Decks.updateOne({ _id: template._id }, { $set: { isTemplate: true } });
+    const refusedTemplate = await call('POST', `/${template._id}/host/remote-token`, { user: host });
+    expect([refusedTemplate.status, refusedTemplate.body.code]).toEqual([409, 'TEMPLATE_NOT_PRESENTABLE']);
+
     // Alice's live deck; Bob pairs a remote for his own deck and tries to aim it at hers.
     await hostCommand(aliceDeck._id, 'start');
     await hostCommand(bobDeck._id, 'start', undefined, bob);

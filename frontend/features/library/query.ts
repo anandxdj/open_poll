@@ -4,6 +4,7 @@ import {
   type LibraryCard,
   type LibraryCounts,
   type LibraryFilters,
+  type LibraryFolderFilter,
   type LibraryStatus,
   type LibraryType,
 } from "./types";
@@ -11,7 +12,7 @@ import {
 // Pure library logic: URL ⇄ filters, request params, page merging, card
 // links and labels. No React, no network — unit tested in tests/unit.
 
-export const DEFAULT_FILTERS: LibraryFilters = { type: "all", status: "all", q: "" };
+export const DEFAULT_FILTERS: LibraryFilters = { type: "all", status: "all", q: "", folder: "all" };
 export const LIBRARY_PAGE_SIZE = 24;
 /** Backend limit on `q`. */
 export const MAX_SEARCH_LENGTH = 100;
@@ -34,18 +35,28 @@ function readParam(params: SearchParamsLike, name: string): string | undefined {
 const oneOf = <T extends string>(values: readonly T[], value: string | undefined): T | undefined =>
   value !== undefined && (values as readonly string[]).includes(value) ? (value as T) : undefined;
 
+const FOLDER_ID = /^[a-f0-9]{24}$/i;
+
+/** `root` or a folder id; anything else means every item. */
+export function parseFolderFilter(value: string | undefined): LibraryFolderFilter {
+  if (value === "root") return "root";
+  return value && FOLDER_ID.test(value) ? value.toLowerCase() : "all";
+}
+
 /** Filters from the URL; unknown values fall back to the defaults. */
 export function parseLibraryFilters(params: SearchParamsLike): LibraryFilters {
   return {
     type: oneOf<LibraryType>(LIBRARY_TYPES, readParam(params, "type")) ?? DEFAULT_FILTERS.type,
     status: oneOf<LibraryStatus>(LIBRARY_STATUSES, readParam(params, "status")) ?? DEFAULT_FILTERS.status,
     q: (readParam(params, "q") ?? "").slice(0, MAX_SEARCH_LENGTH),
+    folder: parseFolderFilter(readParam(params, "folder")),
   };
 }
 
 /** Query string for the library URL; defaults are left out (`""` when everything is default). */
 export function filtersToSearch(filters: LibraryFilters): string {
   const params = new URLSearchParams();
+  if (filters.folder !== "all") params.set("folder", filters.folder);
   if (filters.type !== "all") params.set("type", filters.type);
   if (filters.status !== "all") params.set("status", filters.status);
   const q = filters.q.trim();
@@ -66,6 +77,7 @@ export function libraryRequestParams(
   const params: Record<string, string> = { limit: String(limit) };
   if (filters.type !== "all") params.type = filters.type;
   if (filters.status !== "all") params.status = filters.status;
+  if (filters.folder !== "all") params.folderId = filters.folder;
   const q = filters.q.trim();
   if (q) params.q = q;
   if (cursor) params.cursor = cursor;
@@ -175,9 +187,18 @@ export function kindLabel(card: LibraryCard): string {
   return card.details.pace === "audience" ? "Self-paced deck" : "Deck";
 }
 
+/** Whether a card still belongs in the list for `folder` (after it was moved). */
+export const cardInFolder = (card: Pick<LibraryCard, "folderId">, folder: LibraryFolderFilter) =>
+  folder === "all" || (folder === "root" ? card.folderId === null : card.folderId === folder);
+
 export function emptyStateCopy(filters: LibraryFilters): { title: string; body: string } {
   if (filters.q.trim()) {
     return { title: "No matches", body: `Nothing in your library matches “${filters.q.trim()}”.` };
+  }
+  if (filters.folder !== "all" && filters.type === "all" && filters.status === "all") {
+    return filters.folder === "root"
+      ? { title: "Everything is in a folder", body: "Items you have not filed in a folder show up here." }
+      : { title: "This folder is empty", body: "Use Move to folder on a deck or poll card to file it here." };
   }
   const noun = filters.type === "poll" ? "polls" : filters.type === "presentation" ? "presentations" : "items";
   if (filters.status !== "all") {

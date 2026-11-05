@@ -41,6 +41,27 @@ export const presentationSlideSchema = z
 
 const objectIdString = z.string().regex(/^[a-f0-9]{24}$/i, 'Invalid id');
 
+/** A slide as `presentationSlideSchema` parses it, plus the id of the stored slide it replaces. */
+export type EditableSlide = ParsedSlide & { _id?: string };
+
+const OBJECT_ID = /^[a-f0-9]{24}$/i;
+
+/**
+ * A slide in an update: like `presentationSlideSchema`, but a valid `_id` is
+ * kept so the service can keep the stored slide's id (co-editing and the
+ * slide-level routes address slides by id). Unknown or repeated ids are
+ * dropped by the service; create and every other caller never see `_id`.
+ */
+export const editableSlideSchema = z.unknown().transform((value, ctx): EditableSlide => {
+  const result = presentationSlideSchema.safeParse(value);
+  if (!result.success) {
+    for (const issue of result.error.issues) ctx.addIssue({ ...issue });
+    return z.NEVER;
+  }
+  const id = value !== null && typeof value === 'object' ? (value as { _id?: unknown })._id : undefined;
+  return typeof id === 'string' && OBJECT_ID.test(id) ? { ...result.data, _id: id.toLowerCase() } : result.data;
+});
+
 /**
  * Deck settings in requests: every field optional. Create fills the rest with
  * the model defaults; update changes only the fields sent.
@@ -109,13 +130,45 @@ export const createPresentationSchema = z.object({
   theme: deckThemePatchSchema.optional(),
 });
 
+/** Slides one deck may hold (create, update and the slide-level routes). */
+export const MAX_DECK_SLIDES = 50;
+
 export const updatePresentationSchema = z.object({
   title: z.string().min(1).max(120).optional(),
-  slides: z.array(presentationSlideSchema).min(1).max(50).optional(),
+  slides: z.array(editableSlideSchema).min(1).max(MAX_DECK_SLIDES).optional(),
   pace: z.enum(SESSION_PACES).optional(),
   settings: deckSettingsPatchSchema.optional(),
   theme: deckThemePatchSchema.optional(),
 });
+
+/** `POST /:id/slides`: one new slide, at `index` (default: the end). */
+export const insertSlideSchema = z
+  .object({
+    slide: presentationSlideSchema,
+    index: z.number().int().min(0).max(MAX_DECK_SLIDES).optional(),
+  })
+  .strict();
+
+/**
+ * `PATCH /:id/slides/:slideId`: the fields to change. They are merged onto the
+ * stored slide and the result is validated by its type's schema, so the shape
+ * is only checked to be an object here. `_id` and `kind` are not settable.
+ */
+export const patchSlideSchema = z
+  .record(z.string(), z.unknown())
+  .refine((patch) => Object.keys(patch).length > 0, 'Send at least one field to change')
+  .transform(({ _id, kind, ...patch }) => patch);
+
+/** `POST /:id/slides/reorder`: every slide id of the deck, in the new order. */
+export const reorderSlidesSchema = z
+  .object({
+    order: z
+      .array(objectIdString.transform((id) => id.toLowerCase()))
+      .min(1)
+      .max(MAX_DECK_SLIDES)
+      .refine((ids) => new Set(ids).size === ids.length, 'Each slide may appear only once'),
+  })
+  .strict();
 
 export const joinPresentationSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(30),
@@ -186,6 +239,9 @@ export const submitPresentationAnswerSchema = z
 
 export type CreatePresentationInput = z.infer<typeof createPresentationSchema>;
 export type UpdatePresentationInput = z.infer<typeof updatePresentationSchema>;
+export type InsertSlideInput = z.infer<typeof insertSlideSchema>;
+export type PatchSlideInput = z.infer<typeof patchSlideSchema>;
+export type ReorderSlidesInput = z.infer<typeof reorderSlidesSchema>;
 export type JoinPresentationInput = z.infer<typeof joinPresentationSchema>;
 export type SubmitPresentationAnswerInput = z.infer<typeof submitPresentationAnswerSchema>;
 export type GotoSlideInput = z.infer<typeof gotoSlideSchema>;

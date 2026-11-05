@@ -112,6 +112,13 @@ export interface Presentation {
   slides: PresentationSlide[];
   /** Preset, brand kit and accent override (W3-A); sessions snapshot the resolved look. */
   theme?: DeckThemeRef;
+  /**
+   * Content revision (W3-B2): +1 on every save of the title or slides. Saves send
+   * it back as `If-Match`; a stale one is refused with 409 `DECK_CHANGED`.
+   */
+  revision?: number;
+  /** A workspace template (W3-B2): never presented or edited in place; "Use template" makes a deck from it. */
+  isTemplate?: boolean;
   createdAt: string;
   updatedAt: string;
 }
