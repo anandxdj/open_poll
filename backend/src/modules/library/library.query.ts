@@ -149,6 +149,7 @@ export interface PollCardSource {
   isResultsPublished?: boolean;
   expiresAt?: Date | null;
   convertedPresentationId?: Types.ObjectId | string | null;
+  folderId?: Types.ObjectId | string | null;
   questions?: unknown[];
   createdAt?: Date;
   updatedAt?: Date;
@@ -163,6 +164,7 @@ export const POLL_CARD_PROJECTION = {
   isResultsPublished: 1,
   expiresAt: 1,
   convertedPresentationId: 1,
+  folderId: 1,
   'questions._id': 1,
   createdAt: 1,
   updatedAt: 1,
@@ -180,6 +182,7 @@ export function toPollCard(poll: PollCardSource, responseCount: number, now: Dat
     id: String(poll._id),
     title: poll.title ?? '',
     status: pollStatus(poll, now),
+    folderId: idOf(poll.folderId),
     createdAt: iso(poll.createdAt),
     updatedAt: iso(poll.updatedAt),
     stats: { questionCount: poll.questions?.length ?? 0, responseCount },
@@ -201,6 +204,7 @@ export interface PresentationCardSource {
   joinCode?: string;
   pace?: string | null;
   legacy?: { source?: string | null } | null;
+  folderId?: Types.ObjectId | string | null;
   slides?: Array<{ type?: string }>;
   createdAt?: Date;
   updatedAt?: Date;
@@ -212,6 +216,7 @@ export const PRESENTATION_CARD_PROJECTION = {
   joinCode: 1,
   pace: 1,
   legacy: 1,
+  folderId: 1,
   'slides.type': 1,
   createdAt: 1,
   updatedAt: 1,
@@ -235,6 +240,7 @@ export function toPresentationCard(deck: PresentationCardSource): PresentationLi
     id: String(deck._id),
     title: deck.title ?? '',
     status: presentationStatus(phase),
+    folderId: idOf(deck.folderId),
     createdAt: iso(deck.createdAt),
     updatedAt: iso(deck.updatedAt),
     stats: { slideCount: slides.length },

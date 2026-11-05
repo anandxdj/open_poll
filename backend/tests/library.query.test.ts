@@ -122,6 +122,7 @@ describe('cards', () => {
         isAnonymous: false,
         expiresAt: later,
         convertedPresentationId: oid(2),
+        folderId: oid(9),
         questions: [{}, {}],
         createdAt: earlier,
         updatedAt: NOW,
@@ -134,6 +135,7 @@ describe('cards', () => {
       id: oid(1).toString(),
       title: 'Lunch',
       status: 'live',
+      folderId: oid(9).toString(),
       createdAt: earlier.toISOString(),
       updatedAt: NOW.toISOString(),
       stats: { questionCount: 2, responseCount: 5 },
@@ -158,6 +160,7 @@ describe('cards', () => {
       updatedAt: NOW,
     });
     expect(deck.status).toBe('live');
+    expect(deck.folderId).toBeNull();
     expect(deck.stats).toEqual({ slideCount: 3 });
     expect(deck.details).toEqual({
       phase: 'lobby',
