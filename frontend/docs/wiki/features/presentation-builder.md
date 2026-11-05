@@ -223,7 +223,17 @@ doesn't apply. Tabs follow the WAI-ARIA tabs pattern (arrow keys, Home/End).
 - Save Draft and the silent save on unmount/AI result: `normalizeSlideForDraft` fills gaps
   (`Untitled Question`, `Option N`, `Item N`, …) so the API accepts an unfinished deck.
 - The local draft (localStorage key `openpoll_presentation_draft_<id|new>`) is written 250 ms after
-  each edit and on `beforeunload`, with the deck `revision` the edits started from.
+  each edit and on `beforeunload`, with the deck `revision` the edits started from. For a saved deck
+  it is written only when the title or slides differ from the copy last loaded or saved
+  (`deckSignature` in `deckDraft.ts`): opening a deck, selecting slides or undoing an edit leaves no
+  draft (and clears one), and on load a draft equal to the saved copy is dropped. Otherwise an
+  untouched builder's draft looked newer than a co-editor's save and, after a reload, showed the old
+  version behind a false conflict banner.
+- The silent save (on leaving, after an AI result) skips a deck equal to its saved copy: it would
+  only bump the revision and make a co-editor's next save look stale. Explicit Save draft, Save
+  changes and Present save as before.
+- A workspace template opened by a direct link (`isTemplate`) is not edited: the builder shows
+  `features/templates/components/TemplateNotice.tsx` (Use template) and writes no draft or save.
 - Payloads keep each slide's `_id`: the API keeps the ids of stored slides (new slides and unknown
   ids get fresh ones), so slide ids no longer change on every save.
 

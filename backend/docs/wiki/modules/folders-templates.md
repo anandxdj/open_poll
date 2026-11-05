@@ -75,7 +75,12 @@ TemplateSummary = { id, source: 'starter' | 'workspace', title, description, cat
 - **Workspace templates are decks** with `isTemplate: true` and `templateSourceId` = the deck they
   were saved from (`crud.copyDeckForWorkspace`: slides with new ids, pace, settings, theme; no
   folder, sessions or answers). They never appear in `GET /api/library` (and its counts) or
-  `GET /api/presentations`. Editing a template in the builder is not offered.
+  `GET /api/presentations`.
+- **Never presented**: `POST /:id/host/open-lobby` and `/host/start` on a template are
+  `409 TEMPLATE_NOT_PRESENTABLE` (`live/session.service.ts` `assertPresentable`), so no session can
+  ever exist for one (MCP host tools go through the same code). `GET /:id` and `GET /:id/host/state`
+  still answer (with `isTemplate: true`): the builder and the host console use it to show "This is a
+  template" with **Use template** instead of editing or presenting it.
 - **Use** creates an ordinary draft deck in the caller's workspace: from a starter through
   `createPresentation` (the workspace's default theme applies), from a workspace template through
   `copyDeckForWorkspace` with `templateSourceId` = the template. Title: the body's, else the
@@ -134,10 +139,11 @@ Idempotent; no backfill (a missing `folderId` reads as null).
 
 - `tests/templates.seeds.test.ts` — every starter deck parses; If-Match parsing; editable slide
   ids; slide patch/reorder and folder schemas.
-- `tests/integration/folders.test.ts` — folder CRUD, names, counts, filing and the library filter,
+- `tests/integration/folders.test.ts` — folder CRUD, names, counts, filing and the library filter
+  (and the pre-workspace item rule),
   copies keeping the folder, all-or-nothing moves, roles, folder shares and their removal with the
   folder, the workspace boundary, migration 210; templates: starters, use, save as template (hidden
-  from the library), delete, roles, workspace boundary.
+  from the library), delete, roles, workspace boundary, `TEMPLATE_NOT_PRESENTABLE` on open-lobby and start.
 - `tests/integration/coediting.test.ts` — revisions, 409 on stale `If-Match` (whole deck and every
   slide route), theme/settings saves not bumping it, slide ids kept, slide routes, concurrent slide
   edits without `If-Match`, errors, viewers, other workspaces, live decks.

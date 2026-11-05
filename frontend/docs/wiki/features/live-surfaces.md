@@ -1,7 +1,7 @@
 ---
 summary: Live deck surfaces — host console, participant shell, stage — their session-aware flows, and their extension points: live store/reducer, slots, slide runtime registry, deck theme tokens, live i18n.
 status: active
-last_updated: 2026-10-25
+last_updated: 2026-11-05
 ---
 
 # Live Surfaces
@@ -18,7 +18,7 @@ is `backend/docs/wiki/modules/presentations-live.md`: every presentation is a **
 
 | Piece | File | Role |
 | --- | --- | --- |
-| Host console | `components/host/HostConsole.tsx` | Own live store + `DeckThemeProvider`; header, Stage, controls, leaderboard modal, keyboard (←/→, PageUp/Down, F). |
+| Host console | `components/host/HostConsole.tsx` | Own live store + `DeckThemeProvider`; header, Stage, controls, leaderboard modal, keyboard (←/→, PageUp/Down, F). A workspace template (`deck.isTemplate`, W3-B2) gets "This is a template" with Use template / Back to templates instead (`presenter.template.*`; the API refuses to present it, see `templates.md`). |
 | Host session | `components/host/useHostSession.ts` | Reads host state on mount (never opens anything), follows the socket, resyncs, runs one host command at a time, timer-driven reveal. |
 | Host commands | `components/host/hostCommands.ts` | `sendHostCommand`: one retry on `SESSION_BUSY`, flags `SESSION_ALREADY_LIVE`/`NO_LIVE_SESSION` as "console out of date". |
 | Host chrome | `components/host/{HostHeader,HostControls,LeaderboardModal,useJoinLink}.tsx` | Top bar (+ `hostToolbar` slot), bottom bar (back/forward, voting phase controls), standings overlay, join link copy. |

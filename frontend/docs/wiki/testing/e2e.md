@@ -109,6 +109,10 @@ lookup's HTTP status (404 until a session was opened).
   tab plus adding a Q&A slide. The deck is created with `settings` through the API directly (the
   `host.createDeck` fixture sends title and slides only). ~20 s.
 
+- Library card actions (`library.spec`, `folders.spec`): the search box is debounced, so specs wait for
+  `q=` (and `type=`) to reach the URL before opening a card menu; otherwise the list reloads under the
+  open menu.
+
 - `e2e/duplicate.spec.ts` — LIB-19: "Duplicate" from the library card menu on a two-slide deck and
   a published poll; both copies appear as drafts, the deck copy opens from its toast in the builder
   with both slides and the notes, and the originals (and the deck's empty session list) are
@@ -123,7 +127,9 @@ lookup's HTTP status (404 until a session was opened).
 - `e2e/templates.spec.ts` — W3-B2 templates: the four starter templates on `/templates`, Use template
   on Team retro opens the builder with its nine slides; Save as template… from a library card (hidden
   from the library), the template under "Saved in this workspace", Use template opens it with its two
-  slides, Delete template through the app's dialog (the deck made from it stays). ~10 s.
+  slides, Delete template through the app's dialog (the deck made from it stays). A template opened by
+  direct link shows "This is a template" in the host console (no Open lobby / Start presenting) and in
+  the builder (no editor); Use template from each opens a new deck. ~12 s.
 
 - `e2e/coediting.spec.ts` — W3-B2 co-editing safety: two builders (two browser contexts) on one deck;
   the first saves, the second's save shows the conflict banner and the deck keeps the first save; Save
@@ -131,7 +137,9 @@ lookup's HTTP status (404 until a session was opened).
   works. Second test: Save mine as a copy opens a new "(my version)" deck with the local edits and leaves
   the other save untouched. Third test: presence, the same deck open in two pages of the (one) e2e host
   shows "You have this deck open in another tab" in both, and closing one removes it from the other.
-  ~10 s.
+  Fourth test: a builder left open without edits (slide selected only) keeps no local draft, picks up a
+  co-editor's save on reload with no banner, and leaving it sends no save (the revision is unchanged).
+  ~14 s.
 
 - `e2e/members.spec.ts` — teams and sharing: owner invites a second (seeded) account from
   `/settings/members`, the invite link is read from the form (no mail provider in e2e), the invitee

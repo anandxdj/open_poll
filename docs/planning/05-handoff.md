@@ -234,7 +234,9 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   templates `/api/templates` with four starter decks and "Save as template", deck `revision` +
   `If-Match` → 409 `DECK_CHANGED` with the builder's conflict banner, slide-level routes, builder
   presence `presentations/editor.socket.ts`, migration 210; see
-  `backend/docs/wiki/modules/folders-templates.md`. Left out on purpose: nested folders, editing a
+  `backend/docs/wiki/modules/folders-templates.md`. Templates are never presented (409
+  `TEMPLATE_NOT_PRESENTABLE`; builder and host console offer Use template), and the builder writes
+  no local draft and sends no silent save without a real edit. Left out on purpose: nested folders, editing a
   workspace template in place, the builder saving slide by slide (it saves the whole deck with
   `If-Match`; the slide routes serve agents and integrations).) (**W3-D** SAML, per-workspace OIDC and SCIM are built:
   `backend/docs/wiki/modules/sso-scim.md`, `docs/deploy/sso.md`.) (**W3-A** themes and brand kits are built:

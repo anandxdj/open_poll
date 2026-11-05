@@ -1,7 +1,7 @@
 ---
 summary: Live session engine contract — sessions, slide phases, host commands, participant resync, events, Redis keys, error codes.
 status: active
-last_updated: 2026-11-01
+last_updated: 2026-11-05
 ---
 
 # Presentations live sessions (contract)
@@ -68,7 +68,7 @@ the creator). Each returns `HostCommandResponse` = the deck document **plus `ses
 
 | Command | Body | Effect | Events |
 | --- | --- | --- | --- |
-| `POST /:id/host/open-lobby` | — | Ends the live session if any (with a snapshot), opens a **new** session in `lobby`. Never deletes data. | `session:lobby`, `lobby:opened` |
+| `POST /:id/host/open-lobby` | — | Ends the live session if any (with a snapshot), opens a **new** session in `lobby`. Never deletes data. 409 `TEMPLATE_NOT_PRESENTABLE` on a workspace template (also on start). | `session:lobby`, `lobby:opened` |
 | `POST /:id/host/start` | — | Present without a lobby: lobby session → goes to slide 0; no live session → new session straight to slide 0. 409 `SESSION_ALREADY_LIVE` while a session is `active`. | slide 0's event (below) |
 | `POST /:id/host/goto` | `{slideIndex}` or `{slideId}` | Moves to any slide, forwards or backwards (from `lobby` too). | the target's event |
 | `POST /:id/host/advance` | `{slideIndex?}` | Legacy alias: `goto` `slideIndex`, default current + 1. | the target's event |
@@ -337,6 +337,7 @@ TTL 6 h after the last transition. A missing window is rebuilt from the session 
 
 `SESSION_FULL` (403, join), `SESSION_ALREADY_LIVE` (409, start), `SESSION_BUSY` (409, concurrent
 host commands — retry), `NO_LIVE_SESSION` (400, host commands that need one),
+`TEMPLATE_NOT_PRESENTABLE` (409, open-lobby and start on a workspace template, W3-B2),
 `PARTICIPANT_KICKED` (403), `PARTICIPANT_STALE` (409, answer from an ended session's participant),
 `FORBIDDEN` (403, policy), `WORKSPACE_FORBIDDEN` (403, bad `X-Workspace-Id`). Answers add
 `NOT_ACCEPTING` (400), `TIME_UP` (400), `ALREADY_ANSWERED` (409) and `RATE_LIMITED` (429), see
