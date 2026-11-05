@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { createConnection, getSso } from "../api/sso.api";
 import type { SsoConnection, SsoOverview } from "../types";
 import { ConnectionCard } from "./ConnectionCard";
+import { SectionUnavailable } from "@/features/workspaces/settings/SectionUnavailable";
 
 /** Why the page can't be used here, or null when it can (the nav says the same in one line). */
 export function useSsoGate(feature: "sso" | "scim") {
@@ -168,14 +169,7 @@ export function SsoSettings() {
 
   if (workspaceFailed) return <SettingsFailed message="This workspace could not be loaded." onRetry={retryWorkspace} />;
   if (!ready) return <SettingsLoading>Loading single sign-on…</SettingsLoading>;
-  if (reason) {
-    return (
-      <div className="space-y-6">
-        {header}
-        <p className={cn(settingsCard, "text-sm text-muted-foreground")}>{reason}</p>
-      </div>
-    );
-  }
+  if (reason) return <SectionUnavailable id="sso" title="Single sign-on" description="People in your company sign in with your identity provider instead of a password." />;
   if (failed) return <SettingsFailed message="Single sign-on settings could not be loaded." onRetry={retry} />;
   if (loading || !overview) return <SettingsLoading>Loading connections…</SettingsLoading>;
 

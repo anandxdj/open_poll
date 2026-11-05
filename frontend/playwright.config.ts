@@ -99,6 +99,9 @@ export default defineConfig({
         // Single sign-on and SCIM (W3-D) need an encryption key; a fixed one for tests only.
         ENCRYPTION_KEY: "e2e0".repeat(16),
         API_PUBLIC_URL: e2eEnv.apiOrigin,
+        // Custom domains (W4-E) through Caddy's on-demand TLS: nothing to call out to.
+        DOMAIN_PROVISIONER: "caddy",
+        DOMAIN_CNAME_TARGET: "cname.openpoll.test",
       },
     },
     {

@@ -46,6 +46,10 @@ POST /api/presentations/:presentationId/qna
 POST /api/presentations/:presentationId/qna/:questionId/upvote
 DELETE /api/presentations/:presentationId/qna/:questionId/upvote
 ROUTER /api/workspaces/:workspaceId/domains
+GET /api/workspaces/:workspaceId/domains
+POST /api/workspaces/:workspaceId/domains
+POST /api/workspaces/:workspaceId/domains/:domainId/verify
+DELETE /api/workspaces/:workspaceId/domains/:domainId
 ROUTER /api/workspaces/:workspaceId/invites
 POST /api/workspaces/:workspaceId/invites
 GET /api/workspaces/:workspaceId/invites
@@ -198,6 +202,8 @@ ROUTER /api/oembed
 ROUTER /api/plans
 GET /api/plans
 ROUTER /api/public/domains
+GET /api/public/domains/resolve
+GET /api/public/domains/tls-ask
 ROUTER /api/public/results
 GET /api/public/results/:token
 ROUTER /api/remote

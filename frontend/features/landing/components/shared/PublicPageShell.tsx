@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
+import { PoweredBy } from "@/features/branding/PoweredBy";
 import { cn } from "@/lib/utils";
 import { BrandMark } from "./BrandMark";
 
@@ -9,7 +8,8 @@ const widths = { narrow: "max-w-lg", wide: "max-w-4xl" } as const;
 /**
  * Pages people open from a shared link (a poll, shared results, their own
  * results): a brand bar naming the page, one column, and a footer that says
- * where the page comes from with a way to make one.
+ * where the page comes from with a way to make one (PoweredBy, hidden on a
+ * white-label custom domain).
  */
 export function PublicPageShell({
   label,
@@ -33,16 +33,7 @@ export function PublicPageShell({
         </div>
       </header>
       <main className={cn(column, "flex-1 pb-16 pt-8 md:pt-12")}>{children}</main>
-      {footer ? (
-        <footer className="border-t border-border">
-          <div className={cn(column, "flex flex-wrap items-center justify-between gap-3 py-6")}>
-            <p className="text-sm text-muted-foreground">{footer.note}</p>
-            <Link href="/signup" className={cn(buttonVariants({ variant: "outline" }), "rounded-full bg-card")}>
-              {footer.cta}
-            </Link>
-          </div>
-        </footer>
-      ) : null}
+      {footer ? <PoweredBy note={footer.note} cta={footer.cta} className={column} /> : null}
     </div>
   );
 }
