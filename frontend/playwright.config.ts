@@ -3,6 +3,7 @@ import { e2eEnv } from "./e2e/env";
 
 /** Backend settings of optional integrations (see backend/.env.example); the e2e backend runs with all of them unset. */
 const OPTIONAL_INTEGRATIONS = [
+  "ALERT_EMAIL",
   "ALLOWED_ORIGINS",
   "DOMAIN_CNAME_TARGET",
   "DOMAIN_PROVISIONER",
@@ -57,6 +58,9 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
+  // Chromium by default. E2E_BROWSERS=all (or a comma list such as "firefox,webkit") adds the
+  // other engines; E2E_PW_SERVER points them at a `playwright run-server` (for example the official
+  // Docker image) on hosts that lack WebKit's system libraries.
   projects: [
     {
       name: "chromium",
@@ -65,7 +69,21 @@ export default defineConfig({
         launchOptions: e2eEnv.chromiumPath ? { executablePath: e2eEnv.chromiumPath } : {},
       },
     },
-  ],
+    {
+      name: "firefox",
+      use: {
+        ...devices["Desktop Firefox"],
+        ...(e2eEnv.playwrightServer ? { connectOptions: { wsEndpoint: e2eEnv.playwrightServer } } : {}),
+      },
+    },
+    {
+      name: "webkit",
+      use: {
+        ...devices["Desktop Safari"],
+        ...(e2eEnv.playwrightServer ? { connectOptions: { wsEndpoint: e2eEnv.playwrightServer } } : {}),
+      },
+    },
+  ].filter((project) => e2eEnv.browsers.includes(project.name)),
   webServer: [
     {
       name: "backend",

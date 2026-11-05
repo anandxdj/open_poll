@@ -185,7 +185,12 @@ test("privacy and terms keep the site header and footer", async ({ page }) => {
   for (const [path, title] of [["/privacy", "Privacy"], ["/terms", "Terms of use"]] as const) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+    await expect(page.getByText(/^Last updated \d{1,2} \w+ \d{4}$/)).toBeVisible();
+    await expect(page.getByText("placeholder", { exact: false })).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 2, name: "Contact" })).toBeVisible();
+    await expect(page.getByRole("main").getByRole("link", { name: /@/ })).toHaveAttribute("href", /^mailto:/);
     await expect(page.getByRole("banner").getByRole("link", { name: "Open Poll home" })).toBeVisible();
     await expect(page.getByRole("contentinfo")).toBeVisible();
+    await expect(page.getByRole("contentinfo").getByRole("link", { name: "Contact" })).toHaveAttribute("href", /^mailto:/);
   }
 });

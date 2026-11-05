@@ -25,9 +25,12 @@ services:
     environment:
       NODE_ENV: production
       REDIS_URL: redis://redis:6379
+      # PPTX imports render charts and SmartArt through Gotenberg (backend/docs/wiki/modules/imports.md).
+      GOTENBERG_URL: http://gotenberg:3000
 
     depends_on:
       - redis
+      - gotenberg
 
     networks:
       - traefik
@@ -39,6 +42,16 @@ services:
       - "traefik.http.routers.openpoll-backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.openpoll-backend.loadbalancer.server.port=8080"
       - "traefik.docker.network=traefik"
+
+  # LibreOffice behind an HTTP API, reachable only from the backend (no Traefik labels, no ports).
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: openpoll-gotenberg
+    restart: unless-stopped
+    command: ["gotenberg", "--api-timeout=120s", "--chromium-disable-routes=true"]
+    mem_limit: 1g
+    networks:
+      - traefik
 
 networks:
   traefik:

@@ -74,9 +74,12 @@ async function expectTapTarget(target: Locator, name: string, { soft = false } =
 
 test("UX-02: a participant joins, answers three slide types and reaches the end on a phone", async ({
   browser,
+  browserName,
   contexts,
   host,
 }) => {
+  // Playwright's Firefox has no touch emulation (no taps, maxTouchPoints 0). WebKit covers phones.
+  test.skip(browserName === "firefox", "Firefox has no touch emulation");
   const deck = await host.createDeck(`E2E phone ${Date.now()}`, [SELECT, CLOUD, SCALES]);
   const hostPage = await host.open(`/presentation/host/${deck._id}`, DESKTOP);
   const stage = hostPage.locator("main");

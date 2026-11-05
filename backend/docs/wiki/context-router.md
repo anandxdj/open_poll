@@ -71,8 +71,9 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - `backend/docs/wiki/realtime/presentations.md` or `realtime/polls.md` (the module you touch)
 - `backend/docs/wiki/realtime/redis-channels.md`
 
-### Metrics, load test, multi-instance operation
-- `backend/docs/wiki/platform/observability.md` (`GET /metrics`, series, answer-storm load test, `loadtest-smoke` CI job)
+### Error alerts, metrics, load test, multi-instance operation, backups
+- `backend/docs/wiki/platform/observability.md` (`ALERT_EMAIL` error alerts, `GET /metrics`, series, answer-storm load test, `loadtest-smoke` CI job)
+- `docs/deploy/backups.md` (nightly `deploy/mongo-backup.sh` to R2, cron, restore)
 - `docs/deploy/multi-instance.md` (several backend instances: what is shared, settings, load balancer, scaling numbers)
 
 ### HTTP app, middleware order and route mounting tasks

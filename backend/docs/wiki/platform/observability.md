@@ -1,7 +1,7 @@
 ---
-summary: Prometheus metrics (GET /metrics), what each series means, how routes are labelled, and the answer-storm load test and its CI job.
+summary: Error alerts by email (ALERT_EMAIL), Prometheus metrics (GET /metrics), what each series means, how routes are labelled, and the answer-storm load test and its CI job.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-05
 ---
 
 # Observability (`common/observability/`, `modules/metrics/`)
@@ -9,6 +9,26 @@ last_updated: 2026-10-19
 W2-D. One `prom-client` registry per process; Prometheus scrapes **each instance** and sums.
 Metrics are always collected (a few counters and histograms); only the endpoint needs
 configuration.
+
+## Error alerts (`common/observability/alerts.ts`)
+
+`notifyError(context, error, meta)` emails `ALERT_EMAIL` through Resend about errors nobody handled.
+It is called from four places, after the caller has logged the error:
+
+| Context | Where |
+| --- | --- |
+| `http` | `errorHandler`, for a 500 (not `ApiError`s, body-parser errors or `CastError`). Meta: method, route **pattern** (never the raw URL: paths carry tokens and ids), status. |
+| `job:<name>` | `common/jobs/start.ts` passes `onJobError` to the scheduler; a failing tick still only logs in tests. |
+| `unhandledRejection` | `app.ts`: logged and alerted, and the process keeps serving. |
+| `uncaughtException` | `app.ts`: alerted (waits up to 3 s), then `process.exit(1)` so the container restarts. |
+
+Off when `ALERT_EMAIL` or `RESEND_API_KEY` is unset. Throttled so a broken route cannot flood the
+inbox: one email per fingerprint per hour (`SET rl:alert:fp:<fp> NX EX 3600`) and at most 20 a day
+(`rl:alert:day:<date>`), shared by every instance; a per-process map when Redis is down. The
+fingerprint is the context, error name, message with ids and numbers masked, and the first stack
+frame. The email holds the meta, the instance hostname, the time and 15 stack lines, HTML-escaped;
+never request bodies or query strings. Alerting never throws. Nightly backup failures are mailed by
+`deploy/mongo-backup.sh` itself (`docs/deploy/backups.md`). Tests: `tests/observability.alerts.test.ts`.
 
 ## Endpoint
 

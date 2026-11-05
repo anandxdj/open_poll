@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import {
   ChevronsUpDown,
+  LifeBuoy,
   LogOut,
   Menu,
   Moon,
@@ -20,6 +21,7 @@ import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { ProductLogo } from "@/components/ui/ProductLogo";
 import { HOME_PATH } from "@/lib/routes";
+import { supportMailto } from "@/lib/contact";
 import { useAuthStore } from "@/features/auth";
 import { WorkspaceSwitcher } from "@/features/workspaces/components/WorkspaceSwitcher";
 import {
@@ -219,6 +221,11 @@ function SidebarContent({
               {resolvedTheme === "dark" ? <Moon /> : <Sun />}
               Theme
               <span className="ml-auto text-xs text-muted-foreground">{resolvedTheme === "dark" ? "Dark" : "Light"}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <a href={supportMailto("Open Poll support")} onClick={onNavigate} className="cursor-pointer">
+                <LifeBuoy /> Help and support
+              </a>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={() => void handleLogout()} className="cursor-pointer">

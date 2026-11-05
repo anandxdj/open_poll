@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { ApiError } from '../utils/ApiError';
+import { notifyError } from '../observability/alerts';
 
 export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction): void => {
   if (err instanceof ApiError) {
@@ -29,7 +30,10 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
   }
 
   console.error(`[Unhandled Error]`, err);
-  res.status(500).json({ 
+  // The route pattern, never the raw URL: paths carry tokens (reset links, share links) and ids.
+  const route = req.route?.path ? `${req.baseUrl ?? ''}${req.route.path}` : 'unmatched';
+  void notifyError('http', err, { method: req.method, route, status: 500 });
+  res.status(500).json({
     success: false, 
     message: 'Internal Server Error' 
   });
