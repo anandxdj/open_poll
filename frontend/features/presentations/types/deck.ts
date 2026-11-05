@@ -3,7 +3,7 @@
 // events) stay in `../types.ts`.
 
 import type { ContentSlideType, SlideContent } from "./content";
-import type { DeckThemeRef } from "@/features/themes/types";
+import type { DeckThemeRef, ThemeTokens } from "@/features/themes/types";
 
 export type PresentationSlideType =
   | "select_answer"
@@ -110,8 +110,10 @@ export interface Presentation {
   questionStartedAt?: string | null;
   questionEndsAt?: string | null;
   slides: PresentationSlide[];
-  /** Preset, brand kit and accent override (W3-A); sessions snapshot the resolved look. */
+  /** Preset in light or dark, brand kit and accent override (W3-A); sessions snapshot the resolved look. */
   theme?: DeckThemeRef;
+  /** The theme resolved (deck create, read, save and duplicate answers): what the builder canvas draws. */
+  themeTokens?: ThemeTokens;
   /**
    * Content revision (W3-B2): +1 on every save of the title or slides. Saves send
    * it back as `If-Match`; a stale one is refused with 409 `DECK_CHANGED`.

@@ -34,7 +34,8 @@ import {
   type DeckDraft,
 } from "./deckDraft";
 import * as rail from "./slideRailOps";
-import type { DeckThemeRef } from "@/features/themes/types";
+import type { DeckThemeRef, ThemeMode, ThemeTokens } from "@/features/themes/types";
+import { useAppThemeMode } from "@/features/themes/useAppThemeMode";
 
 // Prevents double-creation across remounts/rapid saves during navigation.
 let isGlobalCreatingPresentation = false;
@@ -59,6 +60,14 @@ export function useDeckBuilder() {
   const [title, setTitle] = useState(seedName ?? "");
   const [slides, setSlides] = useState<PresentationSlide[]>([firstSlide()]);
   const [theme, setTheme] = useState<DeckThemeRef | null>(null);
+  const [themeTokens, setThemeTokens] = useState<ThemeTokens | null>(null);
+  // The app's light or dark theme: a deck created here starts in it (read when the create
+  // request goes out, so a theme switch before the first save still counts).
+  const appMode = useAppThemeMode();
+  const appModeRef = useRef<ThemeMode>(appMode);
+  useIsomorphicLayoutEffect(() => {
+    appModeRef.current = appMode;
+  });
   const [active, setActive] = useState(0);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!editId);
@@ -133,6 +142,7 @@ export function useDeckBuilder() {
           setTitle(presentation.title);
           setSlides(presentation.slides.length > 0 ? presentation.slides : [firstSlide()]);
           setTheme(presentation.theme ?? null);
+          setThemeTokens(presentation.themeTokens ?? null);
           setIsTemplate(true);
           return;
         }
@@ -158,6 +168,7 @@ export function useDeckBuilder() {
           }
         }
         setTheme(presentation.theme ?? null);
+        setThemeTokens(presentation.themeTokens ?? null);
       } catch {
         toast.error("Could not load presentation deck for editing.");
         router.push("/polls");
@@ -183,7 +194,11 @@ export function useDeckBuilder() {
   const updateDeck = (patch: Partial<Omit<DeckDraft, "slides">>) => {
     if (patch.title !== undefined) setTitle(patch.title);
     if (patch.theme !== undefined) setTheme(patch.theme);
+    if (patch.themeTokens !== undefined) setThemeTokens(patch.themeTokens);
   };
+
+  /** A new deck's theme: the creator's light or dark (the look comes from the workspace default). */
+  const newDeckTheme = (): Partial<DeckThemeRef> => ({ mode: appModeRef.current });
 
   const applyRail = (next: rail.RailState) => {
     setSlides(next.slides);
@@ -236,6 +251,8 @@ export function useDeckBuilder() {
     baselineRef.current = deckSignature(deck.title, deck.slides);
     setTitle(deck.title);
     setSlides(deck.slides.length > 0 ? deck.slides : [firstSlide()]);
+    setTheme(deck.theme ?? null);
+    setThemeTokens(deck.themeTokens ?? null);
     setActive(0);
     setAiOpen(false);
 
@@ -345,9 +362,13 @@ export function useDeckBuilder() {
         clearDraft(buildDraftStorageKey(id));
         if (!silent) toast.success("Draft updated");
       } else {
-        const created = await createPresentation(payload);
+        const created = await createPresentation({ ...payload, theme: newDeckTheme() });
         revisionRef.current = created.revision ?? 0;
         baselineRef.current = deckSignature(t, s);
+        if (isMountedRef.current) {
+          setTheme(created.theme ?? null);
+          setThemeTokens(created.themeTokens ?? null);
+        }
         // Set this directly (not just via the URL) so a later queued save —
         // possibly firing after this component unmounted — still targets the
         // same record instead of creating a duplicate.
@@ -423,7 +444,7 @@ export function useDeckBuilder() {
         revisionRef.current = saved.revision ?? revisionRef.current;
         toast.success("Presentation deck updated!");
       } else {
-        await createPresentation(payload);
+        await createPresentation({ ...payload, theme: newDeckTheme() });
         toast.success("Presentation deck created!");
       }
       clearDraft(draftStorageKey);
@@ -449,6 +470,7 @@ export function useDeckBuilder() {
       setTitle(presentation.title);
       setSlides(presentation.slides.length > 0 ? presentation.slides : [firstSlide()]);
       setTheme(presentation.theme ?? null);
+      setThemeTokens(presentation.themeTokens ?? null);
       setActive((current) => Math.min(current, Math.max(0, presentation.slides.length - 1)));
       markConflict(false);
       toast.success("Loaded the latest version.");
@@ -464,7 +486,16 @@ export function useDeckBuilder() {
     setResolvingConflict(true);
     try {
       const { title: t, slides: s } = draftStateRef.current;
-      const created = await createPresentation(toDraftPayload(myVersionTitle(t), s));
+      // The copy keeps this deck's look, light or dark.
+      const copyTheme: Partial<DeckThemeRef> = theme
+        ? {
+            presetId: theme.presetId,
+            mode: theme.mode ?? appModeRef.current,
+            ...(theme.brandKitId ? { brandKitId: theme.brandKitId } : {}),
+            ...(theme.overrides ? { overrides: theme.overrides } : {}),
+          }
+        : newDeckTheme();
+      const created = await createPresentation({ ...toDraftPayload(myVersionTitle(t), s), theme: copyTheme });
       clearDraft(draftStorageKey);
       // Nothing of this deck is left to write back on the way out.
       draftDirtyRef.current = false;
@@ -482,7 +513,9 @@ export function useDeckBuilder() {
   return {
     editId,
     loading,
-    deck: { title, slides, id: editId, theme } satisfies DeckDraft,
+    deck: { title, slides, id: editId, theme, themeTokens } satisfies DeckDraft,
+    /** Light or dark for a deck not saved yet (the app theme in use). */
+    appMode,
     title,
     setTitle,
     slides,

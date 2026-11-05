@@ -25,6 +25,7 @@ import type { PresentationSlideType } from "@/features/presentations/types/deck"
 import { useWorkspaceStore } from "@/features/workspaces/store/useWorkspaceStore";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
+import { useAppThemeMode } from "@/features/themes/useAppThemeMode";
 import { createDeckFromTemplate, deleteTemplate, listTemplates, type TemplateList, type TemplateSummary } from "../api";
 
 /**
@@ -34,6 +35,7 @@ import { createDeckFromTemplate, deleteTemplate, listTemplates, type TemplateLis
  */
 export function TemplatesView() {
   const router = useRouter();
+  const appMode = useAppThemeMode();
   const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
   const canCreate = useCanOrganizeLibrary();
   const [generation, setGeneration] = useState(0);
@@ -59,7 +61,7 @@ export function TemplatesView() {
   async function use(template: TemplateSummary) {
     setBusyId(template.id);
     try {
-      const deck = await createDeckFromTemplate(template.id);
+      const deck = await createDeckFromTemplate(template.id, appMode);
       toast.success(`“${deck.title}” created from the template.`);
       router.push(deckBuilderPath(deck._id));
     } catch (err: unknown) {
@@ -263,7 +265,7 @@ function TemplateCard({ template, canCreate, busy, disabled, onUse, onDelete }: 
   );
 }
 
-/** Graph paper with the category and a dark mini screen of the slide types, like the library's deck cards. */
+/** Graph paper with the category and a mini screen of the slide types (in the app's light or dark, the mode a new deck takes). */
 function TemplatePreview({ template }: { template: TemplateSummary }) {
   const types = template.slideTypes.slice(0, 5);
   return (
@@ -275,7 +277,8 @@ function TemplatePreview({ template }: { template: TemplateSummary }) {
         </span>
       ) : null}
       <div className="relative flex h-full items-center justify-center px-6 pt-5">
-        <div className="dark w-full max-w-[12rem] rounded-lg border border-border bg-background p-2.5 shadow-[0_12px_24px_-16px_rgb(23_23_23/0.6)]">
+        {/* The mini screen follows the app theme: a deck made from the template starts in it. */}
+        <div className="w-full max-w-[12rem] rounded-lg border border-border bg-background p-2.5 shadow-[0_12px_24px_-16px_rgb(23_23_23/0.45)]">
           <span className="block h-1.5 w-1/2 rounded-full bg-foreground/70" />
           <div className="mt-2.5 flex items-center gap-1.5">
             {types.map((type) => {

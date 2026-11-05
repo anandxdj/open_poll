@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { slideLabel, slideTypeMeta } from "../../slides/meta";
 import type { PresentationSlide, PresentationSlideType } from "../../types/deck";
+import type { DeckTheme } from "../../theme/DeckThemeProvider";
 import { SlideThumbnail } from "./SlideThumbnail";
 import { SlideTypePicker } from "./SlideTypePicker";
 
@@ -18,6 +19,8 @@ interface SlideRailProps {
   onMove: (from: number, to: number) => void;
   onDuplicate: (index: number) => void;
   onRemove: (index: number) => void;
+  /** The deck's theme (light or dark) the thumbnails draw. */
+  theme?: DeckTheme | null;
 }
 
 const actionButtonClass =
@@ -28,7 +31,7 @@ const actionButtonClass =
  * select the previous/next slide, Home/End the first/last, and Alt+ArrowUp /
  * Alt+ArrowDown move the slide.
  */
-export function SlideRail({ slides, active, onSelect, onAdd, onMove, onDuplicate, onRemove }: SlideRailProps) {
+export function SlideRail({ slides, active, onSelect, onAdd, onMove, onDuplicate, onRemove, theme }: SlideRailProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -129,7 +132,7 @@ export function SlideRail({ slides, active, onSelect, onAdd, onMove, onDuplicate
                 <span className={cn("w-4 shrink-0 pt-0.5 font-mono text-xs tabular-nums", isActive ? "text-accent-ink" : "text-muted-foreground")}>
                   {i + 1}
                 </span>
-                <SlideThumbnail slide={s} />
+                <SlideThumbnail slide={s} theme={theme ?? null} />
               </button>
 
               <div

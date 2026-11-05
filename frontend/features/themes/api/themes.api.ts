@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api-client";
-import type { BrandKit, BrandKitInput, DeckThemeRef, ThemeCatalog } from "../types";
+import type { BrandKit, BrandKitInput, DeckThemeRef, ThemeCatalog, ThemeTokens } from "../types";
 
 type ApiOk<T> = { success: boolean; message: string; data: T };
 
@@ -17,6 +17,14 @@ export const deleteBrandKit = async (id: string) => {
   await apiClient.delete(`/brand-kits/${id}`);
 };
 
-/** Saves a deck's theme on its own (the builder's other fields keep their own save). */
-export const saveDeckTheme = async (presentationId: string, theme: Partial<DeckThemeRef>) =>
-  (await apiClient.patch<ApiOk<{ theme: DeckThemeRef }>>(`/presentations/${presentationId}`, { theme })).data.data.theme;
+/**
+ * Saves a deck's theme on its own (the builder's other fields keep their own
+ * save). Answers the stored theme and the API's resolved tokens, which the
+ * builder canvas draws.
+ */
+export const saveDeckTheme = async (presentationId: string, theme: Partial<DeckThemeRef>) => {
+  const data = (
+    await apiClient.patch<ApiOk<{ theme: DeckThemeRef; themeTokens?: ThemeTokens }>>(`/presentations/${presentationId}`, { theme })
+  ).data.data;
+  return { theme: data.theme, themeTokens: data.themeTokens ?? null };
+};

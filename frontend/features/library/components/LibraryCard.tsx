@@ -56,6 +56,9 @@ import { ShareDialog } from "@/features/workspaces/sharing/components/ShareDialo
 import { useCanShareDecks } from "@/features/workspaces/sharing/useCanShare";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
+import { DeckThemeProvider } from "@/features/presentations/theme/DeckThemeProvider";
+import { deckThemeFromCard } from "@/features/themes/deckTheme";
+import { useAppThemeMode } from "@/features/themes/useAppThemeMode";
 import { closePoll, convertPollToPresentation, deleteLibraryItem, duplicateLibraryItem } from "../api/library";
 import { cardLinks, deckBuilderPath, duplicateOpenPath, kindLabel, statusLabel } from "../query";
 import type { LibraryCard as LibraryCardData, PollLibraryCard, PresentationLibraryCard } from "../types";
@@ -97,6 +100,7 @@ async function copyText(text: string, success: string) {
 
 export function LibraryCard({ card, onRemoved, onChanged, onDuplicated, onMove, folderName, canSaveTemplate }: LibraryCardProps) {
   const router = useRouter();
+  const appMode = useAppThemeMode();
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -156,7 +160,7 @@ export function LibraryCard({ card, onRemoved, onChanged, onDuplicated, onMove, 
   async function handleConvert(poll: PollLibraryCard, force: boolean) {
     setBusy(true);
     try {
-      const { created, presentation } = await convertPollToPresentation(poll.id, { force });
+      const { created, presentation } = await convertPollToPresentation(poll.id, { force, themeMode: appMode });
       onChanged({ ...poll, details: { ...poll.details, convertedPresentationId: presentation._id } });
       toast.success(created ? "Converted. Opening the new deck…" : "Opening the deck converted earlier…");
       router.push(deckBuilderPath(presentation._id));
@@ -477,9 +481,10 @@ function DeckMeta({ deck }: { deck: PresentationLibraryCard }) {
 }
 
 /**
- * The top of a card, on graph paper: a deck is a dark mini screen with one tile
- * per slide type it holds; a poll is a small ballot sheet (a check on one row
- * for assessments). Pictures of the item's kind and shape, never of results.
+ * The top of a card, on graph paper: a deck is a mini screen in its own theme
+ * (light or dark, its colours) with one tile per slide type it holds; a poll is
+ * a small ballot sheet (a check on one row for assessments). Pictures of the
+ * item's kind and shape, never of results.
  */
 function CardPreview({ card }: { card: LibraryCardData }) {
   return (
@@ -502,25 +507,35 @@ function CardPreview({ card }: { card: LibraryCardData }) {
 function DeckThumb({ deck }: { deck: PresentationLibraryCard }) {
   const types = deck.details.slideTypes.slice(0, 5);
   const more = deck.details.slideTypes.length - types.length;
+  // Older APIs send no theme: the deck was dark then.
+  const theme = deckThemeFromCard(deck.details.theme) ?? { mode: "dark" as const };
   return (
-    <div className="dark w-full max-w-[13rem] rounded-lg border border-border bg-background p-2.5 shadow-[0_12px_24px_-16px_rgb(23_23_23/0.6)]">
-      <span className="block h-1.5 w-1/2 rounded-full bg-foreground/70" />
-      <div className="mt-2.5 flex items-center gap-1.5">
-        {types.length === 0 ? (
-          <Presentation className="size-5 text-muted-foreground" />
-        ) : (
-          types.map((type) => {
-            const { Icon } = slideTypeMeta(type as PresentationSlideType);
-            return (
-              <span key={type} className="flex size-8 items-center justify-center rounded-md border border-border bg-card text-accent-ink">
-                <Icon className="size-4" />
-              </span>
-            );
-          })
-        )}
-        {more > 0 ? <span className="font-mono text-xs text-muted-foreground">+{more}</span> : null}
+    <DeckThemeProvider theme={theme}>
+      <div
+        data-testid="deck-card-screen"
+        className="w-full max-w-[13rem] rounded-lg border border-deck-stage-fg/15 bg-deck-stage-bg p-2.5 shadow-[0_12px_24px_-16px_rgb(23_23_23/0.5)]"
+      >
+        <span className="block h-1.5 w-1/2 rounded-full bg-deck-stage-fg/70" />
+        <div className="mt-2.5 flex items-center gap-1.5">
+          {types.length === 0 ? (
+            <Presentation className="size-5 text-deck-stage-fg/60" />
+          ) : (
+            types.map((type) => {
+              const { Icon } = slideTypeMeta(type as PresentationSlideType);
+              return (
+                <span
+                  key={type}
+                  className="flex size-8 items-center justify-center rounded-md border border-deck-stage-fg/10 bg-deck-stage-panel text-deck-accent"
+                >
+                  <Icon className="size-4" />
+                </span>
+              );
+            })
+          )}
+          {more > 0 ? <span className="font-mono text-xs text-deck-stage-fg/60">+{more}</span> : null}
+        </div>
       </div>
-    </div>
+    </DeckThemeProvider>
   );
 }
 

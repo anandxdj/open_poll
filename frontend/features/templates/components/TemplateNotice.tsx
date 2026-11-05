@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { useAppThemeMode } from "@/features/themes/useAppThemeMode";
 import { createDeckFromTemplate, TEMPLATES_PATH } from "../api";
 
 /**
@@ -16,11 +17,12 @@ import { createDeckFromTemplate, TEMPLATES_PATH } from "../api";
  */
 export function TemplateNotice({ templateId, title }: { templateId: string; title: string }) {
   const [busy, setBusy] = useState(false);
+  const appMode = useAppThemeMode();
 
   async function use() {
     setBusy(true);
     try {
-      const deck = await createDeckFromTemplate(templateId);
+      const deck = await createDeckFromTemplate(templateId, appMode);
       toast.success(`“${deck.title}” created from the template.`);
       // A full load: the builder starts over on the new deck (its state belongs to this template).
       window.location.assign(`/presentation/create?id=${deck._id}`);

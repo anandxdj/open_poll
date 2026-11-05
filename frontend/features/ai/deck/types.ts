@@ -75,6 +75,8 @@ export interface DeckRequest {
   title?: string;
   step: "outline" | "deck";
   outline?: DeckOutline;
+  /** Light or dark for the new deck (the author's app theme); the API makes it light without one. */
+  themeMode?: "light" | "dark";
 }
 
 export interface DeckOutlineResponse {

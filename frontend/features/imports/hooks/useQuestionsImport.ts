@@ -1,5 +1,6 @@
 "use client";
 
+import { useAppThemeMode } from "@/features/themes/useAppThemeMode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { sendQuestions } from "../api/imports.api";
@@ -25,6 +26,8 @@ export function useQuestionsImport() {
   const t = translator as unknown as ImportTranslator;
   const [state, setState] = useState<QuestionsState>({ phase: "idle" });
   const controllerRef = useRef<AbortController | null>(null);
+  // A deck made from the file starts in the importer's light or dark.
+  const themeMode = useAppThemeMode();
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 
@@ -58,14 +61,14 @@ export function useQuestionsImport() {
       controllerRef.current = controller;
       setState({ phase: "importing", file, result });
       try {
-        const done = await sendQuestions({ file, mode: "import", title }, controller.signal);
+        const done = await sendQuestions({ file, mode: "import", title, themeMode }, controller.signal);
         setState({ phase: "done", result: done });
       } catch (error) {
         if (controller.signal.aborted) return;
         setState({ phase: "error", message: describeImportError(error, t), file });
       }
     },
-    [state, t]
+    [state, t, themeMode]
   );
 
   const reset = useCallback(() => {

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { createDeckFromTemplate } from "@/features/templates/api";
+import { useAppThemeMode } from "@/features/themes/useAppThemeMode";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { useLive } from "../../live/store";
 
@@ -26,11 +27,12 @@ export function TemplateScreen({ presentationId }: { presentationId: string }) {
   const router = useRouter();
   const deckTitle = useLive((s) => s.deck?.title ?? "");
   const [creatingDeck, setCreatingDeck] = useState(false);
+  const appMode = useAppThemeMode();
 
   const makeDeck = async () => {
     setCreatingDeck(true);
     try {
-      const deck = await createDeckFromTemplate(presentationId);
+      const deck = await createDeckFromTemplate(presentationId, appMode);
       router.push(`/presentation/create?id=${deck._id}`);
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err) ?? t("template.failed"));

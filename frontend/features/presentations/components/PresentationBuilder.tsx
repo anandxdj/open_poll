@@ -21,6 +21,7 @@ import { useDeckBuilder } from "./builder/useDeckBuilder";
 import { PresenceAvatars } from "./builder/PresenceAvatars";
 import { useDeckPresence } from "./builder/useDeckPresence";
 import { TemplateNotice } from "@/features/templates/components/TemplateNotice";
+import { deckThemeFrom } from "@/features/themes/deckTheme";
 
 export function PresentationBuilder() {
   const builder = useDeckBuilder();
@@ -28,6 +29,9 @@ export function PresentationBuilder() {
   const [embedOpen, setEmbedOpen] = useState(false);
   const canEmbed = useCanEmbedDecks();
   const presence = useDeckPresence(builder.isTemplate ? null : builder.editId);
+  // The canvas and the thumbnails draw the deck as the room will see it: its resolved theme, or
+  // for a deck not saved yet the built-in look in the creator's light or dark.
+  const canvasTheme = deckThemeFrom(builder.deck.themeTokens) ?? { mode: builder.deck.theme?.mode ?? builder.appMode };
 
   if (builder.loading) {
     return (
@@ -82,10 +86,17 @@ export function PresentationBuilder() {
             onMove={builder.moveSlide}
             onDuplicate={builder.duplicateSlide}
             onRemove={builder.removeSlide}
+            theme={canvasTheme}
           />
         }
         stage={
-          <SlideStage slide={builder.slide} index={builder.active} total={builder.slides.length} onChange={builder.updateSlide} />
+          <SlideStage
+            slide={builder.slide}
+            index={builder.active}
+            total={builder.slides.length}
+            onChange={builder.updateSlide}
+            theme={canvasTheme}
+          />
         }
       >
         <Inspector
