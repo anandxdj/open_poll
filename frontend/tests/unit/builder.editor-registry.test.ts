@@ -6,7 +6,6 @@ import {
   toDraftPayload,
   toSavePayload,
   validateDeck,
-  withoutSlideId,
 } from "@/features/presentations/components/builder/deckDraft";
 import {
   blankSlide,
@@ -267,15 +266,15 @@ describe("deck validation and payloads", () => {
     expect(validateDeck("Deck", [ok])).toBeNull();
   });
 
-  test("payloads strip slide ids and trim the title", () => {
+  test("payloads keep slide ids (the API keeps stored ones) and trim the title", () => {
     const slide = { ...FILL.wordcloud(blankSlide("wordcloud")), question: "Q", _id: "abc" };
     const save = toSavePayload("  Deck  ", [slide]);
     expect(save.title).toBe("Deck");
-    expect("_id" in save.slides[0]).toBe(false);
+    expect(save.slides[0]._id).toBe("abc");
 
     const draft = toDraftPayload("", [slide]);
     expect(draft.title).toBe("Untitled Presentation Deck");
-    expect("_id" in draft.slides[0]).toBe(false);
+    expect(draft.slides[0]._id).toBe("abc");
   });
 });
 
@@ -308,7 +307,8 @@ describe("select_answer settings: graded, multi-select, explanation", () => {
     const saved = slide({ _id: "s1", options: options(true, false, false), config: null });
     expect(cleanSlide(saved)).toEqual(saved);
     expect(validateSlide(saved)).toBeNull();
-    expect(toSavePayload("Deck", [saved]).slides[0]).toEqual(withoutSlideId(saved));
+    // Saves keep the slide id: the API keeps ids of stored slides (W3-B2 co-editing).
+    expect(toSavePayload("Deck", [saved]).slides[0]).toEqual(saved);
     expect(normalizeSlideForDraft(saved)).toEqual(saved);
     // Several correct options still mean "any of them" on a single-select slide.
     const anyOf = slide({ options: options(true, true, false), config: null });

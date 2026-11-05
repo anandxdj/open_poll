@@ -10,6 +10,7 @@ import type { PresentationSlide, PresentationSlideType } from "../types/deck";
 import { AiPresentationModal } from "./AiPresentationModal";
 import { BuilderHeader } from "./builder/BuilderHeader";
 import { BuilderShell } from "./builder/BuilderShell";
+import { ConflictBanner } from "./builder/ConflictBanner";
 import { isSlideDirty } from "./builder/deckDraft";
 import { Inspector } from "./builder/Inspector";
 import { SlideRail } from "./builder/SlideRail";
@@ -46,6 +47,13 @@ export function PresentationBuilder() {
               onSaveDraft={builder.handleSaveDraft}
               onPresent={() => void builder.handleSave("present")}
             />
+            {builder.conflict ? (
+              <ConflictBanner
+                busy={builder.resolvingConflict}
+                onReload={() => void builder.reloadLatest()}
+                onSaveCopy={() => void builder.saveMineAsCopy()}
+              />
+            ) : null}
             <AiDeckBanner />
           </>
         }
