@@ -36,11 +36,16 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 - Add `backend/docs/wiki/realtime/presentations.md` only if touching events.
 - Answer hot path (Lua script, replays, grace/tickets, coalescer, write-behind, auto-reveal, socket `answer:submit`/`live:resync`): the "Answer path" section of `modules/presentations-live.md`.
 - Presenter tools (timer pause/resume/extend/skip, kick, phone remote `modules/remote`, deck profanity filter): the "Presenter tools (W2-A)" section of `modules/presentations-live.md`.
+- Audience pace (open/close-audience, attempts, submit/retry, pass/fail, the `audience-autoclose` job, migration 230): the "Audience pace (W2-F)" section of `modules/presentations-live.md`.
 
 ### MCP server for AI agents (deck, live and results tools, resources, prompts, personal tokens, OAuth connectors)
 - `backend/docs/wiki/modules/mcp.md`
 - Add `backend/src/modules/mcp/README.md` only for the poll tools' design notes (polls vs assessments, publish defaults).
 - Add `backend/docs/wiki/modules/presentations-live.md` only if changing what a live command does.
+
+### Embeds, oEmbed, screen tokens, the `screen` socket role, add-in panes (W4-D)
+- `backend/docs/wiki/modules/embeds.md`
+- Add `backend/docs/wiki/realtime/envelope.md` only if touching screen views or the screen room.
 
 ### Workspace insights (the analytics overview's data: activity over a date range)
 - `backend/docs/wiki/modules/insights.md`

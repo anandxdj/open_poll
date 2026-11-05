@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { CopyField } from "@/features/embeds/components/CopyField";
+import { iframeSnippet, resultsEmbedUrl } from "@/features/embeds/embedUrls";
 import { disableShare, enableShare } from "../api/sessions";
 import { defaultExpiryChoice, expiryFor, formatDateTime, SHARE_EXPIRY_CHOICES, shareUrl, type ShareExpiryKey } from "../query";
 import type { SessionShare, ShareInput } from "../types";
@@ -135,6 +137,16 @@ export function ShareDialog({ open, onOpenChange, sessionId, ended, share, onCha
                     </Button>
                   ) : null}
                 </div>
+                {active && share?.token ? (
+                  <div className="pt-2">
+                    <CopyField
+                      label={t("embedLabel")}
+                      value={iframeSnippet(resultsEmbedUrl(window.location.origin, share.token), t("embedTitle"), "results")}
+                      multiline
+                      hint={t("embedHint")}
+                    />
+                  </div>
+                ) : null}
                 <p className="text-xs text-muted-foreground" role="status">
                   {lapsed
                     ? t("expired")

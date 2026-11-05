@@ -4,6 +4,7 @@ import { useId } from "react";
 
 import { isContentSlide, slideTypeMeta } from "../../slides/meta";
 import type { PresentationSlide } from "../../types/deck";
+import type { DeckTheme } from "../../theme/DeckThemeProvider";
 import { SlideThumbnail } from "./SlideThumbnail";
 
 /** The API's limit on a slide's speaker notes. */
@@ -19,11 +20,14 @@ export function SlideStage({
   index,
   total,
   onChange,
+  theme,
 }: {
   slide: PresentationSlide;
   index: number;
   total: number;
   onChange: (patch: Partial<PresentationSlide>) => void;
+  /** The deck's theme (light or dark): the canvas draws the slide as the room will see it. */
+  theme?: DeckTheme | null;
 }) {
   const notesId = useId();
   const meta = slideTypeMeta(slide.type);
@@ -48,7 +52,11 @@ export function SlideStage({
       </div>
 
       <figure className="m-0">
-        <SlideThumbnail slide={slide} className="rounded-2xl shadow-[0_32px_64px_-32px_rgb(23_23_23/0.45)]" />
+        <SlideThumbnail
+          slide={slide}
+          theme={theme ?? null}
+          className="rounded-2xl shadow-[0_32px_64px_-32px_rgb(23_23_23/0.45)]"
+        />
         <figcaption className="sr-only">Preview of slide {index + 1} on the stage</figcaption>
       </figure>
 

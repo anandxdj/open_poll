@@ -28,6 +28,9 @@ DELETE /scim/v2/Groups/:id
 USE /scim/v2 <anonymous>
 ROUTER /metrics
 GET /metrics
+ROUTER /api/oembed
+USE /api/oembed corsMiddleware
+GET /api/oembed
 ROUTER /.well-known
 GET /.well-known/oauth-authorization-server
 GET /.well-known[/oauth-protected-resource,/oauth-protected-resource/mcp]
@@ -162,6 +165,11 @@ GET /api/presentations/:id/host/remote-token
 POST /api/presentations/:id/host/remote-token
 DELETE /api/presentations/:id/host/remote-token
 GET /api/presentations/:id/sessions
+ROUTER /api/presentations
+POST /api/presentations/:id/host/open-audience
+POST /api/presentations/:id/host/close-audience
+POST /api/presentations/:id/audience/submit
+POST /api/presentations/:id/audience/retry
 ROUTER /api/quizzes
 ROUTER /api/quizzes
 GET /api/quizzes/code/:code
@@ -197,6 +205,11 @@ GET /api/quizzes/:id/host/remote-token
 POST /api/quizzes/:id/host/remote-token
 DELETE /api/quizzes/:id/host/remote-token
 GET /api/quizzes/:id/sessions
+ROUTER /api/quizzes
+POST /api/quizzes/:id/host/open-audience
+POST /api/quizzes/:id/host/close-audience
+POST /api/quizzes/:id/audience/submit
+POST /api/quizzes/:id/audience/retry
 ROUTER /api/mcp
 POST /api/mcp/tokens
 GET /api/mcp/tokens
@@ -222,6 +235,11 @@ DELETE /api/brand-kits/:id
 ROUTER /api/capabilities
 GET /api/capabilities
 ROUTER /api/embeds
+GET /api/embeds/screen-tokens
+POST /api/embeds/screen-tokens
+DELETE /api/embeds/screen-tokens/:id
+GET /api/embeds/stage
+GET /api/embeds/policy
 ROUTER /api/folders
 GET /api/folders
 POST /api/folders
@@ -253,7 +271,6 @@ ROUTER /api/oauth
 GET /api/oauth/requests/:requestId
 POST /api/oauth/requests/:requestId/approve
 POST /api/oauth/requests/:requestId/deny
-ROUTER /api/oembed
 ROUTER /api/plans
 GET /api/plans
 ROUTER /api/public/domains

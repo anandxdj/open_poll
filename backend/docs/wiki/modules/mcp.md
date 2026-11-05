@@ -74,9 +74,9 @@ each. Every write tool writes an `audit()` event with `actorType: 'api'` and the
 | --- | --- | --- |
 | `get_context` | any | user, pinned workspace (name, plan, role, audience cap), scopes, web app URL |
 | `list_slide_types` | `deck:read` | `agentKinds()`: kind, category, description, required/optional fields, example |
-| `list_themes` | `deck:read` | `presetViews()`, `BrandKitService.list` (with `brand_kits`), workspace default |
+| `list_themes` | `deck:read` | `presetViews()`, `modes` (`light`, `dark`) and `defaultMode` (`light`), `BrandKitService.list` (with `brand_kits`), workspace default |
 | `list_decks`, `get_deck` | `deck:read` | `PresentationService.listPresentations` / `getPresentationFor`; slides as compact views with stable ids |
-| `create_deck` | `deck:write` | `createPresentation({title, slides, theme, settings, pace})` |
+| `create_deck` | `deck:write` | `createPresentation({title, slides, theme, settings, pace})`; `theme.mode` light or dark, light when omitted |
 | `update_deck` | `deck:write` | `updatePresentation` (title, theme, settings, pace) |
 | `add_slides`, `update_slide`, `remove_slides`, `reorder_slides` | `deck:write` | read the stored slides, change the array, `updatePresentation({slides})`; untouched slides keep their `_id` |
 | `open_lobby` | `session:run` | `openLobby`; refuses (409 `SESSION_ALREADY_LIVE`) while a session is live unless `restart: true` |

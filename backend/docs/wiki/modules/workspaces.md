@@ -34,7 +34,7 @@ ignore `X-Workspace-Id`, so a client holding a stale selection can still list an
 | `GET /api/workspaces` | – | any user | `{ defaultWorkspaceId, workspaces: WorkspaceSummary[] }` |
 | `POST /api/workspaces` | `{ name }` (1–120 chars) | plan gate below; 20/hour/user | `WorkspaceDetail` (201) |
 | `GET /api/workspaces/:id` | – | active member | `WorkspaceDetail` |
-| `PATCH /api/workspaces/:id` | `{ name?, settings?: { retentionDays?: int ≥ 1 \| null } }` | `workspace:manage` (owner, admin) | `WorkspaceDetail` |
+| `PATCH /api/workspaces/:id` | `{ name?, settings?: { retentionDays?: int ≥ 1 \| null, embedAllowedOrigins?: string[] ≤ 20 } }` (and the SSO/theme settings of their packages) | `workspace:manage` (owner, admin) | `WorkspaceDetail` |
 | `POST /api/workspaces/:id/switch` | – | active member | `WorkspaceDetail` |
 
 ```ts
@@ -57,7 +57,9 @@ WorkspaceDetail = {
 - **Update** only takes fields this module owns. `retentionDays` is capped by the plan's
   `retentionDays` (`403 PLAN_LIMIT_REACHED`); `null` means "as long as the plan allows". It is
   stored only; the retention job and its UI land with W4-C. SSO, embed and theme settings are
-  added to the schema by the packages that enforce them. Plan, owner and type never change
+  added to the schema by the packages that enforce them. `embedAllowedOrigins` (W4-D,
+  `modules/embeds.md`): the sites that may frame the workspace's embeds, normalised origins
+  (`https://example.com`, `https://*.example.com`), empty = any site; anything else is a 400. Plan, owner and type never change
   here (`400`).
 - **Switch** sets `user.defaultWorkspaceId`. The default serves requests without
   `X-Workspace-Id`, MCP tokens, AI generate-and-save, and the next sign-in.

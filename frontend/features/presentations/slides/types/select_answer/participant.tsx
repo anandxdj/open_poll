@@ -107,7 +107,7 @@ function MultiSelectAnswer({ slide, mode, onSubmit, submitting }: ParticipantVie
   const t = useTranslations("live.slides.selectAnswer");
   const [selected, setSelected] = useState<number[]>([]);
   const { options } = slide;
-  const inert = mode !== "live";
+  const inert = mode === "preview";
   const locked = submitting || inert;
 
   const toggle = (i: number) => setSelected((prev) => toggled(prev, i));

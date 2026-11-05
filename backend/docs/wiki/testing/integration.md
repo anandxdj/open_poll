@@ -44,7 +44,11 @@ acks, resync, replays, auto-reveal, score race on Mongo), `multiInstance.test.ts
 adapter on/off), `metrics.test.ts` (`/metrics` auth and content). W2-A: `presenter.test.ts` (kick and the
 refused rejoin, timer pause/resume/extend/skip with fair scoring, the phone remote's bind, redeem,
 commands, revoke and other workspaces, the profanity filter, speaker notes absent from every
-participant payload). The load test is not part of
+participant payload). W2-F: `audiencePace.test.ts` (open/close audience, answers to any open slide
+in any order over REST and socket with replays, no speed points, results visibility, attempts with pass/fail
+and retries, the `audience-autoclose` job raced by two schedulers, refusals; it runs
+`PresentationAnswerModel.syncIndexes()` first, because migration 030's suite leaves the attempt-less
+unique index behind). The load test is not part of
 `bun test`: `backend/loadtest/answer-storm.ts`, run by the `loadtest-smoke` CI job
 ([`../platform/observability.md`](../platform/observability.md#load-test)).
 

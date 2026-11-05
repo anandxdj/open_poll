@@ -82,7 +82,11 @@ hashes (kept 6 h after the end) are removed. Afterwards the take-home answers 40
 ### Deleting session data
 
 `purgeSessionData(session)` removes a session with its participants, answers, Q&A and Redis keys,
-without an access check. `deleteSession` (the route) authorizes and audits around it; the privacy
+without an access check. Order: the Redis keys first (audience-paced retry keys included), then the
+session document, then participants, answers and Q&A — so an answer batch or a reconciliation racing
+the delete stores nothing for it (they skip sessions that are gone, and delete what they inserted when
+the session vanished meanwhile; `presentations-live.md` → Write-behind). Deleting a deck uses the same
+order. `deleteSession` (the route) authorizes and audits around it; the privacy
 module's retention job and account purge call it directly (`modules/privacy.md`).
 
 ### Sharing

@@ -2,6 +2,7 @@ import axios from "axios";
 
 import { apiClient } from "@/lib/api-client";
 import type { Presentation, PresentationSlide } from "../types/deck";
+import type { DeckThemeRef } from "@/features/themes/types";
 
 type ApiOk<T> = { success: boolean; message: string; data: T };
 
@@ -9,6 +10,8 @@ export interface PresentationDraftInput {
   title: string;
   /** Slides may carry the `_id` of a stored slide: the API keeps it (unknown ids get a new one). */
   slides: PresentationSlide[];
+  /** Create only: the new deck's theme; the builder sends at least the creator's light or dark. */
+  theme?: Partial<DeckThemeRef>;
 }
 
 export const createPresentation = async (input: PresentationDraftInput) =>

@@ -19,6 +19,9 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useCountdown } from "@/features/presentations/live/useCountdown";
 import type { RemoteCommand, RemoteState } from "@/features/presentations/types";
+import { DeckThemeProvider } from "@/features/presentations/theme/DeckThemeProvider";
+import { deckThemeFrom } from "@/features/themes/deckTheme";
+import { useAppThemeMode } from "@/features/themes/useAppThemeMode";
 import { useRemote, type RemoteLink } from "./useRemote";
 
 const button =
@@ -31,8 +34,25 @@ const button =
  * to open the pairing link binds it; any other phone sees that it is taken.
  */
 export function RemoteConsole({ token }: { token: string }) {
-  const t = useTranslations("remote");
   const { link, state, serverOffsetMs, pending, send } = useRemote(token);
+  const appMode = useAppThemeMode();
+  // The remote looks like the stage it drives: the live session's theme, else the deck's
+  // (light or dark); the app's own until the first state arrives.
+  return (
+    <DeckThemeProvider theme={deckThemeFrom(state?.theme) ?? { mode: appMode }}>
+      <RemoteBody link={link} state={state} serverOffsetMs={serverOffsetMs} pending={pending} send={send} />
+    </DeckThemeProvider>
+  );
+}
+
+function RemoteBody({
+  link,
+  state,
+  serverOffsetMs,
+  pending,
+  send,
+}: Pick<ReturnType<typeof useRemote>, "link" | "state" | "serverOffsetMs" | "pending" | "send">) {
+  const t = useTranslations("remote");
 
   const run = async (command: RemoteCommand) => {
     const outcome = await send(command);

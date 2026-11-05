@@ -22,13 +22,15 @@ export interface AutoRevealWindow {
   scored: boolean;
   endsAtMs: number | null;
   pausedRemainingMs: number | null;
+  /** Audience-paced windows (W2-F) never auto-reveal: their deadline is the session's closing time. */
+  audience?: boolean;
 }
 
 const member = (sessionId: string, slideId: string) => `${sessionId}|${slideId}`;
 
-/** True when the window should auto-reveal: open, scored, timed and not paused. */
+/** True when the window should auto-reveal: open, scored, timed, not paused, and presenter-paced. */
 export const autoRevealDueAt = (window: AutoRevealWindow): number | null =>
-  window.open && window.scored && window.endsAtMs !== null && window.pausedRemainingMs === null
+  window.open && window.scored && !window.audience && window.endsAtMs !== null && window.pausedRemainingMs === null
     ? window.endsAtMs + AUTO_REVEAL_DELAY_MS
     : null;
 

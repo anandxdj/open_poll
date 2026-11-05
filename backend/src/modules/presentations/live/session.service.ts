@@ -52,6 +52,7 @@ import {
   type Slide,
 } from './state';
 import { answeredCounts, buildSessionView, sessionListItem, slideStateView, visitedSlides } from './views';
+import { audienceWindowView, hostAudienceView } from './audienceState';
 import { buildSessionSnapshot } from './snapshot';
 import { issueSlideTicket } from './ticket';
 import { flushDirty } from './coalescer';
@@ -141,7 +142,7 @@ const sessionEntitlements = async (presentation: IPresentation, actor: Actor): P
   return { plan, audienceCap: limits.audienceCap, retentionDays };
 };
 
-const createSession = async (presentation: IPresentation, actor: Actor): Promise<IPresentationSession> => {
+export const createSession = async (presentation: IPresentation, actor: Actor): Promise<IPresentationSession> => {
   const [themeSnapshot, entitlementsSnapshot] = await Promise.all([
     resolveDeckTheme(presentation),
     sessionEntitlements(presentation, actor),
@@ -197,7 +198,7 @@ const createSession = async (presentation: IPresentation, actor: Actor): Promise
 };
 
 /** The window entry of an open response slide after it closes (left, closed, revealed or ended). */
-const cacheClosedWindow = async (session: IPresentationSession, slideId: string) => {
+export const cacheClosedWindow = async (session: IPresentationSession, slideId: string) => {
   const slides = sessionSlides(session);
   const index = slides.findIndex((slide) => slideIdOf(slide) === slideId);
   const state = readSlideState(session, slideId);
@@ -213,6 +214,33 @@ const closeCurrentIfOpen = (session: IPresentationSession, now: Date): string | 
   if (!isOpenState(state)) return null;
   writeSlideState(session, slideId, { closedAt: now, ...endPausePatch(state, now) });
   return slideId;
+};
+
+/**
+ * Closes what is still open when a session ends: the current slide, or in
+ * audience pace (W2-F) every open slide and the audience window itself.
+ */
+const closeOpenSlides = (session: IPresentationSession, now: Date): string[] => {
+  if (session.pace !== 'audience') {
+    const closed = closeCurrentIfOpen(session, now);
+    return closed ? [closed] : [];
+  }
+  const closed: string[] = [];
+  for (const [slideId] of session.slideStates) {
+    const state = readSlideState(session, slideId);
+    if (!isOpenState(state)) continue;
+    writeSlideState(session, slideId, { closedAt: now, ...endPausePatch(state, now) });
+    closed.push(slideId);
+  }
+  if (session.audience?.openedAt && !session.audience.closedAt) {
+    session.audience = {
+      openedAt: session.audience.openedAt,
+      closesAt: session.audience.closesAt,
+      closedAt: now,
+      closeReason: 'ended',
+    };
+  }
+  return closed;
 };
 
 const retainUntilFor = (session: IPresentationSession, endedAt: Date) => {
@@ -231,7 +259,7 @@ const finishSession = async (
   reason: SessionEndReason = 'host'
 ) => {
   const now = new Date();
-  const closed = closeCurrentIfOpen(session, now);
+  const closed = closeOpenSlides(session, now);
   session.status = 'ended';
   session.isLive = false;
   session.endedAt = now;
@@ -241,7 +269,7 @@ const finishSession = async (
 
   const sid = String(session._id);
   const pid = String(presentation._id);
-  if (closed) await cacheClosedWindow(session, closed);
+  for (const slideId of closed) await cacheClosedWindow(session, slideId);
   try {
     await redisClient.hSet(k.meta(sid), 'status', 'ended');
     if ((await redisClient.get(k.active(pid))) === sid) await redisClient.del(k.active(pid));
@@ -408,6 +436,13 @@ const moveTo = async (
   session: IPresentationSession,
   target: { slideIndex?: number; slideId?: string }
 ): Promise<HostCommandResult> => {
+  if (session.pace === 'audience') {
+    throw new ApiError(
+      409,
+      'Participants move through this deck at their own pace; there is no current slide to change',
+      LIVE_ERROR_CODES.audiencePaced
+    );
+  }
   const { slide, index } = resolveTarget(session, target);
   const slideId = slideIdOf(slide);
   if (session.status === 'active' && String(session.currentSlideId) === slideId) {
@@ -489,7 +524,7 @@ const moveTo = async (
  * Workspace templates (W3-B2, `isTemplate`) are blueprints: they are never
  * presented, a deck made from them is ("Use template").
  */
-const assertPresentable = (presentation: IPresentation) => {
+export const assertPresentable = (presentation: IPresentation) => {
   if (presentation.isTemplate) {
     throw new ApiError(
       409,
@@ -521,12 +556,17 @@ export const openLobby = async (presentationId: string, actor: Actor): Promise<H
 
 /**
  * Presents without a lobby: a session waiting in its lobby starts at slide 0;
- * without a live session a new one opens straight on slide 0.
+ * without a live session a new one opens straight on slide 0. An
+ * audience-paced deck (W2-F) opens every slide instead (`openAudience`).
  */
 export const startSession = async (presentationId: string, actor: Actor): Promise<HostCommandResult> => {
   const presentation = await authorizeDeck(presentationId, actor, 'deck:host');
   assertPresentable(presentation);
   const live: IPresentationSession | null = await findLiveSession(presentationId);
+  if ((live?.pace ?? presentation.pace) === 'audience' && live?.status !== 'active') {
+    const { openAudience } = await import('./audience.service');
+    return openAudience(presentationId, actor);
+  }
   if (live?.status === 'active') {
     throw new ApiError(
       409,
@@ -730,18 +770,38 @@ export const getHostState = async (
   actor: Actor
 ): Promise<HostStateResponse<IPresentation>> => {
   const presentation = await authorizeDeck(presentationId, actor, 'deck:host');
-  const session = (await findLiveSession(presentationId)) ?? (await findLatestSession(presentationId));
-  const base = { quiz: presentation, presentation, serverNow: new Date().toISOString() };
+  return (await buildDeckLiveState(presentation)).state;
+};
+
+/**
+ * The host state of a deck the caller was already allowed to see, plus the
+ * session it describes (the live one, else the latest). The read-only stage
+ * of a screen (W4-D, `modules/embeds`) starts from the same document and makes
+ * it stage-safe.
+ */
+export const buildDeckLiveState = async (
+  presentation: IPresentation
+): Promise<{ state: HostStateResponse<IPresentation>; session: IPresentationSession | null }> => {
+  const presentationId = String(presentation._id);
+  const [session, deckTheme] = await Promise.all([
+    findLiveSession(presentationId).then(async (live) => live ?? (await findLatestSession(presentationId))),
+    resolveDeckTheme(presentation),
+  ]);
+  const base = { quiz: presentation, presentation, serverNow: new Date().toISOString(), deckTheme };
   if (!session) {
     return {
-      ...base,
       session: null,
-      participants: [],
-      answeredCount: 0,
-      liveDistribution: null,
-      leaderboard: [],
-      slideStates: [],
-      distributions: {},
+      state: {
+        ...base,
+        session: null,
+        participants: [],
+        answeredCount: 0,
+        liveDistribution: null,
+        leaderboard: [],
+        slideStates: [],
+        distributions: {},
+        audience: null,
+      },
     };
   }
 
@@ -781,7 +841,7 @@ export const getHostState = async (
   const kickedIds = new Set(kicked);
   const currentId = view.currentSlideId;
 
-  return {
+  const state: HostStateResponse<IPresentation> = {
     ...base,
     session: view,
     participants: participants.map((p) => ({
@@ -799,7 +859,9 @@ export const getHostState = async (
       slideStateView(slide, index, state, counts.get(slideIdOf(slide)) ?? 0, now)
     ),
     distributions,
+    audience: session.pace === 'audience' ? await hostAudienceView(session) : null,
   };
+  return { state, session };
 };
 
 /** The deck's sessions, newest first (the heavy snapshots stay out of the list). */
@@ -841,10 +903,16 @@ export const getPresentationByCode = async (joinCode: string) => {
     serverNow: new Date().toISOString(),
   };
 
-  // The live session's theme, so the join screen already looks like the deck (W3-A).
-  result.theme = presentation.activeSessionId
-    ? ((await PresentationSessionModel.findById(presentation.activeSessionId).select('themeSnapshot').lean())?.themeSnapshot ?? null)
+  // The live session's theme, so the join screen already looks like the deck (W3-A), its
+  // nickname rule and (audience pace, W2-F) its answer window.
+  const liveSession = presentation.activeSessionId
+    ? await PresentationSessionModel.findById(presentation.activeSessionId)
+        .select('themeSnapshot settingsSnapshot.nickname audience pace')
+        .lean()
     : null;
+  result.theme = liveSession?.themeSnapshot ?? null;
+  result.nickname = liveSession?.settingsSnapshot?.nickname ?? presentation.settings?.nickname ?? 'required';
+  result.audience = liveSession?.pace === 'audience' ? audienceWindowView(liveSession) : null;
 
   if (presentation.status === 'active' && presentation.currentSlideIndex >= 0 && presentation.activeSessionId) {
     const session = await PresentationSessionModel.findById(presentation.activeSessionId);

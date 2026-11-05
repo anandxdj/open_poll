@@ -45,9 +45,14 @@ export const listTemplates = async () => (await apiClient.get<ApiOk<TemplateList
 export const saveAsTemplate = async (presentationId: string, title: string) =>
   (await apiClient.post<ApiOk<CreatedDeck>>("/templates", { presentationId, title })).data.data;
 
-/** "Use template": a new draft deck in the current workspace. */
-export const createDeckFromTemplate = async (templateId: string) =>
-  (await apiClient.post<ApiOk<CreatedDeck>>(`/templates/${encodeURIComponent(templateId)}/use`)).data.data;
+/** "Use template": a new draft deck in the current workspace, light or dark like the app the creator uses. */
+export const createDeckFromTemplate = async (templateId: string, themeMode?: "light" | "dark") =>
+  (
+    await apiClient.post<ApiOk<CreatedDeck>>(
+      `/templates/${encodeURIComponent(templateId)}/use`,
+      themeMode ? { themeMode } : undefined
+    )
+  ).data.data;
 
 export const deleteTemplate = async (templateId: string) => {
   await apiClient.delete(`/templates/${encodeURIComponent(templateId)}`);

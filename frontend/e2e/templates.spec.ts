@@ -95,8 +95,16 @@ test("save a deck as a template from the library, start a deck from it, then del
 
   const page = await host.open("/polls");
   await page.getByLabel("Search by title").fill(String(stamp));
-  await page.getByRole("button", { name: `More actions for ${deckTitle}` }).click();
-  await page.getByRole("menuitem", { name: "Save as template…" }).click();
+  // Every list refetch (the search above, the workspace becoming known) shows skeletons in place of
+  // the cards, which unmounts an open card menu or dialog; the menu also only offers "Save as
+  // template…" once the workspace role is known. Open it and pick the item until the dialog stays.
+  await expect(async () => {
+    if (await page.getByRole("dialog", { name: "Save as template" }).count()) return;
+    if (await page.getByRole("menu").count()) await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: `More actions for ${deckTitle}` }).click({ timeout: 2_000 });
+    await page.getByRole("menuitem", { name: "Save as template…" }).click({ timeout: 2_000 });
+    await expect(page.getByRole("dialog", { name: "Save as template" })).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
   const dialog = page.getByRole("dialog", { name: "Save as template" });
   await expect(dialog.getByLabel("Template name")).toHaveValue(deckTitle);
   await dialog.getByLabel("Template name").fill(templateName);

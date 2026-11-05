@@ -210,6 +210,10 @@ export class WorkspaceService {
       $set['settings.defaultTheme'] = defaultTheme ? await assertThemeChoice(defaultTheme, actor.workspace) : null;
     }
 
+    // Embedding sites (W4-D): workspace:manage, already checked above; normalised by the schema.
+    const embedAllowedOrigins = input.settings?.embedAllowedOrigins;
+    if (embedAllowedOrigins !== undefined) $set['settings.embedAllowedOrigins'] = embedAllowedOrigins;
+
     const workspace = await WorkspaceModel.findOneAndUpdate(
       { _id: actor.workspace._id, deletedAt: null },
       { $set },

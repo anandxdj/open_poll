@@ -24,6 +24,7 @@ export const DECK_TOKENS = [
   "stage-scrim",
   "stage-ink",
   "qr-bg",
+  "qr-fg",
   "accent",
   "accent-strong",
   "accent-soft",
@@ -59,12 +60,18 @@ export const DECK_TOKENS = [
 
 export type DeckToken = (typeof DECK_TOKENS)[number];
 
+/** A deck is drawn light or dark. */
+export type DeckMode = "light" | "dark";
+
 /**
- * A resolved deck theme: CSS colour values keyed by token (unset tokens keep
- * the defaults), plus what colours can't carry: fonts, a logo and a stage
+ * A resolved deck theme: light or dark (the Graph paper look of that mode,
+ * `tokens.css`), CSS colour values keyed by token on top of it (unset tokens
+ * keep the mode's), plus what colours can't carry: fonts, a logo and a stage
  * background picture (W3-A, from a session's theme snapshot).
  */
 export interface DeckTheme {
+  /** Without one the scope keeps the look from before modes (dark stage, phones follow the app). */
+  mode?: DeckMode;
   tokens?: Partial<Record<DeckToken, string>>;
   /** CSS font stacks; `urls` are stylesheets to load (Google Fonts). */
   fonts?: { heading: string; body: string; urls: string[] };
@@ -93,10 +100,11 @@ export const useDeckTheme = () => useContext(DeckThemeContext);
 
 /**
  * Scopes a deck theme. Renders a `display: contents` element, so it adds no
- * box to the layout; everything inside reads the `--deck-*` variables (and
- * the shadcn tokens remapped to them) and inherits the theme's body font;
- * headings take `--theme-font-heading` (tokens.css). Without a theme the
- * defaults apply, which reproduce the built-in look.
+ * box to the layout; it carries `data-deck-mode` (the light or dark look and
+ * the app tokens of that mode, `tokens.css`, also for `dark:` utilities), and
+ * everything inside reads the `--deck-*` variables (and the shadcn tokens
+ * remapped to them) and inherits the theme's body font; headings take
+ * `--theme-font-heading`. Without a theme the `:root` defaults apply.
  */
 export function DeckThemeProvider({ theme, children }: { theme?: DeckTheme | null; children: ReactNode }) {
   return (
@@ -105,7 +113,7 @@ export function DeckThemeProvider({ theme, children }: { theme?: DeckTheme | nul
         // React hoists stylesheets with a precedence into <head> and loads each once.
         <link key={url} rel="stylesheet" href={url} precedence="default" />
       ))}
-      <div data-deck-theme="" className="contents" style={deckThemeStyle(theme)}>
+      <div data-deck-theme="" data-deck-mode={theme?.mode} className="contents" style={deckThemeStyle(theme)}>
         {children}
       </div>
     </DeckThemeContext.Provider>

@@ -116,7 +116,7 @@ export function RemotePairing({ presentationId }: { presentationId: string }) {
 
       {url && !connected ? (
         <div className="space-y-2">
-          <div className="mx-auto w-fit rounded-lg bg-white p-2.5">
+          <div className="mx-auto w-fit rounded-lg bg-deck-qr-bg p-2.5">
             <QRCodeSVG value={url} size={148} level="M" aria-label={t("qrLabel")} role="img" />
           </div>
           <p className="break-all text-center font-mono text-[11px] text-deck-stage-fg/50" data-testid="remote-link">{url}</p>

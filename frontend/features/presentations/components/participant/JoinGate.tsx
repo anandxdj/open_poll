@@ -12,6 +12,7 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import { joinPresentation } from "../../api/participant";
 import { getApiErrorCode, LIVE_ERROR_CODES } from "../../live/errors";
 import { useLive, useLiveStore } from "../../live/store";
+import { audienceSliceOf } from "./audience/audienceSlice";
 import { readDevice, saveJoin } from "./participantSession";
 
 const ease = [0.32, 0.72, 0, 1] as const;
@@ -26,14 +27,16 @@ export function JoinGate({ code, rejoin = false }: { code: string; rejoin?: bool
   const store = useLiveStore();
   const title = useLive((s) => s.title);
   const presentationId = useLive((s) => s.presentationId);
+  // The session's nickname rule (W2-F): `optional` and `off` may join without one ("Guest NNNN").
+  const nickname = useLive((s) => audienceSliceOf(s).nickname ?? "required");
   const [nameInput, setNameInput] = useState(() => readDevice(code).name ?? "");
   const [joining, setJoining] = useState(false);
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!presentationId) return;
-    const trimmed = nameInput.trim();
-    if (!trimmed) {
+    const trimmed = nickname === "off" ? "" : nameInput.trim();
+    if (!trimmed && nickname === "required") {
       toast.error(t("nicknameRequired"));
       return;
     }
@@ -68,20 +71,32 @@ export function JoinGate({ code, rejoin = false }: { code: string; rejoin?: bool
       >
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-[-0.035em]">{title}</h1>
-          <p className="text-sm text-deck-muted-fg">{rejoin ? t("rejoinHint") : t("nicknamePrompt")}</p>
+          <p className="text-sm text-deck-muted-fg">
+            {rejoin
+              ? t("rejoinHint")
+              : nickname === "off"
+                ? t("nicknameOffPrompt")
+                : nickname === "optional"
+                  ? t("nicknameOptionalPrompt")
+                  : t("nicknamePrompt")}
+          </p>
         </div>
 
         <form onSubmit={handleJoin} className="space-y-3">
-          <Input
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            placeholder={t("nicknamePlaceholder")}
-            autoFocus
-            className="h-12 text-center text-base font-medium"
-          />
+          {nickname !== "off" ? (
+            <Input
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder={nickname === "optional" ? t("nicknameOptionalPlaceholder") : t("nicknamePlaceholder")}
+              aria-label={nickname === "optional" ? t("nicknameOptionalPlaceholder") : t("nicknamePlaceholder")}
+              maxLength={30}
+              autoFocus
+              className="h-12 text-center text-base font-medium"
+            />
+          ) : null}
           <Button
             type="submit"
-            disabled={joining || !nameInput.trim()}
+            disabled={joining || (nickname === "required" && !nameInput.trim())}
             className="h-12 w-full rounded-lg bg-deck-primary text-base font-semibold text-deck-primary-fg"
           >
             {joining ? <Loader2 className="size-4 animate-spin" /> : t("joinSubmit")}

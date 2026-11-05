@@ -15,6 +15,7 @@ import { useCapabilities, useCurrentWorkspace, useSwitchWorkspace } from "../hoo
 import { useWorkspaceStore } from "../store/useWorkspaceStore";
 import { PLAN_NAMES, ROLE_NAMES, type PlanFeature, type PlanLimit, type WorkspaceDetail } from "../types";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
+import { EmbeddingSitesSection } from "@/features/embeds/components/EmbeddingSitesSection";
 
 const LIMIT_ROWS: { key: PlanLimit; label: string; unit?: string }[] = [
   { key: "audienceCap", label: "Participants per live session" },
@@ -271,6 +272,7 @@ export function WorkspaceSettings() {
       <GeneralSection key={detail.workspace._id} detail={detail} />
       <PlanSection detail={detail} />
       <RetentionSection detail={detail} />
+      <EmbeddingSitesSection detail={detail} />
       <TeamWorkspacesSection />
     </div>
   );

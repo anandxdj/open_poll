@@ -5,6 +5,7 @@ import * as answers from './live/answer.service';
 import * as participants from './live/participant.service';
 import * as timing from './live/timing.service';
 import * as moderation from './live/moderation.service';
+import * as audience from './live/audience.service';
 import type { Actor } from './access';
 import type { PolicyContext } from '../../common/tenancy/policy';
 import type { ListContext } from './crud.service';
@@ -18,6 +19,8 @@ import type {
   JoinPresentationInput,
   SubmitPresentationAnswerInput,
   GotoSlideInput,
+  OpenAudienceInput,
+  AudienceAttemptInput,
 } from './presentations.schema';
 
 /**
@@ -163,6 +166,25 @@ export class PresentationService {
 
   static kickParticipant(presentationId: string, actor: Actor, participantId: string) {
     return moderation.kickParticipant(presentationId, actor, participantId);
+  }
+
+  // ---------- Audience pace (W2-F) ----------
+
+  /** Opens every response slide at once (optionally until `closesAt`); participants go at their own pace. */
+  static openAudience(presentationId: string, actor: Actor, body: OpenAudienceInput) {
+    return audience.openAudience(presentationId, actor, body);
+  }
+
+  static closeAudience(presentationId: string, actor: Actor) {
+    return audience.closeAudience(presentationId, actor);
+  }
+
+  static submitAudienceAttempt(presentationId: string, body: AudienceAttemptInput) {
+    return audience.submitAttempt(presentationId, body);
+  }
+
+  static retryAudienceAttempt(presentationId: string, body: AudienceAttemptInput) {
+    return audience.retryAttempt(presentationId, body);
   }
 
   static getHostState(presentationId: string, actor: Actor) {

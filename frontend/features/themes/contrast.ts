@@ -49,3 +49,11 @@ export const COLOR_LABELS: Record<ContrastFailure["foreground"], string> = {
 /** "Text on Stage: 3.2:1, needs 4.5:1". */
 export const describeFailure = (f: ContrastFailure) =>
   `${COLOR_LABELS[f.foreground]} on ${COLOR_LABELS[f.background]}: ${f.ratio.toFixed(1)}:1, needs ${f.minimum}:1`;
+
+/**
+ * Light or dark for a palette, from its stage colour (mirror of the API's
+ * `paletteMode`): light when dark text reads better on it than light text.
+ */
+export function paletteMode(background: string): "light" | "dark" {
+  return contrastRatio(background, "#000000") >= contrastRatio(background, "#ffffff") ? "light" : "dark";
+}

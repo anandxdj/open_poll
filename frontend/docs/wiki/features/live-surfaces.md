@@ -1,5 +1,5 @@
 ---
-summary: Live deck surfaces — host console, presenter view and audience window, phone remote, participant shell, stage — their session-aware flows, and their extension points: live store/reducer, slots, slide runtime registry, deck theme tokens, live i18n.
+summary: Live deck surfaces — host console, presenter view and audience window, phone remote, participant shell, stage, audience pace (participant run, host dashboard) — their session-aware flows, and their extension points: live store/reducer, slots, slide runtime registry, deck theme tokens, live i18n.
 status: active
 last_updated: 2026-11-05
 ---
@@ -24,7 +24,7 @@ is `backend/docs/wiki/modules/presentations-live.md`: every presentation is a **
 | Host session | `components/host/useHostSession.ts` | Reads host state on mount (never opens anything), follows the socket, resyncs, runs one host command at a time, timer-driven reveal. |
 | Host commands | `components/host/hostCommands.ts` | `sendHostCommand`: one retry on `SESSION_BUSY`, flags `SESSION_ALREADY_LIVE`/`NO_LIVE_SESSION` as "console out of date". |
 | Host chrome | `components/host/{HostHeader,HostControls,LeaderboardModal,useJoinLink}.tsx` | Top bar (+ `hostToolbar` slot, a link to the presenter view), bottom bar (back/forward, voting phase controls), standings overlay, join link copy. |
-| Stage | `components/stage/Stage.tsx` | What the audience sees: ready, lobby, running slide, end. Controls come in as props (`readyActions`, `lobbyActions`, `endActions`, `overlays`) so a screen-only surface can reuse it. |
+| Stage | `components/stage/Stage.tsx` | What the audience sees: ready, lobby, running slide, end. Controls come in as props (`readyActions`, `lobbyActions`, `endActions`, `overlays`) so a screen-only surface reuses it: the read-only screen stage of `features/embeds` (`surface="screen"`, no actions; `StageReady` then says it waits for the presenter and `StageEnd` shows no `endScreen` slot). |
 | Stage parts | `components/stage/{StageReady,StageLobby,StageSlide,StageEnd,ResponseCounter,StageView,Leaderboard,Timer}.tsx` | `StageView` looks the slide type up in the runtime registry; `Leaderboard` and `Timer` are shared with the participant. |
 | Participant shell | `components/participant/ParticipantShell.tsx` | Own live store; nickname gate, notices, slots, slide body. |
 | Participant session | `components/participant/useParticipantSession.ts` | Code lookup → credentials of that session → `live-state`; socket, resyncs, lost credentials, "a new session is live". |
@@ -36,6 +36,7 @@ is `backend/docs/wiki/modules/presentations-live.md`: every presentation is a **
 | Audience window | `features/presenter/{components/AudienceWindow.tsx,audienceChannel.ts,useFullscreen.ts}` | The stage only, mirrored from the presenter view over a BroadcastChannel. |
 | Presenter extras | `features/presenter/{soundCues.ts,remoteState.ts,module.ts,register.ts}` | Optional sound cues; the `remote` live slice (phone remote presence). |
 | Phone remote | `features/remote/{RemoteConsole.tsx,useRemote.ts,api.ts}` | `/remote/<token>`: big buttons over its own socket. |
+| Audience pace | `components/participant/audience/{AudienceRun,AudienceSlideCard,AudienceSummary,AudienceResults,audienceSlice,register}.ts(x)`, `components/host/{AudienceDashboard.tsx,useAudiencePaced.ts}` | W2-F: the participant's own run through an audience-paced deck, and the host's dashboard; see [Audience pace](#audience-pace-w2-f). |
 
 Both surfaces import `features/registrations.ts` first, so every module registration has run
 before their first render.
@@ -295,7 +296,7 @@ getSlotEntries(slot, props?)
 | `participantBody` | same | Replaces the slide tab's body; the first entry whose `when` matches wins. |
 | `participantFooter` | same | Under the participant main area. |
 | `endScreen` | `{role, presentationId}` | After the standings on the host and participant end screens. |
-| `stageOverlays` | `{surface: 'host' \| 'screen', presentationId}` | Inside the stage `<main>` (absolutely positioned layers), every status. |
+| `stageOverlays` | `{surface: 'host' \| 'screen', presentationId}` | Inside the stage `<main>` (absolutely positioned layers), every status. `screen` is the read-only stage of `features/embeds`. |
 | `hostToolbar` | `{presentationId}` | Start of the host header's right-hand group. |
 | `presenterPanels` | `{presentationId}` | Under the presenter view's side panels (W2-A; Q&A registers its panel here). |
 
@@ -357,6 +358,77 @@ with a 5 s ack: **Previous**, **Next** (starts slide 1 from the lobby), **Reveal
 **+30 s**, **Pause** / **Resume**. It shows the slide position and title, phase, timer, "N of M
 answered", up next and the speaker notes. Final screens: the link no longer works (unpaired, replaced,
 expired), the pairing belongs to another phone, the presenter unpaired it (`remote:revoked`).
+
+## Audience pace (W2-F)
+
+Server contract: `backend/docs/wiki/modules/presentations-live.md` → "Audience pace (W2-F)". A deck
+with `pace: "audience"` opens every response slide at once and each participant moves through the
+deck on their own; there is no current slide and no timer.
+
+**Live slice** (`components/participant/audience/audienceSlice.ts`, registered by
+`audience/register.ts` from `features/registrations.ts`; `state.modules.audience`, read with
+`audienceSliceOf(state)`): `pace` and `nickname` (code lookup, `live-state`), `participant` (the run:
+`live-state.audience`, or the view a submit / retry answered with — `live/module audience/view`),
+`answered` (slides accepted since that view: `participant/submitted` with `slideId`,
+`participant/answer-synced`), `host` (`host/state.audience`), `window` (`audience:opened` /
+`audience:closed`, command responses).
+
+**Answers.** `submitAnswer(payload, target?)` takes the slide to answer when it is not the current
+one: `{slideId, slideIndex, slideTicket, attempt}`; the body carries them (and `attempt`), so the
+socket → REST → offline queue path is the same, and a queued answer of an earlier attempt replays as
+that attempt. An accepted targeted answer re-reads `live-state` (not `/me`). `ATTEMPT_SUBMITTED` /
+`ATTEMPT_STALE` toast "That attempt is over" and re-read.
+
+**Participant** (`components/participant/audience/`): `ParticipantShell` renders `AudienceRun` instead
+of the slide body when the slice's pace is `audience` (lobby, active and ended). `AudienceRun`: the
+waiting screen until the host opens; then the progress ("2 of 5 answered", bar), the closing time
+("Closes in 12 min" / at a time / "Closed"), an "Attempt n" badge, a numbered slide strip (44 px
+buttons, answered ones tinted, content slides dashed), the slide, Back / Next (Finish on the last
+slide) and the summary page. `AudienceSlideCard`: content slides show themselves (`mode="audience"`);
+a response slide shows the type's form while open and unanswered in the current attempt, "Saved —
+will sync" / the refusal for a queued answer, then "Answer saved" (ungraded) or "Answer locked in"
+(graded) with "Your answer: …", right or wrong with the points and the explanation once `final`, and
+`AudienceResults` (bars for choices, top words and answers, scale averages, rankings; correct marks only
+when the server sent them) when `resultsVisibility` allows; hints say when results come. `AudienceSummary`:
+before submitting, the answered count, jump buttons to unanswered slides and **Submit answers** (the
+offline queue is flushed first; queued answers block the submit with "Saving your answers…"); "See
+my result" once closed; after submitting, the percentage and points, Passed / Not passed with the pass
+mark, attempts left, earlier attempts, **Try again** (`canRetry`, opens slide 1 of the new attempt)
+and **Review answers**. On `audience:opened`, `audience:closed` and `session:ended` (audience pace)
+`useParticipantSession` re-reads `live-state`. `JoinGate` follows the nickname rule: `required` as
+before, `optional` ("Nickname (optional)", empty joins as "Guest NNNN"), `off` (no field).
+
+**Host** (`components/host/AudienceDashboard.tsx`, `useAudiencePaced()`): the host console and the
+presenter view render the dashboard instead of the stage (and ignore the slide keys) for an
+audience-paced session (the live session's pace, else the deck's). It shows the status (Not open yet,
+Lobby open, Open, Closed, Ended), the settings line (assessment, results on phones), the closing time,
+the join link, code and QR; **Open to participants** (with an optional "Close automatically at" date and
+time; empty takes the deck's default duration), **Open lobby first**, **Save closing time** and **Close
+now** while open (confirmed in the app's `AlertDialog`, never `confirm()`), **Open again** after a close,
+**End session** (`EndSessionDialog`), **Run again** after the end; stats (participants, started, finished
+"n of m", passed and not passed with an assessment); progress per question (participants whose current
+attempt answered it) and who is in (progress n/m, attempt, In progress / Not started / Passed · 80% /
+Not passed · 40% / Removed); the `endScreen` slot once ended. `useHostSession` adds `openAudience(closesAt?)`,
+`closeAudience()` and `refresh`, and re-reads host state (at most once a second) on `answer:received`,
+`participant:joined`, `participant:kicked` and `audience:*` for an audience-paced deck.
+
+**Stage** (`components/stage/StageAudience.tsx`): while an audience-paced session runs, `Stage` (the
+audience window and room screens; the host console and presenter view show the dashboard instead) shows
+"Answer at your own pace", the join link, code and QR, the closing time, participants, finished and
+progress per question from the slice's `host` view — never a name, an answer or a result ("Answers are
+closed" once closed). Room screens get a counts-only `audience` view (`frontend/docs/wiki/features/embeds.md`).
+
+**Theme.** The own-pace phone screens, the dashboard and `StageAudience` sit inside the same
+`LiveDeckTheme` scopes as the rest and use only deck and app tokens, so they follow the deck's light or
+dark theme (the dashboard's QR on `qr-bg`, its date field taking the scope's `color-scheme`);
+`e2e/deck-themes.spec.ts` checks a light audience-paced deck on the dashboard (host console and presenter
+view) and the phone.
+
+**i18n:** `live.audience.*` (phone), `live.participant.nickname{Optional,Off}*` (join form),
+`presenter.audiencePace.*` and `presenter.errors.{openAudience,closeAudience}` (dashboard).
+
+**Fixed on the way:** the multi-select answer form was interactive only in `mode="live"`; like every
+other form it is now inert only in `preview`, so converted multi-choice polls work at audience pace.
 
 ## Slide runtime registry (`slides/runtime.ts`)
 
@@ -454,34 +526,56 @@ has a runtime.
 - Every live surface colours itself through `--deck-*` variables via Tailwind colours
   `deck-*` (`bg-deck-stage-bg`, `text-deck-accent/40`, `border-deck-correct/50`…), registered with
   `@theme inline` in `tokens.css` (imported by `app/globals.css`). No raw palette colours in live
-  UI; the phone's result states (correct / wrong / received) use the app's theme-aware `success`,
-  `destructive` and `info`, because the audience surface follows the app's light or dark theme.
-- Defaults are the Graph paper look (`../ui/design-system.md`): audience surfaces (`bg`, `fg`,
-  `surface`, `secondary`, `muted-fg`, `border`, `input`, `ring`, `primary`, `primary-fg`) follow the
-  app's light/dark tokens; the stage is always dark, the app's warm graphite (`stage-bg` #141413,
-  `stage-chrome`, `stage-panel`, `stage-fg` #f2f1ec); `accent` is the brand ember (#f97316), the
-  status accents match the app (green correct and live, red danger), `rank-1..3` gold / silver /
-  bronze, and `cloud-1..12` start with the app's categorical chart hues.
-- `.stage-grid` (in `tokens.css`) draws the graph paper in the stage's own ink behind the ready,
-  lobby and end screens; a running slide has a plain stage.
+  UI; the phone's result states (correct / wrong / received) use the app's `success`, `destructive`
+  and `info`, which a deck scope sets to its own mode.
+- **Light or dark.** A deck is light or dark (`theme.mode`, light by default; backend
+  `modules/themes.md`). `DeckThemeProvider` marks its scope `data-deck-mode="light|dark"` and
+  `tokens.css` gives that scope the Graph paper look of the mode, for the stage **and** the phones:
+  - light: the app's light tokens — paper stage `#f6f6f3` with white chrome and panels, ink
+    `#171717`, the ember fill `#cf460c` with white text (`stage-ink`), text colours that keep 4.5:1
+    on paper and white (`correct-soft` `#15803d`, `danger-soft` `#b91c1c`, `accent-soft` `#b93d0b`,
+    gold / silver / bronze ranks), the cloud in the 700/800 chart steps, a paper `stage-scrim`;
+  - dark: the warm graphite stage (`#141413`, `stage-fg` `#f2f1ec`), the brand ember `#f97316`, the
+    400-step cloud colours, the app's dark tokens on phones.
+  Each mode block also sets the app's own tokens (`--background`, `--primary`, `--muted-foreground`,
+  `--success`…, `color-scheme`), so Button, Input and `text-muted-foreground` inside a deck follow the
+  deck, not the viewer's app theme. The `dark:` variant (`app/globals.css`) applies in a dark deck
+  scope and not in a light deck drawn on a dark page.
+- Outside any deck scope `:root` keeps the look from before modes (a dark stage, audience tokens
+  following the app): what the landing samples use.
+- `.stage-grid` draws the graph paper in the stage's own ink behind the ready, lobby and end screens;
+  a running slide has a plain stage. `qr-bg` / `qr-fg` keep QR codes dark on white in both modes.
 - Stage chrome (host header and controls, lobby, ready, end, response counter, leaderboard) uses
   sentence case and 14px+ labels, neutral outline pills for secondary controls, the accent only on
   the main action (Start, Next) and the join code; ending the session is an ink (`stage-fg`)
-  button, not red.
-- `<DeckThemeProvider theme={{ tokens: { primary: '#…' } }}>` sets overrides as inline variables
-  on a `display: contents` element; inside it the shadcn tokens (`--primary`, `--background`…)
-  are remapped to the deck ones so `Button`/`Input` follow. `DECK_TOKENS` lists every token.
-- **Session themes (W3-A).** The live store keeps the session's `theme` snapshot (host `SessionView`,
-  participant `live-state`, code lookup). `LiveDeckTheme` (`features/themes/LiveDeckTheme.tsx`) wraps the
-  host console and participant shell in `DeckThemeProvider theme={deckThemeFrom(theme)}`. The built-in
-  look (`custom: false`) maps to nothing. A custom theme sets the stage tokens, the accents, correct and
-  wrong, `cloud-1..12` from its chart colours, and on phones only `primary`/`primary-fg`/`ring` (phones keep
-  following the app's light or dark theme). `DeckTheme` also carries fonts (the provider sets the body
-  `font-family`, `--theme-font-heading` for `h1`–`h3`, and loads Google Fonts stylesheets with
-  `<link precedence>`), a logo (`StageLobby`, the participant header) and a stage background picture
-  (`Stage`, under the stage colour at the kit's overlay). `useDeckTheme()` reads them.
+  button, not red. `Timer` and the 2x2 `Board` have a `stage` and a phone tone; both follow the mode.
+- `<DeckThemeProvider theme={{ mode, tokens: { primary: '#…' } }}>` sets the mode and overrides as
+  inline variables on a `display: contents` element; inside it the shadcn tokens (`--primary`,
+  `--background`, `--card`…) are remapped to the deck ones (after the mode blocks, so a custom
+  theme's inline values win). `DECK_TOKENS` lists every token. Without a theme the scope has no mode.
+- **Which theme a surface draws (`features/themes/LiveDeckTheme.tsx`).** The live store keeps the
+  session's `theme` snapshot (host `SessionView`, participant `live-state`, code lookup) and, on the
+  host and screen stores, `deckTheme` (host state: the deck's theme as it is now). A live session
+  (lobby, active) draws its snapshot, so editing the deck never restyles it; otherwise (ready screen,
+  ended) the deck's current theme, else the last snapshot; until either is known, the app's mode
+  (`useAppThemeMode`). Host console, presenter view, audience window (mirrors the presenter's store),
+  screen stage and participant shell use it; the phone remote wraps itself in the remote state's
+  `theme`; session reports draw each result panel in the session's snapshot (dark for sessions from
+  before themes).
+- `deckThemeFrom(tokens)` (`features/themes/deckTheme.ts`): the mode (snapshots from before modes
+  have none and stay dark); for the built-in look (`custom: false`) nothing more; for a custom theme
+  the palette for the stage (`stage-*`, accent, correct, wrong, `cloud-1..12` from its chart colours)
+  and the phones (`bg`, `fg`, `surface`, `muted-fg`, `secondary` / `border` / `input` mixed from the
+  text, `primary`, `ring`). Every built-in palette passes the API's contrast checks in both modes.
+  `DeckTheme` also carries fonts (the provider sets the body `font-family`, `--theme-font-heading` for
+  `h1`–`h3`, and loads Google Fonts stylesheets with `<link precedence>`), a logo (`StageLobby`, the
+  participant header) and a stage background picture (`Stage`, under the stage colour at the kit's
+  overlay). `useDeckTheme()` reads them.
 - `tests/unit/theme.tokens.test.ts` fails on a `deck-*` utility or `var(--deck-*)` that names no
-  token, and when `DECK_TOKENS` and `tokens.css` drift.
+  token, when `DECK_TOKENS` and `tokens.css` drift, when a mode block misses a token or an app
+  token, and when the light or dark block loses contrast (text 4.5:1 on the stage and panels, marks
+  3:1, cloud words, text on the accent). `tests/unit/themes.test.tsx` covers `deckThemeFrom`, the
+  provider's `data-deck-mode` and the library card mapping.
 
 ## i18n (live routes only)
 
@@ -517,9 +611,11 @@ has a runtime.
   and validation mirroring the backend, editors, board / pin / points helpers, views),
   `media.test.tsx`, `theme.tokens.test.ts`, `presenter.test.tsx` (W2-A: `slide:timing` and
   `participant:kicked` in the reducer, paused countdowns, `SLIDE_PAUSED` retried, the remote presence
-  slice, the audience snapshot, presenter view and paused phone markup). Shared fixtures:
+  slice, the audience snapshot, presenter view and paused phone markup), `audience.test.tsx` (W2-F: the
+  audience slice, targeted answers with ticket and attempt, the Pace tab helpers, the multi-select form in
+  audience mode, the phone run / result and the dashboard markup). Shared fixtures:
   `tests/unit/live.fixtures.ts`.
 - E2E (`bun run test:e2e`): `e2e/live-flow.spec.ts`, `e2e/live-session.spec.ts`, `e2e/offline-answers.spec.ts`,
-  `e2e/presenter.spec.ts`,
+  `e2e/presenter.spec.ts`, `e2e/audience-pace.spec.ts`, `e2e/deck-themes.spec.ts`,
   `e2e/content-slides.spec.ts`, `e2e/select-answer.spec.ts`, `e2e/advanced-slides.spec.ts` — see
   [`../testing/e2e.md`](../testing/e2e.md).

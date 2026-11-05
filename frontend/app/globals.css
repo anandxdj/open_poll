@@ -3,7 +3,11 @@
 @import "shadcn/tailwind.css";
 @import "../features/presentations/theme/tokens.css";
 
-@custom-variant dark (&:is(.dark *));
+/* `dark:` applies under the app's `.dark` and inside a dark deck scope
+   (`data-deck-mode`, features/presentations/theme/tokens.css), but not inside a
+   light deck drawn on a dark page: decks keep their own mode whatever the app
+   theme of whoever looks at them. */
+@custom-variant dark (&:is(.dark *, [data-deck-mode="dark"] *):where(:not(:is(.dark, [data-deck-mode="dark"]) [data-deck-mode="light"] *)));
 
 /* ─────────────────────────────────────────────────────────────────────────
    Open Poll design foundation: "Graph paper"
@@ -449,4 +453,16 @@
   :root:not(.dark) .text-primary\/60 { color: color-mix(in srgb, var(--accent-ink) 60%, transparent); }
   :root:not(.dark) .text-primary\/50 { color: color-mix(in srgb, var(--accent-ink) 50%, transparent); }
   :root:not(.dark) .text-primary\/40 { color: color-mix(in srgb, var(--accent-ink) 40%, transparent); }
+}
+
+/* ── Embed pages (W4-D) ──────────────────────────────────────────────────────
+   On /embed/live and /embed/results the content decides the height and the
+   host sizes the iframe to it (EmbedFrame reports it). Surfaces drawn for a
+   whole screen keep their look but give up their viewport minimums, or the
+   reported height could only ever grow with the frame. */
+@layer utilities {
+  [data-embed-root="content"] .min-h-screen,
+  [data-embed-root="content"] .min-h-dvh {
+    min-height: 0;
+  }
 }

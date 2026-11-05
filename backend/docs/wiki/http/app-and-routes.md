@@ -33,6 +33,7 @@ Code: `backend/src/app.ts`, `backend/src/http/`. Tests: `backend/tests/http.rout
    | `/metrics` | none | `metricsRouter` | Prometheus scrape, bearer `METRICS_TOKEN` (404 when unset), no browser context. |
    | `/.well-known` | none | `wellKnownRouter` (`modules/mcp/oauth/oauth.route.ts`) | MCP OAuth metadata (RFC 8414, RFC 9728), read by connectors from any origin; `cors()` per route. |
    | `/oauth` | per route (`urlencoded`; the SDK register handler brings `json`) | default (`modules/mcp/oauth/oauth.route.ts`) | MCP OAuth authorize, register, token, revoke: called from origins the allow-list would reject, no cookies; `cors()` per route (`modules/mcp.md`). |
+   | `/api/oembed` | none (query only) | `oembedRouter` (`modules/embeds/embeds.route.ts`) | oEmbed (W4-D) is asked from any origin (CMSs, embed libraries in the browser) and reads no cookies; `cors()` without credentials on the router (`modules/embeds.md`). |
 
 3. `corsMiddleware` (a rejected origin reaches `errorHandler` → 500, as before)
 4. `express.json({limit:'1mb'})` on `LARGE_JSON_PATHS` (`/api/presentations`, `/api/quizzes`), then `express.json({limit:'100kb'})` for everything else (a body parsed by the first is skipped by the second)
@@ -61,7 +62,7 @@ One line per entry.
 | `/api/billing` | `modules/billing/billing.route.ts` | W3-C |
 | `/api/brand-kits` | `brandKitsRouter` (`modules/themes/themes.route.ts`) | W3-A |
 | `/api/capabilities` | `modules/capabilities/capabilities.route.ts` | W0-D |
-| `/api/embeds` | `modules/embeds/embeds.route.ts` | W4-D |
+| `/api/embeds` | `modules/embeds/embeds.route.ts` (screen tokens, stage, embed policy) | W4-D |
 | `/api/folders` | `modules/folders/folders.route.ts` | W3-B2 |
 | `/api/imports` | `modules/imports/imports.route.ts` | W3-E |
 | `/api/insights` | `modules/insights/insights.route.ts` | W3-G |
@@ -69,7 +70,6 @@ One line per entry.
 | `/api/library` | `modules/library/library.route.ts` | W1-C |
 | `/api/me` | `accountRouter` (`modules/auth/auth.route.ts`: `PATCH /`, `POST /password`), then default (`modules/privacy/privacy.route.ts`) | auth, W4-C |
 | `/api/oauth` | default (`modules/mcp/oauth/oauth.consent.route.ts`) | MCP agents |
-| `/api/oembed` | `oembedRouter` (`modules/embeds/embeds.route.ts`) | W4-D |
 | `/api/plans` | `plansRouter` (`modules/billing/billing.route.ts`) | W3-C |
 | `/api/public/domains` | `publicDomainsRouter` (`modules/domains/domains.route.ts`) | W4-E |
 | `/api/public/results` | `publicResultsRouter` (`modules/sessions/sessions.route.ts`) | W2-C |

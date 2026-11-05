@@ -223,6 +223,67 @@ frontend typecheck clean, lint 0 errors (6 warnings), 635 unit tests, build gree
 tests green (the frontend checks ran in a clean worktree of that commit that also had decoy
 `backend/.env` and `frontend/.env.local` files, to prove the e2e servers ignore them).
 
+**Wave 4 — W4-D embeds, oEmbed, add-in panes** (built on `feat/embeds`, started from
+`feat/launch-basics`, merged with `feat/folders-templates` (offline answers, folders, templates,
+revisions, presence) and `feat/presenter` (presenter view, kick, timer, phone remote: screens get
+`slide:timing`, an empty `participant:kicked` signal and nothing from the remote); not pushed, no PR
+yet).
+- Backend `modules/embeds` (`backend/docs/wiki/modules/embeds.md`): `GET /api/oembed` (rich, iframe
+  HTML; live/results/stage URLs of this site or the deck's own custom domain; any origin, mounted
+  before the CORS allow-list), `GET /api/embeds/policy` (for the frontend proxy), screen tokens
+  `GET|POST /api/embeds/screen-tokens`, `DELETE /api/embeds/screen-tokens/:id` (`deck:share`, sha256 at
+  rest, shown once, revoke kicks connected screens via Redis `embeds:screen-revoked`),
+  `GET /api/embeds/stage` (`X-Screen-Token`) and the socket `screen` role (stage-safe: no notes, answer
+  keys only after the reveal; host events only through `common/realtime/screenViews.ts`; the screen
+  state carries the session's public Q&A). Turning `settings.embed.allowed` off sends every
+  connected screen away at once (same Redis path as a revoke); it is the one deck setting allowed
+  while a session is live. Workspace `PATCH settings.embedAllowedOrigins`. Migration `220-screen-tokens`. `buildDeckLiveState` was split out
+  of `getHostState` (shared with the screen state).
+- Frontend (`frontend/docs/wiki/features/embeds.md`): `/embed/{live/[code], results/[token],
+  stage/[id]}` (chromeless, postMessage resize), `lib/proxy/embeds.ts` (per-deck `frame-ancestors`;
+  next.config no longer sends the baseline CSP on `/embed/*`, every other path keeps
+  `frame-ancestors 'self'`), Embed dialog (library card menu, builder header) with screen links,
+  results embed code in the sessions Share dialog, Settings → Workspace → Embedding, add-in panes
+  `/addins/{powerpoint, teams/{config,sidepanel,stage}, zoom}` (Microsoft 365 frame-ancestors, Zoom
+  OWASP headers), manifests `addins/` + `addins/scripts/build-manifests.ts`, `docs/integrations/*.md`.
+- Not verified inside PowerPoint, Teams or Zoom (no host here): the panes are tested as pages with the
+  host SDKs blocked, the manifests by the build script's checks, `xmllint` and unit tests. Before
+  publishing: run `npx office-addin-manifest validate`, import the Teams zip in the Developer Portal,
+  set real `POWERPOINT_ADDIN_ID`/`TEAMS_APP_ID` GUIDs and replace the placeholder icons. The pinned
+  Teams JS CDN version (`2.22.0`, `features/embeds/addins/loadScript.ts`) should be checked then.
+- Likely merge conflicts: `backend/tests/http.routes.snapshot.txt`, `frontend/i18n/messages.ts`,
+  `backend/tests/integration/tenancy-isolation.test.ts`, `frontend/lib/proxy/index.ts`,
+  `frontend/features/library/components/LibraryCard.tsx`, migration ids (220; 210 is the folders package's).
+
+**Light deck themes** (branch `feat/light-deck-themes` from `feat/embeds`; not pushed, no PR yet).
+Owner request: decks were all dark while the app is light-first.
+- Backend (`backend/docs/wiki/modules/themes.md`): every preset has a light and a dark palette (Graph
+  paper light = the app's paper, ink and ember; all pass `contrastFailures` and the new
+  `chartContrastFailures`). Decks store `theme.mode`; new decks are light unless the request sends the
+  creator's mode (deck create `theme.mode`; `themeMode` on AI decks, imports, Use template, poll
+  convert); duplicate / save as template keep the source's; brand kits take their mode from their stage
+  colour. Deck answers carry `themeTokens`, host and screen state `deckTheme` (a live session keeps its
+  snapshot), the remote state `theme`, library cards `details.theme`, reports and public results the
+  session `theme`. Migration `240-deck-theme-mode` (230 is the audience-pace package's): existing decks
+  that chose a look → dark, the rest → light; idempotent.
+- Frontend (`features/live-surfaces.md` "Deck theme", `presentation-builder.md` "Deck theme in the
+  builder"): `data-deck-mode` scopes in `tokens.css` carry each mode's stage, phone and app tokens; the
+  `dark:` variant follows a dark deck scope. Builder canvas and thumbnails, host console, presenter view,
+  audience window, screen stage, phones, remote, report panels and library card previews draw the deck's
+  mode; the Theme tab has a Light / Dark switch and two-mode swatches. New decks and new brand kits start
+  in the app theme (`useAppThemeMode`, hydration-safe).
+- Not changed on purpose: Home's "Live now" card keeps its dark highlight (`className="dark"`, no deck
+  theme in its data); the landing samples keep the `:root` dark stage. A running session cannot be
+  restyled (the API refuses deck edits while live, theme included). The workspace default theme stays
+  preset + kit; light or dark is each creator's.
+- Merged `feat/audience-pace` (migration 230 stays before 240; host and screen state carry both
+  `deckTheme` and `audience`). The own-pace phone screens, the audience dashboard (host console and
+  presenter view), `StageAudience` and the Pace tab follow the deck theme too (dashboard QR on `qr-bg`,
+  no forced dark `color-scheme`, the Pace tab's errors in `text-destructive`).
+- Likely merge conflicts: `frontend/features/library/components/LibraryCard.tsx`,
+  `frontend/features/presentations/theme/tokens.css`, `backend/src/modules/presentations/crud.service.ts`,
+  migration ids.
+
 ## Left to do (nothing is half-merged)
 
 - (**W2-D phase 2** offline answers is built, branch `feat/offline-answers`: `submitAnswer` in
@@ -252,7 +313,28 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   `tests/integration/presenter.test.ts`. Not done: a nickname profanity filter at join; the planned
   `builder/NotesTab.tsx` (notes are already edited under the slide in the builder's stage); the remote
   re-reads its state over REST on events instead of receiving host-only counts.)
-- **W2-F** audience pace. (**W3-B2** is built (`feat/folders-templates`): library folders `/api/folders` with folder shares,
+- (**W2-F** audience pace is built, branch `feat/audience-pace` (merges `feat/embeds`, which contains main with
+  PR #20; room screens on an audience-paced deck show the join code and the room's progress, never a name,
+  an answer or a result before the results may show): backend
+  `presentations/live/{audience.service,audienceState,attempts,audienceAutoClose}.ts`, `routes/audience.route.ts`
+  (`POST /:id/host/open-audience {closesAt?}`, `POST /:id/host/close-audience`, participants
+  `POST /:id/audience/{submit,retry}`), the `audience-autoclose` job (30 s), one branch each in
+  `session.service.ts` (`start` opens an audience-paced deck, `goto` refuses with 409 `AUDIENCE_PACED`, `end`
+  closes every open slide), answers to any open slide through the same answer script (v2: it checks the
+  participant's running attempt; per-attempt dedup keys, so replays and the offline queue keep working; no
+  speed points), attempts with pass/fail and retries up to `maxAttempts`, results per `resultsVisibility`,
+  deck setting `settings.audiencePaced.closeAfterMinutes`, nickname `optional`/`off` → "Guest NNNN",
+  migration 230 (answers unique per attempt, the auto-close index); frontend
+  `components/participant/audience/**` (the participant's run, submit, result, retry; the `audience` live
+  slice; `submitAnswer(payload, target)`), `components/host/AudienceDashboard.tsx` (host console and presenter
+  view), `builder/tabs/PaceSettings.tsx` (the builder's Pace tab). See
+  `backend/docs/wiki/modules/presentations-live.md` "Audience pace (W2-F)",
+  `frontend/docs/wiki/features/live-surfaces.md` "Audience pace", `e2e/audience-pace.spec.ts`,
+  `tests/integration/audiencePace.test.ts`. Fixed on the way: multi-select answers were inert outside
+  presenter pace. Not done: a per-participant review for the host (the dashboard shows progress and
+  results, the session report shows answers), kicking from the dashboard (the presenter view's list is not
+  shown there), an attempt column in the exports (they keep each participant's latest attempt).)
+  (**W3-B2** is built (`feat/folders-templates`): library folders `/api/folders` with folder shares,
   templates `/api/templates` with four starter decks and "Save as template", deck `revision` +
   `If-Match` → 409 `DECK_CHANGED` with the builder's conflict banner, slide-level routes, builder
   presence `presentations/editor.socket.ts`, migration 210; see
@@ -265,7 +347,9 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   `backend/docs/wiki/modules/themes.md`.)
   (**W3-G** workspace insights is built: `GET /api/insights` and the `/analytics` overview, see
   `backend/docs/wiki/modules/insights.md`.)
-- **Wave 4:** W4-A accessibility, W4-B locales (`es`), W4-D embeds/oEmbed/add-in panes. (**W4-E**
+- **Wave 4:** W4-A accessibility, W4-B locales (`es`). (**W4-D** embeds/oEmbed/add-in panes is built on
+  `feat/embeds`, waiting for its PR: merge after `feat/launch-basics`; then try the add-ins inside
+  PowerPoint, Teams and Zoom, which could not be done here.) (**W4-E**
   custom domains and white-label are built: `backend/docs/wiki/modules/domains.md`,
   `docs/deploy/custom-domains.md`.) (**W4-C** GDPR/retention is built: `/api/me` export and deletion, the account
   and retention purge jobs, participant self-removal, `/settings/privacy`, see
@@ -275,7 +359,8 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
 
 Remaining merge order (from the plan; flexible when a later package is ready early and conflicts are
 trivial, note deviations here): W2-D phase 2 (merged, PR #18) → W3-B2 (PR #19, `feat/folders-templates`) →
-W2-A (built, `feat/presenter`, already merges W3-B2) → W2-F; Wave 3: W3-D and W3-B2 (W3-B1 is merged), W3-A after W2-A, then
+W2-A (merged, PR #20) → W4-D (`feat/embeds`, migration 220) → W2-F (built, `feat/audience-pace`, merges
+`feat/embeds`; migration 230; the light-deck-themes package takes 240); Wave 3: W3-D and W3-B2 (W3-B1 is merged), W3-A after W2-A, then
 Wave 4 A → B → C → D → E; then the close-out.
 
 ## Process notes

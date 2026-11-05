@@ -383,7 +383,11 @@ export class DeckService {
     }
 
     const deck = await PresentationService.createPresentation(
-      { title: cleanText(outline.title, DECK_LIMITS.titleMax) || 'AI deck', slides },
+      {
+        title: cleanText(outline.title, DECK_LIMITS.titleMax) || 'AI deck',
+        slides,
+        ...(input.themeMode ? { theme: { mode: input.themeMode } } : {}),
+      },
       req,
     );
 

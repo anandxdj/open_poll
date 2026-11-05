@@ -3,18 +3,30 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { LiveIntlProvider } from "@/i18n/LiveIntlProvider";
+import { DeckThemeProvider, type DeckTheme } from "../../theme/DeckThemeProvider";
 import { isContentSlide, slideTypeMeta } from "../../slides/meta";
 import type { PresentationSlide } from "../../types/deck";
 import { StageView } from "../stage/StageView";
 
 // 16:9 preview of a slide for the builder rail — the slide's own StageView in
 // `thumbnail` mode, laid out on a full-size stage and scaled down to fit.
-// This is the only thumbnail renderer the builder imports.
+// This is the only thumbnail renderer the builder imports. It draws the deck's
+// theme (light or dark): `theme` scopes one, else it inherits the surrounding
+// deck scope (the presenter view's next slide).
 
 const STAGE_WIDTH = 960;
 const STAGE_HEIGHT = 540;
 
-export function SlideThumbnail({ slide, className }: { slide: PresentationSlide; className?: string }) {
+export function SlideThumbnail({
+  slide,
+  className,
+  theme,
+}: {
+  slide: PresentationSlide;
+  className?: string;
+  /** The deck theme to draw; omitted, the nearest deck scope's applies. */
+  theme?: DeckTheme | null;
+}) {
   const meta = slideTypeMeta(slide.type);
   const question = slide.question.trim();
   // Content slides draw their own text; others get the question above their view.
@@ -30,13 +42,13 @@ export function SlideThumbnail({ slide, className }: { slide: PresentationSlide;
     return () => observer.disconnect();
   }, []);
 
-  return (
+  const frame = (
     <div
       ref={frameRef}
       aria-hidden
+      data-testid="slide-thumbnail"
       className={cn(
-        // The stage is always dark: `dark` re-applies the dark tokens inside a light page.
-        "dark relative aspect-video w-full overflow-hidden rounded-md border border-border bg-deck-stage-bg",
+        "relative aspect-video w-full overflow-hidden rounded-md border border-deck-stage-fg/10 bg-deck-stage-bg",
         className
       )}
     >
@@ -65,7 +77,8 @@ export function SlideThumbnail({ slide, className }: { slide: PresentationSlide;
           </div>
         </div>
       )}
-      <meta.Icon className="absolute left-1.5 top-1.5 size-3 text-white/70" />
+      <meta.Icon className="absolute left-1.5 top-1.5 size-3 text-deck-stage-fg/60" />
     </div>
   );
+  return theme === undefined ? frame : <DeckThemeProvider theme={theme}>{frame}</DeckThemeProvider>;
 }

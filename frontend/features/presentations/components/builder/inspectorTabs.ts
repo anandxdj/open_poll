@@ -6,6 +6,7 @@ import { themeTab } from "@/features/themes/components/ThemeTab";
 import type { PresentationSlide } from "../../types/deck";
 import type { DeckDraft } from "./deckDraft";
 import { contentTab } from "./tabs/ContentTab";
+import { paceTab } from "./tabs/PaceSettings";
 import { settingsTab } from "./tabs/SettingsTab";
 
 // Inspector tab registry. A feature adds a tab by exporting an
@@ -39,6 +40,7 @@ export interface InspectorTabDef {
 export const INSPECTOR_TABS: InspectorTabDef[] = [
   audienceTab,
   contentTab,
+  paceTab,
   settingsTab,
   themeTab,
 ];

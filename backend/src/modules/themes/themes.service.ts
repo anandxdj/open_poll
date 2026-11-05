@@ -9,8 +9,8 @@ import { WorkspaceModel } from '../workspaces/workspace.model';
 import { BrandKitModel, MAX_BRAND_KITS, type IBrandKit } from './brandKit.model';
 import { contrastFailures, contrastRatio, type ContrastColors } from './contrast';
 import { FONT_CHOICES } from './fonts';
-import { DEFAULT_THEME_PRESET, THEME_PRESETS, knownPresetId } from './presets';
-import { buildTokens, overridesOf, type ThemeTokens } from './resolve';
+import { DEFAULT_THEME_PRESET, THEME_MODES, THEME_PRESETS, knownPresetId, knownThemeMode, type ThemeMode } from './presets';
+import { buildTokens, overridesOf, presetTokens, type ThemeTokens } from './resolve';
 import type { CreateBrandKitInput, UpdateBrandKitInput } from './themes.schema';
 
 export const THEME_ERROR_CODES = {
@@ -26,7 +26,10 @@ type Ctx = WorkspaceRequest & { user: NonNullable<WorkspaceRequest['user']> };
 export interface PresetView {
   id: string;
   name: string;
+  /** The preset in the default mode (light). */
   tokens: ThemeTokens;
+  /** The preset in each mode (the Theme tab previews both). */
+  modes: Record<ThemeMode, ThemeTokens>;
 }
 
 export interface BrandKitView {
@@ -43,7 +46,10 @@ export interface BrandKitView {
 }
 
 export const presetViews = (): PresetView[] =>
-  THEME_PRESETS.map((preset) => ({ id: preset.id, name: preset.name, tokens: buildTokens(preset, preset.id, null) }));
+  THEME_PRESETS.map((preset) => {
+    const modes = Object.fromEntries(THEME_MODES.map((mode) => [mode, presetTokens(preset.id, mode)])) as Record<ThemeMode, ThemeTokens>;
+    return { id: preset.id, name: preset.name, tokens: modes.light, modes };
+  });
 
 export const fontChoices = () => [...FONT_CHOICES];
 
@@ -146,15 +152,17 @@ export class BrandKitService {
 /** The fields of a deck or workspace-default theme a request may set. */
 export interface ThemeChoice {
   presetId?: string;
+  /** Decks only: light or dark (the workspace default leaves it to each deck's creator). */
+  mode?: ThemeMode;
   brandKitId?: string | null;
   overrides?: { accent?: string; accentText?: string } | null;
 }
 
 /**
  * Checks a theme a deck (or the workspace default) is about to use: a known
- * preset, a brand kit of the same workspace on a plan that has brand kits,
- * overrides that stay readable (accent text on the accent). Normalizes the
- * preset id (old aliases).
+ * preset, light or dark, a brand kit of the same workspace on a plan that has
+ * brand kits, overrides that stay readable (accent text on the accent).
+ * Normalizes the preset id (old aliases).
  */
 export async function assertThemeChoice(
   choice: ThemeChoice,
@@ -165,6 +173,11 @@ export async function assertThemeChoice(
     const id = knownPresetId(choice.presetId);
     if (!id) throw new ApiError(400, 'Unknown theme', THEME_ERROR_CODES.unknownPreset);
     out.presetId = id;
+  }
+  if (choice.mode !== undefined) {
+    const mode = knownThemeMode(choice.mode);
+    if (!mode) throw ApiError.badRequest('Choose light or dark');
+    out.mode = mode;
   }
   if (choice.brandKitId) {
     if (!workspace) throw notFound();

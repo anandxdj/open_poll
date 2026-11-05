@@ -1,5 +1,6 @@
 import { SOCKET_EVENTS } from '../../common/realtime/events';
 import { registerSocketModule } from '../../common/realtime/registry';
+import { registerScreenView } from '../../common/realtime/screenViews';
 import { sendReaction, type ReactionAck, type ReactionSendPayload } from './reactions.service';
 
 /**
@@ -8,6 +9,9 @@ import { sendReaction, type ReactionAck, type ReactionSendPayload } from './reac
  * is checked on the first send and cached for the socket; the stage receives
  * the coalesced `reaction:burst` through the live envelope.
  */
+// Emoji counts float up every stage, the host console's and the read-only screens' (W4-D).
+registerScreenView('reaction:burst', (payload) => payload);
+
 export const reactionsSocketModule = registerSocketModule({
   name: 'reactions',
 

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 
 import { authProxy } from "./auth";
 import { domainsProxy } from "./domains";
+import { embedsProxy } from "./embeds";
 import type { ProxyStep } from "./types";
 
 export type { ProxyStep } from "./types";
@@ -15,6 +16,8 @@ export type { ProxyStep } from "./types";
 export const PROXY_CHAIN: ProxyStep[] = [
   // A custom domain first: it never serves the signed-in app.
   domainsProxy,
+  // Embed pages: who may frame them, per deck (W4-D). They need no sign-in.
+  embedsProxy,
   authProxy,
 ];
 

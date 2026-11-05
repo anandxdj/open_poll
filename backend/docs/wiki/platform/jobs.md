@@ -31,7 +31,9 @@ await stopScheduler();     // stops timers, aborts `signal`, waits for running j
 Registered jobs: `billing-seat-sync` (`modules/billing/seatSync.ts`), `privacy-account-purge` and
 `privacy-retention-purge` (`modules/privacy/privacy.purge.ts`, see `modules/privacy.md`),
 `presentations-idle-session-end` (every 10 min, `modules/presentations/live/idleSessions.ts`, see
-`modules/presentations-live.md` → Idle sessions).
+`modules/presentations-live.md` → Idle sessions), `audience-autoclose` (every 30 s,
+`modules/presentations/live/audienceAutoClose.ts`: closes audience-paced sessions at their closing time,
+see `modules/presentations-live.md` → Audience pace).
 
 Needs a long-lived process (not serverless). `startJobs()` (`common/jobs/start.ts`, called by
 `app.ts` after Redis connects) calls `startScheduler()`, so a job only has to be registered by a

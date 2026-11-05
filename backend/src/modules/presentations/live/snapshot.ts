@@ -9,6 +9,8 @@ import { FINAL_LEADERBOARD_SIZE, computeSlideDistributionHelper, getStoredLeader
 import { k } from './keys';
 import { lifecycleOf, slideIdOf, type StoredAnswerResult } from './state';
 import { visitedSlides } from './views';
+import { parseAttemptState } from './attempts';
+import { dropAnswersOfDeletedSessions, existingSessionIds } from './writeBehind';
 
 /**
  * End-of-session reconciliation and snapshot. Answers reach Redis first and
@@ -24,9 +26,10 @@ export interface SessionSnapshot {
   slideStats: ISessionSlideStat[];
 }
 
+/** Every failure of a bulk insert is a duplicate key (the driver puts the code on the item or on its `err`). */
 const isDuplicateKeyOnly = (error: unknown) => {
-  const e = error as { code?: number; writeErrors?: { code?: number }[] } | null;
-  if (e?.writeErrors?.length) return e.writeErrors.every((w) => w.code === 11000);
+  const e = error as { code?: number; writeErrors?: { code?: number; err?: { code?: number } }[] } | null;
+  if (e?.writeErrors?.length) return e.writeErrors.every((w) => (w.code ?? w.err?.code) === 11000);
   return e?.code === 11000;
 };
 
@@ -34,19 +37,56 @@ const respondedSlides = (session: IPresentationSession) =>
   visitedSlides(session).filter(({ slide }) => lifecycleOf(slide.type) === 'response');
 
 /**
+ * The highest attempt any participant reached (audience pace, W2-F): the Redis
+ * attempt states while they last, the participant documents otherwise. 1 for
+ * presenter pace.
+ */
+export const highestAttempt = async (session: IPresentationSession): Promise<number> => {
+  if (session.pace !== 'audience') return 1;
+  const sid = String(session._id);
+  const states = await redisClient.hVals(k.attempts(sid)).catch(() => [] as string[]);
+  const fromRedis = states.reduce((max, raw) => Math.max(max, parseAttemptState(raw).number), 1);
+  const top = await PresentationParticipantModel.findOne({ sessionId: sid, 'audience.attempt': { $gt: 1 } })
+    .sort({ 'audience.attempt': -1 })
+    .select('audience.attempt')
+    .lean();
+  return Math.max(fromRedis, top?.audience?.attempt ?? 1);
+};
+
+/** Mongo filter of one attempt's answers (answers stored before attempts existed are attempt 1). */
+export const attemptFilter = (attempt: number) => (attempt === 1 ? { attempt: { $in: [1, null] } } : { attempt });
+
+/**
  * Inserts the answers Redis accepted but Mongo never stored (failed or
- * still-pending write-behind). Returns how many were added.
+ * still-pending write-behind), every attempt of every visited response slide.
+ * Returns how many were added.
  */
 export const reconcileAnswers = async (session: IPresentationSession): Promise<number> => {
+  const sid = String(session._id);
+  // A session deleted meanwhile (its delete may race the end of the session) gets nothing back.
+  if (!(await existingSessionIds([sid])).has(sid)) return 0;
+  const attempts = await highestAttempt(session);
+  let added = 0;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) added += await reconcileAttempt(session, attempt);
+  // Deleted while we inserted: take the answers out again (the purge deletes the session first).
+  if (added > 0 && !(await dropAnswersOfDeletedSessions([sid])).has(sid)) return 0;
+  return added;
+};
+
+const reconcileAttempt = async (session: IPresentationSession, attempt: number): Promise<number> => {
   const sid = String(session._id);
   let added = 0;
   for (const { slide } of respondedSlides(session)) {
     const slideId = slideIdOf(slide);
-    const results = await redisClient.hGetAll(k.results(sid, slideId)).catch(() => ({}) as Record<string, string>);
+    const results = await redisClient
+      .hGetAll(k.resultsInAttempt(sid, slideId, attempt))
+      .catch(() => ({}) as Record<string, string>);
     const participantIds = Object.keys(results);
     if (participantIds.length === 0) continue;
 
-    const stored = await PresentationAnswerModel.find({ sessionId: sid, slideId }).select('participantId').lean();
+    const stored = await PresentationAnswerModel.find({ sessionId: sid, slideId, ...attemptFilter(attempt) })
+      .select('participantId')
+      .lean();
     const have = new Set(stored.map((answer) => String(answer.participantId)));
     const missing = participantIds
       .filter((participantId) => !have.has(participantId))
@@ -73,6 +113,7 @@ export const reconcileAnswers = async (session: IPresentationSession): Promise<n
             timeMs: result.timeMs,
             clientAnswerId: result.clientAnswerId ?? null,
             via: result.via ?? 'rest',
+            attempt,
             createdAt: result.answeredAt ? new Date(result.answeredAt) : undefined,
           },
         ];
@@ -96,9 +137,12 @@ export const reconcileAnswers = async (session: IPresentationSession): Promise<n
  * write-behind batch still in flight (here or on another instance) cannot add
  * its answer's points after the totals below were computed from that same
  * answer. Anything it added before the mark is overwritten by the recount.
+ * Only a participant's latest attempt counts (audience-paced retries, W2-F;
+ * presenter pace has one attempt).
  */
 const reconcileParticipantTotals = async (session: IPresentationSession) => {
   await PresentationParticipantModel.updateMany({ sessionId: session._id }, { $set: { scoreFinalAt: new Date() } });
+  if (session.pace === 'audience') return reconcileAudienceTotals(session);
   const totals = await PresentationAnswerModel.aggregate<{ _id: unknown; score: number; correctCount: number }>([
     { $match: { sessionId: new mongoose.Types.ObjectId(String(session._id)) } },
     {
@@ -120,6 +164,45 @@ const reconcileParticipantTotals = async (session: IPresentationSession) => {
   );
 };
 
+/**
+ * Audience pace (W2-F): a participant's total is their latest attempt's (as the
+ * live leaderboard, which a retry resets to 0), so an attempt started and left
+ * empty counts 0.
+ */
+const reconcileAudienceTotals = async (session: IPresentationSession) => {
+  const sid = String(session._id);
+  const [participants, states, rows] = await Promise.all([
+    PresentationParticipantModel.find({ sessionId: sid }).select('_id audience.attempt').lean(),
+    redisClient.hGetAll(k.attempts(sid)).catch(() => ({}) as Record<string, string>),
+    PresentationAnswerModel.aggregate<{ _id: { participantId: unknown; attempt: number }; score: number; correctCount: number }>([
+      { $match: { sessionId: new mongoose.Types.ObjectId(sid) } },
+      {
+        $group: {
+          _id: { participantId: '$participantId', attempt: { $ifNull: ['$attempt', 1] } },
+          score: { $sum: '$score' },
+          correctCount: { $sum: { $cond: ['$isCorrect', 1, 0] } },
+        },
+      },
+    ]),
+  ]);
+  if (participants.length === 0) return;
+  const byAttempt = new Map(rows.map((row) => [`${String(row._id.participantId)}|${row._id.attempt}`, row]));
+  await PresentationParticipantModel.bulkWrite(
+    participants.map((participant) => {
+      const id = String(participant._id);
+      const attempt = Math.max(parseAttemptState(states[id]).number, participant.audience?.attempt ?? 1);
+      const total = byAttempt.get(`${id}|${attempt}`);
+      return {
+        updateOne: {
+          filter: { _id: participant._id, sessionId: session._id },
+          update: { $set: { score: total?.score ?? 0, correctCount: total?.correctCount ?? 0 } },
+        },
+      };
+    })
+  );
+};
+
+/** Answers per slide (an audience-paced retry answers a slide again: every attempt's answer is a response). */
 const storedAnswerCounts = async (session: IPresentationSession): Promise<Map<string, number>> => {
   const rows = await PresentationAnswerModel.aggregate<{ _id: unknown; count: number }>([
     { $match: { sessionId: new mongoose.Types.ObjectId(String(session._id)) } },

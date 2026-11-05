@@ -385,7 +385,8 @@ export async function runImportJob(job: IImportJob, deps: PipelineDeps = {}): Pr
   if (slides.length === 0) throw new ImportError('NOTHING_IMPORTED', 'No slides could be imported from this file.');
 
   const title = clip(job.title ? oneLine(job.title) : built.title, MAX_TITLE) || 'Imported presentation';
-  const deck = await createPresentation({ _id: reserved, title, slides } as unknown as CreatePresentationInput, ctx);
+  const theme = job.themeMode ? { theme: { mode: job.themeMode } } : {};
+  const deck = await createPresentation({ _id: reserved, title, slides, ...theme } as unknown as CreatePresentationInput, ctx);
   return {
     presentationId: String(deck._id),
     title,

@@ -121,6 +121,11 @@ export interface LiveState {
   settings: DeckSettings | null;
   /** The session's theme snapshot (host session view, participant live-state or the code lookup). */
   theme: ThemeTokens | null;
+  /**
+   * Host and screen: the deck's theme as it is now (host state `deckTheme`),
+   * drawn while no session is live; a live session draws its snapshot.
+   */
+  deckTheme: ThemeTokens | null;
   /** Participant identity once joined. */
   self: LiveSelf | null;
   /** Participant: own score/rank/last answer. */
@@ -164,7 +169,8 @@ export type LiveAction =
   /** `GET /:id/live-state` (after joining, reconnect, resync). */
   | { type: "participant/live-state"; state: ParticipantLiveState; receivedAt?: number }
   | { type: "participant/me-loaded"; me: ParticipantState }
-  | { type: "participant/submitted"; slideIndex: number }
+  /** `slideId`: the slide answered (audience pace answers slides that are not on screen). */
+  | { type: "participant/submitted"; slideIndex: number; slideId?: string | null }
   /** An answer went into the offline queue (or was found there after a reload). */
   | { type: "participant/answer-queued"; slideId: string | null; slideIndex: number; clientAnswerId: string }
   /** The server took a queued answer (or already had it: `ALREADY_ANSWERED`, a replay). */
@@ -212,6 +218,7 @@ export function createInitialLiveState(
     results: {},
     settings: null,
     theme: null,
+    deckTheme: null,
     self: null,
     me: null,
     submittedSlideIndex: null,
@@ -625,6 +632,7 @@ function hostStateLoaded(state: LiveState, host: HostState, receivedAt: number |
     joinCode: deck.joinCode,
     totalSlides: deck.slides.length,
     clockOffsetMs,
+    deckTheme: host.deckTheme !== undefined ? host.deckTheme : state.deckTheme,
   };
   if (!host.session) return { ...base, ...sessionScoped(), status: "draft", modules: base.modules };
 

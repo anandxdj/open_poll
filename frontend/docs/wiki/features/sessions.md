@@ -71,7 +71,7 @@ menu is hidden for roles without `session:export` (`report.access.export`).
 ## Sharing
 
 `ShareDialog` (mounted only while open, so each opening starts from the saved state): create the link,
-copy it, "Show participant names" (off by default: results only), expiry (never, 24 h, 7 d, 30 d, or
+copy it, copy the results embed code once the link is on (W4-D, `/embed/results/[token]`, `features/embeds.md`), "Show participant names" (off by default: results only), expiry (never, 24 h, 7 d, 30 d, or
 keep), turn off, create a new link (the old one stops working). Only members with `session:share`
 see the button and the token. Expired links restart from "In 7 days" because the server refuses a
 lapsed expiry.

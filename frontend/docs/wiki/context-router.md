@@ -30,7 +30,7 @@ Before generating any code, identify your task type and read the corresponding s
 - **Action**: Read `frontend/docs/wiki/features/presentation-builder.md`
 - **Task**: Changing AI whole-deck generation in the builder (the AI dialog's "Whole deck" mode, outline review, mock-mode labelling, `features/ai/deck/`).
 - **Action**: Read `frontend/docs/wiki/features/ai-deck.md`
-- **Task**: Changing the live host console, presenter view, audience window, phone remote, participant view, stage, slide runtime views, the live store/slots, deck theme tokens, or live i18n.
+- **Task**: Changing the live host console, presenter view, audience window, phone remote, participant view, stage, slide runtime views, the live store/slots, deck theme tokens, live i18n, or audience pace (the participant's own run, the host's audience dashboard).
 - **Action**: Read `frontend/docs/wiki/features/live-surfaces.md`
 
 - **Task**: Audience Q&A (ask, upvote, moderation, highlight, the Q&A slide), emoji reactions, or the builder's Audience tab.
@@ -62,6 +62,9 @@ Before generating any code, identify your task type and read the corresponding s
 
 - **Task**: Session history, the session report, exports, public results links (`/r/[token]`), the participant results page (`/live/[code]/summary`) or the end-screen links to them.
 - **Action**: Read `frontend/docs/wiki/features/sessions.md`
+
+- **Task**: Embeds and screens (W4-D): the `/embed/*` pages (live, results, stage), postMessage resize, the embed proxy step and framing headers, the read-only screen stage, the Embed dialog and screen links, Settings → Workspace → Embedding, the add-in panes (`/addins/*`) and their manifests.
+- **Action**: Read `frontend/docs/wiki/features/embeds.md` (add `features/live-surfaces.md` only for the store/stage internals)
 
 - **Task**: Importing decks or questions (the Import dialog, PowerPoint/PDF/Google Slides jobs, CSV/Excel questions, the builder's "Import questions").
 - **Action**: Read `frontend/docs/wiki/features/imports.md`

@@ -23,6 +23,8 @@ export const LIVE_SOCKET_EVENTS = {
   event: "live:event",
   answerSubmit: "answer:submit",
   resync: "live:resync",
+  /** To a screen whose link was turned off or whose deck stopped allowing embedding (W4-D); it has left the deck's rooms. */
+  screenRevoked: "screen:revoked",
   /** Phone remote (W2-A): `{token, deviceKey}` → `RemoteJoinAck`. */
   remoteJoin: "remote:join",
   /** Phone remote: `{command}` → `RemoteCommandAck`. */
@@ -182,11 +184,16 @@ export function isRealtimeEvent<T extends PresentationRealtimeEventType>(
 /** Credentials the socket presents to join a deck's rooms. */
 export type LiveSocketAuth =
   | { role: "host" }
-  | { role: "participant"; participantId: string; participantToken: string };
+  | { role: "participant"; participantId: string; participantToken: string }
+  /** A read-only stage (W4-D): a screen token of the deck. */
+  | { role: "screen"; screenToken: string };
+
+/** Why a screen was sent away (`screen:revoked {presentationId, reason}`, W4-D). */
+export type ScreenRevokeReason = "revoked" | "embed_disabled";
 
 /** `live:join` ack. */
 export type LiveJoinAck =
-  | { ok: true; role: "host" | "participant" }
+  | { ok: true; role: "host" | "participant" | "screen" }
   | { ok: false; error: string };
 
 /**
@@ -210,7 +217,9 @@ export type AnswerSubmitAck =
 /** Socket `live:resync` payload; credentials as in `live:join`. */
 export type LiveResyncPayload =
   | { presentationId: string; role: "host"; accessToken?: string }
-  | { presentationId: string; role: "participant"; participantId: string; participantToken: string };
+  | { presentationId: string; role: "participant"; participantId: string; participantToken: string }
+  /** A read-only screen (W4-D); `features/embeds` resyncs over REST (`GET /api/embeds/stage`). */
+  | { presentationId: string; role: "screen"; screenToken: string };
 
 /**
  * Ack of `live:resync` (participant side): the `live-state` document and the
@@ -220,4 +229,5 @@ export type LiveResyncPayload =
 export type LiveResyncAck =
   | { ok: true; role: "participant"; seq: number; state: ParticipantLiveState }
   | { ok: true; role: "host"; seq: number; state: unknown }
+  | { ok: true; role: "screen"; seq: number; state: unknown }
   | { ok: false; error: "INVALID_PAYLOAD" | "RATE_LIMITED" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "UNAVAILABLE" };

@@ -56,7 +56,8 @@ out. Accounts with `hasPassword: false` (from `/auth/me`) see why instead, with 
 `/forgot-password`. Rules mirrored in `features/profile/account.ts`), `settings/mcp`
 (`McpSettingsSection`, below), `settings/privacy` (`PrivacySettings`, below), `settings/workspace` (`WorkspaceSettings`:
 name, plan, **data retention** for owners and admins (`#retention`, `PATCH settings.retentionDays`; applies to
-sessions that end afterwards), team workspaces), `settings/billing` (`BillingSettings`).
+sessions that end afterwards), **embedding** sites (`#embedding`, `PATCH settings.embedAllowedOrigins`, W4-D,
+`features/embeds.md`), team workspaces), `settings/billing` (`BillingSettings`).
 
 ### Settings → MCP (`features/mcp/`)
 
@@ -123,13 +124,14 @@ While capabilities or the workspace detail are loading, gated entries are disabl
 
 | Path (`features/themes/…`) | Role |
 | --- | --- |
-| `types.ts`, `api/themes.api.ts` | `ThemeTokens`, `BrandKit`, `DeckThemeRef`; presets, brand kit CRUD, `saveDeckTheme`. |
-| `contrast.ts`, `fonts.ts` | Mirrors of the API's WCAG checks and font URLs, for live feedback and previews of unsaved kits. |
-| `deckTheme.ts` | `deckThemeFrom(tokens)`: a session's snapshot as a `DeckTheme` (see `live-surfaces.md`). |
+| `types.ts`, `api/themes.api.ts` | `ThemeMode`, `ThemeTokens` (with `mode`), `BrandKit`, `DeckThemeRef` (with `mode`), `DeckCardTheme`; presets (each with `modes.light` / `modes.dark`), brand kit CRUD, `saveDeckTheme` (answers the stored theme and the resolved `themeTokens`). |
+| `contrast.ts`, `fonts.ts` | Mirrors of the API's WCAG checks, `paletteMode` and font URLs, for live feedback and previews of unsaved kits. |
+| `deckTheme.ts` | `deckThemeFrom(tokens)`: a resolved theme (snapshot or the deck's current one) as a `DeckTheme` with its light or dark mode (see `live-surfaces.md`); `deckThemeFromCard` for library cards. |
+| `useAppThemeMode.ts` | The app's light or dark (`next-themes` resolved, light until hydrated): the mode new decks and new kits start in. |
 | `hooks/useThemeCatalog.ts` | Presets, fonts and (when the plan has them) the workspace's kits. |
 | `components/BrandSettings.tsx` | Kit cards (swatch, fonts, edit, delete with confirmation), the "Theme for new decks" select (`settings.defaultTheme`), the editor. Members without `workspace:brand` or plans without `brand_kits` get one line saying why. |
-| `components/BrandKitEditor.tsx` | Name, eight colours (picker plus hex field), contrast checks as you type (saving waits until all pass), chart colours (1–12), heading and body fonts, logo and stage background (upload with `brand_logo` / `brand_background` when storage is on, or a link), background overlay. |
-| `components/BrandPreview.tsx`, `ThemeSwatch.tsx` | A stage and a phone drawn with the real deck tokens; a small swatch for lists. |
+| `components/BrandKitEditor.tsx` | Name, eight colours (picker plus hex field), contrast checks as you type (saving waits until all pass), chart colours (1–12), heading and body fonts, logo and stage background (upload with `brand_logo` / `brand_background` when storage is on, or a link), background overlay. A new kit starts from Graph paper in the app's mode; the preview draws the kit light or dark by its stage colour (as the API does). |
+| `components/BrandPreview.tsx`, `ThemeSwatch.tsx` | A stage and a phone drawn with the real deck tokens; a small swatch for lists (`ThemeSwatch`, one palette) and `ThemeModesSwatch` (a preset light and dark side by side, the deck's mode underlined). |
 | `components/ThemeTab.tsx` | The builder's deck-level Theme tab (`presentation-builder.md`). |
 
 ## Custom domains and white-label (W4-E)

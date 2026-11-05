@@ -52,14 +52,14 @@ function AudiencePanel() {
 
   if (!deckId) {
     return (
-      <p className="rounded-2xl border border-white/5 bg-white/2 px-4 py-3 text-xs text-muted-foreground/60">
+      <p className="rounded-2xl border border-border bg-secondary px-4 py-3 text-sm text-muted-foreground">
         Save the deck first. Then turn on Q&amp;A and reactions for the audience here.
       </p>
     );
   }
   if (!settings) {
     return error ? (
-      <p role="alert" className="text-xs text-red-400">
+      <p role="alert" className="text-sm text-destructive">
         {error}
       </p>
     ) : (
@@ -149,7 +149,7 @@ function AudiencePanel() {
                   onClick={() => toggleEmoji(emoji)}
                   className={cn(
                     "flex size-10 items-center justify-center rounded-xl border text-xl transition-colors disabled:opacity-40",
-                    chosen ? "border-primary/50 bg-primary/15" : "border-white/10 bg-white/3 hover:bg-white/8"
+                    chosen ? "border-primary/50 bg-primary/15" : "border-border bg-card hover:bg-secondary"
                   )}
                 >
                   {emoji}
@@ -183,7 +183,7 @@ function AudiencePanel() {
         {saving ? "Saving…" : "Changes save as you make them and apply to the next session you start."}
       </p>
       {error && (
-        <p role="alert" className="text-xs text-red-400">
+        <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       )}

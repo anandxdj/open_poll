@@ -25,9 +25,10 @@ export async function uploadImportSource(
   return media.key;
 }
 
+/** `themeMode`: the new deck's light or dark (the importer's app theme); light without one. */
 export type CreateImportBody =
-  | { kind: SourceKind; key: string; title?: string }
-  | { kind: "gslides"; url: string; title?: string };
+  | { kind: SourceKind; key: string; title?: string; themeMode?: "light" | "dark" }
+  | { kind: "gslides"; url: string; title?: string; themeMode?: "light" | "dark" };
 
 export const createImport = async (body: CreateImportBody) =>
   (await apiClient.post<ApiOk<ImportJob>>("/imports", body)).data.data;
@@ -40,14 +41,17 @@ export interface QuestionsRequest {
   title?: string;
   /** Append to this deck instead of creating one. */
   presentationId?: string;
+  /** A new deck's light or dark (ignored when appending). */
+  themeMode?: "light" | "dark";
 }
 
 /** CSV/XLSX questions: `preview` only checks the file, `import` creates (or extends) the deck. */
-export async function sendQuestions({ file, mode, title, presentationId }: QuestionsRequest, signal?: AbortSignal) {
+export async function sendQuestions({ file, mode, title, presentationId, themeMode }: QuestionsRequest, signal?: AbortSignal) {
   const form = new FormData();
   form.append("mode", mode);
   if (title?.trim()) form.append("title", title.trim());
   if (presentationId) form.append("presentationId", presentationId);
+  else if (themeMode) form.append("themeMode", themeMode);
   form.append("file", file);
   const response = await apiClient.post<ApiOk<QuestionsResult>>("/imports/questions", form, {
     // The instance defaults to JSON; the browser adds the multipart boundary.

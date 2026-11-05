@@ -59,7 +59,7 @@ export function InstructionsStage({ slide, mode }: StageViewProps) {
                     className="size-[24cqw] min-h-28 min-w-28"
                   />
                 ) : (
-                  <QrCode className="size-[24cqw] min-h-28 min-w-28 text-deck-stage-ink" aria-hidden />
+                  <QrCode className="size-[24cqw] min-h-28 min-w-28 text-deck-qr-fg" aria-hidden />
                 )}
               </div>
               <p className="text-[clamp(0.85rem,2.2cqw,1.3rem)] font-semibold text-deck-stage-fg/60">{t("scan")}</p>

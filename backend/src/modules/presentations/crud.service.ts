@@ -18,7 +18,9 @@ import { authorizeDeck, type Actor } from './access';
 import { allSessionKeys, k } from './live/keys';
 import { assertContentMediaInWorkspace } from './slides/types/content/media';
 import { assertThemeChoice, type ThemeChoice } from '../themes/themes.service';
+import { DEFAULT_THEME_MODE, DEFAULT_THEME_PRESET, themeModeOf, type ThemeMode } from '../themes/presets';
 import { WorkspaceModel } from '../workspaces/workspace.model';
+import { announceScreensRevoked } from '../embeds/screenTokens.service';
 import {
   MAX_DECK_SLIDES,
   presentationSlideSchema,
@@ -55,14 +57,19 @@ export const createPresentation = async (data: CreatePresentationInput, actor: A
   }
   // Uploaded media must belong to the deck's workspace (the request schema cannot query).
   if (workspaceId && data.slides) await assertContentMediaInWorkspace(data.slides, workspaceId);
-  // A new deck starts on the workspace's default theme unless the request picks one.
+  // A new deck starts on the workspace's default look (preset, brand kit) unless the request picks
+  // one. Light or dark is the creator's: the request's `theme.mode` (the builder sends the app theme
+  // in use), else light.
   const workspace = typeof actor === 'string' ? null : (actor.workspace ?? null);
   const defaultTheme = (workspace as { settings?: { defaultTheme?: ThemeChoice | null } } | null)?.settings?.defaultTheme;
-  const themeChoice: ThemeChoice | undefined = data.theme ?? (defaultTheme ? { ...defaultTheme } : undefined);
-  const theme = themeChoice ? await assertThemeChoice(themeChoice, workspace as Parameters<typeof assertThemeChoice>[1]) : undefined;
+  const requested: ThemeChoice = data.theme ?? {};
+  const picksLook = requested.presetId !== undefined || requested.brandKitId !== undefined;
+  const fromDefault: ThemeChoice = !picksLook && defaultTheme ? { presetId: defaultTheme.presetId, brandKitId: defaultTheme.brandKitId ?? null } : {};
+  const themeChoice: ThemeChoice = { ...fromDefault, ...requested, mode: requested.mode ?? DEFAULT_THEME_MODE };
+  const theme = await assertThemeChoice(themeChoice, workspace as Parameters<typeof assertThemeChoice>[1]);
   return createWithJoinCode({
     ...data,
-    ...(theme ? { theme: theme as Record<string, unknown> } : {}),
+    theme: theme as Record<string, unknown>,
     creatorId,
     ...(workspaceId ? { workspaceId } : {}),
   });
@@ -116,11 +123,14 @@ export interface DeckCopyOptions {
   isTemplate?: boolean;
   /** The template the copy was made from or the deck a template was saved from. */
   templateSourceId?: mongoose.Types.ObjectId | null;
+  /** Light or dark for the copy ("Use template": the creator's app theme); default: the source's. */
+  mode?: ThemeMode;
 }
 
 /**
  * A new draft deck in the caller's current workspace with the content of
- * `source`: every slide (new slide and option ids), pace, settings and theme.
+ * `source`: every slide (new slide and option ids), pace, settings and theme
+ * (its light or dark mode too, unless `options.mode` says otherwise).
  * The caller has checked `deck:create` and read access to `source`. A source
  * from another workspace (a pre-workspace deck) has its media checked against
  * the new one and keeps no brand kit or folder. Shared by duplicate and the
@@ -141,9 +151,12 @@ export const copyDeckForWorkspace = async (source: IPresentation, ctx: PolicyCon
     slides,
     pace: plain.pace,
     settings: plain.settings,
-    ...(theme
-      ? { theme: { presetId: theme.presetId, brandKitId: sameWorkspace ? theme.brandKitId : null, overrides: theme.overrides } }
-      : {}),
+    theme: {
+      presetId: theme?.presetId ?? DEFAULT_THEME_PRESET,
+      mode: options.mode ?? themeModeOf(theme?.mode),
+      brandKitId: sameWorkspace ? (theme?.brandKitId ?? null) : null,
+      overrides: theme?.overrides ?? null,
+    },
     folderId: options.keepFolder && sameWorkspace ? plain.folderId : null,
     isTemplate: options.isTemplate ?? false,
     templateSourceId: options.templateSourceId ?? null,
@@ -213,6 +226,26 @@ export interface UpdateOptions {
 }
 
 /**
+ * Whether a patch only switches embedding (`settings.embed`): the one deck
+ * setting a presenter may change while a session is live (W4-D), e.g. to put
+ * the stage on a second screen mid-session. It changes nothing the running
+ * session reads (that runs from its snapshot).
+ */
+export const isEmbedOnlyPatch = (data: UpdatePresentationInput): boolean => {
+  const fields = Object.entries(data).filter(([, value]) => value !== undefined);
+  if (fields.length !== 1 || fields[0]![0] !== 'settings') return false;
+  const settings = Object.entries(data.settings ?? {}).filter(([, value]) => value !== undefined);
+  return settings.length === 1 && settings[0]![0] === 'embed';
+};
+
+/** Turning embedding off sends the deck's connected screens away at once, on every instance (W4-D). */
+const afterUpdate = async (presentationId: string, data: UpdatePresentationInput) => {
+  if (data.settings?.embed?.allowed === false) {
+    await announceScreensRevoked({ presentationId, reason: 'embed_disabled' });
+  }
+};
+
+/**
  * `expectedVersion` (the `__v` the caller read) and `expectedRevision` (the
  * `revision`, from `If-Match`) turn a read-modify-write of the slides into a
  * compare-and-set: another save in between is a 409 instead of a silent lost
@@ -226,10 +259,22 @@ export const updatePresentation = async (
   options: UpdateOptions = {},
 ) => {
   const presentation = await authorizeDeck(presentationId, actor, 'deck:edit');
-  assertEditable(presentation);
+  const live = presentation.status !== 'draft' && presentation.status !== 'ended';
+  // While live, only the embedding switch may change (W4-D).
+  if (!live || !isEmbedOnlyPatch(data)) assertEditable(presentation);
   if (options.expectedVersion !== undefined && presentation.get('__v') !== options.expectedVersion) throw deckChanged();
   if (options.expectedRevision !== undefined && currentRevision(presentation) !== options.expectedRevision) {
     throw deckChanged(currentRevision(presentation));
+  }
+  if (live) {
+    // One atomic $set: the live session's deck mirror (status, current slide) is written by
+    // host commands at the same time, and a whole-document save could race them. Settings
+    // are not content: the revision stays.
+    const $set = Object.fromEntries(toPaths(data.settings ?? {}, 'settings'));
+    const updated = await PresentationModel.findOneAndUpdate({ _id: presentation._id }, { $set }, { returnDocument: 'after' });
+    if (!updated) throw ApiError.notFound('Presentation deck not found');
+    await afterUpdate(presentationId, data);
+    return updated;
   }
   if (data.slides !== undefined) {
     const workspaceId = mediaWorkspaceOf(presentation, actor);
@@ -248,7 +293,7 @@ export const updatePresentation = async (
   if (data.theme) {
     const workspace = presentation.workspaceId ? await WorkspaceModel.findById(presentation.workspaceId).lean() : null;
     const theme = await assertThemeChoice(data.theme, workspace);
-    for (const key of ['presetId', 'brandKitId', 'overrides'] as const) {
+    for (const key of ['presetId', 'mode', 'brandKitId', 'overrides'] as const) {
       if (theme[key] !== undefined) presentation.set(`theme.${key}`, theme[key]);
     }
   }
@@ -258,6 +303,7 @@ export const updatePresentation = async (
     if (error instanceof mongoose.Error.VersionError) throw deckChanged();
     throw error;
   }
+  await afterUpdate(presentationId, data);
   return presentation;
 };
 
@@ -406,12 +452,16 @@ export const deletePresentation = async (presentationId: string, actor: Actor) =
       )
     ),
   ];
+  // Redis state, then the sessions, then their answers: an answer the write-behind or a
+  // reconciliation stores meanwhile is dropped once its session is gone (see `purgeSessionData`).
+  await redisClient.del(keys).catch(() => {});
   await Promise.all([
     PresentationModel.findByIdAndDelete(presentationId),
     PresentationSessionModel.deleteMany({ presentationId }),
+  ]);
+  await Promise.all([
     PresentationParticipantModel.deleteMany({ presentationId }),
     PresentationAnswerModel.deleteMany({ presentationId }),
     ResourceShareModel.deleteMany({ resourceType: 'presentation', resourceId: presentationId }),
-    redisClient.del(keys).catch(() => {}),
   ]);
 };

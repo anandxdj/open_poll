@@ -22,6 +22,8 @@ import {
   ParticipantSessionClosed,
 } from "./ParticipantNotices";
 import { ParticipantSlide } from "./ParticipantSlide";
+import { AudienceRun } from "./audience/AudienceRun";
+import { audienceSliceOf } from "./audience/audienceSlice";
 import { useAnswerSyncNotices } from "./useAnswerSyncNotices";
 import { useParticipantSession } from "./useParticipantSession";
 
@@ -145,9 +147,13 @@ function ParticipantBody({ slotProps }: { slotProps: ParticipantSlotProps }) {
   const status = useLive((s) => s.status);
   const slide = useLive((s) => s.slide);
   const submitAnswer = useLive((s) => s.submitAnswer);
+  const audiencePaced = useLive((s) => audienceSliceOf(s).pace === "audience");
 
   const [override] = getSlotEntries("participantBody", slotProps);
   if (override) return <override.Component {...slotProps} />;
+
+  // Audience pace (W2-F): the participant moves through every slide on their own, from the lobby to the end.
+  if (audiencePaced && (status === "lobby" || status === "active" || status === "ended")) return <AudienceRun />;
 
   if (status === "lobby") {
     return (

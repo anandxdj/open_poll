@@ -11,7 +11,7 @@ import { LARGE_JSON_PATHS, mountPreParserRoutes, mountRoutes } from './routes';
  * not listen, so tests can serve it on port 0; app.ts owns the boot order.
  *
  * Order: security headers → request metrics → pre-parser mounts (webhook, SAML ACS, SCIM,
- * metrics) → CORS → JSON (1mb for decks, 100kb elsewhere) → cookies →
+ * metrics, MCP OAuth, oEmbed) → CORS → JSON (1mb for decks, 100kb elsewhere) → cookies →
  * mongoSanitize → routes → error handler. Unmatched requests fall through to
  * Express's default 404.
  */

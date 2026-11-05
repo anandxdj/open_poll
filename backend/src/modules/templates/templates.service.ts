@@ -7,6 +7,7 @@ import { createPresentation, copyDeckForWorkspace, deletePresentation } from '..
 import { PresentationModel, type IPresentation } from '../presentations/models/presentation.model';
 import { createPresentationSchema, type CreatePresentationInput } from '../presentations/presentations.schema';
 import { getSlideType, type Slide } from '../presentations/slides';
+import type { ThemeMode } from '../themes/presets';
 import { findSeedTemplate, SEED_TEMPLATES, type SeedTemplate } from './seeds';
 
 type IdLike = string | { toString(): string };
@@ -157,20 +158,23 @@ export class TemplatesService {
   /**
    * A new draft deck from a template: a starter (by slug) or a workspace
    * template (by id). The deck is an ordinary deck of the caller's workspace;
-   * a workspace template is linked as its `templateSourceId`.
+   * a workspace template is linked as its `templateSourceId`. `themeMode` is
+   * the creator's light or dark; without it a starter is light and a workspace
+   * template keeps its own.
    */
-  static async use(ctx: TemplateActor, templateId: string, title?: string) {
+  static async use(ctx: TemplateActor, templateId: string, title?: string, themeMode?: ThemeMode) {
     assertCan(ctx, 'deck:create');
     const seed = findSeedTemplate(templateId);
     if (seed) {
       const deck = parsedSeed(seed);
-      return createPresentation({ ...deck, title: title ?? deck.title }, ctx);
+      return createPresentation({ ...deck, title: title ?? deck.title, ...(themeMode ? { theme: { mode: themeMode } } : {}) }, ctx);
     }
     const template = await authorizeTemplate(ctx, templateId, 'deck:read');
     return copyDeckForWorkspace(template, ctx, {
       title: title ?? template.title,
       isTemplate: false,
       templateSourceId: template._id,
+      ...(themeMode ? { mode: themeMode } : {}),
     });
   }
 

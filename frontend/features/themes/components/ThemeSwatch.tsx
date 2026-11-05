@@ -1,18 +1,11 @@
 import { cn } from "@/lib/utils";
-import type { ThemeTokens } from "../types";
+import type { ThemeMode, ThemeTokens } from "../types";
 
-/**
- * A theme in miniature: the stage colour with a heading line, a panel, an
- * accent bar and the first chart colours. Decorative; the caller names it.
- */
-export function ThemeSwatch({ tokens, className }: { tokens: ThemeTokens; className?: string }) {
+/** The stage in miniature: heading line, muted line, a panel with the accent bar and the first chart colours. */
+function SwatchFace({ tokens, className }: { tokens: ThemeTokens; className?: string }) {
   const { colors } = tokens;
   return (
-    <div
-      aria-hidden="true"
-      className={cn("relative aspect-[16/10] w-full overflow-hidden rounded-md border border-black/10", className)}
-      style={{ backgroundColor: colors.background }}
-    >
+    <div className={cn("relative h-full w-full overflow-hidden", className)} style={{ backgroundColor: colors.background }}>
       {tokens.background ? (
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -33,6 +26,48 @@ export function ThemeSwatch({ tokens, className }: { tokens: ThemeTokens; classN
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** A theme in miniature (one palette: a brand kit, or a preset in one mode). Decorative; the caller names it. */
+export function ThemeSwatch({ tokens, className }: { tokens: ThemeTokens; className?: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn("relative aspect-[16/10] w-full overflow-hidden rounded-md border border-black/10", className)}
+    >
+      <SwatchFace tokens={tokens} />
+    </div>
+  );
+}
+
+/**
+ * A preset light and dark side by side, the deck's current mode marked by a
+ * thin underline in its accent. Decorative; the caller names it.
+ */
+export function ThemeModesSwatch({
+  modes,
+  mode,
+  className,
+}: {
+  modes: Record<ThemeMode, ThemeTokens>;
+  mode: ThemeMode;
+  className?: string;
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn("relative grid aspect-[16/10] w-full grid-cols-2 overflow-hidden rounded-md border border-black/10", className)}
+    >
+      {(["light", "dark"] as const).map((key) => (
+        <div key={key} className="relative" data-swatch-mode={key}>
+          <SwatchFace tokens={modes[key]} />
+          {key === mode ? (
+            <span className="absolute inset-x-[12%] bottom-[4%] h-0.5 rounded-full" style={{ backgroundColor: modes[key].colors.accent }} />
+          ) : null}
+        </div>
+      ))}
     </div>
   );
 }

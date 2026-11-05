@@ -13,13 +13,18 @@ export interface ConvertedPoll {
   presentation: { _id: string; title: string };
 }
 
-/** "Convert to presentation": copies the poll's questions into an audience-paced deck. */
-export const convertPollToPresentation = async (pollId: string, options: { force?: boolean } = {}) =>
-  (
+/** "Convert to presentation": copies the poll's questions into an audience-paced deck (light or dark: `themeMode`). */
+export const convertPollToPresentation = async (pollId: string, options: { force?: boolean; themeMode?: "light" | "dark" } = {}) => {
+  const params = {
+    ...(options.force ? { force: "true" } : {}),
+    ...(options.themeMode ? { themeMode: options.themeMode } : {}),
+  };
+  return (
     await apiClient.post<ApiOk<ConvertedPoll>>(`/library/convert/poll/${pollId}`, undefined, {
-      params: options.force ? { force: "true" } : undefined,
+      params: Object.keys(params).length ? params : undefined,
     })
   ).data.data;
+};
 
 /** The new document a duplicate returns (the same shape as create; only these fields are read). */
 export interface DuplicatedItem {

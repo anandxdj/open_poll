@@ -123,7 +123,11 @@ function readable(ctx: LibraryContext, deck: IPresentation): IPresentation {
 }
 
 export class ConvertService {
-  static async convertPoll(ctx: LibraryContext, pollId: string, options: { force?: boolean } = {}): Promise<ConvertResult> {
+  static async convertPoll(
+    ctx: LibraryContext,
+    pollId: string,
+    options: { force?: boolean; themeMode?: 'light' | 'dark' } = {}
+  ): Promise<ConvertResult> {
     assertCan(ctx, 'deck:create');
     const poll = await loadPoll(pollId);
     // Recording the conversion changes the poll, so its editors convert it.
@@ -135,7 +139,8 @@ export class ConvertService {
     }
 
     const draft = pollToDeckDraft(poll);
-    const deck = await PresentationService.createPresentation(draft.input, ctx.user.id);
+    const input = options.themeMode ? { ...draft.input, theme: { mode: options.themeMode } } : draft.input;
+    const deck = await PresentationService.createPresentation(input, ctx.user.id);
     let recorded = false;
     try {
       // Deck-level fields the create request does not carry (pace, legacy,

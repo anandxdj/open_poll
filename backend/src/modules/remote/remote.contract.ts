@@ -1,4 +1,4 @@
-import type { SessionStatus, SlidePhase } from '../presentations/live/contract';
+import type { SessionStatus, SlidePhase, ThemeTokens } from '../presentations/live/contract';
 import type { SlideLifecycle } from '../presentations/slides/types';
 
 /**
@@ -71,6 +71,8 @@ export interface RemoteState {
   slide: RemoteSlideView | null;
   /** The slide after the current one (title and type only). */
   next: { slideIndex: number; type: string; title: string } | null;
+  /** The live session's theme snapshot, else the deck's theme as it is now: the remote looks like the stage. */
+  theme: ThemeTokens | null;
   serverNow: string;
 }
 

@@ -9,8 +9,9 @@ interface TimerProps {
   /** The host paused the timer: the value is frozen and labelled "Paused". */
   paused?: boolean;
   /**
-   * `audience` (default): the phone, which follows the app's light or dark theme.
-   * `stage`: the projected stage, which is always dark (`--deck-stage-*` tokens).
+   * `audience` (default): the phone (`--deck-bg/fg/primary…`).
+   * `stage`: the projected stage (`--deck-stage-*` and the accent). Both follow
+   * the deck's light or dark theme.
    */
   tone?: "audience" | "stage";
 }

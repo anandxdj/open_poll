@@ -141,5 +141,6 @@ export const getPublicResults = async (token: string): Promise<PublicResults> =>
           correctCount,
         }))
       : null,
+    theme: (session.themeSnapshot as PublicResults['theme']) ?? null,
   };
 };

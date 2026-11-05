@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Loader2, Palette } from "lucide-react";
+import { Check, Loader2, Moon, Palette, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -14,20 +14,30 @@ import { cn } from "@/lib/utils";
 import { saveDeckTheme } from "../api/themes.api";
 import { contrastRatio } from "../contrast";
 import { useThemeCatalog } from "../hooks/useThemeCatalog";
-import { DEFAULT_PRESET_ID, type DeckThemeRef, type ThemeTokens } from "../types";
-import { ThemeSwatch } from "./ThemeSwatch";
+import { DEFAULT_PRESET_ID, DEFAULT_THEME_MODE, type DeckThemeRef, type ThemeMode, type ThemePreset, type ThemeTokens } from "../types";
+import { ThemeModesSwatch, ThemeSwatch } from "./ThemeSwatch";
 
 const optionClass =
   "group relative flex flex-col gap-2 rounded-lg border bg-card p-2 text-left text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring";
 
+/** A preset in both modes (older APIs list one palette: it stands for both). */
+const presetModes = (preset: ThemePreset): Record<ThemeMode, ThemeTokens> =>
+  preset.modes ?? { light: preset.tokens, dark: preset.tokens };
+
 function ThemeOption({
   tokens,
+  modes,
+  mode,
   label,
   selected,
   disabled,
   onSelect,
 }: {
-  tokens: ThemeTokens;
+  /** One palette (a brand kit). */
+  tokens?: ThemeTokens;
+  /** A preset light and dark, with the deck's mode marked. */
+  modes?: Record<ThemeMode, ThemeTokens>;
+  mode?: ThemeMode;
   label: string;
   selected: boolean;
   disabled: boolean;
@@ -42,7 +52,7 @@ function ThemeOption({
       onClick={onSelect}
       className={cn(optionClass, selected ? "border-foreground" : "border-border hover:border-foreground/40")}
     >
-      <ThemeSwatch tokens={tokens} />
+      {modes ? <ThemeModesSwatch modes={modes} mode={mode ?? DEFAULT_THEME_MODE} /> : tokens ? <ThemeSwatch tokens={tokens} /> : null}
       <span className="flex items-center justify-between gap-2 px-0.5">
         <span className="truncate">{label}</span>
         {selected ? <Check className="size-4 shrink-0 text-accent-ink" aria-hidden="true" /> : null}
@@ -63,10 +73,13 @@ function AccentOverride({
   onSave: (overrides: DeckThemeRef["overrides"]) => void;
 }) {
   const on = Boolean(theme.overrides?.accent);
-  const [accent, setAccent] = useState(theme.overrides?.accent ?? base?.colors.accent ?? "#f97316");
-  const [accentText, setAccentText] = useState(theme.overrides?.accentText ?? base?.colors.accentText ?? "#1a0d04");
+  const [accent, setAccent] = useState(theme.overrides?.accent ?? base?.colors.accent ?? "#cf460c");
+  const [accentText, setAccentText] = useState(theme.overrides?.accentText ?? base?.colors.accentText ?? "#ffffff");
   const ratio = contrastRatio(accent, accentText);
   const readable = ratio >= 4.5;
+  // The accent marks bars and buttons on the stage: it should stand out from it (3:1) in this mode.
+  const stage = base?.colors.background ?? null;
+  const onStage = stage ? contrastRatio(accent, stage) : null;
 
   return (
     <div className="space-y-4 rounded-lg border border-border bg-card p-4">
@@ -113,6 +126,12 @@ function AccentOverride({
           <p className={cn("text-sm", readable ? "text-muted-foreground" : "text-destructive")}>
             {ratio.toFixed(1)}:1 {readable ? "readable" : "too low, needs 4.5:1"}
           </p>
+          {onStage !== null && onStage < 3 ? (
+            <p className="basis-full text-sm text-destructive">
+              This accent stands out only {onStage.toFixed(1)}:1 from the stage. Pick a {base?.mode === "light" ? "darker" : "lighter"} one
+              (3:1 or more).
+            </p>
+          ) : null}
           <Button
             variant="outline"
             className="bg-card"
@@ -127,7 +146,38 @@ function AccentOverride({
   );
 }
 
-/** Deck-level: the theme every live surface of this deck uses (preset, brand kit, accent). */
+function ModeSwitch({ mode, disabled, onChange }: { mode: ThemeMode; disabled: boolean; onChange: (mode: ThemeMode) => void }) {
+  const options = [
+    { value: "light", label: "Light", Icon: Sun },
+    { value: "dark", label: "Dark", Icon: Moon },
+  ] as const;
+  return (
+    <div role="radiogroup" aria-labelledby="theme-mode-title" className="inline-flex rounded-lg border border-border bg-secondary p-0.5">
+      {options.map(({ value, label, Icon }) => {
+        const selected = mode === value;
+        return (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            disabled={disabled}
+            onClick={() => !selected && onChange(value)}
+            className={cn(
+              "flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50",
+              selected ? "bg-card text-foreground shadow-[0_1px_2px_rgb(23_23_23/0.08)]" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Icon className={cn("size-4", selected && "text-accent-ink")} aria-hidden="true" />
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Deck-level: the theme every surface of this deck uses (light or dark, preset, brand kit, accent). */
 function ThemePanel({ deck, onDeckChange }: InspectorTabProps) {
   const { detail } = useCurrentWorkspace();
   const kitsAllowed = detail?.entitlements.features.brand_kits ?? false;
@@ -157,14 +207,16 @@ function ThemePanel({ deck, onDeckChange }: InspectorTabProps) {
   }
 
   const theme: DeckThemeRef = deck.theme ?? { presetId: DEFAULT_PRESET_ID, brandKitId: null, overrides: null };
+  const mode: ThemeMode = theme.mode ?? deck.themeTokens?.mode ?? DEFAULT_THEME_MODE;
   const activeKit = theme.brandKitId ? kits.find((kit) => kit.id === theme.brandKitId) : undefined;
-  const base = activeKit?.tokens ?? catalog.presets.find((p) => p.id === theme.presetId)?.tokens ?? null;
+  const activePreset = catalog.presets.find((p) => p.id === theme.presetId);
+  const base = activeKit?.tokens ?? (activePreset ? presetModes(activePreset)[mode] : null);
 
   const save = async (patch: Partial<DeckThemeRef>) => {
     setBusy(true);
     try {
       const saved = await saveDeckTheme(deck.id!, patch);
-      onDeckChange({ theme: saved });
+      onDeckChange({ theme: saved.theme, ...(saved.themeTokens ? { themeTokens: saved.themeTokens } : {}) });
       toast.success("Theme saved");
     } catch (err) {
       toast.error(getApiErrorMessage(err) ?? "The theme could not be saved.");
@@ -175,20 +227,35 @@ function ThemePanel({ deck, onDeckChange }: InspectorTabProps) {
 
   return (
     <div className="space-y-6">
+      <section aria-labelledby="theme-mode-title" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 id="theme-mode-title" className="text-sm font-semibold">
+              Light or dark
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {activeKit
+                ? "The brand kit brings its own colours, light or dark."
+                : "The stage, the phones and the builder. A running session keeps the look it started with."}
+            </p>
+          </div>
+          <ModeSwitch mode={activeKit?.tokens.mode ?? mode} disabled={busy || Boolean(activeKit)} onChange={(next) => void save({ mode: next })} />
+        </div>
+      </section>
+
       <section aria-labelledby="theme-presets-title" className="space-y-3">
         <div>
           <h3 id="theme-presets-title" className="text-sm font-semibold">
-            Theme
+            Colour theme
           </h3>
-          <p className="text-sm text-muted-foreground">
-            How the projected screen looks and the accent on phones. Sessions keep the theme they started with.
-          </p>
+          <p className="text-sm text-muted-foreground">Each comes light and dark; the underline marks the mode this deck uses.</p>
         </div>
         <div role="radiogroup" aria-labelledby="theme-presets-title" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {catalog.presets.map((preset) => (
             <ThemeOption
               key={preset.id}
-              tokens={preset.tokens}
+              modes={presetModes(preset)}
+              mode={mode}
               label={preset.name}
               selected={!activeKit && theme.presetId === preset.id}
               disabled={busy}
@@ -236,7 +303,13 @@ function ThemePanel({ deck, onDeckChange }: InspectorTabProps) {
         )}
       </section>
 
-      <AccentOverride key={`${theme.presetId}:${theme.brandKitId}`} theme={theme} base={base} busy={busy} onSave={(overrides) => void save({ overrides })} />
+      <AccentOverride
+        key={`${theme.presetId}:${theme.brandKitId}:${mode}`}
+        theme={theme}
+        base={base}
+        busy={busy}
+        onSave={(overrides) => void save({ overrides })}
+      />
     </div>
   );
 }

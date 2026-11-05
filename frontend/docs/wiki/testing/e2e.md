@@ -22,7 +22,16 @@ Unit tests are separate: `bun run test` (`bun test tests/unit`, no services).
 | Service | Command | Default |
 | --- | --- | --- |
 | Backend | `bun scripts/migrate.ts && bun src/app.ts` in `../backend` | `http://localhost:5103`, ready at `/ready` |
-| Frontend | `bun x next dev --port 3103` | `http://localhost:3103` |
+| Frontend | `bun x next dev --port 3103`, or `bun x next start --port 3103` with `E2E_FRONTEND_MODE=start` (serves an existing `next build`, built with the `NEXT_PUBLIC_*` the config passes) | `http://localhost:3103` |
+
+**CI runs the production build** (`.github/workflows/ci.yml`: `next build`, then the suite with
+`E2E_FRONTEND_MODE=start`). The dev server compiles every route on first visit and keeps it: the
+suite's processes peaked at ~4.7 GB in dev mode against ~1.4 GB with `next start` (measured with
+the whole suite under a no-swap memory cap: dev mode was OOM-killed at 4 GB, start mode passed).
+On a small runner, next to the Mongo and Redis containers, that pressure made the kernel kill a
+Chromium renderer: `Page crashed` in `presenter.spec.ts` (on main and on PRs, before and after
+the embeds specs existed). To run as CI does: `next build` with `NEXT_PUBLIC_API_URL` and
+`NEXT_PUBLIC_SOCKET_URL` set to the backend origin, then `CI=1 E2E_FRONTEND_MODE=start bun x playwright test`.
 
 Against dedicated test containers — never the dev Mongo/Redis on 27017/6379:
 Mongo `mongodb://127.0.0.1:27117/openpoll_w0c1?directConnection=true`, Redis
@@ -99,6 +108,15 @@ lookup's HTTP status (404 until a session was opened).
   waits), +30 s while paused, resume, skip and the auto-reveal; a second browser context as the phone
   remote (pairing link from the presenter view, a second phone refused, next from the lobby, pause /
   resume, reveal, unpair). ~35 s.
+- `e2e/audience-pace.spec.ts` — W2-F audience pace with converted polls (created and converted through the
+  API): the builder's Pace tab (attempts, results after each answer, optional nicknames; checked through
+  `host.getDeck`), the host dashboard instead of the stage; a converted TRIAL with two participants at
+  different speeds (Ada answers and passes while Bob has not started, Bob fails at 50 %, tries again and
+  passes; right/wrong, explanation and results only once final; the dashboard's rows, stats and progress),
+  **Close now** through the app's dialog; a converted poll with results after each answer, a guest
+  ("Guest NNNN") and a named participant, results on the answered question only, progress per question,
+  close (the unanswered question says "Closed before you answered") and **End session**. Participant
+  contexts keep the Next.js dev-tools button, so Next / Back are matched exactly. ~25 s.
 - `e2e/content-slides.spec.ts` — content slides: a deck of all eight content types presented
   fullscreen **without a lobby or any participant** (F key, arrow-key and button navigation, each
   stage layout, end; the run is on record with 0 participants), and a mixed deck (heading → word
@@ -138,6 +156,18 @@ lookup's HTTP status (404 until a session was opened).
   label, filtering by the folder chip and by Not in a folder (kept across a reload through `?folder=`),
   Rename folder and Delete folder from the folder menu (the app's AlertDialog; the items stay at the
   top level, checked through the API). ~10 s.
+
+- `e2e/deck-themes.spec.ts` — light deck themes: a deck built in the light app is light in the builder
+  (canvas and rail thumbnail, ink question), the host console (ready, lobby, running slide), the
+  presenter view and the phone; the Theme tab's Dark switch turns the canvas, the next session's stage
+  and the phone graphite while the builder stays light, and a live session cannot be restyled; a deck
+  built in the dark app is dark and stays dark when the app goes light; a light deck run through a
+  heading, a quiz reveal, a word cloud, a leaderboard and the end screen; a light audience-paced deck on
+  the host dashboard, the presenter view's dashboard and the phone's own-pace screens; an API deck without a mode
+  and a template used in the light app are light, the same template in the dark app dark. Colours are
+  read with `getComputedStyle` (paper `rgb(246, 246, 243)`, graphite `rgb(20, 20, 19)`, dark phone
+  `rgb(13, 13, 12)`); the app theme is set like the profile switch does (`localStorage.theme`).
+  Screenshots: `test-results/deck-themes-*.png`. ~45 s.
 
 - `e2e/templates.spec.ts` — W3-B2 templates: the four starter templates on `/templates`, Use template
   on Team retro opens the builder with its nine slides; Save as template… from a library card (hidden
@@ -182,6 +212,29 @@ lookup's HTTP status (404 until a session was opened).
   built-in fallback when the API is unreachable. Stripe is never called. It logs in once in
   `beforeAll` instead of through the `host` fixture: `/api/auth/login` allows 10 logins per 5
   minutes per IP, which the whole suite shares. ~20 s.
+
+- `e2e/embeds.spec.ts` — W4-D embeds from another site: a tiny HTTP server on 127.0.0.1 (another origin
+  than the app's `localhost`; a `page.route` page counts as public to Chromium, whose local-network
+  protection would refuse to frame the local app at all) serves host pages that iframe the embeds. A
+  participant joins and answers inside `/embed/live/<code>` (the iframe from oEmbed's `html`), the host
+  console sees it, and the frame takes the heights the page posts; mid-session, the Embed dialog's
+  switch still works and a new screen shows the already approved, highlighted Q&A question at once; the builder's Embed dialog turns
+  embedding on and creates a screen link (real clicks), the stage embed follows lobby, joins, live
+  counts, reveal and end, the results embed shows the shared run, and turning the link off (in-place
+  confirmation, no `confirm()`) blanks the stage; `/live/<code>`, `/login` and the embed of a deck with
+  embedding off refuse to be framed (`frame-ancestors` console error, nothing renders), and opened
+  directly the latter says "Embedding is turned off"; Settings → Workspace → Embedding (an invalid
+  site refused, another site listed → ours refused, ours listed → framed, removed → any site).
+  Embedding is turned on through the API before the first page load: the proxy keeps policy answers
+  for 10 s, so each check uses a target the proxy has not seen. ~35 s.
+
+- `e2e/addins.spec.ts` — W4-D add-in panes as browser pages, with Office.js and the Teams library
+  blocked (`page.route` abort, so no network and no host): the PowerPoint pane (Microsoft 365
+  frame-ancestors, a foreign link refused, a pasted screen link shows the stage, follows the lobby,
+  is remembered after a reload, "Change screen link"); the Teams configuration page (tab address),
+  side panel (share button disabled outside a meeting, an attendee joins and answers there) and stage
+  page (live counts); the Zoom page (OWASP headers, the stage, "Embedding is turned off" at once,
+  without a reload, when the deck stops allowing it). ~15 s.
 
 - `e2e/landing-auth.spec.ts` — the landing and sign-in surfaces on public pages (no host needed): no
   horizontal overflow on a phone, tablet and desktop (landing, login, signup, forgot/reset password,

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Open Poll for PowerPoint: a task pane that shows a deck's live stage (W4-D).
+  Template: build the real manifest with addins/scripts/build-manifests.ts
+  (docs/integrations/powerpoint.md), which fills {{APP_ORIGIN}}, {{POWERPOINT_ADDIN_ID}}, {{OFFICE_VERSION}},
+  {{PROVIDER_NAME}} and {{SUPPORT_URL}}, then checks the result.
+  Element order follows the Office add-in manifest schema (1.1).
+-->
+<OfficeApp
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+  xsi:type="TaskPaneApp">
+  <Id>{{POWERPOINT_ADDIN_ID}}</Id>
+  <Version>{{OFFICE_VERSION}}</Version>
+  <ProviderName>{{PROVIDER_NAME}}</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="Open Poll"/>
+  <Description DefaultValue="Show your Open Poll deck's live stage next to your slides: lobby, questions, live results and standings."/>
+  <IconUrl DefaultValue="{{APP_ORIGIN}}/addins/icons/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="{{APP_ORIGIN}}/addins/icons/icon-64.png"/>
+  <SupportUrl DefaultValue="{{SUPPORT_URL}}"/>
+  <AppDomains>
+    <AppDomain>{{APP_ORIGIN}}</AppDomain>
+  </AppDomains>
+  <Hosts>
+    <Host Name="Presentation"/>
+  </Hosts>
+  <DefaultSettings>
+    <SourceLocation DefaultValue="{{APP_ORIGIN}}/addins/powerpoint"/>
+  </DefaultSettings>
+  <!-- The pane keeps its screen link in the presentation's settings. -->
+  <Permissions>ReadWriteDocument</Permissions>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Presentation">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="OpenPoll.GetStarted.Title"/>
+            <Description resid="OpenPoll.GetStarted.Description"/>
+            <LearnMoreUrl resid="OpenPoll.LearnMore.Url"/>
+          </GetStarted>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="OpenPoll.Group">
+                <Label resid="OpenPoll.Group.Label"/>
+                <Icon>
+                  <bt:Image size="16" resid="OpenPoll.Icon.16"/>
+                  <bt:Image size="32" resid="OpenPoll.Icon.32"/>
+                  <bt:Image size="80" resid="OpenPoll.Icon.80"/>
+                </Icon>
+                <Control xsi:type="Button" id="OpenPoll.ShowStage">
+                  <Label resid="OpenPoll.Button.Label"/>
+                  <Supertip>
+                    <Title resid="OpenPoll.Button.Label"/>
+                    <Description resid="OpenPoll.Button.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="OpenPoll.Icon.16"/>
+                    <bt:Image size="32" resid="OpenPoll.Icon.32"/>
+                    <bt:Image size="80" resid="OpenPoll.Icon.80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>OpenPollStage</TaskpaneId>
+                    <SourceLocation resid="OpenPoll.Taskpane.Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="OpenPoll.Icon.16" DefaultValue="{{APP_ORIGIN}}/addins/icons/icon-16.png"/>
+        <bt:Image id="OpenPoll.Icon.32" DefaultValue="{{APP_ORIGIN}}/addins/icons/icon-32.png"/>
+        <bt:Image id="OpenPoll.Icon.80" DefaultValue="{{APP_ORIGIN}}/addins/icons/icon-80.png"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="OpenPoll.Taskpane.Url" DefaultValue="{{APP_ORIGIN}}/addins/powerpoint"/>
+        <bt:Url id="OpenPoll.LearnMore.Url" DefaultValue="{{SUPPORT_URL}}"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="OpenPoll.GetStarted.Title" DefaultValue="Open Poll is ready"/>
+        <bt:String id="OpenPoll.Group.Label" DefaultValue="Open Poll"/>
+        <bt:String id="OpenPoll.Button.Label" DefaultValue="Live stage"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="OpenPoll.GetStarted.Description" DefaultValue="Select Live stage on the Home tab and paste a screen link from Open Poll."/>
+        <bt:String id="OpenPoll.Button.Tooltip" DefaultValue="Show your Open Poll deck's live stage next to your slides."/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>

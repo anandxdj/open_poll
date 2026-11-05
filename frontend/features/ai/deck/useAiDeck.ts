@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
+import { useAppThemeMode } from "@/features/themes/useAppThemeMode";
 import { deckApi, type DeckApi } from "./api";
 import { planOutline, writeDeck } from "./flow";
 import { aiDeckReducer, initialState, type AiDeckState } from "./state";
@@ -21,9 +22,13 @@ export function useAiDeck({ initialTopic = "", deckTitle = "", api = deckApi }: 
   const stateRef = useRef<AiDeckState>(state);
   const controller = useRef<AbortController | null>(null);
   const mounted = useRef(true);
+  // The new deck starts in the author's light or dark.
+  const appMode = useAppThemeMode();
+  const appModeRef = useRef(appMode);
 
   useEffect(() => {
     stateRef.current = state;
+    appModeRef.current = appMode;
   });
 
   useEffect(() => {
@@ -51,7 +56,7 @@ export function useAiDeck({ initialTopic = "", deckTitle = "", api = deckApi }: 
   const write = useCallback(async (): Promise<DeckCreatedResponse | null> => {
     const { form, outline } = stateRef.current;
     if (!outline) return null;
-    return writeDeck(api, form, outline, safeDispatch);
+    return writeDeck(api, form, outline, safeDispatch, appModeRef.current);
   }, [api, safeDispatch]);
 
   return { state, dispatch, plan, cancelPlan, write };

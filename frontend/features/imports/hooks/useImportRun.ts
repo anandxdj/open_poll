@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { useAppThemeMode } from "@/features/themes/useAppThemeMode";
 import { createImport, getImport, getImportErrorCode, uploadImportSource } from "../api/imports.api";
 import { PollGaveUp, pollImportJob } from "../logic";
 import type { ImportJob, SourceKind } from "../types";
@@ -38,6 +39,8 @@ export function useImportRun() {
   const t = translator as unknown as ImportTranslator;
   const [state, setState] = useState<ImportRunState>({ phase: "idle" });
   const controllerRef = useRef<AbortController | null>(null);
+  // The imported deck starts in the importer's light or dark.
+  const themeMode = useAppThemeMode();
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 
@@ -83,14 +86,14 @@ export function useImportRun() {
           onProgress: (progress) => setState({ phase: "uploading", fileName: file.name, progress }),
         });
         setState({ phase: "submitting" });
-        const job = await createImport({ kind, key, ...(title.trim() ? { title: title.trim() } : {}) });
+        const job = await createImport({ kind, key, themeMode, ...(title.trim() ? { title: title.trim() } : {}) });
         await follow(job, controller.signal);
       } catch (error) {
         if (controller.signal.aborted) return;
         setState({ phase: "failed", message: describeImportError(error, t) });
       }
     },
-    [begin, follow, t]
+    [begin, follow, t, themeMode]
   );
 
   const runLink = useCallback(
@@ -98,14 +101,14 @@ export function useImportRun() {
       const controller = begin();
       setState({ phase: "submitting" });
       try {
-        const job = await createImport({ kind: "gslides", url: url.trim(), ...(title.trim() ? { title: title.trim() } : {}) });
+        const job = await createImport({ kind: "gslides", url: url.trim(), themeMode, ...(title.trim() ? { title: title.trim() } : {}) });
         await follow(job, controller.signal);
       } catch (error) {
         if (controller.signal.aborted) return;
         setState({ phase: "failed", message: describeImportError(error, t) });
       }
     },
-    [begin, follow, t]
+    [begin, follow, t, themeMode]
   );
 
   const reset = useCallback(() => {

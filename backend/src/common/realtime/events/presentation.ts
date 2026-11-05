@@ -27,6 +27,11 @@ export const PRESENTATION_EVENTS = defineLiveEvents({
   // The host removed a participant (W2-A): published to the host room and to that
   // participant's own room (never to everyone: other phones do not need the name).
   'participant:kicked': { audience: 'host' },
+  // Audience pace (W2-F): every response slide opened at once (or its closing time changed),
+  // answers stopped, and (host only) a participant submitted or retried an attempt.
+  'audience:opened': { audience: 'all' },
+  'audience:closed': { audience: 'all' },
+  'audience:progress': { audience: 'host', hostOnly: true },
 });
 
 export type PresentationEventType = keyof typeof PRESENTATION_EVENTS;
@@ -34,7 +39,8 @@ export type PresentationEventType = keyof typeof PRESENTATION_EVENTS;
 /** Name the presentations service publishes with. */
 export type QuizRealtimeEventType = PresentationEventType;
 
-export type LiveRole = 'host' | 'participant';
+/** `screen` (W4-D): a read-only stage that joined with a screen token. */
+export type LiveRole = 'host' | 'participant' | 'screen';
 
 export const PRESENTATION_SOCKET_EVENTS = {
   // The legacy `quiz:join` / `quiz:leave` / `quiz:event` protocol is gone (W2-D phase 2).

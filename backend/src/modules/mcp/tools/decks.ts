@@ -5,6 +5,7 @@ import { PresentationService } from '../../presentations/presentations.service';
 import { SESSION_PACES, type IPresentation } from '../../presentations/models/presentation.model';
 import { deckSettingsPatchSchema, deckThemePatchSchema } from '../../presentations/presentations.schema';
 import type { ParsedSlide } from '../../presentations/slides';
+import { DEFAULT_THEME_MODE, THEME_MODES } from '../../themes/presets';
 import { BrandKitService, presetViews } from '../../themes/themes.service';
 import { agentKinds } from '../../ai/deck/agentMappers';
 import {
@@ -120,7 +121,7 @@ const slidesDescription =
   'Slides in order, at most 50. Each has a "kind" (heading, bullets, multiple_choice_quiz, wordcloud, grid_2x2, ...) and that kind\'s fields; list_slide_types lists every kind with an example.';
 
 const themeShape = deckThemePatchSchema.describe(
-  'Look of the deck: presetId from list_themes, optionally a brandKitId (paid plans) and accent/accentText overrides (#rrggbb, readable together). Omitted: the workspace default theme.',
+  'Look of the deck: presetId from list_themes, mode light or dark (a new deck without one is light), optionally a brandKitId (paid plans, brings its own colours) and accent/accentText overrides (#rrggbb, readable together). Omitted: the workspace default theme, light.',
 );
 
 const settingsShape = deckSettingsPatchSchema.describe(
@@ -244,6 +245,9 @@ async function themeChoices(scope: McpScopeContext) {
   const brandKits = brandKitsAvailable ? await BrandKitService.list(asWorkspaceRequest(scope) as never) : [];
   return {
     presets: presetViews().map((preset) => ({ id: preset.id, name: preset.name })),
+    /** Every preset comes light and dark (`theme.mode`); new decks are light unless they say otherwise. */
+    modes: [...THEME_MODES],
+    defaultMode: DEFAULT_THEME_MODE,
     brandKits: brandKits.map((kit) => ({ id: kit.id, name: kit.name })),
     brandKitsAvailable,
     workspaceDefault: serialize(scope.workspace.settings?.defaultTheme ?? null),

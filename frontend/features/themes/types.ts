@@ -1,5 +1,11 @@
 /** API shapes of the themes module (backend `modules/themes/resolve.ts`, `themes.service.ts`). */
 
+/** A deck is drawn light or dark. */
+export type ThemeMode = "light" | "dark";
+export const THEME_MODES: readonly ThemeMode[] = ["light", "dark"];
+/** What a deck without a stored mode is (and what the app is when its theme is unknown). */
+export const DEFAULT_THEME_MODE: ThemeMode = "light";
+
 export interface ThemeFont {
   family: string;
   source: "system" | "google" | "upload";
@@ -25,8 +31,13 @@ export interface ThemeColors {
 /** A resolved theme as sessions snapshot it. */
 export interface ThemeTokens {
   presetId: string;
+  /**
+   * Light or dark: the deck's for a preset, the kit's own for a brand kit.
+   * Absent from snapshots taken before modes (those stages were all dark).
+   */
+  mode?: ThemeMode;
   brandKitId: string | null;
-  /** False for the built-in look: surfaces keep their defaults. */
+  /** False for the built-in Graph paper look: surfaces draw their own tokens of `mode`. */
   custom: boolean;
   name: string;
   colors: ThemeColors;
@@ -38,7 +49,10 @@ export interface ThemeTokens {
 export interface ThemePreset {
   id: string;
   name: string;
+  /** The preset light (the default mode). */
   tokens: ThemeTokens;
+  /** The preset in each mode (absent from older APIs). */
+  modes?: Record<ThemeMode, ThemeTokens>;
 }
 
 export interface ThemeCatalog {
@@ -65,6 +79,8 @@ export interface BrandKit extends BrandKitInput {
 /** What a deck stores (`presentation.theme`). */
 export interface DeckThemeRef {
   presetId: string;
+  /** Light or dark (absent from older APIs: light). */
+  mode?: ThemeMode;
   brandKitId: string | null;
   overrides: { accent?: string; accentText?: string } | null;
 }
@@ -78,3 +94,16 @@ export interface ContrastFailure {
 }
 
 export const DEFAULT_PRESET_ID = "graph-paper";
+
+/** A deck's look on its library card (`GET /api/library` `details.theme`). */
+export interface DeckCardTheme {
+  mode: ThemeMode;
+  /** False for the built-in Graph paper look of `mode`. */
+  custom: boolean;
+  background: string;
+  surface: string;
+  text: string;
+  mutedText: string;
+  accent: string;
+  accentText: string;
+}

@@ -6,16 +6,28 @@ import type { WorkspaceRequest } from '../../../common/tenancy/workspaceContext.
 import { requireParam, requireUser } from './helpers';
 import { parseIfMatch } from '../revision';
 import type { InsertSlideInput, PatchSlideInput, ReorderSlidesInput } from '../presentations.schema';
+import type { IPresentation } from '../models/presentation.model';
+import { resolveDeckTheme } from '../../themes/resolve';
 
 /** The `If-Match` revision of the request (undefined: no check). */
 const ifMatch = (req: WorkspaceRequest) => parseIfMatch(req.get('If-Match'));
+
+/**
+ * The deck plus its theme resolved (`themeTokens`: preset in its light or dark
+ * mode, brand kit, overrides), so the builder draws its canvas and thumbnails
+ * like the stage without knowing the presets.
+ */
+const withThemeTokens = async (presentation: IPresentation) => ({
+  ...presentation.toJSON(),
+  themeTokens: await resolveDeckTheme(presentation),
+});
 
 export class PresentationCrudController {
   static async create(req: WorkspaceRequest, res: Response, next: NextFunction) {
     try {
       requireUser(req);
       const presentation = await PresentationService.createPresentation(req.body, req);
-      return ApiResponse.created(res, 'Presentation created successfully', presentation);
+      return ApiResponse.created(res, 'Presentation created successfully', await withThemeTokens(presentation));
     } catch (error) {
       next(error);
     }
@@ -35,7 +47,7 @@ export class PresentationCrudController {
     try {
       requireUser(req);
       const presentation = await PresentationService.getPresentationFor(requireParam(req, 'id'), req);
-      return ApiResponse.ok(res, 'Presentation fetched successfully', presentation);
+      return ApiResponse.ok(res, 'Presentation fetched successfully', await withThemeTokens(presentation));
     } catch (error) {
       next(error);
     }
@@ -47,7 +59,7 @@ export class PresentationCrudController {
       const presentation = await PresentationService.updatePresentation(requireParam(req, 'id'), req, req.body, {
         expectedRevision: ifMatch(req),
       });
-      return ApiResponse.ok(res, 'Presentation updated successfully', presentation);
+      return ApiResponse.ok(res, 'Presentation updated successfully', await withThemeTokens(presentation));
     } catch (error) {
       next(error);
     }
@@ -125,7 +137,7 @@ export class PresentationCrudController {
         sourceId,
         title: presentation.title,
       });
-      return ApiResponse.created(res, 'Presentation duplicated successfully', presentation);
+      return ApiResponse.created(res, 'Presentation duplicated successfully', await withThemeTokens(presentation));
     } catch (error) {
       next(error);
     }

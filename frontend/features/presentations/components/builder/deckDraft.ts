@@ -2,7 +2,7 @@ import type { PresentationDraftInput } from "../../api/crud";
 import { blankSlide, normalizeSlideForDraft, validateSlide } from "../../slides/editor";
 import { slideTypeMeta } from "../../slides/meta";
 import type { PresentationSlide } from "../../types/deck";
-import type { DeckThemeRef } from "@/features/themes/types";
+import type { DeckThemeRef, ThemeTokens } from "@/features/themes/types";
 
 /** What the builder edits: deck-level fields plus the slide list. */
 export interface DeckDraft {
@@ -12,6 +12,8 @@ export interface DeckDraft {
   id?: string | null;
   /** The saved deck's theme; the Theme tab saves it on its own (not part of drafts). */
   theme?: DeckThemeRef | null;
+  /** The saved deck's theme resolved by the API (canvas and thumbnails draw it). */
+  themeTokens?: ThemeTokens | null;
 }
 
 /**

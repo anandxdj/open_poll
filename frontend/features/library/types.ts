@@ -1,3 +1,4 @@
+import type { DeckCardTheme } from "@/features/themes/types";
 // Wire types of the unified library (`GET /api/library`), mirroring
 // backend/src/modules/library/library.types.ts.
 
@@ -42,6 +43,8 @@ export interface PresentationLibraryCard extends LibraryCardBase {
     pace: "presenter" | "audience";
     legacySource: "poll" | "quiz" | null;
     slideTypes: string[];
+    /** The deck's theme for the card's mini screen (absent from older APIs). */
+    theme?: DeckCardTheme;
   };
 }
 

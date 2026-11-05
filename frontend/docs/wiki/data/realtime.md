@@ -30,10 +30,13 @@ last_updated: 2026-11-05
   (`setAnswerTransport`) after that ack and stops being it on every disconnect, so `answer:submit`
   is never sent on a reconnected socket before its `live:join` ack. On unmount it emits
   `live:leave`. Wire names: `LIVE_SOCKET_EVENTS` (`types/realtime.ts`: `join`, `leave`, `event`,
-  `answerSubmit`, `resync`).
-- **Auth**: `{ role: "host" }` (pulls the JWT access token from `useAuthStore`) or
+  `answerSubmit`, `resync`, `screenRevoked`).
+- **Auth**: `{ role: "host" }` (pulls the JWT access token from `useAuthStore`),
   `{ role: "participant", participantId, participantToken }` (from the session's stored
-  credentials). The server rejects the room join without valid credentials, so pass `undefined` to
+  credentials) or `{ role: "screen", screenToken }` (W4-D, the read-only stage of
+  `features/embeds.md`; joins `live:{pid}` + `live:{pid}:screen`, gets host events only as their
+  stage-safe screen views, and `screen:revoked {presentationId, reason}` → `onScreenRevoked(reason)`
+  when its link is turned off (`revoked`) or the deck stops allowing embedding (`embed_disabled`)). The server rejects the room join without valid credentials, so pass `undefined` to
   skip joining until a participant has actually joined (before the nickname gate resolves).
 - **Event**: envelope `live:event` → `{ v, presentationId, sessionId, seq, type, audience, payload,
   emittedAt }`, typed as `PresentationRealtimeEvent`, per-type payloads in `RealtimePayloads`

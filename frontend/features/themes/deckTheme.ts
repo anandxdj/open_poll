@@ -1,29 +1,51 @@
 import type { DeckTheme, DeckToken } from "@/features/presentations/theme/DeckThemeProvider";
-import type { ThemeTokens } from "./types";
+import type { DeckCardTheme, ThemeMode, ThemeTokens } from "./types";
 
 /**
- * A session's theme snapshot as live surfaces draw it. The stage takes the
- * whole palette; audience phones keep following the app's light or dark
- * theme and only take the accent for their main buttons, so answers stay
- * readable on any phone. The built-in look (`custom: false`) maps to no
- * overrides at all.
+ * A resolved theme (a session's snapshot, a deck's current theme) as every
+ * deck surface draws it: the stage, the phones, the builder canvas.
+ *
+ * - `mode` picks the Graph paper look of light or dark (`tokens.css`).
+ *   Snapshots from before modes carry none: their stages were all dark, so
+ *   they stay dark.
+ * - The built-in look (`custom: false`) adds nothing on top of the mode.
+ * - A custom theme (another preset, a brand kit, an accent) colours the stage
+ *   and the phones with its palette: background, panels, text, muted text,
+ *   the accent and the text on it, correct and wrong, and `cloud-1..12` from
+ *   its chart colours. Every built-in palette passes the API's contrast
+ *   checks in both modes.
  */
 export function deckThemeFrom(tokens: ThemeTokens | null | undefined): DeckTheme | null {
-  if (!tokens || !tokens.custom) return null;
+  if (!tokens) return null;
+  const mode: ThemeMode = tokens.mode ?? "dark";
+  if (!tokens.custom) return { mode };
+
   const c = tokens.colors;
   const chart = c.chart.length ? c.chart : [c.accent];
   const cloud = Object.fromEntries(
     Array.from({ length: 12 }, (_, i) => [`cloud-${i + 1}`, chart[i % chart.length]!])
   ) as Partial<Record<DeckToken, string>>;
+  const mix = (share: number, base: string) => `color-mix(in srgb, ${c.text} ${share}%, ${base})`;
 
   const fontUrls = [tokens.fonts.heading.url, tokens.fonts.body.url].filter((url): url is string => Boolean(url));
   return {
+    mode,
     tokens: {
+      // Stage
       "stage-bg": c.background,
       "stage-chrome": c.surface,
       "stage-panel": c.surface,
       "stage-fg": c.text,
       "stage-ink": c.accentText,
+      // Phones and the app primitives inside the deck
+      bg: c.background,
+      fg: c.text,
+      surface: c.surface,
+      secondary: mix(7, c.surface),
+      "muted-fg": c.mutedText,
+      border: mix(14, c.background),
+      input: mix(45, c.background),
+      // Accent, correct, wrong
       accent: c.accent,
       "accent-strong": c.accent,
       "accent-soft": `color-mix(in srgb, ${c.accent} 82%, ${c.text})`,
@@ -46,5 +68,22 @@ export function deckThemeFrom(tokens: ThemeTokens | null | undefined): DeckTheme
     fonts: { heading: tokens.fonts.heading.family, body: tokens.fonts.body.family, urls: [...new Set(fontUrls)] },
     logo: tokens.logo,
     background: tokens.background,
+  };
+}
+
+/** A library card's theme preview as a deck scope (the card's mini screen uses the stage tokens). */
+export function deckThemeFromCard(card: DeckCardTheme | null | undefined): DeckTheme | null {
+  if (!card) return null;
+  if (!card.custom) return { mode: card.mode };
+  return {
+    mode: card.mode,
+    tokens: {
+      "stage-bg": card.background,
+      "stage-chrome": card.surface,
+      "stage-panel": card.surface,
+      "stage-fg": card.text,
+      "stage-ink": card.accentText,
+      accent: card.accent,
+    },
   };
 }

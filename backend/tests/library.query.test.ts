@@ -168,12 +168,43 @@ describe('cards', () => {
       pace: 'presenter',
       legacySource: null,
       slideTypes: ['select_answer', 'wordcloud'],
+      // No stored theme: the built-in Graph paper look, light.
+      theme: {
+        mode: 'light',
+        custom: false,
+        background: '#f6f6f3',
+        surface: '#ffffff',
+        text: '#171717',
+        mutedText: '#5c5a55',
+        accent: '#cf460c',
+        accentText: '#ffffff',
+      },
     });
 
     const converted = toPresentationCard({ _id: oid(4), status: 'ended', pace: 'audience', legacy: { source: 'poll' } });
     expect(converted.status).toBe('ended');
     expect(converted.details.pace).toBe('audience');
     expect(converted.details.legacySource).toBe('poll');
+  });
+
+  it('previews the deck theme in its mode, with overrides and a brand kit the caller found', () => {
+    const ocean = toPresentationCard({ _id: oid(5), theme: { presetId: 'ocean', mode: 'dark', brandKitId: null, overrides: null } });
+    expect(ocean.details.theme).toMatchObject({ mode: 'dark', custom: true, background: '#0b1622', accent: '#38bdf8' });
+    const accent = toPresentationCard({
+      _id: oid(6),
+      theme: { presetId: 'graph-paper', mode: 'light', overrides: { accent: '#1d4ed8', accentText: '#ffffff' } },
+    });
+    expect(accent.details.theme).toMatchObject({ mode: 'light', custom: true, accent: '#1d4ed8', accentText: '#ffffff' });
+    const kitId = oid(7).toString();
+    const kits = new Map([
+      [kitId, { name: 'Kit', colors: { background: '#101010', surface: '#202020', text: '#fafafa', mutedText: '#bbbbbb', accent: '#ffcc00', accentText: '#111111', correct: '#4ade80', incorrect: '#f87171', chart: ['#ffcc00'] }, fonts: { heading: 'System' as const, body: 'System' as const } }],
+    ]);
+    const kit = toPresentationCard({ _id: oid(8), theme: { presetId: 'ocean', mode: 'light', brandKitId: kitId } }, kits);
+    expect(kit.details.theme).toMatchObject({ mode: 'dark', custom: true, background: '#101010', accent: '#ffcc00' });
+    // A kit the caller did not find (other workspace, plan without kits) falls back to the preset.
+    expect(toPresentationCard({ _id: oid(9), theme: { presetId: 'ocean', mode: 'light', brandKitId: kitId } }).details.theme.background).toBe(
+      '#f1f6fa'
+    );
   });
 });
 

@@ -27,16 +27,22 @@ export async function planOutline(
   }
 }
 
-/** Step 2: sends the reviewed outline; resolves with the created deck on success, null otherwise. */
+/**
+ * Step 2: sends the reviewed outline; resolves with the created deck on
+ * success, null otherwise. `themeMode`: the author's light or dark, the new
+ * deck's mode.
+ */
 export async function writeDeck(
   api: DeckApi,
   form: DeckForm,
   outline: DeckOutline,
-  dispatch: (action: AiDeckAction) => void
+  dispatch: (action: AiDeckAction) => void,
+  themeMode?: "light" | "dark"
 ) {
   dispatch({ type: "write-start" });
   try {
-    const response = await api.createDeck(toRequest(form, "deck", { outline: cleanOutline(outline) }));
+    const request = toRequest(form, "deck", { outline: cleanOutline(outline) });
+    const response = await api.createDeck(themeMode ? { ...request, themeMode } : request);
     dispatch({ type: "write-done", response });
     return response;
   } catch (error) {

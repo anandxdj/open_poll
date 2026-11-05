@@ -78,10 +78,12 @@ any coding agent) starting a new screen.
 | Brand (display, logo) | `#ea580c` | `#f97316` |
 
 Sample sessions in marketing and sign-in follow the app theme, answers shown
-as `ResultRow` cards on graph paper. The real projected stage is always dark
-(warm graphite, `--deck-*` tokens); where a small picture of it appears inside
-a light page (library cards, slide thumbnails), wrap it in
-`<div className="dark ...">` to re-apply the dark tokens.
+as `ResultRow` cards on graph paper. The real projected stage, the phones and
+the builder canvas draw the deck's own theme, light (the default: paper, white
+sheets, ink, ember) or dark (warm graphite), through the `--deck-*` tokens.
+Where a picture of a deck appears inside a page (library cards, slide
+thumbnails, report panels), scope it with `DeckThemeProvider` and the deck's
+theme (`data-deck-mode`), never with a `dark` class.
 
 ## Shape
 

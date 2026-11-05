@@ -1,5 +1,25 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+/** One submitted attempt of an audience-paced run (W2-F); see `AudienceAttemptResult`. */
+export interface IAudienceAttempt {
+  number: number;
+  submittedAt: Date;
+  score: number;
+  maxScore: number;
+  percentage: number | null;
+  correctCount: number;
+  answeredCount: number;
+  totalQuestions: number;
+  passed: boolean | null;
+}
+
+/** A participant's progress through an audience-paced session (null until the first submit or retry). */
+export interface IAudienceProgress {
+  /** The current attempt (Redis `psess:{sid}:attempts` is authoritative while live). */
+  attempt: number;
+  attempts: IAudienceAttempt[];
+}
+
 export interface IPresentationParticipant extends Document {
   presentationId: mongoose.Types.ObjectId;
   /** The session joined. A device joining a later session becomes a new participant there. */
@@ -20,7 +40,32 @@ export interface IPresentationParticipant extends Document {
    * stored answers; from then on the answer write-behind adds nothing (it would count twice).
    */
   scoreFinalAt: Date | null;
+  /** Audience pace (W2-F): attempts and their results; null until the participant submits once. */
+  audience: IAudienceProgress | null;
 }
+
+const AudienceAttemptSchema = new Schema<IAudienceAttempt>(
+  {
+    number: { type: Number, required: true, min: 1 },
+    submittedAt: { type: Date, required: true },
+    score: { type: Number, default: 0 },
+    maxScore: { type: Number, default: 0 },
+    percentage: { type: Number, default: null },
+    correctCount: { type: Number, default: 0 },
+    answeredCount: { type: Number, default: 0 },
+    totalQuestions: { type: Number, default: 0 },
+    passed: { type: Boolean, default: null },
+  },
+  { _id: false }
+);
+
+const AudienceProgressSchema = new Schema<IAudienceProgress>(
+  {
+    attempt: { type: Number, default: 1, min: 1 },
+    attempts: { type: [AudienceAttemptSchema], default: [] },
+  },
+  { _id: false }
+);
 
 const PresentationParticipantSchema = new Schema<IPresentationParticipant>({
   presentationId: { type: Schema.Types.ObjectId, ref: 'Presentation', required: true, index: true },
@@ -34,6 +79,7 @@ const PresentationParticipantSchema = new Schema<IPresentationParticipant>({
   kickedAt: { type: Date, default: null },
   locale: { type: String, default: null, maxlength: 10 },
   scoreFinalAt: { type: Date, default: null },
+  audience: { type: AudienceProgressSchema, default: null },
 });
 
 // One participant per device per session (rejoin returns the same participant).

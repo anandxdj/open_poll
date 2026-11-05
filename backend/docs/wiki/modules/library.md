@@ -80,6 +80,10 @@ the deck opens and saves in the builder:
 | TRIAL `passingScorePercentage` | `settings.audiencePaced.assessment = {enabled: true, passingScorePercentage, maxAttempts: null}` (null = unlimited: a TRIAL lets respondents retry until they pass) |
 | `isMandatory`, `isAnonymous`, `expiresAt`, results | not carried over |
 
+The deck runs at audience pace (W2-F, `modules/presentations-live.md` → Audience pace): every
+question open at once, a TRIAL graded per attempt with its pass mark and unlimited retries until the
+host sets `maxAttempts`.
+
 `pace`, `legacy`, `workspaceId` and `settings.audiencePaced.assessment` are written with a
 `$set {strict:false}` right after the create, so they persist whatever presentation schema is in
 force. Polls a deck cannot hold (more than 8 options, more than 50 questions, an unmarked TRIAL

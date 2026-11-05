@@ -23,6 +23,7 @@ import {
   type Slide,
 } from '../presentations/live/state';
 import { answeredCounts } from '../presentations/live/views';
+import { resolveDeckTheme } from '../themes/resolve';
 import { RemoteTokenModel, type IRemoteToken } from './remote.model';
 import {
   REMOTE_ERROR_CODES,
@@ -304,10 +305,13 @@ const slideView = (session: IPresentationSession, index: number, answered: numbe
 const remoteState = async (presentationId: string): Promise<RemoteState> => {
   const presentation = await getPresentationById(presentationId);
   const session = (await findLiveSession(presentationId)) ?? (await findLatestSession(presentationId));
+  // A live session keeps the theme it started with; otherwise the deck's current one.
+  const theme = (session?.isLive ? session.themeSnapshot : null) ?? (await resolveDeckTheme(presentation));
   const base = {
     presentationId,
     title: presentation.title,
     joinCode: presentation.joinCode,
+    theme,
     serverNow: new Date().toISOString(),
   };
   if (!session) {

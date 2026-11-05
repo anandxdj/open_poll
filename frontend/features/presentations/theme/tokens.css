@@ -4,13 +4,17 @@
    Every stage (projected screen, host console) and participant surface
    colours itself through these `--deck-*` variables, via the `deck-*`
    Tailwind colours registered below (`bg-deck-stage-bg`, `text-deck-accent/40`…).
-   The defaults are the Graph paper look: audience surfaces follow the app
-   theme (light/dark), the stage is always dark (warm graphite), the accent is
-   the brand ember, status colours match the app's.
 
-   A deck theme overrides any subset on <DeckThemeProvider> (inline style);
-   inside that scope the app's shadcn tokens are remapped to the deck ones so
-   Button/Input/Textarea follow the theme too.
+   A deck is light or dark (`theme.mode`). <DeckThemeProvider> marks its scope
+   `data-deck-mode="light|dark"`, and the blocks below give that scope the
+   Graph paper look of the mode: the stage, the phones and the app's own
+   tokens inside it (so Button, Input and `text-muted-foreground` follow the
+   deck, not the app theme of whoever looks at it). A custom theme (preset,
+   brand kit) overrides any subset on the provider (inline style).
+
+   `:root` keeps the look surfaces had before decks had a mode (a dark stage,
+   audience surfaces following the app theme): what anything outside a deck
+   scope draws, such as the landing page samples.
    ───────────────────────────────────────────────────────────────────────── */
 
 :root {
@@ -26,8 +30,7 @@
   --deck-primary: var(--primary);
   --deck-primary-fg: var(--primary-foreground);
 
-  /* Stage — always dark: the app's warm graphite, not pure black, so the
-     projected screen and the product read as one family. */
+  /* Stage — dark outside a deck scope: the app's warm graphite, not pure black. */
   --deck-stage-bg: #141413;
   --deck-stage-chrome: #1b1b1a;
   --deck-stage-panel: #1f1f1d;
@@ -35,6 +38,7 @@
   --deck-stage-scrim: #000;
   --deck-stage-ink: #1a0d04; /* text on accent fills (the app's primary-foreground in dark) */
   --deck-qr-bg: #fff; /* QR codes need a light quiet zone to scan */
+  --deck-qr-fg: #171717; /* and dark modules */
 
   /* Semantic accents. The accent is the brand ember (the app's dark primary);
      correct / live are the success green, danger and wrong the app's red. */
@@ -74,14 +78,212 @@
   --deck-cloud-12: #93c5fd;
 }
 
-/* Inside a deck scope the shadcn primitives read the deck tokens. The deck
-   values are inherited (already computed), so this never forms a cycle. */
+/* ── Light deck: Graph paper on paper ─────────────────────────────────────
+   The app's light tokens (app/globals.css) for the phones and the app
+   primitives, the same warm paper for the stage with white sheets on it, ink
+   text, the ember fill with white text. Text colours keep 4.5:1 on paper and
+   white (`text-deck-correct-soft`, `-danger-soft`, `-accent-soft`); the cloud
+   uses the 700/800 steps of the chart hues (4.5:1 or better on paper). */
+[data-deck-mode="light"] {
+  color-scheme: light;
+
+  --background: #f6f6f3;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --primary: #cf460c;
+  --primary-hover: #b13a09;
+  --primary-foreground: #ffffff;
+  --accent-ink: #b93d0b;
+  --brand: #ea580c;
+  --secondary: #efeee9;
+  --secondary-foreground: #171717;
+  --muted: #efeee9;
+  --muted-foreground: #5c5a55;
+  --faint: #85827b;
+  --accent: #ebeae4;
+  --accent-foreground: #171717;
+  --destructive: #c81e1e;
+  --destructive-foreground: #ffffff;
+  --success: #15803d;
+  --warning: #a14a06;
+  --info: #1d4ed8;
+  --border: #e2e0d9;
+  --border-subtle: #ebe9e3;
+  --input: #8c8981;
+  --ring: #b93d0b;
+  --chart-1: #ea580c;
+  --chart-2: #2563eb;
+  --chart-3: #16a34a;
+  --chart-4: #7c3aed;
+  --chart-5: #db2777;
+  --chart-6: #0891b2;
+
+  --deck-bg: #f6f6f3;
+  --deck-fg: #171717;
+  --deck-surface: #ffffff;
+  --deck-secondary: #efeee9;
+  --deck-muted-fg: #5c5a55;
+  --deck-border: #e2e0d9;
+  --deck-input: #8c8981;
+  --deck-ring: #b93d0b;
+  --deck-primary: #cf460c;
+  --deck-primary-fg: #ffffff;
+
+  --deck-stage-bg: #f6f6f3;
+  --deck-stage-chrome: #ffffff;
+  --deck-stage-panel: #ffffff;
+  --deck-stage-fg: #171717;
+  --deck-stage-scrim: #f6f6f3; /* a paper veil: overlays and highlighted questions stay ink on paper */
+  --deck-stage-ink: #ffffff;
+  --deck-qr-bg: #fff;
+  --deck-qr-fg: #171717;
+
+  --deck-accent: #cf460c;
+  --deck-accent-strong: #b13a09;
+  --deck-accent-soft: #b93d0b; /* hover fill under white text, and the accent as text (5.2:1) */
+  --deck-correct: #15803d;
+  --deck-correct-soft: #15803d;
+  --deck-correct-deep: #86efac; /* tint behind correct options (used at 20%) */
+  --deck-correct-alt: #16a34a;
+  --deck-live: #16a34a;
+  --deck-danger: #c81e1e;
+  --deck-danger-strong: #b91c1c;
+  --deck-danger-soft: #b91c1c;
+  --deck-wrong: #c81e1e;
+  --deck-info: #1d4ed8;
+  --deck-bar: #cf460c;
+  --deck-rank-1: #a16207; /* gold */
+  --deck-rank-2: #6b6862; /* silver, warm grey */
+  --deck-rank-3: #b45309; /* bronze */
+  --deck-glow-correct: rgb(21 128 61);
+  --deck-glow-accent: rgb(207 70 12);
+
+  --deck-cloud-1: #c2410c;
+  --deck-cloud-2: #1d4ed8;
+  --deck-cloud-3: #15803d;
+  --deck-cloud-4: #6d28d9;
+  --deck-cloud-5: #be185d;
+  --deck-cloud-6: #0e7490;
+  --deck-cloud-7: #a16207;
+  --deck-cloud-8: #0f766e;
+  --deck-cloud-9: #a21caf;
+  --deck-cloud-10: #4d7c0f;
+  --deck-cloud-11: #9a3412;
+  --deck-cloud-12: #1e40af;
+}
+
+/* ── Dark deck: warm graphite ─────────────────────────────────────────────
+   The app's dark tokens for the phones and the primitives, the graphite stage. */
+[data-deck-mode="dark"] {
+  color-scheme: dark;
+
+  --background: #0d0d0c;
+  --foreground: #f2f1ec;
+  --card: #161615;
+  --card-foreground: #f2f1ec;
+  --popover: #1a1a19;
+  --popover-foreground: #f2f1ec;
+  --primary: #f97316;
+  --primary-hover: #fb8a3c;
+  --primary-foreground: #1a0d04;
+  --accent-ink: #fb923c;
+  --brand: #f97316;
+  --secondary: #1f1f1d;
+  --secondary-foreground: #f2f1ec;
+  --muted: #1f1f1d;
+  --muted-foreground: #a7a49c;
+  --faint: #75726b;
+  --accent: #262624;
+  --accent-foreground: #f2f1ec;
+  --destructive: #ef4444;
+  --destructive-foreground: #fafafa;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --info: #60a5fa;
+  --border: #2b2a27;
+  --border-subtle: #222220;
+  --input: #6d6b65;
+  --ring: #fb923c;
+  --chart-1: #ea580c;
+  --chart-2: #3b82f6;
+  --chart-3: #16a34a;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+  --chart-6: #0891b2;
+
+  --deck-bg: #0d0d0c;
+  --deck-fg: #f2f1ec;
+  --deck-surface: #161615;
+  --deck-secondary: #1f1f1d;
+  --deck-muted-fg: #a7a49c;
+  --deck-border: #2b2a27;
+  --deck-input: #6d6b65;
+  --deck-ring: #fb923c;
+  --deck-primary: #f97316;
+  --deck-primary-fg: #1a0d04;
+
+  --deck-stage-bg: #141413;
+  --deck-stage-chrome: #1b1b1a;
+  --deck-stage-panel: #1f1f1d;
+  --deck-stage-fg: #f2f1ec;
+  --deck-stage-scrim: #000;
+  --deck-stage-ink: #1a0d04;
+  --deck-qr-bg: #fff;
+  --deck-qr-fg: #171717;
+
+  --deck-accent: #f97316;
+  --deck-accent-strong: #ea580c;
+  --deck-accent-soft: #fb923c;
+  --deck-correct: #22c55e;
+  --deck-correct-soft: #4ade80;
+  --deck-correct-deep: #052e16;
+  --deck-correct-alt: #34d399;
+  --deck-live: #22c55e;
+  --deck-danger: #ef4444;
+  --deck-danger-strong: #dc2626;
+  --deck-danger-soft: #f87171;
+  --deck-wrong: #f87171;
+  --deck-info: #60a5fa;
+  --deck-bar: #f97316;
+  --deck-rank-1: #fbbf24;
+  --deck-rank-2: #d6d3d1;
+  --deck-rank-3: #d97706;
+  --deck-glow-correct: rgb(34 197 94);
+  --deck-glow-accent: rgb(249 115 22);
+
+  --deck-cloud-1: #fb923c;
+  --deck-cloud-2: #60a5fa;
+  --deck-cloud-3: #4ade80;
+  --deck-cloud-4: #a78bfa;
+  --deck-cloud-5: #f472b6;
+  --deck-cloud-6: #22d3ee;
+  --deck-cloud-7: #fbbf24;
+  --deck-cloud-8: #2dd4bf;
+  --deck-cloud-9: #e879f9;
+  --deck-cloud-10: #a3e635;
+  --deck-cloud-11: #fdba74;
+  --deck-cloud-12: #93c5fd;
+}
+
+/* Inside a deck scope the shadcn primitives read the deck tokens. After the
+   mode blocks on purpose: on the same element this wins, so a custom theme's
+   inline `--deck-*` reaches `--background`, `--primary`… The deck values are
+   literals or inherited (already computed), so this never forms a cycle. */
 [data-deck-theme] {
   --background: var(--deck-bg);
   --foreground: var(--deck-fg);
   --card: var(--deck-surface);
+  --card-foreground: var(--deck-fg);
+  --popover: var(--deck-surface);
+  --popover-foreground: var(--deck-fg);
   --secondary: var(--deck-secondary);
+  --secondary-foreground: var(--deck-fg);
+  --muted: var(--deck-secondary);
   --muted-foreground: var(--deck-muted-fg);
+  --accent-foreground: var(--deck-fg);
   --border: var(--deck-border);
   --input: var(--deck-input);
   --ring: var(--deck-ring);
@@ -113,6 +315,7 @@
   --color-deck-stage-scrim: var(--deck-stage-scrim);
   --color-deck-stage-ink: var(--deck-stage-ink);
   --color-deck-qr-bg: var(--deck-qr-bg);
+  --color-deck-qr-fg: var(--deck-qr-fg);
 
   --color-deck-accent: var(--deck-accent);
   --color-deck-accent-strong: var(--deck-accent-strong);
@@ -147,7 +350,7 @@
 }
 
 /* Graph paper on the stage (the app's motif, drawn in the stage's own ink so
-   it works whatever the app theme): behind the ready, lobby and end screens. */
+   it works light or dark): behind the ready, lobby and end screens. */
 .stage-grid {
   background-image:
     linear-gradient(to right, color-mix(in srgb, var(--deck-stage-fg) 6%, transparent) 1px, transparent 1px),

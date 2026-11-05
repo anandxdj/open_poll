@@ -1,10 +1,12 @@
 import { Types } from 'mongoose';
+import { buildTokens, overridesOf, presetTokens, type ThemeSource, type ThemeTokens } from '../themes/resolve';
 import { ApiError } from '../../common/utils/ApiError';
 import type {
   LibraryCard,
   LibraryStatus,
   PollLibraryCard,
   PresentationLibraryCard,
+  DeckCardTheme,
 } from './library.types';
 
 /**
@@ -206,6 +208,7 @@ export interface PresentationCardSource {
   legacy?: { source?: string | null } | null;
   folderId?: Types.ObjectId | string | null;
   slides?: Array<{ type?: string }>;
+  theme?: { presetId?: string | null; mode?: unknown; brandKitId?: unknown; overrides?: unknown } | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -218,6 +221,7 @@ export const PRESENTATION_CARD_PROJECTION = {
   legacy: 1,
   folderId: 1,
   'slides.type': 1,
+  theme: 1,
   createdAt: 1,
   updatedAt: 1,
 } as const;
@@ -231,7 +235,31 @@ export function presentationStatus(phase: Phase): LibraryStatus {
   return 'live';
 }
 
-export function toPresentationCard(deck: PresentationCardSource): PresentationLibraryCard {
+const cardTheme = (tokens: ThemeTokens): DeckCardTheme => {
+  const { background, surface, text, mutedText, accent, accentText } = tokens.colors;
+  return { mode: tokens.mode, custom: tokens.custom, background, surface, text, mutedText, accent, accentText };
+};
+
+/**
+ * The card preview of a deck's theme, like `resolveTheme` without lookups:
+ * `kits` holds the brand kits the caller found (and may apply) by id.
+ */
+export function deckCardTheme(
+  theme: PresentationCardSource['theme'],
+  kits: ReadonlyMap<string, ThemeSource> = new Map()
+): DeckCardTheme {
+  const overrides = overridesOf(theme?.overrides);
+  const kit = theme?.brandKitId ? kits.get(String(theme.brandKitId)) : undefined;
+  const tokens = kit
+    ? buildTokens(kit, presetTokens(theme?.presetId, theme?.mode).presetId, String(theme?.brandKitId), overrides)
+    : presetTokens(theme?.presetId, theme?.mode, overrides);
+  return cardTheme(tokens);
+}
+
+export function toPresentationCard(
+  deck: PresentationCardSource,
+  kits?: ReadonlyMap<string, ThemeSource>
+): PresentationLibraryCard {
   const phase: Phase = (PHASES as readonly string[]).includes(deck.status ?? '') ? (deck.status as Phase) : 'draft';
   const slides = deck.slides ?? [];
   const legacySource = deck.legacy?.source;
@@ -253,6 +281,7 @@ export function toPresentationCard(deck: PresentationCardSource): PresentationLi
         0,
         6,
       ),
+      theme: deckCardTheme(deck.theme, kits),
     },
   };
 }
