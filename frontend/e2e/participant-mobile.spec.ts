@@ -94,7 +94,10 @@ test("UX-02: a participant joins, answers three slide types and reaches the end 
   await phone.goto("/live");
   await expect(phone.getByRole("heading", { name: "Join a live deck" })).toBeVisible();
   // A touch phone whose layout viewport is the device width (the page's viewport meta works).
-  expect(await phone.evaluate(() => [window.innerWidth, navigator.maxTouchPoints > 0])).toEqual([375, true]);
+  // WebKit exposes emulated touch through touch events, not maxTouchPoints.
+  expect(
+    await phone.evaluate(() => [window.innerWidth, navigator.maxTouchPoints > 0 || "ontouchstart" in window]),
+  ).toEqual([375, true]);
   await expectNoHorizontalOverflow(phone, "join page");
   const code = phone.getByPlaceholder("000000");
   await expectTapTarget(code, "code field");

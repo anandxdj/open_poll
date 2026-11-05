@@ -1,7 +1,7 @@
 ---
-summary: Product-wide test plan before the release in 06-merge-and-deploy.md, covering every scenario, how each is covered, and the results of the 2026-11-01 pass.
+summary: Product-wide test plan before the release in 06-merge-and-deploy.md, covering every scenario, how each is covered, the results of the 2026-11-01 pass and the 2026-11-05 Firefox and WebKit pass.
 status: active
-last_updated: 2026-11-01
+last_updated: 2026-11-05
 ---
 
 # Product-wide test plan
@@ -146,5 +146,40 @@ The whole quick-poll product (`/create`, `/p/[id]`, `/analytics/[id]`) had no fr
 - **Not testable here:**
   - Google OAuth and real SSO identity providers: no keys.
   - Stripe checkout: no keys; billing has a disabled-mode spec.
-  - Real PPTX through Gotenberg, Google Drive.
-  - Browsers other than Chromium.
+  - Real PPTX through Gotenberg, Google Drive. (Gotenberg: see 2026-11-05 below.)
+  - Browsers other than Chromium. (Done 2026-11-05, below.)
+
+## Firefox and WebKit pass (2026-11-05)
+
+The whole Playwright suite (80 tests) ran in Firefox and in WebKit, the engine of Safari and every iPhone
+browser. How to run it: `frontend/docs/wiki/testing/e2e.md`, "Other browsers". WebKit ran through the
+official Playwright image, because Arch lacks its libraries.
+
+**Firefox: green.** The first run had 3 failures, none in the product:
+- `auth-flows`: a `goto` raced the "Continue to login" link's own navigation and was aborted. The test now
+  waits for the link to land.
+- `duplicate`: the library search refetches after a debounce and re-rendered the cards under the menu
+  click. The test now waits for the search response.
+- `participant-mobile` UX-02: Playwright's Firefox has no touch emulation, so the tap-driven test skips
+  itself there. WebKit runs it.
+
+**WebKit: green after one product fix.**
+- **Product bug, fixed:** after "Build manually" or "Generate with AI", the New deck dialog stayed
+  over the builder, nearly invisible. Its exit animation never finished, and the dialog lives in the
+  dashboard layout, which survives the navigation. Its box still caught clicks in the middle of the
+  builder. Leaving by navigation now unmounts it at once (`CreatePresentationModal.tsx`); Close and
+  Escape still animate.
+- Against the dev server, specs that fill a form right after load lost the first field: the slow dev
+  bundle hydrated after Playwright typed. Against a production build (`E2E_FRONTEND_MODE=start`) they pass,
+  so this is not a Safari problem.
+- Test fixes: downloads read through `saveAs` (a remote browser has no local path); the billing spec sets
+  its session cookies on the context and carries the refresh cookie from its login; the paid-plan test
+  switches the plan by time instead of by read count; the phone spec accepts touch support reported
+  through `ontouchstart` (WebKit).
+- A full WebKit run against the production build trips the auth rate limit (10 logins per 5 minutes per
+  IP) near its end; the affected specs pass on their own. Chromium in CI is slower and does not hit it.
+
+**Gotenberg, real container (2026-11-05).** A generated 3-slide PPTX with a chart and SmartArt converted
+to a 3-page PDF in 0.7 s through `renderPptxToPdf` and `gotenberg/gotenberg:8`.
+
+**Still open:** real iPhone and Android devices (emulation only so far), and a room of real phones.

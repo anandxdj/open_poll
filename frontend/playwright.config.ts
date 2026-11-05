@@ -124,7 +124,12 @@ export default defineConfig({
     },
     {
       name: "frontend",
-      command: `bun x next dev --port ${e2eEnv.frontendPort}`,
+      // E2E_FRONTEND_MODE=start serves an existing `next build` (built with the NEXT_PUBLIC_* below)
+      // instead of the dev server: closer to production, and no first-visit compile delays.
+      command:
+        process.env.E2E_FRONTEND_MODE === "start"
+          ? `bun x next start --port ${e2eEnv.frontendPort}`
+          : `bun x next dev --port ${e2eEnv.frontendPort}`,
       url: e2eEnv.frontendUrl,
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,

@@ -71,7 +71,13 @@ test("LIB-19: duplicate a deck and a poll from the library menu", async ({ host 
   const deckBefore = await host.getDeck(deck._id);
 
   const page = await host.open("/polls");
+  // The search is debounced, then refetches the list: wait for that response so the cards are not
+  // re-rendered under the menu click (fast engines opened the menu just before the swap).
+  const searched = page.waitForResponse(
+    (response) => response.url().includes("/api/library") && response.url().includes(String(stamp)) && response.ok(),
+  );
   await page.getByLabel("Search by title").fill(String(stamp));
+  await searched;
   await expect(card(page, deckTitle)).toBeVisible();
   await expect(card(page, pollTitle)).toBeVisible();
 

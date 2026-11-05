@@ -57,6 +57,8 @@ interface Session {
 }
 
 let session: Session;
+/** The refresh cookie from the same login, so a stray 401 refreshes as it would for a real user. */
+let refreshToken: string | null = null;
 
 // One login for the whole file: the auth routes allow 10 logins per 5 minutes per IP, and the
 // suite's other specs log in too.
@@ -68,6 +70,7 @@ test.beforeAll(async () => {
   });
   if (!res.ok) throw new Error(`POST /auth/login -> ${res.status}`);
   session = ((await res.json()) as { data: Session }).data;
+  refreshToken = res.headers.getSetCookie().map((c) => /^refreshToken=([^;]+)/.exec(c)?.[1]).find(Boolean) ?? null;
 });
 
 /**
@@ -77,6 +80,12 @@ test.beforeAll(async () => {
 async function openSignedIn(browser: Browser, contexts: BrowserContext[]): Promise<Page> {
   const context = await browser.newContext();
   contexts.push(context);
+  // The proxy checks this cookie before any page script runs (as in the `host` fixture); set only
+  // from the init script, a fast first request could reach the proxy without it.
+  await context.addCookies([
+    { name: "auth_session", value: "1", url: e2eEnv.frontendUrl },
+    ...(refreshToken ? [{ name: "refreshToken", value: refreshToken, url: e2eEnv.apiOrigin }] : []),
+  ]);
   await context.addInitScript(
     ({ user, accessToken }) => {
       window.localStorage.setItem("auth-storage", JSON.stringify({ state: { user, accessToken }, version: 0 }));
@@ -201,13 +210,14 @@ test("a Team checkout asks for at least one seat per member", async ({ browser, 
 
 test("after paying, the page waits for the plan and then confirms it", async ({ browser, contexts }) => {
   const page = await openSignedIn(browser, contexts);
-  let reads = 0;
+  // The webhook lands 1.5 s after the page first reads billing: by time, not by read count, since
+  // the page may read twice at load (a retried request) before it starts polling.
+  let activeAfter: number | null = null;
   await page.route("**/api/billing", (route) => {
     if (route.request().method() !== "GET") return route.continue();
-    reads += 1;
-    // The webhook lands between the first and the second read.
+    activeAfter ??= Date.now() + 1500;
     return patched(route, (data) =>
-      reads < 2
+      Date.now() < activeAfter!
         ? billingOn(data)
         : {
             ...billingOn(data),
