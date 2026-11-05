@@ -117,6 +117,8 @@ export interface Presentation {
    * it back as `If-Match`; a stale one is refused with 409 `DECK_CHANGED`.
    */
   revision?: number;
+  /** A workspace template (W3-B2): never presented or edited in place; "Use template" makes a deck from it. */
+  isTemplate?: boolean;
   createdAt: string;
   updatedAt: string;
 }

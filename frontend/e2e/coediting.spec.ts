@@ -100,3 +100,35 @@ test("the builder shows when the same deck is open in another tab, and stops whe
   await secondContext.close();
   await expect(elsewhere(first)).toHaveCount(0);
 });
+
+test("a builder left open without edits picks up a co-editor's save on reload, with no conflict", async ({ host }) => {
+  const title = `E2E untouched ${Date.now()}`;
+  const deck = await host.createDeck(title, [heading("Agenda"), heading("Wrap-up")]);
+  const idle = await host.open(`/presentation/create?id=${deck._id}`);
+  await expect(idle.getByLabel("Deck title")).toHaveValue(title);
+  // Looking around is not editing: select the other slide.
+  await idle.getByRole("button", { name: /^Slide 2 of 2:/ }).click();
+
+  const editor = await host.open(`/presentation/create?id=${deck._id}`);
+  await expect(editor.getByLabel("Deck title")).toHaveValue(title);
+  await editor.getByLabel("Deck title").fill(`${title} edited`);
+  await editor.getByRole("button", { name: "Save changes" }).click();
+  await expect(editor).toHaveURL(/\/polls/);
+
+  // The idle builder kept no local copy, so the reload shows the saved version.
+  const draftKey = `openpoll_presentation_draft_${deck._id}`;
+  expect(await idle.evaluate((key) => window.localStorage.getItem(key), draftKey)).toBeNull();
+  await idle.reload();
+  await expect(idle.getByLabel("Deck title")).toHaveValue(`${title} edited`);
+  await expect(conflictAlert(idle)).toHaveCount(0);
+
+  // Leaving without an edit saves nothing either (no revision bump that would make a co-editor stale).
+  const revisionOf = async () => ((await host.getDeck(deck._id)) as unknown as { revision: number }).revision;
+  const before = await revisionOf();
+  await idle.getByRole("link", { name: "Back to the library" }).click();
+  await expect(idle).toHaveURL(/\/polls/);
+  await expect(idle.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
+  // The silent save on leaving would fire right after the unmount; give it time to (not) arrive.
+  await idle.waitForTimeout(800);
+  expect(await revisionOf()).toBe(before);
+});

@@ -36,6 +36,14 @@ export const buildDraftStorageKey = (presentationId: string | null) =>
  */
 export type PersistedPresentationDraft = DeckDraft & { active: number; savedAt?: number; revision?: number };
 
+/**
+ * Identity of a deck's editable content (title and slides). Equal signatures
+ * mean no unsaved edit: the builder keeps no local draft and sends no save for
+ * them (a save would bump the revision for nothing and make a co-editor's
+ * next save look stale).
+ */
+export const deckSignature = (title: string, slides: PresentationSlide[]) => JSON.stringify({ title: title.trim(), slides });
+
 /** A local draft written after the server copy holds edits not saved yet (a reload, a crash). */
 export const draftIsNewer = (draft: PersistedPresentationDraft | null, serverUpdatedAt: string) =>
   !!draft?.savedAt && draft.savedAt > Date.parse(serverUpdatedAt);
