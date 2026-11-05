@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expectNoSeriousA11yViolations as scan } from "./axe";
-import { expect, test } from "./fixtures";
+import { expect, openAudienceWindow, test } from "./fixtures";
 
 /**
  * W4-A accessibility, audience pace: axe scans of the host's audience dashboard
@@ -69,11 +69,7 @@ for (const mode of ["light", "dark"] as const) {
 
     const presenter = await host.open(`/presentation/${deck._id}/presenter`);
     await expect(presenter.getByTestId("audience-dashboard")).toBeVisible();
-    const [screen] = await Promise.all([
-      presenter.waitForEvent("popup"),
-      presenter.getByRole("button", { name: "Open audience window" }).click(),
-    ]);
-    await screen.waitForLoadState();
+    const screen = await openAudienceWindow(presenter, deck._id);
 
     const context = await browser.newContext(PHONE);
     contexts.push(context);

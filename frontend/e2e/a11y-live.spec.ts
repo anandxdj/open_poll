@@ -1,6 +1,6 @@
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { expectNoSeriousA11yViolations as scan, IMAGE_URL, stubMedia } from "./axe";
-import { expect, test, type Host } from "./fixtures";
+import { expect, openAudienceWindow, test, type Host } from "./fixtures";
 
 /**
  * W4-A accessibility, presenter pace: axe scans of every live surface through a
@@ -68,11 +68,7 @@ for (const mode of ["light", "dark"] as const) {
       await expect(presenter.locator("main").getByText("Ready to present")).toBeVisible();
       await scan(presenter, `presenter view · ready · ${mode}`);
 
-      const [audience] = await Promise.all([
-        presenter.waitForEvent("popup"),
-        presenter.getByRole("button", { name: "Open audience window" }).click(),
-      ]);
-      await audience.waitForLoadState();
+      const audience = await openAudienceWindow(presenter, deck._id);
       await expect(audience.locator("main").getByText("Ready to present")).toBeVisible();
       await scan(audience, `audience window · ready · ${mode}`);
 
