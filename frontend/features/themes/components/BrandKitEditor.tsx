@@ -13,7 +13,7 @@ import { settingsCard } from "@/features/workspaces/settings/blocks";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { createBrandKit, updateBrandKit } from "../api/themes.api";
-import { COLOR_LABELS, CONTRAST_RULES, HEX_COLOR, contrastFailures, contrastRatio, describeFailure } from "../contrast";
+import { COLOR_LABELS, CONTRAST_RULES, HEX_COLOR, contrastFailures, contrastRatio, describeFailure, paletteMode } from "../contrast";
 import type { BrandKit, BrandKitInput, ContrastFailure, ThemeColors, ThemeTokens } from "../types";
 import { themeFont } from "../fonts";
 import { BrandPreview } from "./BrandPreview";
@@ -169,6 +169,8 @@ export function BrandKitEditor({
 
   const previewTokens: ThemeTokens = {
     presetId: "graph-paper",
+    // A kit is light or dark by its own stage colour, like the API decides it.
+    mode: HEX_COLOR.test(draft.colors.background) ? paletteMode(draft.colors.background) : "light",
     brandKitId: kit?.id ?? "preview",
     custom: true,
     name: draft.name,

@@ -30,17 +30,22 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { deleteBrandKit } from "../api/themes.api";
 import { useThemeCatalog } from "../hooks/useThemeCatalog";
-import { DEFAULT_PRESET_ID, type BrandKit, type BrandKitInput, type ThemeCatalog } from "../types";
+import { DEFAULT_PRESET_ID, type BrandKit, type BrandKitInput, type ThemeCatalog, type ThemeMode } from "../types";
+import { useAppThemeMode } from "../useAppThemeMode";
 import { SectionUnavailable } from "@/features/workspaces/settings/SectionUnavailable";
 import { BrandKitEditor } from "./BrandKitEditor";
 import { ThemeSwatch } from "./ThemeSwatch";
 
-/** A new kit starts from the default preset's palette, so it is readable before any change. */
-function newKitFrom(catalog: ThemeCatalog): BrandKitInput {
+/**
+ * A new kit starts from the default preset's palette in the app's light or
+ * dark, so it is readable before any change.
+ */
+function newKitFrom(catalog: ThemeCatalog, mode: ThemeMode): BrandKitInput {
   const base = catalog.presets.find((p) => p.id === DEFAULT_PRESET_ID) ?? catalog.presets[0]!;
+  const tokens = base.modes?.[mode] ?? base.tokens;
   return {
     name: "",
-    colors: { ...base.tokens.colors, chart: [...base.tokens.colors.chart] },
+    colors: { ...tokens.colors, chart: [...tokens.colors.chart] },
     fonts: { heading: "System", body: "System" },
     logo: null,
     background: null,
@@ -142,6 +147,7 @@ export function BrandSettings() {
   const [editing, setEditing] = useState<BrandKit | "new" | null>(null);
   const [removing, setRemoving] = useState<BrandKit | null>(null);
   const [busy, setBusy] = useState(false);
+  const appMode = useAppThemeMode();
 
   if (workspaceFailed) return <SettingsFailed message="This workspace could not be loaded." onRetry={retry} />;
   if (!detail) return <SettingsLoading>Loading brand settings…</SettingsLoading>;
@@ -166,7 +172,7 @@ export function BrandSettings() {
         />
         <BrandKitEditor
           kit={editing === "new" ? null : editing}
-          initial={editing === "new" ? newKitFrom(catalog) : toInput(editing)}
+          initial={editing === "new" ? newKitFrom(catalog, appMode) : toInput(editing)}
           fonts={catalog.fonts}
           storage={capabilities?.storage ?? false}
           onSaved={() => {

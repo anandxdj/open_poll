@@ -8,6 +8,8 @@ import { dismissNativeDialogs, expect, joinAsParticipant, openLobby, test } from
  * create a kit with its own accent and font (the contrast checks stop an
  * unreadable palette), pick it for a deck in the builder's Theme tab, then
  * open the session and find the kit's colours on the stage and the phone.
+ * A new kit starts from Graph paper in the app's mode (light here), so the kit
+ * is a light one: a blue accent with white text on it, ink text on paper.
  *
  * A fresh account per run on its own Pro workspace, so nothing touches the
  * shared host's free plan.
@@ -84,15 +86,16 @@ test("create a brand kit, pick it for a deck and see it on the stage and the pho
   await page.getByRole("button", { name: "New brand kit" }).click();
   const editor = page.getByRole("form", { name: "New brand kit" });
   await editor.getByLabel("Name").fill("Acme");
-  await editor.getByLabel("Accent", { exact: true }).fill("#ffcc00");
-  await editor.getByLabel("Text on accent", { exact: true }).fill("#1a1400");
+  await expect(editor.getByLabel("Stage", { exact: true })).toHaveValue("#f6f6f3");
+  await editor.getByLabel("Accent", { exact: true }).fill("#1d4ed8");
+  await editor.getByLabel("Text on accent", { exact: true }).fill("#ffffff");
   await editor.getByLabel("Headings").selectOption("Montserrat");
 
-  // An unreadable text colour blocks saving until it is fixed.
-  await editor.getByLabel("Text", { exact: true }).fill("#1f1f1d");
+  // An unreadable text colour (light ink on the light stage) blocks saving until it is fixed.
+  await editor.getByLabel("Text", { exact: true }).fill("#f2f1ec");
   await expect(page.getByText(/too hard to read\. Fix (it|them) to save\./)).toBeVisible();
   await expect(page.getByRole("button", { name: "Create brand kit" })).toBeDisabled();
-  await editor.getByLabel("Text", { exact: true }).fill("#f2f1ec");
+  await editor.getByLabel("Text", { exact: true }).fill("#171717");
   await page.screenshot({ path: "test-results/brand-editor.png", fullPage: true });
   await page.getByRole("button", { name: "Create brand kit" }).click();
   await expect(page.getByText("Brand kit created")).toBeVisible();
@@ -118,12 +121,15 @@ test("create a brand kit, pick it for a deck and see it on the stage and the pho
   // ---- The session wears it ----
   await page.goto(`/presentation/host/${deck._id}`);
   await openLobby(page, deck.joinCode);
-  await expect.poll(() => deckVar(page, "--deck-accent")).toBe("#ffcc00");
-  await expect.poll(() => deckVar(page, "--deck-stage-ink")).toBe("#1a1400");
+  await expect.poll(() => deckVar(page, "--deck-accent")).toBe("#1d4ed8");
+  await expect.poll(() => deckVar(page, "--deck-stage-ink")).toBe("#ffffff");
+  // The kit is light (its own stage colour decides): the stage is its paper.
+  await expect.poll(() => deckVar(page, "--deck-stage-bg")).toBe("#f6f6f3");
+  await expect(page.locator("[data-deck-theme]").first()).toHaveAttribute("data-deck-mode", "light");
   await expect.poll(() => deckVar(page, "--theme-font-heading")).toContain("Montserrat");
   await page.screenshot({ path: "test-results/brand-stage-lobby.png" });
 
   const phone = await joinAsParticipant(browser, contexts, deck.joinCode, "Pat");
-  await expect.poll(() => deckVar(phone.page, "--deck-primary")).toBe("#ffcc00");
+  await expect.poll(() => deckVar(phone.page, "--deck-primary")).toBe("#1d4ed8");
   await phone.page.screenshot({ path: "test-results/brand-phone.png" });
 });
