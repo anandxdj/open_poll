@@ -199,6 +199,26 @@ export interface AnswerResult {
   answeredAt: string;
 }
 
+/**
+ * Body of `POST /:id/answer`, and (plus `presentationId`) of the socket
+ * `answer:submit`: who answers, which slide, the answer itself, and the
+ * idempotency and grace fields of the answer path
+ * (`backend/docs/wiki/modules/presentations-live.md`, "Answer path").
+ */
+export interface AnswerRequest extends AnswerPayload {
+  participantId: string;
+  participantToken: string;
+  slideIndex: number;
+  sessionId?: string;
+  slideId?: string;
+  /** Idempotency key (≤ 64 chars): repeating an accepted answer with it returns the original, `replay: true`. */
+  clientAnswerId?: string;
+  /** From `question:started` / `live-state`: lets a late answer through the grace period. */
+  slideTicket?: string;
+  /** Held in the offline queue before sending (stored as `via: "offline"`). */
+  offline?: boolean;
+}
+
 /** One participant's answer, as the slide type's ParticipantView submits it. */
 export interface AnswerPayload {
   /** select_answer */

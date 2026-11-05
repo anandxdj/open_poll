@@ -1,7 +1,7 @@
 ---
 summary: Live deck surfaces — host console, participant shell, stage — their session-aware flows, and their extension points: live store/reducer, slots, slide runtime registry, deck theme tokens, live i18n.
 status: active
-last_updated: 2026-10-25
+last_updated: 2026-11-05
 ---
 
 # Live Surfaces
@@ -26,7 +26,10 @@ is `backend/docs/wiki/modules/presentations-live.md`: every presentation is a **
 | Stage parts | `components/stage/{StageReady,StageLobby,StageSlide,StageEnd,ResponseCounter,StageView,Leaderboard,Timer}.tsx` | `StageView` looks the slide type up in the runtime registry; `Leaderboard` and `Timer` are shared with the participant. |
 | Participant shell | `components/participant/ParticipantShell.tsx` | Own live store; nickname gate, notices, slots, slide body. |
 | Participant session | `components/participant/useParticipantSession.ts` | Code lookup → credentials of that session → `live-state`; socket, resyncs, lost credentials, "a new session is live". |
-| Participant parts | `components/participant/{JoinGate,ParticipantSlide,ParticipantEnd,ParticipantNotices,participantSession}.ts(x)` | Nickname form; `response` slide state machine (timer, submitted, voting closed, time's up, result); end screen; not-found / kicked / ended / new-session notices; localStorage identity. |
+| Participant parts | `components/participant/{JoinGate,ParticipantSlide,ParticipantEnd,ParticipantNotices,participantSession}.ts(x)` | Nickname form; `response` slide state machine (timer, submitted, saved offline, refused, voting closed, time's up, result); end screen; not-found / kicked / ended / new-session notices; localStorage identity. |
+| Answer delivery | `live/answerDelivery.ts` | `deliverAnswer`: socket `answer:submit` (3 s ack) → REST; `createSocketAnswerTransport`. |
+| Offline queue | `live/offline/{types,storage,sync,index}.ts` | IndexedDB queue of answers keyed by `clientAnswerId` (memory fallback), the backoff sender `createAnswerSync`. |
+| Sync notices | `components/participant/useAnswerSyncNotices.ts` | Toasts a queued answer refused for a slide no longer on screen. |
 
 Both surfaces import `features/registrations.ts` first, so every module registration has run
 before their first render.
@@ -85,7 +88,9 @@ visited response slide (`results`, by slide id) so revisits show them.
    own standing and whether the slide was answered). Without: the nickname form
    (`JoinGate`) when the session is `lobby`/`active`, else "This session has ended".
 4. The socket joins (`live:join` with participant credentials); every (re)join, every return of
-   the tab to the foreground and every `seq` reset triggers another `live-state` read.
+   the tab to the foreground and every `seq` reset triggers another `live-state` read. Once
+   joined, the offline answer queue runs (`startAnswerSync`, see [Answers](#answers-submitanswer)):
+   answers saved while offline are sent on load, on reconnect and with backoff.
    A participant does **not** resync on a `seq` gap: `seq` counts host-only and other
    participants' events too, so gaps are normal (see `../data/realtime.md`).
 5. After `slide:closed`, `question:revealed`, `leaderboard:shown` and `session:ended` the
@@ -106,8 +111,12 @@ over, shows a "A new session is live" notice with a **Join the new session** but
 Phase on the phone (`ParticipantSlide`): `open` — answer form, timer only when the window is
 timed; `closed` and not answered — "Voting is closed"; answered — locked in / response received;
 `revealed` — the result card from this slide's `lastAnswer`, or "Time's up!" (timed) / "Voting is
-closed" (untimed) for a participant who did not answer. A reopened slide shows the form again to
-those who had not answered. Content and board slides (`slide:shown`) show the type's participant
+closed" (untimed) for a participant who did not answer. An answer in the offline queue shows
+**"Saved — will sync"** (any phase before the reveal; it may still count within the slide ticket's
+grace) until the server takes it (then locked in) or refuses it (then "Your answer arrived after
+time ran out" / "Voting closed before your answer arrived" / "Your saved answer could not be
+sent", "It was not counted."). A reopened slide shows the form again to those who had not
+answered, and drops a refusal shown for it. Content and board slides (`slide:shown`) show the type's participant
 view ("Look at the screen" for content slides).
 
 ## Live store (`live/store.ts`, `live/reducer.ts`)
@@ -119,12 +128,16 @@ with `LiveStoreProvider`), so client-side navigation never shows another session
 - `useLiveStore()` — the store API (`getState().dispatch(...)`, `subscribe`).
 - `useLiveOptional(selector)` — for views that also render outside a session (previews,
   thumbnails); reads an empty participant store there.
-- Store actions: `dispatch(action)`; `submitAnswer(payload)` → `accepted | duplicate | skipped |
-  error` — **the one function answers leave the client through** (REST today; the socket
-  `answer:submit` ack and the offline queue of W2-D phase 2 plug in here); `loadMe()`;
+- Store actions: `dispatch(action)`; `submitAnswer(payload)` → `accepted | duplicate | queued |
+  skipped | error` — **the one function answers leave the client through**, for every slide type
+  (socket `answer:submit` → REST → offline queue, below); `startAnswerSync()` (participant: runs
+  the offline queue, returns its stop function), `flushAnswerQueue(force?)`,
+  `setAnswerTransport(transport | null)` (the socket hook, after the `live:join` ack); `loadMe()`;
   `loadLiveState()` (participant: resync from `live-state`, credential failures land in `lost`);
-  `resync(load)` (replaces state with a REST snapshot and replays the envelopes that arrived while it
-  loaded, so a snapshot older than the latest event never wins; overlapping resyncs: the latest wins).
+  `resync(load)` (replaces state with a REST snapshot and replays the envelopes, host command
+  responses and the participant's answer actions — `participant/submitted`, `answer-queued`,
+  `answer-synced`, `answer-refused` — that arrived while it loaded, so a snapshot older than the
+  latest event, or read before an answer landed, never wins; overlapping resyncs: the latest wins).
 
 ### Answers (`submitAnswer`)
 
@@ -133,12 +146,51 @@ Each call is one **attempt**: it gets a fresh `clientAnswerId` (`live/answerId.t
 `slideId` and the slide's `slideTicket` (`LiveState.slideTicket`, from `question:started` and
 `live-state.current.slideTicket`; null unless the window is open; a reopen brings a new one). The
 server counts an answer once per `clientAnswerId`: a repeat returns the original with `replay: true`.
-So transient failures — no response, 5xx, 429 — are sent again with the **same id** (twice, after
-400 ms and 1.2 s; `createLiveStore(role, init, {answerRetryDelaysMs})` shortens it for tests).
-Outcomes: `accepted {replay, clientAnswerId}`; `duplicate` (409 `ALREADY_ANSWERED`: counts as
-answered); `error {code, message}` with `NOT_ACCEPTING` / `TIME_UP` (window closed or over — the
-store also re-reads `live-state`, so the phone catches up), `RATE_LIMITED`, `PARTICIPANT_STALE` /
-`PARTICIPANT_KICKED` (these also set `lost`). `ParticipantSlide` maps the codes to localized toasts.
+The same id goes along on **every** send of the attempt, over any channel, so it never counts twice.
+
+One code path, for every slide type (`deliverAnswer` in `live/answerDelivery.ts`):
+
+1. **Socket.** `answer:submit` (the REST body plus `presentationId`) on the joined socket, with a
+   3 s ack timeout (`ANSWER_ACK_TIMEOUT_MS`). The socket is the store's *answer transport* only
+   while it is joined as the participant: `useLiveSocket` registers it after the `live:join` ack and
+   drops it on every disconnect, so after a reconnect nothing goes over the socket before the new
+   join ack (the server would answer 403 `NOT_JOINED`), and a disconnected socket is never asked to
+   buffer an answer (socket.io would flush it before the rejoin). A final ack ends the attempt; no
+   ack in time, `NOT_JOINED`, 429 or 5xx go to REST.
+2. **REST.** `POST /:id/answer` (10 s timeout, `ANSWER_REQUEST_TIMEOUT_MS`); a network error, 5xx
+   and 429 are sent again (after 400 ms and 1.2 s; `createLiveStore(role, init,
+   {answerRetryDelaysMs})` shortens it for tests); a request that ran into its timeout is not
+   (a dead connection that still looks online would otherwise keep the phone waiting 30 s).
+3. **Offline queue.** Still nothing definite: the answer is saved in IndexedDB
+   (`live/offline/`, database `openpoll-live`, store `answers`, keyPath `clientAnswerId`, index on
+   `presentationId`; a memory copy when IndexedDB throws, e.g. private modes) and `submitAnswer`
+   resolves `queued` — the phone shows "Saved — will sync". When `navigator.onLine` is false
+   nothing is sent at all and the answer is queued at once.
+
+The queue's sender (`createAnswerSync`, started by `useParticipantSession` through
+`startAnswerSync` once the participant has an identity) sends each queued answer again — same id,
+`offline: true` (stored as `via: "offline"`), socket then REST — with backoff (1 s, 2 s, 4 s, 8 s,
+15 s, then every 30 s, ±20%) and right away when the connection is back: the `online` event, the
+tab becoming visible, the socket rejoining (the transport registering), and on page load. One pass
+at a time; nothing is sent while the device reports itself offline; entries older than a day are
+dropped unsent. Because the queue is in IndexedDB, a queued answer survives a reload or a closed
+tab: the next page of that deck finds it, shows "Saved — will sync" again and sends it. Entries of
+another session or identity (an old run) are sent too but never touch the screen.
+
+Outcomes (live path → `SubmitAnswerResult`; queue → `pendingAnswers`):
+
+| Server says | Live path | Queued answer |
+| --- | --- | --- |
+| accepted (also `replay: true`) | `accepted {replay, clientAnswerId}`, answered | removed, `participant/answer-synced` → answered (if the slide is still on screen) |
+| 409 `ALREADY_ANSWERED` | `duplicate` (counts as answered) | same as accepted |
+| 400 `NOT_ACCEPTING` / `TIME_UP` | `error {code}` + `live-state` re-read | `participant/answer-refused {code}` + `live-state` re-read |
+| `PARTICIPANT_STALE` / `_KICKED` / 401 / 404 | `error`, sets `lost` | refused, sets `lost` |
+| other 400 | `error {message}` | refused ("could not be sent") |
+| no response, timeouts, 5xx, 429 | `queued` | stays queued, next backoff step |
+
+`ParticipantSlide` maps live-path codes to localized toasts and shows queued / refused answers of
+the slide on screen in place of the form; `useAnswerSyncNotices` toasts a refusal for a slide that
+is no longer on screen ("Voting on slide 2 closed before your saved answer arrived, …").
 Grading is never in the response: results stay hidden until the reveal. The ticket extends the
 server's late-answer grace from 0.75 s to 15 s while the host has not closed or revealed the slide.
 Scored timed slides are also auto-revealed by the server 1.5 s after their timer; the host console's
@@ -152,8 +204,9 @@ included), `slide` (participant, sanitized; a leaderboard slide is synthesized),
 {startedAt, endsAt, clockOffsetMs}` (only while `open`; `endsAt` null = untimed), `clockOffsetMs`
 (latest sample), `reveal`, `distribution` (host only), `answeredCount`, `participants`,
 `leaderboard`, `results` (host: stored results of visited response slides, by slide id),
-`slideTicket` (participant), `settings` (participant, from `live-state`), `self`, `me`, `submittedSlideIndex`, `lost`,
-`lastSeq`, `modules`.
+`slideTicket` (participant), `settings` (participant, from `live-state`), `self`, `me`, `submittedSlideIndex`,
+`pendingAnswers` (participant: by `pendingAnswerKey(slideId, slideIndex)`, `{clientAnswerId, status:
+"queued" | "refused", code, message}`; cleared with the session), `lost`, `lastSeq`, `modules`.
 
 `liveReducer(state, action)` is pure. An envelope whose `sessionId` is not the followed session
 only updates `lastSeq`. Actions:
@@ -165,6 +218,7 @@ only updates `lastSeq`. Actions:
 | `live/module {prefix, name, payload}` | a feature module's own actions |
 | `host/state-loaded`, `host/command` | `useHostSession` (host state read; any command's response) |
 | `participant/info-loaded`, `participant/joined`, `participant/live-state`, `participant/me-loaded`, `participant/submitted`, `participant/lost` | participant session, store actions |
+| `participant/answer-queued`, `participant/answer-synced`, `participant/answer-refused` | the offline queue (store) |
 
 Events handled (host and participant): `session:lobby`, `slide:shown`, `question:started`
 (`reopened` keeps answers / the participant's "answered"), `slide:closed` (`revisit`),
@@ -380,12 +434,14 @@ has a runtime.
 - Unit (`bun run test`): `tests/unit/live.reducer.test.ts` (every event and snapshot, session
   scoping, seq planning, module sub-reducers), `live.clock.test.ts` (countdown offset incl. the
   lobby-wait bug), `live.store-and-slots.test.tsx` (store, `submitAnswer` payload, error codes,
-  `live-state`, resync replay, slots), `live.participant-session.test.ts` (credential keying),
+  `live-state`, resync replay, slots), `live.offline-queue.test.ts` (backoff, storage and its memory fallback, the socket transport,
+  `deliverAnswer` socket → REST, the queue sender, pending answers in the reducer, `submitAnswer`
+  offline → queued → synced / refused, reload restore, resync replay), `live.participant-session.test.ts` (credential keying),
   `live.host-commands.test.ts` (`SESSION_BUSY` retry, stale console), `live.surfaces.test.tsx`
-  (host controls / stage / participant slide per phase), `slides.runtime.test.tsx`,
+  (host controls / stage / participant slide per phase, saved offline and refused), `slides.runtime.test.tsx`,
   `slides.content.test.tsx`, `slides.advanced.test.tsx` (the four advanced types: settings readers
   and validation mirroring the backend, editors, board / pin / points helpers, views),
   `media.test.tsx`, `theme.tokens.test.ts`. Shared fixtures: `tests/unit/live.fixtures.ts`.
-- E2E (`bun run test:e2e`): `e2e/live-flow.spec.ts`, `e2e/live-session.spec.ts`,
+- E2E (`bun run test:e2e`): `e2e/live-flow.spec.ts`, `e2e/live-session.spec.ts`, `e2e/offline-answers.spec.ts`,
   `e2e/content-slides.spec.ts`, `e2e/select-answer.spec.ts`, `e2e/advanced-slides.spec.ts` — see
   [`../testing/e2e.md`](../testing/e2e.md).

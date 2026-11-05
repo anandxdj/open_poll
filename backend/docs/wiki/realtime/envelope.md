@@ -1,7 +1,7 @@
 ---
 summary: Realtime core — socket module registry, handshake auth, live event envelope, seq, audiences, rooms and delivery.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-05
 ---
 
 # Realtime core
@@ -18,7 +18,7 @@ Code: `backend/src/common/realtime/`. Per-module contracts: [`presentations.md`]
 | `registry.ts` | `registerSocketModule({ name, onConnection?, channels? })`, `getSocketModules()`. Names are unique (a second registration throws). |
 | `modules.ts` | Append-only list of side-effect imports, one line per module, alphabetical. |
 | `auth.ts` | `socketAuth` (`io.use`), `getSocketUser`, `resolveSocketUserId`, `userFromAccessToken`. |
-| `rooms.ts` | Room names, audience → room mapping, `leavePresentationRooms`, the per-connection join budget. |
+| `rooms.ts` | Live room names, audience → room mapping, `leavePresentationRooms`, the per-connection join budget. |
 | `publish.ts` | `publishLiveEvent`, `publishPollAnalytics`, and the subscriber side `deliverLiveEvent`. |
 | `events/index.ts` | `REALTIME_CHANNELS`, `SOCKET_EVENTS`, `LIVE_EVENTS` (append-only, one spread per module). |
 | `events/envelope.ts` | `LiveEventEnvelope`, `LiveAudience`, `LiveEventDefinition`, `defineLiveEvents`. |
@@ -52,7 +52,7 @@ Joins share a per-connection budget of 30 per minute across every module (`allow
   payload: Record<string, unknown>,
   audience: 'all' | 'host' | `participant:${participantId}`,
   emittedAt: string,          // ISO time at publish
-  quizId: string,             // = presentationId, for clients of the legacy protocol
+  quizId: string,             // = presentationId, an alias kept for older clients
 }
 ```
 
@@ -78,19 +78,20 @@ de-duplicate; recover state with a resync on reconnect.
 `answer:received`) are forced to `host` by `publishLiveEvent` and again by `deliverLiveEvent`, so no
 publisher can send them to participant rooms.
 
-| Audience | `live:event` room | Legacy `quiz:event` room |
-| --- | --- | --- |
-| `all` | `live:{pid}` | `quiz_{pid}` |
-| `host` | `live:{pid}:host` | `quiz_{pid}_host` |
-| `participant:<id>` | `live:{pid}:p:{id}` | none |
+| Audience | `live:event` room |
+| --- | --- |
+| `all` | `live:{pid}` |
+| `host` | `live:{pid}:host` |
+| `participant:<id>` | `live:{pid}:p:{id}` |
+
+The legacy `quiz_*` rooms and their `quiz:event` copy were removed in W2-D phase 2 (no client used
+them any more; `quiz:join` / `quiz:leave` are no longer handled).
 
 ## Delivery
 
 Every instance subscribes to `live:event`; `deliverLiveEvent` parses and validates the envelope and
 emits with **`io.local.to(room)`** — never `io.to`, which would re-broadcast through a cluster
-adapter and duplicate events (`tests/integration/multiInstance.test.ts` fails if any handler uses `io.to`). It emits `live:event` to the audience's `live:*` room and the same
-envelope as `quiz:event` to the matching `quiz_*` room. A socket that joined through `quiz:join`
-sits in both kinds of room and receives each event once per event name.
+adapter and duplicate events (`tests/integration/multiInstance.test.ts` fails if any handler uses `io.to`). It emits `live:event` to the audience's `live:*` room, once.
 
 Malformed messages (bad JSON, `v !== 1`, missing `presentationId`/`type`/`audience`/`seq`, bad
 participant audience) are logged and dropped. A throwing channel handler is logged and does not
@@ -119,7 +120,8 @@ shares a Redis server its own adapter `key` (`RedisAdapterOptions`). Operations:
 
 - Unit: `backend/tests/realtime.{publish,deliver,auth,rooms,modules}.test.ts`.
 - Integration: `backend/tests/realtime.integration.test.ts` — real Redis and Mongo, two Socket.io
-  servers sharing one Redis, legacy and new joins. Skipped unless `TEST_REDIS_URL` and
+  servers sharing one Redis, `live:join` sockets (a socket that only sends the removed `quiz:join`
+  receives nothing, and no socket ever receives `quiz:event`). Skipped unless `TEST_REDIS_URL` and
   `TEST_MONGO_URI` are set; the file header has the run command.
   `backend/tests/integration/multiInstance.test.ts` — two full instances, adapter on and off:
   every event exactly once on every socket, one coalesced host update.

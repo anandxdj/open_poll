@@ -60,8 +60,8 @@ export const getSocketUser = (socket: Socket, now = Date.now()): SocketUser | nu
 
 /**
  * User id behind a privileged socket action. A token sent with the event wins
- * (the legacy `quiz:join` payload carries one) and must be valid on its own;
- * otherwise the handshake identity is used.
+ * (`live:join` and `live:resync` payloads may carry one) and must be valid on
+ * its own; otherwise the handshake identity is used.
  */
 export const resolveSocketUserId = (socket: Socket, accessToken?: unknown): string | null => {
   if (accessToken !== undefined && accessToken !== null && accessToken !== '') {
