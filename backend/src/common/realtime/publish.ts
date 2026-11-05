@@ -11,7 +11,8 @@ import {
   type LiveEventType,
   type ResponseAcceptedEvent,
 } from './events';
-import { legacyRoomForAudience, liveRoomForAudience } from './rooms';
+import { legacyRoomForAudience, liveRoomForAudience, liveRooms } from './rooms';
+import { getScreenView } from './screenViews';
 
 // The seq counter outlives sessions; it only expires after a week without events.
 const SEQ_TTL_SEC = 7 * 24 * 3600;
@@ -146,4 +147,22 @@ export const deliverLiveEvent = (message: string, io: Server) => {
   io.local.to(room).emit(SOCKET_EVENTS.liveEvent, delivered);
   const legacyRoom = legacyRoomForAudience(envelope.presentationId, audience);
   if (legacyRoom) io.local.to(legacyRoom).emit(SOCKET_EVENTS.quizEvent, delivered);
+
+  // Screens (W4-D) see `all` events through the `all` room; a host event only
+  // through the screen view its module registered (see screenViews.ts).
+  if (audience === 'host') deliverToScreens(delivered, io);
+};
+
+const deliverToScreens = (envelope: LiveEventEnvelope, io: Server) => {
+  const view = getScreenView(envelope.type);
+  if (!view) return;
+  let payload: Record<string, unknown> | null;
+  try {
+    payload = view(envelope.payload ?? {});
+  } catch (error) {
+    console.error(`[Realtime] Screen view for ${envelope.type} failed:`, error);
+    return;
+  }
+  if (!payload) return;
+  io.local.to(liveRooms.screen(envelope.presentationId)).emit(SOCKET_EVENTS.liveEvent, { ...envelope, payload });
 };

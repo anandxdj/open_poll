@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import type { Server } from 'socket.io';
 import type { LiveEventEnvelope } from '../src/common/realtime/events';
 import { deliverLiveEvent, parseLiveEnvelope } from '../src/common/realtime/publish';
+import { registerScreenView } from '../src/common/realtime/screenViews';
 
 const PRESENTATION_ID = '64b7f0c2a1b2c3d4e5f60718';
 const PARTICIPANT_ID = '64b7f0c2a1b2c3d4e5f6071a';
@@ -71,12 +72,52 @@ describe('deliverLiveEvent', () => {
   });
 
   it('keeps answer:received in the host rooms whatever audience the envelope claims', () => {
-    for (const audience of ['all', `participant:${PARTICIPANT_ID}`] as const) {
-      expect(deliver(envelope({ type: 'answer:received', audience }))).toEqual([
-        { room: `live:${PRESENTATION_ID}:host`, event: 'live:event', audience: 'host', seq: 7 },
-        { room: `quiz_${PRESENTATION_ID}_host`, event: 'quiz:event', audience: 'host', seq: 7 },
-      ]);
+    // No screen view in this test: nothing but the host rooms.
+    const undo = registerScreenView('answer:received', () => null);
+    try {
+      for (const audience of ['all', `participant:${PARTICIPANT_ID}`] as const) {
+        expect(deliver(envelope({ type: 'answer:received', audience }))).toEqual([
+          { room: `live:${PRESENTATION_ID}:host`, event: 'live:event', audience: 'host', seq: 7 },
+          { room: `quiz_${PRESENTATION_ID}_host`, event: 'quiz:event', audience: 'host', seq: 7 },
+        ]);
+      }
+    } finally {
+      undo();
     }
+  });
+
+  it('sends screens (W4-D) a host event only through its screen view', () => {
+    const { io, emits } = fakeIo();
+    const undo = registerScreenView('answer:received', (payload) => ({ ...payload, secret: undefined, screened: true }));
+    try {
+      deliverLiveEvent(JSON.stringify(envelope({ type: 'answer:received', audience: 'all', payload: { secret: 'key', n: 1 } })), io);
+      // A host event without a view, and an `all` event (screens get it through the `all` room).
+      deliverLiveEvent(JSON.stringify(envelope({ type: 'quiz:ended', audience: 'host' })), io);
+      deliverLiveEvent(JSON.stringify(envelope()), io);
+    } finally {
+      undo();
+    }
+    const screen = emits.filter((e) => e.room === `live:${PRESENTATION_ID}:screen`);
+    expect(screen).toHaveLength(1);
+    expect(screen[0]!.event).toBe('live:event');
+    expect(screen[0]!.data.payload).toEqual({ n: 1, screened: true });
+    expect(screen[0]!.data.type).toBe('answer:received');
+    // Participants never get it, screens or not.
+    expect(emits.some((e) => e.room === `live:${PRESENTATION_ID}` && e.data.type === 'answer:received')).toBe(false);
+  });
+
+  it('skips the screen copy when the view returns null or throws', () => {
+    const { io, emits } = fakeIo();
+    const undoNull = registerScreenView('answer:received', () => null);
+    deliverLiveEvent(JSON.stringify(envelope({ type: 'answer:received', audience: 'host' })), io);
+    undoNull();
+    const undoThrow = registerScreenView('answer:received', () => {
+      throw new Error('boom');
+    });
+    deliverLiveEvent(JSON.stringify(envelope({ type: 'answer:received', audience: 'host' })), io);
+    undoThrow();
+    expect(emits.filter((e) => e.room.endsWith(':screen'))).toHaveLength(0);
+    expect(emits.filter((e) => e.room === `live:${PRESENTATION_ID}:host`)).toHaveLength(2);
   });
 
   it('delivers the whole envelope, legacy copy included', () => {

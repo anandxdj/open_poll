@@ -465,10 +465,12 @@ export type AnswerSubmitAck =
 /** Socket `live:resync` payload; credentials as in `live:join`. */
 export interface LiveResyncPayload {
   presentationId: string;
-  role: 'host' | 'participant';
+  role: 'host' | 'participant' | 'screen';
   accessToken?: string;
   participantId?: string;
   participantToken?: string;
+  /** Screen only (W4-D). */
+  screenToken?: string;
 }
 
 /**
@@ -479,4 +481,6 @@ export interface LiveResyncPayload {
 export type LiveResyncAck =
   | { ok: true; role: 'participant'; seq: number; state: ParticipantLiveState }
   | { ok: true; role: 'host'; seq: number; state: HostStateResponse }
+  /** A read-only screen (W4-D): the host state's shape over a stage-safe deck (`modules/embeds`). */
+  | { ok: true; role: 'screen'; seq: number; state: HostStateResponse<Record<string, unknown>> }
   | { ok: false; error: 'INVALID_PAYLOAD' | 'RATE_LIMITED' | 'UNAUTHENTICATED' | 'FORBIDDEN' | 'NOT_FOUND' | 'UNAVAILABLE' };

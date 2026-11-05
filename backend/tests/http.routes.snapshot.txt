@@ -28,6 +28,9 @@ DELETE /scim/v2/Groups/:id
 USE /scim/v2 <anonymous>
 ROUTER /metrics
 GET /metrics
+ROUTER /api/oembed
+USE /api/oembed corsMiddleware
+GET /api/oembed
 ROUTER /.well-known
 GET /.well-known/oauth-authorization-server
 GET /.well-known[/oauth-protected-resource,/oauth-protected-resource/mcp]
@@ -202,6 +205,11 @@ DELETE /api/brand-kits/:id
 ROUTER /api/capabilities
 GET /api/capabilities
 ROUTER /api/embeds
+GET /api/embeds/screen-tokens
+POST /api/embeds/screen-tokens
+DELETE /api/embeds/screen-tokens/:id
+GET /api/embeds/stage
+GET /api/embeds/policy
 ROUTER /api/folders
 ROUTER /api/imports
 GET /api/imports/templates/questions.:format
@@ -228,7 +236,6 @@ ROUTER /api/oauth
 GET /api/oauth/requests/:requestId
 POST /api/oauth/requests/:requestId/approve
 POST /api/oauth/requests/:requestId/deny
-ROUTER /api/oembed
 ROUTER /api/plans
 GET /api/plans
 ROUTER /api/public/domains

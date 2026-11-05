@@ -5,6 +5,7 @@ import { resolveSocketUserId } from '../../common/realtime/auth';
 import { liveSeqKey } from '../../common/realtime/publish';
 import { SOCKET_EVENTS, type LiveRole } from '../../common/realtime/events';
 import { registerSocketModule } from '../../common/realtime/registry';
+import { registerScreenView } from '../../common/realtime/screenViews';
 import {
   allowJoin,
   isValidObjectId,
@@ -13,6 +14,10 @@ import {
   liveRooms,
 } from '../../common/realtime/rooms';
 import { PresentationService } from './presentations.service';
+import { authorizeScreen } from '../embeds/screenTokens.service';
+import { getScreenState } from '../embeds/stage.service';
+import { stripAnswerKeys } from '../embeds/stageSafe';
+import { screenTokensOf } from '../embeds/screenSockets';
 import { submitPresentationAnswerSchema } from './presentations.schema';
 import {
   LIVE_ERROR_CODES,
@@ -28,6 +33,8 @@ interface JoinCredentials {
   accessToken?: string;
   participantId?: string;
   participantToken?: string;
+  /** Screen only (W4-D): a screen token of this deck. */
+  screenToken?: string;
 }
 
 /** Legacy `quiz:join` payload — `quizId` carries the presentation id. */
@@ -43,12 +50,17 @@ export type LiveJoinError = 'INVALID_PAYLOAD' | 'RATE_LIMITED' | 'UNAUTHENTICATE
 
 export type LiveJoinAck = { ok: true; role: LiveRole } | { ok: false; error: LiveJoinError };
 
-type JoinGrant = { role: 'host' } | { role: 'participant'; participantId: string };
+type JoinGrant =
+  | { role: 'host' }
+  | { role: 'participant'; participantId: string }
+  | { role: 'screen'; screenTokenId: string };
+
 
 /**
  * Decides whether a socket may follow a deck, without touching rooms. Hosts need
  * `deck:host` on the deck (its creator, or a member of its workspace whose role
- * allows hosting); participants must present the token issued by `POST /:id/join`.
+ * allows hosting); participants must present the token issued by `POST /:id/join`;
+ * screens a live screen token of that deck, which must allow embedding (W4-D).
  */
 const authorizeJoin = async (
   socket: Socket,
@@ -60,6 +72,12 @@ const authorizeJoin = async (
     if (!userId) return 'UNAUTHENTICATED';
     const allowed = await PresentationService.canHost(presentationId, userId).catch(() => false);
     return allowed ? { role: 'host' } : 'FORBIDDEN';
+  }
+
+  if (credentials.role === 'screen') {
+    if (typeof credentials.screenToken !== 'string' || !credentials.screenToken) return 'INVALID_PAYLOAD';
+    const screen = await authorizeScreen(presentationId, credentials.screenToken).catch(() => null);
+    return screen ? { role: 'screen', screenTokenId: String(screen.token._id) } : 'FORBIDDEN';
   }
 
   if (credentials.role === 'participant') {
@@ -80,14 +98,18 @@ const authorizeJoin = async (
 
 const joinLiveRooms = (socket: Socket, presentationId: string, grant: JoinGrant) => {
   socket.join(liveRooms.all(presentationId));
-  socket.join(
-    grant.role === 'host'
-      ? liveRooms.host(presentationId)
-      : liveRooms.participant(presentationId, grant.participantId)
-  );
+  if (grant.role === 'host') socket.join(liveRooms.host(presentationId));
+  else if (grant.role === 'participant') socket.join(liveRooms.participant(presentationId, grant.participantId));
+  else {
+    // Never the host room: a screen gets host events only as their screen views.
+    socket.join(liveRooms.screen(presentationId));
+    screenTokensOf(socket).set(presentationId, grant.screenTokenId);
+  }
 };
 
 const joinLegacyRooms = (socket: Socket, presentationId: string, grant: JoinGrant) => {
+  // The legacy protocol predates screens.
+  if (grant.role === 'screen') return;
   socket.join(legacyRooms.all(presentationId));
   // Host-only room: carries pre-reveal answer distributions that must never
   // reach participant sockets.
@@ -200,11 +222,20 @@ const handleLiveResync = async (socket: Socket, data: LiveResyncPayload | null, 
   const reply = ackWith(ack);
   if (!withinBudget(socket, 'resync', RESYNCS_PER_SOCKET)) return reply({ ok: false, error: 'RATE_LIMITED' } satisfies LiveResyncAck);
   const presentationId = data?.presentationId;
-  if (!isValidObjectId(presentationId) || (data?.role !== 'host' && data?.role !== 'participant')) {
+  if (!isValidObjectId(presentationId) || (data?.role !== 'host' && data?.role !== 'participant' && data?.role !== 'screen')) {
     return reply({ ok: false, error: 'INVALID_PAYLOAD' } satisfies LiveResyncAck);
   }
 
   try {
+    if (data.role === 'screen') {
+      if (typeof data.screenToken !== 'string' || !data.screenToken) {
+        return reply({ ok: false, error: 'INVALID_PAYLOAD' } satisfies LiveResyncAck);
+      }
+      const seq = Number((await redisClient.get(liveSeqKey(presentationId)).catch(() => null)) ?? 0);
+      const state = await getScreenState(presentationId, data.screenToken);
+      return reply({ ok: true, role: 'screen', seq, state: state as unknown as HostStateResponse } satisfies LiveResyncAck);
+    }
+
     if (data.role === 'host') {
       const userId = resolveSocketUserId(socket, data.accessToken);
       if (!userId) return reply({ ok: false, error: 'UNAUTHENTICATED' } satisfies LiveResyncAck);
@@ -225,6 +256,10 @@ const handleLiveResync = async (socket: Socket, data: LiveResyncPayload | null, 
   }
 };
 
+// A screen draws the live results as answers arrive, like the host's stage, but
+// `answer:received` is only ever sent before the reveal: its answer key stays home.
+registerScreenView('answer:received', (payload) => stripAnswerKeys(payload));
+
 export const presentationsSocketModule = registerSocketModule({
   name: 'presentations',
 
@@ -238,7 +273,7 @@ export const presentationsSocketModule = registerSocketModule({
       if (!isValidObjectId(presentationId) || !data?.role) return;
 
       const grant = await authorizeJoin(socket, presentationId, data);
-      if (typeof grant === 'string') return;
+      if (typeof grant === 'string' || grant.role === 'screen') return;
       joinLegacyRooms(socket, presentationId, grant);
       joinLiveRooms(socket, presentationId, grant);
     });
