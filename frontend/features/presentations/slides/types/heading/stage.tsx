@@ -13,7 +13,7 @@ export function HeadingStage({ slide, mode }: StageViewProps) {
       <h2
         className={cn(
           "text-[clamp(2rem,8.5cqw,5.5rem)] font-extrabold leading-[1.05] tracking-tight text-balance",
-          !title && "text-deck-stage-fg/30"
+          !title && "text-deck-stage-muted"
         )}
       >
         {title || "Heading"}

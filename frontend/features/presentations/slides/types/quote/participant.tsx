@@ -12,7 +12,7 @@ export function QuoteParticipant({ slide, mode }: ParticipantViewProps) {
   return (
     <ContentCard>
       <figure className="space-y-4 py-4 text-center">
-        <Quote aria-hidden className="mx-auto size-8 fill-current text-deck-primary" />
+        <Quote aria-hidden className="mx-auto size-8 fill-current text-deck-primary-ink" />
         <blockquote className="text-xl font-semibold leading-snug text-balance">{text}</blockquote>
         {attribution && <figcaption className="text-sm text-deck-muted-fg">— {attribution}</figcaption>}
       </figure>

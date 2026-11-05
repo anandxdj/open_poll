@@ -13,7 +13,7 @@ export function SharePollMockup() {
       <div className="grid items-center gap-5 sm:grid-cols-[auto_1fr]">
         {/* White tile so the code stays scannable on both themes */}
         <div className="mx-auto rounded-lg border border-border bg-white p-3 sm:mx-0">
-          <QRCodeSVG value="Open Poll sample session" size={120} level="M" />
+          <QRCodeSVG value="Open Poll sample session" size={120} level="M" aria-hidden="true" />
         </div>
         <div className="text-center sm:text-left">
           <p className="text-sm text-muted-foreground">Scan, or enter the code</p>

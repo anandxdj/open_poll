@@ -19,13 +19,13 @@ export function QuoteStage({ slide, mode }: StageViewProps) {
           className={cn(
             "font-semibold leading-snug tracking-tight text-balance",
             long ? "text-[clamp(1.2rem,3.6cqw,2.3rem)]" : "text-[clamp(1.5rem,5.2cqw,3.4rem)]",
-            !text && "text-deck-stage-fg/30"
+            !text && "text-deck-stage-muted"
           )}
         >
           {text || "Quote"}
         </blockquote>
         {attribution && (
-          <figcaption className="text-[clamp(1rem,2.8cqw,1.7rem)] font-medium text-deck-stage-fg/60">
+          <figcaption className="text-[clamp(1rem,2.8cqw,1.7rem)] font-medium text-deck-stage-muted">
             — {attribution}
           </figcaption>
         )}

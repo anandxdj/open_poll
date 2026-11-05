@@ -17,7 +17,7 @@ export function ParticipantEnd() {
   return (
     <div className="w-full max-w-sm space-y-6 text-center">
       <div className="space-y-2">
-        <PartyPopper className="size-10 text-deck-primary mx-auto" />
+        <PartyPopper className="size-10 text-deck-primary-ink mx-auto" />
         <h2 className="text-3xl font-semibold tracking-[-0.035em]">{t("participant.endTitle")}</h2>
         {me && (
           <p className="text-sm text-deck-muted-fg">

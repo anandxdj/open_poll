@@ -15,7 +15,7 @@ export function QnaParticipant({ slide, mode }: ParticipantViewProps) {
   if (mode === "preview") {
     return (
       <div className="w-full space-y-3 text-center">
-        <div className="flex items-center justify-center gap-2 text-sm font-bold text-deck-primary">
+        <div className="flex items-center justify-center gap-2 text-sm font-bold text-deck-primary-ink">
           <MessageCircleQuestion className="size-4" aria-hidden /> {slide.question || t("title")}
         </div>
         <p className="rounded-2xl border border-deck-border/50 bg-deck-surface/40 px-4 py-3 text-sm text-deck-muted-fg">

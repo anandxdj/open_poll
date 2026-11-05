@@ -32,7 +32,7 @@ export function QnaBoard({ thumbnail = false }: { thumbnail?: boolean }) {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-3 text-left">
-      <div className="flex items-center justify-center gap-2 text-sm font-bold text-deck-primary">
+      <div className="flex items-center justify-center gap-2 text-sm font-bold text-deck-primary-ink">
         <MessageCircleQuestion className="size-4" aria-hidden /> {t("stage.title")}
       </div>
 
@@ -45,7 +45,7 @@ export function QnaBoard({ thumbnail = false }: { thumbnail?: boolean }) {
           ))}
         </ul>
       ) : shown.length === 0 ? (
-        <p className="py-6 text-center text-base text-deck-stage-fg/50" role="status">
+        <p className="py-6 text-center text-base text-deck-stage-muted" role="status">
           {t("stage.empty")}
         </p>
       ) : (
@@ -61,7 +61,7 @@ export function QnaBoard({ thumbnail = false }: { thumbnail?: boolean }) {
             >
               <div className="min-w-0 flex-1">
                 <p className="text-lg font-semibold leading-snug break-words text-deck-stage-fg">{item.text}</p>
-                <p className="mt-0.5 text-xs font-medium text-deck-stage-fg/50">
+                <p className="mt-0.5 text-xs font-medium text-deck-stage-muted">
                   {item.authorName ?? t("list.anonymousAuthor")}
                   {item.status === "answered" && ` · ${t("list.answered")}`}
                 </p>
@@ -75,10 +75,10 @@ export function QnaBoard({ thumbnail = false }: { thumbnail?: boolean }) {
         </ul>
       )}
 
-      {hidden > 0 && <p className="text-center text-xs text-deck-stage-fg/40">{t("stage.more", { count: hidden })}</p>}
+      {hidden > 0 && <p className="text-center text-xs text-deck-stage-muted">{t("stage.more", { count: hidden })}</p>}
 
       {!thumbnail && joinCode && (
-        <p className="text-center text-xs text-deck-stage-fg/40">{t("stage.ask", { code: joinCode })}</p>
+        <p className="text-center text-xs text-deck-stage-muted">{t("stage.ask", { code: joinCode })}</p>
       )}
     </div>
   );

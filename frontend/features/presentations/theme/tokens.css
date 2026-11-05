@@ -29,12 +29,14 @@
   --deck-ring: var(--ring);
   --deck-primary: var(--primary);
   --deck-primary-fg: var(--primary-foreground);
+  --deck-primary-ink: var(--accent-ink); /* the primary as text and icons on bg, surface and primary tints */
 
   /* Stage — dark outside a deck scope: the app's warm graphite, not pure black. */
   --deck-stage-bg: #141413;
   --deck-stage-chrome: #1b1b1a;
   --deck-stage-panel: #1f1f1d;
   --deck-stage-fg: #f2f1ec;
+  --deck-stage-muted: #a7a49c; /* secondary text on the stage and its panels (4.5:1 or better) */
   --deck-stage-scrim: #000;
   --deck-stage-ink: #1a0d04; /* text on accent fills (the app's primary-foreground in dark) */
   --deck-qr-bg: #fff; /* QR codes need a light quiet zone to scan */
@@ -131,11 +133,13 @@
   --deck-ring: #b93d0b;
   --deck-primary: #cf460c;
   --deck-primary-fg: #ffffff;
+  --deck-primary-ink: #9a3412; /* the primary as text: 7:1 on paper, 5.5:1 on a 15% primary tint */
 
   --deck-stage-bg: #f6f6f3;
   --deck-stage-chrome: #ffffff;
   --deck-stage-panel: #ffffff;
   --deck-stage-fg: #171717;
+  --deck-stage-muted: #5c5a55; /* secondary text: 6.4:1 on paper, 6.9:1 on white */
   --deck-stage-scrim: #f6f6f3; /* a paper veil: overlays and highlighted questions stay ink on paper */
   --deck-stage-ink: #ffffff;
   --deck-qr-bg: #fff;
@@ -224,11 +228,13 @@
   --deck-ring: #fb923c;
   --deck-primary: #f97316;
   --deck-primary-fg: #1a0d04;
+  --deck-primary-ink: #fb923c; /* the primary as text: 6:1 or better on graphite and its tints */
 
   --deck-stage-bg: #141413;
   --deck-stage-chrome: #1b1b1a;
   --deck-stage-panel: #1f1f1d;
   --deck-stage-fg: #f2f1ec;
+  --deck-stage-muted: #a7a49c; /* secondary text: 7:1 or better on graphite */
   --deck-stage-scrim: #000;
   --deck-stage-ink: #1a0d04;
   --deck-qr-bg: #fff;
@@ -307,11 +313,13 @@
   --color-deck-border: var(--deck-border);
   --color-deck-primary: var(--deck-primary);
   --color-deck-primary-fg: var(--deck-primary-fg);
+  --color-deck-primary-ink: var(--deck-primary-ink);
 
   --color-deck-stage-bg: var(--deck-stage-bg);
   --color-deck-stage-chrome: var(--deck-stage-chrome);
   --color-deck-stage-panel: var(--deck-stage-panel);
   --color-deck-stage-fg: var(--deck-stage-fg);
+  --color-deck-stage-muted: var(--deck-stage-muted);
   --color-deck-stage-scrim: var(--deck-stage-scrim);
   --color-deck-stage-ink: var(--deck-stage-ink);
   --color-deck-qr-bg: var(--deck-qr-bg);

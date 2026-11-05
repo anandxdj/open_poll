@@ -64,7 +64,7 @@ export function SlideThumbnail({
             <h2
               className={cn(
                 "line-clamp-2 text-center text-3xl font-extrabold leading-tight tracking-tight",
-                !question && "text-deck-stage-fg/40"
+                !question && "text-deck-stage-muted"
               )}
             >
               {question || meta.label}
@@ -77,7 +77,7 @@ export function SlideThumbnail({
           </div>
         </div>
       )}
-      <meta.Icon className="absolute left-1.5 top-1.5 size-3 text-deck-stage-fg/60" />
+      <meta.Icon className="absolute left-1.5 top-1.5 size-3 text-deck-stage-muted" />
     </div>
   );
   return theme === undefined ? frame : <DeckThemeProvider theme={theme}>{frame}</DeckThemeProvider>;

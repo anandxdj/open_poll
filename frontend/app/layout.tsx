@@ -98,7 +98,7 @@ export default function RootLayout({
           <GlobalClientLayout>
             {children}
           </GlobalClientLayout>
-          <Toaster richColors position="top-center" />
+          <Toaster position="top-center" />
         </ThemeProvider>
       </body>
     </html>

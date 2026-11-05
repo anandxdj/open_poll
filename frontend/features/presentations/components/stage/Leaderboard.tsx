@@ -35,7 +35,7 @@ export function Leaderboard({ entries, highlightParticipantId, title, final }: L
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Trophy className="size-4 text-deck-primary" />
+        <Trophy className="size-4 text-deck-primary-ink" />
         <h2 className="text-sm font-medium text-deck-muted-fg">
           {title ?? t("title")}
         </h2>

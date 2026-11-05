@@ -92,7 +92,7 @@ export function HostControls({
           ))}
       </div>
 
-      <div className="flex min-w-[120px] items-center justify-end gap-3 font-mono text-sm tabular-nums text-deck-stage-fg/60">
+      <div className="flex min-w-[120px] items-center justify-end gap-3 font-mono text-sm tabular-nums text-deck-stage-muted">
         {status === "active" && !isLastSlide && (
           <Button variant="ghost" size="sm" onClick={onEnd} disabled={busy} className="h-8 rounded-full px-3 font-sans text-sm font-medium text-deck-stage-fg/70 hover:bg-deck-stage-fg/10 hover:text-deck-stage-fg">
             {t("end")}

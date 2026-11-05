@@ -38,7 +38,7 @@ export function HighlightOverlay() {
             <blockquote className="text-2xl font-bold leading-snug text-balance break-words text-deck-stage-fg sm:text-3xl">
               {item.text}
             </blockquote>
-            <p className="mt-3 text-sm font-semibold text-deck-stage-fg/60">{item.authorName ?? t("list.anonymousAuthor")}</p>
+            <p className="mt-3 text-sm font-semibold text-deck-stage-muted">{item.authorName ?? t("list.anonymousAuthor")}</p>
           </motion.figure>
         )}
       </AnimatePresence>

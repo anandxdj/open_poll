@@ -95,7 +95,7 @@ export function PinOnImageStage({ slide, live, reveal, mode }: StageViewProps) {
         )}
 
         {!thumbnail && (
-          <figcaption className="flex flex-wrap items-center justify-center gap-3 text-center font-mono text-xs text-deck-stage-fg/60">
+          <figcaption className="flex flex-wrap items-center justify-center gap-3 text-center font-mono text-xs text-deck-stage-muted">
             <span>{t("pins", { count: dist.count })}</span>
             {revealed && region && dist.inRegion !== null && dist.count > 0 && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-deck-correct/50 bg-deck-correct-deep/20 px-3 py-1 font-sans text-sm font-bold text-deck-correct-soft">

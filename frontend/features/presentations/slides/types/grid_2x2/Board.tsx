@@ -25,12 +25,12 @@ const TONE = {
     dot: "bg-deck-muted-fg/40",
   },
   stage: {
-    label: "text-deck-stage-fg/60",
+    label: "text-deck-stage-muted",
     board: "border-deck-stage-fg/15 bg-deck-stage-fg/5",
     line: "bg-deck-stage-fg/15",
     marker: "bg-deck-accent text-deck-stage-ink",
     active: "bg-deck-accent text-deck-stage-ink ring-4 ring-deck-accent/30",
-    corner: "text-deck-stage-fg/55",
+    corner: "text-deck-stage-muted",
     dot: "bg-deck-stage-fg/35",
   },
 } as const;

@@ -48,7 +48,7 @@ export function CountdownOverlay({ secondsLeft }: { secondsLeft: number | null }
       aria-live="assertive"
       className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-deck-stage-bg/90 text-deck-stage-fg"
     >
-      <p className="text-sm font-medium uppercase tracking-[0.2em] text-deck-stage-fg/60">{t("countdown")}</p>
+      <p className="text-sm font-medium uppercase tracking-[0.2em] text-deck-stage-muted">{t("countdown")}</p>
       <p key={secondsLeft} className="font-mono text-[min(30vh,12rem)] font-semibold leading-none tabular-nums text-deck-accent motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:fade-in">
         {secondsLeft}
       </p>

@@ -84,7 +84,7 @@ describe("deck theme tokens", () => {
     const light = tokenValues(modeBlock("light"));
     const stage = light["stage-bg"]!;
     const panel = light["stage-panel"]!;
-    for (const text of ["stage-fg", "correct-soft", "danger-soft", "accent-soft", "rank-1", "rank-2", "rank-3", "info", "muted-fg"]) {
+    for (const text of ["stage-fg", "stage-muted", "correct-soft", "danger-soft", "accent-soft", "rank-1", "rank-2", "rank-3", "info", "muted-fg", "primary-ink"]) {
       expect([text, ratio(light[text]!, stage) >= 4.5]).toEqual([text, true]);
       expect([text, ratio(light[text]!, panel) >= 4.5]).toEqual([text, true]);
     }
@@ -102,8 +102,9 @@ describe("deck theme tokens", () => {
   test("the dark deck reads the same way on graphite", () => {
     const dark = tokenValues(modeBlock("dark"));
     const stage = dark["stage-bg"]!;
-    for (const text of ["stage-fg", "correct-soft", "danger-soft", "accent-soft", "rank-1", "rank-2", "info", "muted-fg"]) {
+    for (const text of ["stage-fg", "stage-muted", "correct-soft", "danger-soft", "accent-soft", "rank-1", "rank-2", "info", "muted-fg", "primary-ink"]) {
       expect([text, ratio(dark[text]!, stage) >= 4.5]).toEqual([text, true]);
+      expect([text, ratio(dark[text]!, dark["stage-panel"]!) >= 4.5]).toEqual([text, true]);
     }
     for (let i = 1; i <= 12; i++) expect([`cloud-${i}`, ratio(dark[`cloud-${i}`]!, stage) >= 3]).toEqual([`cloud-${i}`, true]);
     expect(ratio(dark["stage-ink"]!, dark.accent!)).toBeGreaterThanOrEqual(4.5);

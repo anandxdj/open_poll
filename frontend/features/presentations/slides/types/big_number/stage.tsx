@@ -51,7 +51,7 @@ export function BigNumberStage({ slide, mode }: StageViewProps) {
       >
         {prefix && <span className="mr-[0.08em] text-[0.55em] text-deck-accent/80">{prefix}</span>}
         {value === null ? (
-          <span className="text-deck-stage-fg/30">0</span>
+          <span className="text-deck-stage-muted">0</span>
         ) : (
           <>
             <span aria-hidden>{formatted(current)}</span>

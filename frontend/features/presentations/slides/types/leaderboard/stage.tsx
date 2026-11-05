@@ -9,7 +9,7 @@ export function LeaderboardStage({ live, mode }: StageViewProps) {
   const t = useTranslations("live.leaderboard");
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-center gap-2 text-sm font-bold text-deck-primary">
+      <div className="flex items-center justify-center gap-2 text-sm font-bold text-deck-primary-ink">
         <Trophy className="size-4" /> {t("title")}
       </div>
       <Leaderboard entries={mode === "thumbnail" ? [] : live.leaderboard} />
