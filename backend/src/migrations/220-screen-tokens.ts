@@ -3,7 +3,7 @@ import type { Migration } from './runner';
 
 /** Screen tokens (W4-D): the unique token hash and the per-deck and per-workspace indexes come from the schema. */
 const migration: Migration = {
-  id: 210,
+  id: 220,
   name: 'screen-tokens',
   async up({ log }) {
     const dropped = await ScreenTokenModel.syncIndexes();

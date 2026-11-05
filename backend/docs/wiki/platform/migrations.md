@@ -68,7 +68,7 @@ Creates the idle-session job's index on `presentationsessions` (`live_sessions_b
 `{status, lastActivityAt}`, partial on `isLive: true`) and backfills `lastActivityAt` of live
 sessions from `updatedAt` (else `startedAt`). See `modules/presentations-live.md` → Idle sessions.
 
-## 210-screen-tokens
+## 220-screen-tokens
 
 `syncIndexes()` for `screentokens` (W4-D): `tokenHash` unique, `{presentationId, createdAt}`,
 `workspaceId`. See `modules/embeds.md`.
