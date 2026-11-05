@@ -20,6 +20,7 @@ Code: `backend/src/common/realtime/`. Per-module contracts: [`presentations.md`]
 | `auth.ts` | `socketAuth` (`io.use`), `getSocketUser`, `resolveSocketUserId`, `userFromAccessToken`. |
 | `rooms.ts` | Room names, audience → room mapping, `leavePresentationRooms`, the per-connection join budget. |
 | `publish.ts` | `publishLiveEvent`, `publishPollAnalytics`, and the subscriber side `deliverLiveEvent`. |
+| `screenViews.ts` | `registerScreenView(type, view)`, `getScreenView(type)`: what a read-only screen may see of a host event (W4-D). |
 | `events/index.ts` | `REALTIME_CHANNELS`, `SOCKET_EVENTS`, `LIVE_EVENTS` (append-only, one spread per module). |
 | `events/envelope.ts` | `LiveEventEnvelope`, `LiveAudience`, `LiveEventDefinition`, `defineLiveEvents`. |
 | `events/<module>.ts` | A module's event types with their default audience, and its socket event names. |
@@ -84,6 +85,17 @@ publisher can send them to participant rooms.
 | `host` | `live:{pid}:host` | `quiz_{pid}_host` |
 | `participant:<id>` | `live:{pid}:p:{id}` | none |
 
+### Screens (W4-D)
+
+A read-only stage joined with a screen token (`modules/embeds.md`) sits in `live:{pid}` (every `all`
+event) and `live:{pid}:screen`, never in the host room. There is no `screen` audience: after
+delivering a `host` event, `deliverLiveEvent` looks up the event type's **screen view**
+(`registerScreenView(type, view)`, registered by the module that owns the type) and, when there is
+one, emits `{...envelope, payload: view(payload)}` to `live:{pid}:screen`. No view, or a view that
+returns null or throws: nothing reaches screens. So host-only data reaches a screen only through
+code that made it safe (`answer:received` → `stripAnswerKeys`), and never reaches participants.
+`seq` gaps are normal for a screen too.
+
 ## Delivery
 
 Every instance subscribes to `live:event`; `deliverLiveEvent` parses and validates the envelope and
@@ -117,7 +129,7 @@ shares a Redis server its own adapter `key` (`RedisAdapterOptions`). Operations:
 
 ## Tests
 
-- Unit: `backend/tests/realtime.{publish,deliver,auth,rooms,modules}.test.ts`.
+- Unit: `backend/tests/realtime.{publish,deliver,auth,rooms,modules}.test.ts` (`deliver` covers screen views).
 - Integration: `backend/tests/realtime.integration.test.ts` — real Redis and Mongo, two Socket.io
   servers sharing one Redis, legacy and new joins. Skipped unless `TEST_REDIS_URL` and
   `TEST_MONGO_URI` are set; the file header has the run command.

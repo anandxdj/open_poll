@@ -223,6 +223,33 @@ frontend typecheck clean, lint 0 errors (6 warnings), 635 unit tests, build gree
 tests green (the frontend checks ran in a clean worktree of that commit that also had decoy
 `backend/.env` and `frontend/.env.local` files, to prove the e2e servers ignore them).
 
+**Wave 4 — W4-D embeds, oEmbed, add-in panes** (built on `feat/embeds`, stacked on
+`feat/launch-basics`; not pushed, no PR yet).
+- Backend `modules/embeds` (`backend/docs/wiki/modules/embeds.md`): `GET /api/oembed` (rich, iframe
+  HTML; live/results/stage URLs of this site or the deck's own custom domain; any origin, mounted
+  before the CORS allow-list), `GET /api/embeds/policy` (for the frontend proxy), screen tokens
+  `GET|POST /api/embeds/screen-tokens`, `DELETE /api/embeds/screen-tokens/:id` (`deck:share`, sha256 at
+  rest, shown once, revoke kicks connected screens via Redis `embeds:screen-revoked`),
+  `GET /api/embeds/stage` (`X-Screen-Token`) and the socket `screen` role (stage-safe: no notes, answer
+  keys only after the reveal; host events only through `common/realtime/screenViews.ts`). Workspace
+  `PATCH settings.embedAllowedOrigins`. Migration `210-screen-tokens`. `buildDeckLiveState` was split out
+  of `getHostState` (shared with the screen state).
+- Frontend (`frontend/docs/wiki/features/embeds.md`): `/embed/{live/[code], results/[token],
+  stage/[id]}` (chromeless, postMessage resize), `lib/proxy/embeds.ts` (per-deck `frame-ancestors`;
+  next.config no longer sends the baseline CSP on `/embed/*`, every other path keeps
+  `frame-ancestors 'self'`), Embed dialog (library card menu, builder header) with screen links,
+  results embed code in the sessions Share dialog, Settings → Workspace → Embedding, add-in panes
+  `/addins/{powerpoint, teams/{config,sidepanel,stage}, zoom}` (Microsoft 365 frame-ancestors, Zoom
+  OWASP headers), manifests `addins/` + `addins/scripts/build-manifests.ts`, `docs/integrations/*.md`.
+- Not verified inside PowerPoint, Teams or Zoom (no host here): the panes are tested as pages with the
+  host SDKs blocked, the manifests by the build script's checks, `xmllint` and unit tests. Before
+  publishing: run `npx office-addin-manifest validate`, import the Teams zip in the Developer Portal,
+  set real `POWERPOINT_ADDIN_ID`/`TEAMS_APP_ID` GUIDs and replace the placeholder icons. The pinned
+  Teams JS CDN version (`2.22.0`, `features/embeds/addins/loadScript.ts`) should be checked then.
+- Likely merge conflicts: `backend/tests/http.routes.snapshot.txt`, `frontend/i18n/messages.ts`,
+  `backend/tests/integration/tenancy-isolation.test.ts`, `frontend/lib/proxy/index.ts`,
+  `frontend/features/library/components/LibraryCard.tsx`, migration ids (210).
+
 ## Left to do (nothing is half-merged)
 
 - **W2-D phase 2** (unblocked, W1-A2 and W2-D phase 1 are merged; plugs into the single `submitAnswer`): frontend offline queue (`submitAnswer`: socket ack → REST →
@@ -235,7 +262,9 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   `backend/docs/wiki/modules/themes.md`.)
   (**W3-G** workspace insights is built: `GET /api/insights` and the `/analytics` overview, see
   `backend/docs/wiki/modules/insights.md`.)
-- **Wave 4:** W4-A accessibility, W4-B locales (`es`), W4-D embeds/oEmbed/add-in panes. (**W4-E**
+- **Wave 4:** W4-A accessibility, W4-B locales (`es`). (**W4-D** embeds/oEmbed/add-in panes is built on
+  `feat/embeds`, waiting for its PR: merge after `feat/launch-basics`; then try the add-ins inside
+  PowerPoint, Teams and Zoom, which could not be done here.) (**W4-E**
   custom domains and white-label are built: `backend/docs/wiki/modules/domains.md`,
   `docs/deploy/custom-domains.md`.) (**W4-C** GDPR/retention is built: `/api/me` export and deletion, the account
   and retention purge jobs, participant self-removal, `/settings/privacy`, see

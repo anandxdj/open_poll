@@ -67,3 +67,8 @@ deploy runbook (no live sessions during the deploy): `modules/presentations-live
 Creates the idle-session job's index on `presentationsessions` (`live_sessions_by_activity`:
 `{status, lastActivityAt}`, partial on `isLive: true`) and backfills `lastActivityAt` of live
 sessions from `updatedAt` (else `startedAt`). See `modules/presentations-live.md` → Idle sessions.
+
+## 210-screen-tokens
+
+`syncIndexes()` for `screentokens` (W4-D): `tokenHash` unique, `{presentationId, createdAt}`,
+`workspaceId`. See `modules/embeds.md`.

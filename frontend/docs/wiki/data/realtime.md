@@ -28,9 +28,11 @@ last_updated: 2026-10-19
   `FORBIDDEN`, `INVALID_PAYLOAD`, `RATE_LIMITED` — retried after 5 s), and sets `connected` in the
   store only once joined. On unmount it emits `live:leave`. Wire names: `LIVE_SOCKET_EVENTS`
   (`types/realtime.ts`).
-- **Auth**: `{ role: "host" }` (pulls the JWT access token from `useAuthStore`) or
+- **Auth**: `{ role: "host" }` (pulls the JWT access token from `useAuthStore`),
   `{ role: "participant", participantId, participantToken }` (from the session's stored
-  credentials). The server rejects the room join without valid credentials, so pass `undefined` to
+  credentials) or `{ role: "screen", screenToken }` (W4-D, the read-only stage of
+  `features/embeds.md`; joins `live:{pid}` + `live:{pid}:screen`, gets host events only as their
+  stage-safe screen views, and `screen:revoked` → `onScreenRevoked` when its link is turned off). The server rejects the room join without valid credentials, so pass `undefined` to
   skip joining until a participant has actually joined (before the nickname gate resolves).
 - **Event**: envelope `live:event` → `{ v, presentationId, sessionId, seq, type, audience, payload,
   emittedAt }`, typed as `PresentationRealtimeEvent`, per-type payloads in `RealtimePayloads`

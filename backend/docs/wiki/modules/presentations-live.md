@@ -93,7 +93,7 @@ Event on arriving at a slide (`goto`, `start`, `advance`):
 
 | Route | Policy | Response |
 | --- | --- | --- |
-| `GET /:id/host/state` | `deck:host` | `HostStateResponse`: the legacy fields (`quiz`, `presentation`, `serverNow`, `participants`, `answeredCount`, `liveDistribution`, `leaderboard`) for `session`, plus `session` (live, else latest ended, else null), `slideStates` (visited slides) and `distributions` (slideId → results of every visited response slide). After `end` the results come from the stored snapshot. |
+| `GET /:id/host/state` | `deck:host` | `HostStateResponse` (built by `buildDeckLiveState`, which the read-only screen state of `modules/embeds.md` shares): the legacy fields (`quiz`, `presentation`, `serverNow`, `participants`, `answeredCount`, `liveDistribution`, `leaderboard`) for `session`, plus `session` (live, else latest ended, else null), `slideStates` (visited slides) and `distributions` (slideId → results of every visited response slide). After `end` the results come from the stored snapshot. |
 | `GET /:id/sessions` | `session:read` | `SessionListItem[]`, newest first. |
 
 ## Participant API (public)
@@ -231,7 +231,7 @@ and ack timeouts retry with the same `clientAnswerId`.
 `{ok: true, role, seq, state}` — `state` is `ParticipantLiveState` (what `GET /:id/live-state` returns,
 ticket included) or `HostStateResponse` (what `GET /:id/host/state` returns) — or
 `{ok: false, error}` with `INVALID_PAYLOAD`, `RATE_LIMITED` (20 per socket per minute),
-`UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `UNAVAILABLE`. `seq` is the deck's envelope counter read
+`UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `UNAVAILABLE`. A `screen` (W4-D) resyncs with `screenToken` and gets the stage-safe screen state (`modules/embeds.md`). `seq` is the deck's envelope counter read
 before the state, so an event with a higher seq is either in the state or still to come. It does not
 join rooms.
 

@@ -98,7 +98,7 @@ resolveWorkspaceContext(userId, requestedId?)                   // same logic wi
 1. **Route table.** It walks the real Express route table; every `/api` route must run one of the
    marked context middlewares, or be on the allow-list in the test with its reason (identity
    and sign-in, public poll voting and participant routes, webhooks, MCP/AI user-level routes,
-   invite-token routes, the `/api/workspaces/:id` routes that resolve membership in the
+   invite-token routes, oEmbed, the embed policy and the screen-token stage read (W4-D), the `/api/workspaces/:id` routes that resolve membership in the
    controller). A route that is neither fails the test, so a new route cannot ship unguarded.
    Stale exact allow-list entries fail too; entries for modules not landed yet are `planned`.
 2. **Cross-workspace matrix.** Bob (workspace B) attacks Alice's workspace A over REST — decks,

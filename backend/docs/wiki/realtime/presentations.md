@@ -19,10 +19,10 @@ the quizzes module was folded in; `quizId` carries the presentation id.
 | --- | --- | --- | --- |
 | `quiz:join` (legacy) | `{ quizId, role: 'host', accessToken? }` or `{ quizId, role: 'participant', participantId, participantToken }` | legacy **and** live rooms | none — unauthorized joins are silently dropped |
 | `quiz:leave` (legacy) | `quizId` | leaves every room of that presentation | none |
-| `live:join` | `{ presentationId, role: 'host', accessToken? }` or `{ presentationId, role: 'participant', participantId, participantToken }` | live rooms only | ack `{ ok: true, role }` or `{ ok: false, error: 'INVALID_PAYLOAD' \| 'RATE_LIMITED' \| 'UNAUTHENTICATED' \| 'FORBIDDEN' }` |
+| `live:join` | `{ presentationId, role: 'host', accessToken? }`, `{ presentationId, role: 'participant', participantId, participantToken }` or `{ presentationId, role: 'screen', screenToken }` (W4-D) | live rooms only | ack `{ ok: true, role }` or `{ ok: false, error: 'INVALID_PAYLOAD' \| 'RATE_LIMITED' \| 'UNAUTHENTICATED' \| 'FORBIDDEN' }` |
 | `live:leave` | `{ presentationId }` (or the bare id) | leaves every room of that presentation | ack `{ ok }` |
 | `answer:submit` | the `POST /:id/answer` body plus `presentationId` (the socket must have joined as that participant; the participant token inside is the identity) | none | ack with the REST envelope: `{ success, status, message, code?, data: AnswerResult \| null }` |
-| `live:resync` | `{ presentationId, role, accessToken? \| participantId + participantToken }` | none | ack `{ ok: true, role, seq, state }` (`ParticipantLiveState` or `HostStateResponse`) or `{ ok: false, error }` |
+| `live:resync` | `{ presentationId, role, accessToken? \| participantId + participantToken \| screenToken }` | none | ack `{ ok: true, role, seq, state }` (`ParticipantLiveState` or `HostStateResponse`) or `{ ok: false, error }` |
 
 Authorization (same for both protocols):
 - **host** — the user needs `deck:host` on the deck (`PresentationService.canHost`: its creator, or an active member of the deck's workspace whose role allows hosting). The user comes from
@@ -30,6 +30,9 @@ Authorization (same for both protocols):
   (`handshake.auth.token`, see `envelope.md`).
 - **participant** — `participantId` + `participantToken` issued by `POST /:id/join`
   (`PresentationService.isAuthorizedParticipant`).
+- **screen** (W4-D) — a live screen token of **this** deck, which must allow embedding
+  (`authorizeScreen`, `modules/embeds.md`). `live:join` only; `quiz:join` ignores it. `live:resync`
+  answers the stage-safe screen state. A screen cannot answer (`NOT_JOINED`).
 
 All joins count against the 30-per-minute per-connection budget. `answer:submit` and `live:resync` have
 their own per-connection budgets (120 per 10 s and 20 per minute); `answer:submit` also counts against
@@ -42,6 +45,7 @@ client retry rule: [`../modules/presentations-live.md`](../modules/presentations
 | --- | --- | --- |
 | host | `live:{pid}`, `live:{pid}:host` | `quiz_{pid}`, `quiz_{pid}_host` |
 | participant | `live:{pid}`, `live:{pid}:p:{participantId}` | `quiz_{pid}` |
+| screen | `live:{pid}`, `live:{pid}:screen` (host events only through their screen view, `envelope.md`) | none |
 
 ## Server → client
 
@@ -65,7 +69,7 @@ of other sessions. Payload types: `PresentationEventPayloads` in
 | `question:started` | all | `{ slideId, slideIndex, slide (sanitized, no answer keys), startedAt, endsAt (null = untimed), serverNow, isLastSlide, reopened, slideTicket }` |
 | `slide:shown` | all | `{ slideId, slideIndex, slide (sanitized content slide), isLastSlide, serverNow }`; content slides open no answer window |
 | `slide:closed` | all | `{ slideId, slideIndex, slide, closedAt, answeredCount, participantCount, isLastSlide, revisit, serverNow }` — answers stopped, results not revealed |
-| `answer:received` | **host only** (forced) | coalesced, at most one per slide per 250 ms window per session: `{ slideId, slideIndex, answeredCount, participantCount, distribution }` (`live/coalescer.ts`; also flushed just before a close, reveal, move or end) |
+| `answer:received` | **host only** (forced); screens get it with `stripAnswerKeys` | coalesced, at most one per slide per 250 ms window per session: `{ slideId, slideIndex, answeredCount, participantCount, distribution }` (`live/coalescer.ts`; also flushed just before a close, reveal, move or end) |
 | `question:revealed` | all | `{ slideId, slideIndex, slide, question, type, scored, distribution, answeredCount, participantCount, isLastSlide, auto, revealedAt, revisit }` |
 | `leaderboard:shown` | all | `{ slideId, slideIndex, slide, leaderboard[], participantCount, isLastSlide }` |
 | `session:ended` | all | `{ runNumber, endedAt, leaderboard[] (≤100), participantCount, answerCount }` |

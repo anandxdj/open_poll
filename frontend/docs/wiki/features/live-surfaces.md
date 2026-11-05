@@ -22,7 +22,7 @@ is `backend/docs/wiki/modules/presentations-live.md`: every presentation is a **
 | Host session | `components/host/useHostSession.ts` | Reads host state on mount (never opens anything), follows the socket, resyncs, runs one host command at a time, timer-driven reveal. |
 | Host commands | `components/host/hostCommands.ts` | `sendHostCommand`: one retry on `SESSION_BUSY`, flags `SESSION_ALREADY_LIVE`/`NO_LIVE_SESSION` as "console out of date". |
 | Host chrome | `components/host/{HostHeader,HostControls,LeaderboardModal,useJoinLink}.tsx` | Top bar (+ `hostToolbar` slot), bottom bar (back/forward, voting phase controls), standings overlay, join link copy. |
-| Stage | `components/stage/Stage.tsx` | What the audience sees: ready, lobby, running slide, end. Controls come in as props (`readyActions`, `lobbyActions`, `endActions`, `overlays`) so a screen-only surface can reuse it. |
+| Stage | `components/stage/Stage.tsx` | What the audience sees: ready, lobby, running slide, end. Controls come in as props (`readyActions`, `lobbyActions`, `endActions`, `overlays`) so a screen-only surface reuses it: the read-only screen stage of `features/embeds` (`surface="screen"`, no actions; `StageReady` then says it waits for the presenter and `StageEnd` shows no `endScreen` slot). |
 | Stage parts | `components/stage/{StageReady,StageLobby,StageSlide,StageEnd,ResponseCounter,StageView,Leaderboard,Timer}.tsx` | `StageView` looks the slide type up in the runtime registry; `Leaderboard` and `Timer` are shared with the participant. |
 | Participant shell | `components/participant/ParticipantShell.tsx` | Own live store; nickname gate, notices, slots, slide body. |
 | Participant session | `components/participant/useParticipantSession.ts` | Code lookup → credentials of that session → `live-state`; socket, resyncs, lost credentials, "a new session is live". |
@@ -218,7 +218,7 @@ getSlotEntries(slot, props?)
 | `participantBody` | same | Replaces the slide tab's body; the first entry whose `when` matches wins. |
 | `participantFooter` | same | Under the participant main area. |
 | `endScreen` | `{role, presentationId}` | After the standings on the host and participant end screens. |
-| `stageOverlays` | `{surface: 'host' \| 'screen', presentationId}` | Inside the stage `<main>` (absolutely positioned layers), every status. |
+| `stageOverlays` | `{surface: 'host' \| 'screen', presentationId}` | Inside the stage `<main>` (absolutely positioned layers), every status. `screen` is the read-only stage of `features/embeds`. |
 | `hostToolbar` | `{presentationId}` | Start of the host header's right-hand group. |
 | `presenterPanels` | `{presentationId}` | Reserved for the presenter console (W2-A). |
 
