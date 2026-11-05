@@ -743,8 +743,11 @@ export const buildDeckLiveState = async (
   presentation: IPresentation
 ): Promise<{ state: HostStateResponse<IPresentation>; session: IPresentationSession | null }> => {
   const presentationId = String(presentation._id);
-  const session = (await findLiveSession(presentationId)) ?? (await findLatestSession(presentationId));
-  const base = { quiz: presentation, presentation, serverNow: new Date().toISOString() };
+  const [session, deckTheme] = await Promise.all([
+    findLiveSession(presentationId).then(async (live) => live ?? (await findLatestSession(presentationId))),
+    resolveDeckTheme(presentation),
+  ]);
+  const base = { quiz: presentation, presentation, serverNow: new Date().toISOString(), deckTheme };
   if (!session) {
     return {
       session: null,

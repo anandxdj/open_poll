@@ -37,6 +37,19 @@ export interface PollLibraryCard extends LibraryCardBase {
   };
 }
 
+/** A deck's look for its card (the mini screen): its mode and the stage colours. */
+export interface DeckCardTheme {
+  mode: 'light' | 'dark';
+  /** False for the built-in Graph paper look (the frontend draws its own tokens of `mode`). */
+  custom: boolean;
+  background: string;
+  surface: string;
+  text: string;
+  mutedText: string;
+  accent: string;
+  accentText: string;
+}
+
 export interface PresentationLibraryCard extends LibraryCardBase {
   entityType: 'presentation';
   stats: { slideCount: number };
@@ -49,6 +62,8 @@ export interface PresentationLibraryCard extends LibraryCardBase {
     legacySource: 'poll' | 'quiz' | null;
     /** Distinct slide types, in deck order, at most six (card icons). */
     slideTypes: string[];
+    /** The deck's theme as its stage draws it (light or dark), for the card preview. */
+    theme: DeckCardTheme;
   };
 }
 

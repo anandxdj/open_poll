@@ -2,18 +2,21 @@ import type { Types } from 'mongoose';
 import { getEntitlements } from '../../common/plans/entitlements';
 import { WorkspaceModel } from '../workspaces/workspace.model';
 import { BrandKitModel } from './brandKit.model';
+import { paletteMode } from './contrast';
 import { themeFont, type FontChoice } from './fonts';
-import { DEFAULT_THEME_PRESET, presetFor } from './presets';
+import { DEFAULT_THEME_PRESET, presetFor, presetSource, themeModeOf, type ThemeMode } from './presets';
 
 /**
  * Resolves a deck's theme reference into the tokens every live surface renders
- * with (`--deck-*` CSS variables on the frontend): preset, then the brand kit
- * the deck picked (when the workspace's plan still has brand kits), then the
- * deck's own overrides. Sessions snapshot the result when they open, so a
- * later theme edit never restyles a past session's report.
+ * with (`--deck-*` CSS variables on the frontend): the preset in the deck's
+ * mode (light or dark), then the brand kit the deck picked (when the
+ * workspace's plan still has brand kits; a kit has one palette and its own
+ * mode), then the deck's own overrides. Sessions snapshot the result when
+ * they open, so a later theme edit never restyles a running session or a past
+ * session's report.
  */
 
-export { DEFAULT_THEME_PRESET } from './presets';
+export { DEFAULT_THEME_PRESET, DEFAULT_THEME_MODE, THEME_MODES, type ThemeMode } from './presets';
 
 export interface ThemeFont {
   family: string;
@@ -40,9 +43,15 @@ export interface ThemeColors {
 
 export interface ThemeTokens {
   presetId: string;
+  /**
+   * Light or dark: the deck's mode for a preset, the kit's own for a brand kit
+   * (from its stage colour). Snapshots taken before modes have none (they were
+   * all dark).
+   */
+  mode: ThemeMode;
   /** The brand kit applied, if any. */
   brandKitId: string | null;
-  /** False for the default preset with no kit or overrides: surfaces keep their built-in look. */
+  /** False for the default preset with no kit or overrides: surfaces draw their built-in look of `mode`. */
   custom: boolean;
   /** The preset's or the brand kit's name. */
   name: string;
@@ -60,6 +69,8 @@ export interface ThemeOverrides {
 
 export interface ThemeRef {
   presetId?: string | null;
+  /** `light` or `dark`; anything else (absent on decks from before modes) counts as light. */
+  mode?: unknown;
   brandKitId?: unknown;
   overrides?: unknown;
 }
@@ -95,16 +106,22 @@ export interface ThemeSource {
 
 const COLOR_KEYS = ['background', 'surface', 'text', 'mutedText', 'accent', 'accentText', 'correct', 'incorrect'] as const;
 
-/** Tokens from a preset or brand kit plus overrides (no lookups). Copies every value, so the result is plain JSON. */
+/**
+ * Tokens from a preset (in one mode) or a brand kit, plus overrides (no
+ * lookups). `mode` defaults to the palette's own (from its stage colour).
+ * Copies every value, so the result is plain JSON.
+ */
 export const buildTokens = (
   source: ThemeSource,
   presetId: string,
   brandKitId: string | null,
-  overrides: ThemeOverrides = {}
+  overrides: ThemeOverrides = {},
+  mode: ThemeMode = paletteMode(String(source.colors.background))
 ): ThemeTokens => {
   const colors = Object.fromEntries(COLOR_KEYS.map((key) => [key, String(source.colors[key])])) as Omit<ThemeColors, 'chart'>;
   return {
     presetId,
+    mode,
     brandKitId,
     custom: presetId !== DEFAULT_THEME_PRESET || brandKitId !== null || Object.keys(overrides).length > 0,
     name: source.name,
@@ -117,7 +134,14 @@ export const buildTokens = (
   };
 };
 
-/** Tokens for a theme reference; unknown presets fall back to the default preset. */
+/** A preset in a mode as tokens (no lookups): the catalogue, previews, the fallback of `resolveTheme`. */
+export const presetTokens = (presetId: string | null | undefined, mode: unknown, overrides: ThemeOverrides = {}): ThemeTokens => {
+  const preset = presetFor(presetId);
+  const resolvedMode = themeModeOf(mode);
+  return buildTokens(presetSource(preset, resolvedMode), preset.id, null, overrides, resolvedMode);
+};
+
+/** Tokens for a theme reference; unknown presets fall back to the default preset, a missing mode to light. */
 export const resolveTheme = async (ref: ThemeRef | null | undefined, options: ResolveOptions = {}): Promise<ThemeTokens> => {
   const preset = presetFor(ref?.presetId);
   const overrides = overridesOf(ref?.overrides);
@@ -126,7 +150,7 @@ export const resolveTheme = async (ref: ThemeRef | null | undefined, options: Re
     const kit = await BrandKitModel.findOne({ _id: kitId, workspaceId: options.workspaceId }).lean();
     if (kit) return buildTokens(kit, preset.id, String(kit._id), overrides);
   }
-  return buildTokens(preset, preset.id, null, overrides);
+  return presetTokens(preset.id, ref?.mode, overrides);
 };
 
 /** A deck's theme as its workspace's plan allows it (session open, previews). */

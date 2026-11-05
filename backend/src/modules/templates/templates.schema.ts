@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { THEME_MODES } from '../themes/presets';
 
 const objectId = z.string().regex(/^[a-f0-9]{24}$/i, 'Invalid id');
 
@@ -8,8 +9,12 @@ const title = z.string().trim().min(1, 'Give it a name').max(120, 'Use at most 1
 /** `POST /api/templates`: save a deck of the workspace as a template. */
 export const saveTemplateSchema = z.object({ presentationId: objectId, title: title.optional() }).strict();
 
-/** `POST /api/templates/:id/use`: optional title for the new deck (default: the template's). */
-export const useTemplateSchema = z.object({ title: title.optional() }).strict().default({});
+/**
+ * `POST /api/templates/:id/use`: optional title for the new deck (default: the
+ * template's) and light or dark (the app theme the creator uses; default: a
+ * workspace template's own, light for a starter).
+ */
+export const useTemplateSchema = z.object({ title: title.optional(), themeMode: z.enum(THEME_MODES).optional() }).strict().default({});
 
 export type SaveTemplateInput = z.infer<typeof saveTemplateSchema>;
 export type UseTemplateInput = z.infer<typeof useTemplateSchema>;

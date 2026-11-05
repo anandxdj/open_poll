@@ -68,7 +68,7 @@ export class ImportsService {
     assertCan(ctx, 'deck:create');
     const workspaceId = String(ctx.workspace._id);
     const userId = ctx.user.id;
-    const base = { workspaceId, userId, kind: input.kind, title: input.title ?? null };
+    const base = { workspaceId, userId, kind: input.kind, title: input.title ?? null, themeMode: input.themeMode ?? null };
 
     let sourceKey: string | null = null;
     let sourceRef: string | null = null;
@@ -151,7 +151,13 @@ export class ImportsService {
    */
   static async importQuestions(
     ctx: ImportContext,
-    params: { mode: 'preview' | 'import'; file: { name: string; bytes: Uint8Array }; presentationId?: string; title?: string },
+    params: {
+      mode: 'preview' | 'import';
+      file: { name: string; bytes: Uint8Array };
+      presentationId?: string;
+      title?: string;
+      themeMode?: 'light' | 'dark';
+    },
   ) {
     const workspaceId = String(ctx.workspace._id);
     const userId = ctx.user.id;
@@ -204,7 +210,8 @@ export class ImportsService {
     } else {
       const fromFile = clip(oneLine(params.file.name.replace(/\.[A-Za-z0-9]{1,5}$/, '')), 120);
       const title = params.title ?? (fromFile || 'Imported questions');
-      const created = await createPresentation({ title, slides } as unknown as CreatePresentationInput, ctx);
+      const theme = params.themeMode ? { theme: { mode: params.themeMode } } : {};
+      const created = await createPresentation({ title, slides, ...theme } as unknown as CreatePresentationInput, ctx);
       presentationId = String(created._id);
       slideCount = created.slides.length;
     }

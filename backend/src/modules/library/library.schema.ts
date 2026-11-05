@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { THEME_MODES } from '../themes/presets';
 import { LIBRARY_STATUSES } from './library.types';
 
 const objectId = z.string().regex(/^[a-f0-9]{24}$/i, 'Invalid id format');
@@ -29,4 +30,6 @@ export type LibraryQuery = z.infer<typeof libraryQuerySchema>;
 /** `POST /api/library/convert/poll/:pollId` query string. */
 export const convertQuerySchema = z.object({
   force: optional(z.enum(['true', 'false', '1', '0'])).transform((value) => value === 'true' || value === '1'),
+  /** Light or dark for the new deck (the app theme of whoever converts); default light. */
+  themeMode: optional(z.enum(THEME_MODES)),
 });

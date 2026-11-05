@@ -1,7 +1,7 @@
 /**
- * WCAG 2.1 contrast checks for theme colours. A theme is used on a projector
- * and on phones, so text must reach AA (4.5:1) and the accent and the
- * correct/incorrect marks must stand out from the stage (3:1, non-text).
+ * WCAG 2.1 contrast checks for theme colours, light or dark. A theme is used
+ * on a projector and on phones, so text must reach AA (4.5:1) and the accent
+ * and the correct/incorrect marks must stand out from the stage (3:1, non-text).
  */
 
 export const HEX_COLOR = /^#[0-9a-f]{6}$/i;
@@ -57,4 +57,32 @@ export function contrastFailures(colors: ContrastColors): ContrastFailure[] {
     const ratio = contrastRatio(colors[rule.foreground], colors[rule.background]);
     return ratio + 1e-9 < rule.minimum ? [{ ...rule, ratio: Math.round(ratio * 100) / 100 }] : [];
   });
+}
+
+export interface ChartContrastFailure {
+  /** Position in `chart`. */
+  index: number;
+  color: string;
+  ratio: number;
+  minimum: number;
+}
+
+/**
+ * Chart and word cloud colours that stand out less than 3:1 from the stage
+ * (bars are non-text; cloud words are large text). The built-in presets pass
+ * it in both modes (tested); brand kits are not held to it.
+ */
+export function chartContrastFailures(colors: { background: string; chart: readonly string[] }): ChartContrastFailure[] {
+  return colors.chart.flatMap((color, index) => {
+    const ratio = contrastRatio(color, colors.background);
+    return ratio + 1e-9 < 3 ? [{ index, color, ratio: Math.round(ratio * 100) / 100, minimum: 3 }] : [];
+  });
+}
+
+/**
+ * Light or dark for a palette, from its stage colour: light when dark text
+ * reads better on it than light text (relative luminance above about 0.18).
+ */
+export function paletteMode(background: string): 'light' | 'dark' {
+  return contrastRatio(background, '#000000') >= contrastRatio(background, '#ffffff') ? 'light' : 'dark';
 }

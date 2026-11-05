@@ -40,8 +40,8 @@ export class TemplatesController {
   static async use(req: WorkspaceRequest, res: Response, next: NextFunction) {
     try {
       const templateId = idParam(req);
-      const { title } = (req.body ?? {}) as UseTemplateInput;
-      const presentation = await TemplatesService.use(actorOf(req), templateId, title);
+      const { title, themeMode } = (req.body ?? {}) as UseTemplateInput;
+      const presentation = await TemplatesService.use(actorOf(req), templateId, title, themeMode);
       void audit(req, 'template.use', { type: 'presentation', id: presentation._id }, { templateId, title: presentation.title });
       return ApiResponse.created(res, 'Deck created from template', presentation);
     } catch (error) {

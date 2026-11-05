@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { THEME_MODES } from '../themes/presets';
 import { BUILT_IN_SLIDE_TYPES, getSlideType, listSlideTypes, type ParsedSlide } from './slides';
 import {
   MAX_REACTION_EMOJIS,
@@ -109,13 +110,15 @@ const hexColor = z
   .transform((value) => value.toLowerCase());
 
 /**
- * Theme selection (W3-A): a preset, optionally a brand kit of the deck's
- * workspace (plan feature `brand_kits`), and an accent override. The service
- * checks the preset, the kit and the override's contrast.
+ * Theme selection (W3-A): a preset in light or dark, optionally a brand kit
+ * of the deck's workspace (plan feature `brand_kits`), and an accent override.
+ * The service checks the preset, the kit and the override's contrast. A new
+ * deck without `mode` is light.
  */
 export const deckThemePatchSchema = z
   .object({
     presetId: z.string().min(1).max(40),
+    mode: z.enum(THEME_MODES),
     brandKitId: objectIdString.nullable(),
     overrides: z.object({ accent: hexColor, accentText: hexColor }).partial().strict().nullable(),
   })

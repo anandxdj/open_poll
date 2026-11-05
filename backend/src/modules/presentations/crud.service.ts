@@ -18,6 +18,7 @@ import { authorizeDeck, type Actor } from './access';
 import { allSessionKeys, k } from './live/keys';
 import { assertContentMediaInWorkspace } from './slides/types/content/media';
 import { assertThemeChoice, type ThemeChoice } from '../themes/themes.service';
+import { DEFAULT_THEME_MODE, DEFAULT_THEME_PRESET, themeModeOf, type ThemeMode } from '../themes/presets';
 import { WorkspaceModel } from '../workspaces/workspace.model';
 import { announceScreensRevoked } from '../embeds/screenTokens.service';
 import {
@@ -56,14 +57,19 @@ export const createPresentation = async (data: CreatePresentationInput, actor: A
   }
   // Uploaded media must belong to the deck's workspace (the request schema cannot query).
   if (workspaceId && data.slides) await assertContentMediaInWorkspace(data.slides, workspaceId);
-  // A new deck starts on the workspace's default theme unless the request picks one.
+  // A new deck starts on the workspace's default look (preset, brand kit) unless the request picks
+  // one. Light or dark is the creator's: the request's `theme.mode` (the builder sends the app theme
+  // in use), else light.
   const workspace = typeof actor === 'string' ? null : (actor.workspace ?? null);
   const defaultTheme = (workspace as { settings?: { defaultTheme?: ThemeChoice | null } } | null)?.settings?.defaultTheme;
-  const themeChoice: ThemeChoice | undefined = data.theme ?? (defaultTheme ? { ...defaultTheme } : undefined);
-  const theme = themeChoice ? await assertThemeChoice(themeChoice, workspace as Parameters<typeof assertThemeChoice>[1]) : undefined;
+  const requested: ThemeChoice = data.theme ?? {};
+  const picksLook = requested.presetId !== undefined || requested.brandKitId !== undefined;
+  const fromDefault: ThemeChoice = !picksLook && defaultTheme ? { presetId: defaultTheme.presetId, brandKitId: defaultTheme.brandKitId ?? null } : {};
+  const themeChoice: ThemeChoice = { ...fromDefault, ...requested, mode: requested.mode ?? DEFAULT_THEME_MODE };
+  const theme = await assertThemeChoice(themeChoice, workspace as Parameters<typeof assertThemeChoice>[1]);
   return createWithJoinCode({
     ...data,
-    ...(theme ? { theme: theme as Record<string, unknown> } : {}),
+    theme: theme as Record<string, unknown>,
     creatorId,
     ...(workspaceId ? { workspaceId } : {}),
   });
@@ -117,11 +123,14 @@ export interface DeckCopyOptions {
   isTemplate?: boolean;
   /** The template the copy was made from or the deck a template was saved from. */
   templateSourceId?: mongoose.Types.ObjectId | null;
+  /** Light or dark for the copy ("Use template": the creator's app theme); default: the source's. */
+  mode?: ThemeMode;
 }
 
 /**
  * A new draft deck in the caller's current workspace with the content of
- * `source`: every slide (new slide and option ids), pace, settings and theme.
+ * `source`: every slide (new slide and option ids), pace, settings and theme
+ * (its light or dark mode too, unless `options.mode` says otherwise).
  * The caller has checked `deck:create` and read access to `source`. A source
  * from another workspace (a pre-workspace deck) has its media checked against
  * the new one and keeps no brand kit or folder. Shared by duplicate and the
@@ -142,9 +151,12 @@ export const copyDeckForWorkspace = async (source: IPresentation, ctx: PolicyCon
     slides,
     pace: plain.pace,
     settings: plain.settings,
-    ...(theme
-      ? { theme: { presetId: theme.presetId, brandKitId: sameWorkspace ? theme.brandKitId : null, overrides: theme.overrides } }
-      : {}),
+    theme: {
+      presetId: theme?.presetId ?? DEFAULT_THEME_PRESET,
+      mode: options.mode ?? themeModeOf(theme?.mode),
+      brandKitId: sameWorkspace ? (theme?.brandKitId ?? null) : null,
+      overrides: theme?.overrides ?? null,
+    },
     folderId: options.keepFolder && sameWorkspace ? plain.folderId : null,
     isTemplate: options.isTemplate ?? false,
     templateSourceId: options.templateSourceId ?? null,
@@ -281,7 +293,7 @@ export const updatePresentation = async (
   if (data.theme) {
     const workspace = presentation.workspaceId ? await WorkspaceModel.findById(presentation.workspaceId).lean() : null;
     const theme = await assertThemeChoice(data.theme, workspace);
-    for (const key of ['presetId', 'brandKitId', 'overrides'] as const) {
+    for (const key of ['presetId', 'mode', 'brandKitId', 'overrides'] as const) {
       if (theme[key] !== undefined) presentation.set(`theme.${key}`, theme[key]);
     }
   }

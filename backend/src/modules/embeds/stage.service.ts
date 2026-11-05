@@ -94,6 +94,7 @@ export function toScreenState(
     leaderboard: state.leaderboard,
     slideStates: state.slideStates,
     distributions,
+    deckTheme: state.deckTheme,
     qna,
   };
 }

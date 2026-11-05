@@ -1,4 +1,8 @@
+import { Types } from 'mongoose';
+import { getEntitlements } from '../../common/plans/entitlements';
 import { assertCan, type PolicyContext } from '../../common/tenancy/policy';
+import { BrandKitModel } from '../themes/brandKit.model';
+import type { ThemeSource } from '../themes/resolve';
 import type { IWorkspace } from '../workspaces/workspace.model';
 import { PollModel } from '../polls/polls.model';
 import { AnalyticsModel } from '../responses/analytics.model';
@@ -85,12 +89,29 @@ async function pollCards(filter: Filter, limit: number, now: Date): Promise<Libr
   return polls.map((poll) => toPollCard(poll, responses.get(String(poll._id)) ?? 0, now));
 }
 
-async function presentationCards(filter: Filter, limit: number): Promise<LibraryCard[]> {
+/**
+ * The brand kits the decks of a page use, by id, when the workspace's plan has
+ * brand kits (one query per page): the card previews draw the kit like the
+ * stage would.
+ */
+async function cardKits(decks: PresentationCardSource[], ctx: LibraryContext): Promise<Map<string, ThemeSource>> {
+  const ids = [...new Set(decks.map((deck) => deck.theme?.brandKitId).filter(Boolean).map(String))].filter((id) =>
+    Types.ObjectId.isValid(id)
+  );
+  if (!ids.length || !getEntitlements(ctx.workspace).features.brand_kits) return new Map();
+  const kits = await BrandKitModel.find({ _id: { $in: ids }, workspaceId: ctx.workspace._id })
+    .select('name colors fonts')
+    .lean();
+  return new Map(kits.map((kit) => [String(kit._id), kit as unknown as ThemeSource]));
+}
+
+async function presentationCards(filter: Filter, limit: number, ctx: LibraryContext): Promise<LibraryCard[]> {
   const decks = await PresentationModel.find(filter, PRESENTATION_CARD_PROJECTION)
     .sort(SORT)
     .limit(limit)
     .lean<PresentationCardSource[]>();
-  return decks.map(toPresentationCard);
+  const kits = await cardKits(decks, ctx);
+  return decks.map((deck) => toPresentationCard(deck, kits));
 }
 
 export class LibraryService {
@@ -125,7 +146,7 @@ export class LibraryService {
         ? pollCards(allOf(shared, query.status ? pollStatusFilter(query.status, now) : null, cursor), fetch, now)
         : [],
       wantDecks
-        ? presentationCards(allOf(shared, query.status ? presentationStatusFilter(query.status) : null, cursor), fetch)
+        ? presentationCards(allOf(shared, query.status ? presentationStatusFilter(query.status) : null, cursor), fetch, ctx)
         : [],
       query.cursor ? undefined : LibraryService.counts(shared, now),
     ]);

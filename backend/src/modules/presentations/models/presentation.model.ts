@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { hasSlideType, slideKindOf, type BuiltInSlideType, type SlideKind, type SlideMedia } from '../slides';
-import { DEFAULT_THEME_PRESET } from '../../themes/presets';
+import { DEFAULT_THEME_MODE, DEFAULT_THEME_PRESET, THEME_MODES, type ThemeMode } from '../../themes/presets';
 import type { DeckSettings, SessionPace } from '../live/contract';
 
 export const SESSION_PACES = ['presenter', 'audience'] as const satisfies readonly SessionPace[];
@@ -60,6 +60,8 @@ export type PresentationStatus =
 
 export interface IPresentationTheme {
   presetId: string;
+  /** Light or dark (a brand kit brings its own). New decks store it; migration 230 set it on older ones. */
+  mode: ThemeMode;
   brandKitId: mongoose.Types.ObjectId | null;
   overrides: Record<string, unknown> | null;
 }
@@ -233,6 +235,7 @@ const DeckSettingsSchema = sub<DeckSettings>({
 
 const ThemeSchema = sub<IPresentationTheme>({
   presetId: { type: String, default: DEFAULT_THEME_PRESET, maxlength: 40 },
+  mode: { type: String, enum: THEME_MODES, default: DEFAULT_THEME_MODE },
   brandKitId: { type: Schema.Types.ObjectId, ref: 'BrandKit', default: null },
   overrides: { type: Schema.Types.Mixed, default: null },
 });

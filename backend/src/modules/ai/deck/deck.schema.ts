@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { THEME_MODES } from '../../themes/presets';
 
 /**
  * Contracts of AI whole-deck authoring (`POST /api/ai/generate-deck`):
@@ -99,6 +100,8 @@ export const generateDeckRequestSchema = z
      */
     step: z.enum(DECK_STEPS).default('deck'),
     outline: deckOutlineSchema.optional(),
+    /** Light or dark for the new deck (the builder sends the app theme in use); default light. */
+    themeMode: z.enum(THEME_MODES).optional(),
   })
   .refine((input) => !(input.step === 'outline' && input.outline), {
     message: 'An outline is accepted only with step "deck"',

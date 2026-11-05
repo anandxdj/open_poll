@@ -38,6 +38,8 @@ export interface IImportJob extends Document {
   viaDrive: boolean;
   /** Name for the new deck when the request gave one. */
   title: string | null;
+  /** Light or dark for the new deck when the request gave it (else the deck is light). */
+  themeMode: 'light' | 'dark' | null;
   /** Reserved up front so a retry after a crash reuses the same deck instead of creating a second one. */
   resultPresentationId: Types.ObjectId | null;
   warnings: IImportWarning[];
@@ -84,6 +86,7 @@ const importJobSchema = new Schema<IImportJob>(
     sourceRef: { type: String, default: null, maxlength: 128 },
     viaDrive: { type: Boolean, default: false },
     title: { type: String, default: null, maxlength: 120 },
+    themeMode: { type: String, enum: ['light', 'dark', null], default: null },
     resultPresentationId: { type: Schema.Types.ObjectId, ref: 'Presentation', default: null },
     warnings: { type: [warningSchema], default: [] },
     error: { type: errorSchema, default: null },

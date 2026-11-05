@@ -190,6 +190,13 @@ export interface HostStateResponse<TPresentation = Record<string, unknown>> {
   slideStates: SlideStateView[];
   /** Results of every visited response slide, by slideId. */
   distributions: Record<string, SlideResultsView>;
+  /**
+   * The deck's theme as it is now (preset in its light or dark mode, brand kit,
+   * overrides): what the stage draws while no session is live. A live session
+   * draws its own snapshot (`session.theme`), so editing the theme never
+   * restyles a running session.
+   */
+  deckTheme: ThemeTokens;
 }
 
 /** `GET /:id/sessions` (newest first). Full reports live under `/api/sessions` (W2-C). */

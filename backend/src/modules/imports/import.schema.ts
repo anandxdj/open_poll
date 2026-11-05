@@ -1,14 +1,17 @@
 import { z } from 'zod';
+import { THEME_MODES } from '../themes/presets';
 
 const objectId = z.string().regex(/^[a-f0-9]{24}$/i, 'Invalid id');
 const title = z.string().trim().min(1).max(120);
 
 const key = z.string().trim().min(1).max(512);
+/** Light or dark for the new deck (the app theme the importer uses); default light. */
+const themeMode = z.enum(THEME_MODES).optional();
 
 /** `POST /api/imports`. Files are uploaded first (`POST /api/uploads/presign` with purpose `import_source`). */
 export const createImportSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('pptx'), key, title: title.optional() }),
-  z.object({ kind: z.literal('pdf'), key, title: title.optional() }),
+  z.object({ kind: z.literal('pptx'), key, title: title.optional(), themeMode }),
+  z.object({ kind: z.literal('pdf'), key, title: title.optional(), themeMode }),
   z
     .object({
       kind: z.literal('gslides'),
@@ -18,6 +21,7 @@ export const createImportSchema = z.discriminatedUnion('kind', [
       driveFileId: z.string().trim().min(10).max(128).optional(),
       driveAccessToken: z.string().trim().min(10).max(4096).optional(),
       title: title.optional(),
+      themeMode,
     })
     .superRefine((value, ctx) => {
       const drive = value.driveFileId !== undefined || value.driveAccessToken !== undefined;
@@ -39,5 +43,7 @@ export const questionsFieldsSchema = z.object({
   /** Append to this deck; without it a new deck is created. */
   presentationId: objectId.optional(),
   title: title.optional(),
+  /** A new deck's light or dark (ignored when appending). */
+  themeMode,
 });
 export type QuestionsFields = z.infer<typeof questionsFieldsSchema>;

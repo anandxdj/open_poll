@@ -35,9 +35,9 @@ export class LibraryController {
 
   static async convertPoll(req: WorkspaceRequest, res: Response, next: NextFunction) {
     try {
-      const { force } = parseQuery(convertQuerySchema, req.query);
+      const { force, themeMode } = parseQuery(convertQuerySchema, req.query);
       const pollId = String(req.params.pollId);
-      const { created, presentation } = await ConvertService.convertPoll(libraryContext(req), pollId, { force });
+      const { created, presentation } = await ConvertService.convertPoll(libraryContext(req), pollId, { force, themeMode });
       if (!created) return ApiResponse.ok(res, 'Poll already converted', { created, presentation });
       void audit(req, 'poll.convert', { type: 'presentation', id: presentation._id }, { pollId, force });
       return ApiResponse.created(res, 'Poll converted to a presentation', { created, presentation });

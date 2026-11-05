@@ -212,7 +212,14 @@ describeIntegration('duplicate decks and polls over HTTP', () => {
         expect(sourceIds.has(item._id)).toBe(false);
       }
       expect(copy.settings).toEqual(source.settings);
-      expect(copy.theme).toEqual({ presetId: 'ocean', brandKitId: kit.body.data.id, overrides: { accent: '#0a1f44', accentText: '#ffffff' } });
+      // Light (the source was created without a mode) and the same look; the resolved tokens come along.
+      expect(copy.theme).toEqual({
+        presetId: 'ocean',
+        mode: 'light',
+        brandKitId: kit.body.data.id,
+        overrides: { accent: '#0a1f44', accentText: '#ffffff' },
+      });
+      expect(copy.themeTokens).toMatchObject({ brandKitId: kit.body.data.id, colors: { accent: '#0a1f44' } });
 
       // The copy is a deck of its own: readable, editable, listed.
       expect((await call(erin, 'GET', `/api/presentations/${copy._id}`, { workspace: wsA })).status).toBe(200);
