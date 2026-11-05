@@ -1,7 +1,7 @@
 ---
 summary: Numbered idempotent migrations (bun run migrate), the migrations collection and lock, number ranges, and index ownership.
 status: active
-last_updated: 2026-11-01
+last_updated: 2026-11-05
 ---
 
 # Migrations (`src/migrations/`)
@@ -26,7 +26,8 @@ export default migration;
 ```
 
 - Files are discovered by name (`NNN-*.ts`); there is no registry to edit.
-- Ranges: 001–009 W0-D, 010–019 W1-C, 020–029 W1-B, 030–039 W1-A1, 100–199 Wave 3 (10 per
+- Ranges: 001–009 W0-D, 010–019 W1-C, 020–029 W1-B, 030–039 W1-A1, 040–049 W2-A (040
+  `remote-tokens`: `syncIndexes()` for `remotetokens`), 050 W2-B, 100–199 Wave 3 (10 per
   package), 200+ Wave 4.
 - `up` must be idempotent: a crash between `up` and its record re-runs it. Prefer raw
   collection operations (`db.collection(...)`) for data backfills so later schema changes

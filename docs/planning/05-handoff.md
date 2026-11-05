@@ -234,7 +234,25 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   `frontend/docs/wiki/features/live-surfaces.md` "Answers" and `e2e/offline-answers.spec.ts`. Not done:
   the client still resyncs over REST, not `live:resync`; the legacy event *types* `lobby:opened` /
   `quiz:ended` are still published.)
-- **W2-A** presenter view + remote + timer/kick, **W2-F** audience pace, **W3-B2**
+- (**W2-A** presenter experience is built, branch `feat/presenter` on top of `feat/offline-answers`
+  (merge W2-D phase 2 first): backend `presentations/live/{timing.service,moderation.service,control}.ts`,
+  `modules/remote/**` (migration 040), `common/utils/profanity.ts`; frontend `features/presenter/**`,
+  `features/remote/**`, pages `/presentation/[id]/presenter`, `/presentation/[id]/present`,
+  `/remote/[token]`. Timer `POST /:id/host/timer {pause|resume|extend, seconds}` and `POST
+  /:id/host/skip` (`slide:timing`; answers refused while paused with 409 `SLIDE_PAUSED`, retried by
+  clients; speed scoring leaves pauses out; no auto-reveal while paused); kick `POST
+  /:id/host/participants/:pid/kick` (`participant:kicked`, no answers, no rejoin, seat freed, out of
+  the standings, sockets leave the rooms); phone remote `POST|GET|DELETE /:id/host/remote-token`,
+  `GET /api/remote/:token/state`, socket `remote:join` / `remote:command`, `remote:connected|
+  disconnected`; presenter view with notes, next slide, clock, responses, participants with Remove,
+  timer controls, remote pairing QR; the audience window over BroadcastChannel with fullscreen;
+  polish: 3-2-1 start countdown, sound cues (muted by default), deck setting `profanityFilter` for
+  word clouds and open answers. See `backend/docs/wiki/modules/presentations-live.md` "Presenter tools
+  (W2-A)", `frontend/docs/wiki/features/live-surfaces.md` "Presenter view", `e2e/presenter.spec.ts`,
+  `tests/integration/presenter.test.ts`. Not done: a nickname profanity filter at join; the planned
+  `builder/NotesTab.tsx` (notes are already edited under the slide in the builder's stage); the remote
+  re-reads its state over REST on events instead of receiving host-only counts.)
+- **W2-F** audience pace, **W3-B2**
   folders/templates/duplicate/co-editing. (**W3-D** SAML, per-workspace OIDC and SCIM are built:
   `backend/docs/wiki/modules/sso-scim.md`, `docs/deploy/sso.md`.) (**W3-A** themes and brand kits are built:
   `backend/docs/wiki/modules/themes.md`.)
@@ -249,8 +267,8 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   `backend/docs/wiki/quiz-roadmap.md`; push the branch and open a PR (ask the owner first).
 
 Remaining merge order (from the plan; flexible when a later package is ready early and conflicts are
-trivial, note deviations here): W2-D phase 2 (built, awaiting merge) → W2-A (adds the NotesTab and the `notes` field of the
-frontend `Presentation` type) → W2-F; Wave 3: W3-D and W3-B2 (W3-B1 is merged), W3-A after W2-A, then
+trivial, note deviations here): W2-D phase 2 (built, awaiting merge) → W2-A (built, awaiting merge; stacked on W2-D
+phase 2) → W2-F; Wave 3: W3-D and W3-B2 (W3-B1 is merged), W3-A after W2-A, then
 Wave 4 A → B → C → D → E; then the close-out.
 
 ## Process notes
@@ -308,8 +326,8 @@ Wave 4 A → B → C → D → E; then the close-out.
 - Deployment topology: sockets, timers, scheduler and workers need a long-lived process;
   confirm Vercel container functions or use the compose/Traefik backend.
 - **W3-F (merged):** mock decks (no AI key) are not counted against `ai_deck` usage (owner to confirm); a
-  reviewed deck (outline step then deck step) uses two `ai` rate-limit hits; the frontend `Presentation`
-  type has no `notes` until W2-A's NotesTab lands.
+  reviewed deck (outline step then deck step) uses two `ai` rate-limit hits. (The frontend `Presentation`
+  type has carried `notes` since the builder's notes field; W2-A shows them in the presenter view.)
 - **W1-A2 (merged):** participants do not resync on seq gaps because the room seq also counts
   host-only events (resync on reconnect, seq reset and tab focus only). `frontend/i18n/LiveIntlProvider.tsx`
   lists its namespaces by hand (`["live","presenter"]`): every package that adds a namespace used on
@@ -333,7 +351,7 @@ Wave 4 A → B → C → D → E; then the close-out.
   `when` has no store access and runs at render, so an unknown deck counts as available; W1-A2's store
   now makes a proper fix possible); `QnaParticipantSync` bridges participant-addressed events from
   `live:event` (removed in W2-D phase 2 with the legacy `quiz:event` dual-emit); the W2-A audience
-  window must forward `reaction:burst`; add a Q&A section to session reports and exports (W2-C).
+  window shows `reaction:burst` (the reaction slice travels with the mirrored live state); add a Q&A section to session reports and exports (W2-C).
 - **Test registries:** `features/registrations` registers modules process-wide as soon as a unit test
   imports a host/participant surface, so unit tests that count slot entries or compare whole live
   states must use unregistered slots / cope with the extra module slices (`demo` in reducer tests).
