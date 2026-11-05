@@ -4,10 +4,13 @@ import "@/features/registrations";
 
 import { useEffect, useEffectEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Play, Radio, RotateCcw, Trophy } from "lucide-react";
+import { LayoutTemplate, Loader2, Play, Radio, RotateCcw, Trophy } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { createDeckFromTemplate } from "@/features/templates/api";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { createLiveStore, LiveStoreProvider, useLive } from "../../live/store";
 import { useAfterDelay } from "../../live/useAfterDelay";
 import { LiveDeckTheme } from "@/features/themes/LiveDeckTheme";
@@ -45,7 +48,10 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
   const status = useLive((s) => s.status);
   const joinCode = useLive((s) => s.joinCode);
   const hasDeck = useLive((s) => s.deck !== null);
+  const isTemplate = useLive((s) => s.deck?.isTemplate === true);
+  const deckTitle = useLive((s) => s.deck?.title ?? "");
   const join = useJoinLink(joinCode);
+  const [creatingDeck, setCreatingDeck] = useState(false);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -105,6 +111,37 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
         >
           {t("load.backToDashboard")}
         </button>
+      </div>
+    );
+  }
+
+  // A workspace template (W3-B2) opened by a direct link: the API refuses to present it
+  // (TEMPLATE_NOT_PRESENTABLE), so the console offers a deck made from it instead.
+  if (isTemplate) {
+    const makeDeck = async () => {
+      setCreatingDeck(true);
+      try {
+        const deck = await createDeckFromTemplate(presentationId);
+        router.push(`/presentation/create?id=${deck._id}`);
+      } catch (err: unknown) {
+        toast.error(getApiErrorMessage(err) ?? t("template.failed"));
+        setCreatingDeck(false);
+      }
+    };
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-deck-stage-bg px-6 text-center text-deck-stage-fg">
+        <LayoutTemplate className="size-8 text-deck-accent" aria-hidden="true" />
+        <h1 className="text-2xl font-semibold tracking-[-0.03em]">{t("template.title")}</h1>
+        <p className="max-w-md text-sm text-deck-stage-fg/70">{t("template.body", { title: deckTitle })}</p>
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+          <Button onClick={() => void makeDeck()} disabled={creatingDeck} className={`h-12 px-8 text-sm ${primaryButton}`}>
+            {creatingDeck ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+            {t("template.use")}
+          </Button>
+          <Button variant="outline" onClick={() => router.push("/templates")} className={`h-12 px-6 text-sm ${outlineButton}`}>
+            {t("template.back")}
+          </Button>
+        </div>
       </div>
     );
   }

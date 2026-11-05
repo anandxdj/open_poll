@@ -1,13 +1,67 @@
 import type { Page } from "@playwright/test";
+import { e2eEnv } from "./env";
 import { expect, test } from "./fixtures";
 
 /**
  * W3-B2 templates: a starter template becomes a new draft deck that opens in
  * the builder with its slides, and a deck saved as a template from the
- * library is listed under "Saved in this workspace", used, then deleted.
+ * library is listed under "Saved in this workspace", used, then deleted. A
+ * template opened by a direct link is offered as a template in the host
+ * console and the builder, never presented or edited.
  */
 
 const railItems = (page: Page) => page.getByRole("button", { name: /^Slide \d+ of \d+:/ });
+
+async function saveAsTemplate(token: string, presentationId: string, title: string) {
+  const res = await fetch(`${e2eEnv.apiOrigin}/api/templates`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ presentationId, title }),
+  });
+  expect(res.status).toBe(201);
+  return ((await res.json()) as { data: { _id: string } }).data._id;
+}
+
+async function deleteTemplate(token: string, id: string) {
+  await fetch(`${e2eEnv.apiOrigin}/api/templates/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+}
+
+test("a template behind a direct link is offered as a template, not presented or edited", async ({ host }) => {
+  const stamp = Date.now();
+  const source = await host.createDeck(`E2E linked source ${stamp}`, [
+    { type: "heading", content: { title: "Kickoff", subtitle: "" } },
+    { type: "wordcloud", question: "One word for the quarter?", timeLimit: 0 },
+  ]);
+  const templateName = `E2E linked template ${stamp}`;
+  const templateId = await saveAsTemplate(host.accessToken, source._id, templateName);
+
+  // Host console: no lobby, no start; Use template makes a deck and opens it in the builder.
+  const hostPage = await host.open(`/presentation/host/${templateId}`);
+  await expect(hostPage.getByRole("heading", { name: "This is a template" })).toBeVisible();
+  await expect(hostPage.getByText(`“${templateName}” is a template`)).toBeVisible();
+  await expect(hostPage.getByRole("button", { name: "Open lobby" })).toHaveCount(0);
+  await expect(hostPage.getByRole("button", { name: "Start presenting" })).toHaveCount(0);
+  await hostPage.getByRole("button", { name: "Use template" }).click();
+  await expect(hostPage).toHaveURL(/\/presentation\/create\?id=[a-f0-9]{24}/);
+  await expect(hostPage.getByLabel("Deck title")).toHaveValue(templateName);
+  await expect(railItems(hostPage)).toHaveCount(2);
+  const fromHost = new URL(hostPage.url()).searchParams.get("id")!;
+  expect(fromHost).not.toBe(templateId);
+  expect(await host.getSessions(templateId)).toEqual([]);
+
+  // Builder: the template is not opened for editing; Use template opens a new deck instead.
+  const builder = await host.open(`/presentation/create?id=${templateId}`);
+  await expect(builder.getByRole("heading", { name: "This is a template" })).toBeVisible();
+  await expect(builder.getByLabel("Deck title")).toHaveCount(0);
+  await builder.getByRole("button", { name: "Use template" }).click();
+  await expect(builder).toHaveURL(/\/presentation\/create\?id=[a-f0-9]{24}/);
+  await expect(builder.getByLabel("Deck title")).toHaveValue(templateName);
+  const fromBuilder = new URL(builder.url()).searchParams.get("id")!;
+  expect([templateId, fromHost]).not.toContain(fromBuilder);
+  expect((await host.getDeck(templateId)).title).toBe(templateName);
+
+  await deleteTemplate(host.accessToken, templateId);
+});
 
 test("use a starter template: the builder opens with its slides", async ({ host }) => {
   const page = await host.open("/templates");

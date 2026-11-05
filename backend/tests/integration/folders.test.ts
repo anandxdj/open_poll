@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import { AuditEventModel } from '../../src/modules/audit/audit.model';
 import { FolderModel } from '../../src/modules/folders/folder.model';
 import { PollModel } from '../../src/modules/polls/polls.model';
-import { PresentationModel } from '../../src/modules/presentations/presentations.model';
+import { PresentationModel, PresentationSessionModel } from '../../src/modules/presentations/presentations.model';
 import { ResourceShareModel } from '../../src/modules/workspaces/resourceShare.model';
 import { WorkspaceMemberModel } from '../../src/modules/workspaces/workspaceMember.model';
 import { WorkspaceModel } from '../../src/modules/workspaces/workspace.model';
@@ -325,6 +325,26 @@ describeIntegration('folders and templates over HTTP', () => {
       expect((await auditEvent('template.create')).meta).toMatchObject({ sourceId: source._id });
       await auditEvent('template.use');
       await auditEvent('template.delete');
+    });
+
+    it('never presents a template: open-lobby and start are refused, a deck made from it presents', async () => {
+      const source = await createPresentation(server, inA(alice), { title: 'Blueprint' });
+      const templateId = (await call(alice, 'POST', '/api/templates', { body: { presentationId: source._id }, workspace: wsA })).body.data._id;
+      for (const command of ['open-lobby', 'start']) {
+        const res = await call(alice, 'POST', `/api/presentations/${templateId}/host/${command}`, { workspace: wsA });
+        expect(res.status, command).toBe(409);
+        expect(res.body.code).toBe('TEMPLATE_NOT_PRESENTABLE');
+      }
+      expect(await PresentationSessionModel.countDocuments({ presentationId: templateId })).toBe(0);
+      expect((await PresentationModel.findById(templateId).lean())!.status).toBe('draft');
+      // The host console still reads it (to say what it is) …
+      const state = await call(alice, 'GET', `/api/presentations/${templateId}/host/state`, { workspace: wsA });
+      expect(state.status).toBe(200);
+      expect(state.body.data.presentation.isTemplate).toBe(true);
+      // … and a deck made from it is an ordinary deck.
+      const deck = await call(alice, 'POST', `/api/templates/${templateId}/use`, { workspace: wsA });
+      expect((await call(alice, 'POST', `/api/presentations/${deck.body.data._id}/host/open-lobby`, { workspace: wsA })).status).toBe(200);
+      await call(alice, 'POST', `/api/presentations/${deck.body.data._id}/host/end`, { workspace: wsA });
     });
 
     it('keeps workspace templates inside their workspace', async () => {

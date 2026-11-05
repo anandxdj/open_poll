@@ -17,6 +17,13 @@
   "connection": {
     "reconnecting": "Reconnecting…"
   },
+  "template": {
+    "title": "This is a template",
+    "body": "“{title}” is a template, so it is not presented. Use it to make a deck, then present that deck.",
+    "use": "Use template",
+    "back": "Back to templates",
+    "failed": "Couldn't create a deck from this template."
+  },
   "ready": {
     "title": "Ready to present",
     "hint": "Start presenting right away, or open the lobby first so people can join with the code before you begin.",

@@ -410,6 +410,8 @@ export const LIVE_ERROR_CODES = {
   sessionBusy: 'SESSION_BUSY',
   /** 400 on host commands that need a live session. */
   noLiveSession: 'NO_LIVE_SESSION',
+  /** 409 on open-lobby / start: the deck is a workspace template (W3-B2); make a deck from it first. */
+  templateNotPresentable: 'TEMPLATE_NOT_PRESENTABLE',
   /** 403 on participant calls: the host removed this participant. */
   participantKicked: 'PARTICIPANT_KICKED',
   /** 409 on answers: the participant belongs to another (ended) session; rejoin. */
