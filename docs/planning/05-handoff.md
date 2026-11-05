@@ -234,8 +234,15 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   `frontend/docs/wiki/features/live-surfaces.md` "Answers" and `e2e/offline-answers.spec.ts`. Not done:
   the client still resyncs over REST, not `live:resync`; the legacy event *types* `lobby:opened` /
   `quiz:ended` are still published.)
-- **W2-A** presenter view + remote + timer/kick, **W2-F** audience pace, **W3-B2**
-  folders/templates/duplicate/co-editing. (**W3-D** SAML, per-workspace OIDC and SCIM are built:
+- **W2-A** presenter view + remote + timer/kick, **W2-F** audience pace. (**W3-B2** is built (`feat/folders-templates`): library folders `/api/folders` with folder shares,
+  templates `/api/templates` with four starter decks and "Save as template", deck `revision` +
+  `If-Match` → 409 `DECK_CHANGED` with the builder's conflict banner, slide-level routes, builder
+  presence `presentations/editor.socket.ts`, migration 210; see
+  `backend/docs/wiki/modules/folders-templates.md`. Templates are never presented (409
+  `TEMPLATE_NOT_PRESENTABLE`; builder and host console offer Use template), and the builder writes
+  no local draft and sends no silent save without a real edit. Left out on purpose: nested folders, editing a
+  workspace template in place, the builder saving slide by slide (it saves the whole deck with
+  `If-Match`; the slide routes serve agents and integrations).) (**W3-D** SAML, per-workspace OIDC and SCIM are built:
   `backend/docs/wiki/modules/sso-scim.md`, `docs/deploy/sso.md`.) (**W3-A** themes and brand kits are built:
   `backend/docs/wiki/modules/themes.md`.)
   (**W3-G** workspace insights is built: `GET /api/insights` and the `/analytics` overview, see
@@ -292,8 +299,8 @@ Wave 4 A → B → C → D → E; then the close-out.
 - **Q&A section in session reports and exports** (W2-B is merged, W2-C reports do not show Q&A yet).
 - **Plan gates still to apply** (feature keys exist from W3-C; W2-C gates XLSX/PDF, W3-F consumes
   `ai_deck`, W3-E consumes `import`, W3-B1 enforces `seats` on invites, W3-A `brand_kits`, W3-D `sso` / `scim` and seats, W4-E `custom_domains` / `white_label`): none left. (W4-C retention is enforced by the `privacy-retention-purge` job.)
-- **W3-B2 must delete a folder's `ResourceShare` rows when it deletes a folder** (sharing reads the raw
-  `folders` collection).
+- ~~W3-B2 must delete a folder's `ResourceShare` rows when it deletes a folder~~ done in
+  `feat/folders-templates` (`FoldersService.remove`).
 - **Proxy protected prefixes:** add `/presentations` and `/presentation/create` (signed-out visitors
   currently see a load error instead of a login redirect; check the redirect works).
 - **E2E login rate limit** (10 per 5 min per IP): the `host` fixture logs in once per worker (W1-A2). Do not add per-test or per-file logins; billing.spec still logs in once in its own `beforeAll`.

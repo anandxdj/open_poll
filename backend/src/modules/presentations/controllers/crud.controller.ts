@@ -4,6 +4,11 @@ import { ApiResponse } from '../../../common/utils/ApiResponse';
 import { audit } from '../../../common/audit/audit';
 import type { WorkspaceRequest } from '../../../common/tenancy/workspaceContext.middleware';
 import { requireParam, requireUser } from './helpers';
+import { parseIfMatch } from '../revision';
+import type { InsertSlideInput, PatchSlideInput, ReorderSlidesInput } from '../presentations.schema';
+
+/** The `If-Match` revision of the request (undefined: no check). */
+const ifMatch = (req: WorkspaceRequest) => parseIfMatch(req.get('If-Match'));
 
 export class PresentationCrudController {
   static async create(req: WorkspaceRequest, res: Response, next: NextFunction) {
@@ -39,8 +44,73 @@ export class PresentationCrudController {
   static async update(req: WorkspaceRequest, res: Response, next: NextFunction) {
     try {
       requireUser(req);
-      const presentation = await PresentationService.updatePresentation(requireParam(req, 'id'), req, req.body);
+      const presentation = await PresentationService.updatePresentation(requireParam(req, 'id'), req, req.body, {
+        expectedRevision: ifMatch(req),
+      });
       return ApiResponse.ok(res, 'Presentation updated successfully', presentation);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ---------- Slide-level edits (W3-B2): each answers with the whole deck and its new revision ----------
+
+  static async insertSlide(req: WorkspaceRequest, res: Response, next: NextFunction) {
+    try {
+      requireUser(req);
+      const { presentation, slideId } = await PresentationService.insertSlide(
+        requireParam(req, 'id'),
+        req,
+        req.body as InsertSlideInput,
+        ifMatch(req),
+      );
+      return ApiResponse.created(res, 'Slide added successfully', { ...presentation.toJSON(), slideId });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateSlide(req: WorkspaceRequest, res: Response, next: NextFunction) {
+    try {
+      requireUser(req);
+      const presentation = await PresentationService.updateSlide(
+        requireParam(req, 'id'),
+        req,
+        requireParam(req, 'slideId'),
+        req.body as PatchSlideInput,
+        ifMatch(req),
+      );
+      return ApiResponse.ok(res, 'Slide updated successfully', presentation);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteSlide(req: WorkspaceRequest, res: Response, next: NextFunction) {
+    try {
+      requireUser(req);
+      const presentation = await PresentationService.deleteSlide(
+        requireParam(req, 'id'),
+        req,
+        requireParam(req, 'slideId'),
+        ifMatch(req),
+      );
+      return ApiResponse.ok(res, 'Slide deleted successfully', presentation);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async reorderSlides(req: WorkspaceRequest, res: Response, next: NextFunction) {
+    try {
+      requireUser(req);
+      const presentation = await PresentationService.reorderSlides(
+        requireParam(req, 'id'),
+        req,
+        req.body as ReorderSlidesInput,
+        ifMatch(req),
+      );
+      return ApiResponse.ok(res, 'Slides reordered successfully', presentation);
     } catch (error) {
       next(error);
     }

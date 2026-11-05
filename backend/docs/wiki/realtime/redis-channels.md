@@ -13,11 +13,13 @@ own sockets with `io.local`.
 | --- | --- | --- | --- |
 | `live:event` | `publishLiveEvent` (`common/realtime/publish.ts`), via `publishPresentationEvent` | live envelope v1 ([`envelope.md`](./envelope.md)) | `live:event` to `live:*` rooms ([`presentations.md`](./presentations.md)) |
 | `analytics:update` | `publishPollAnalytics`, from `responses/analytics.worker.ts` | `{ pollId, analytics }` | `analytics:update` to `poll_{pollId}` ([`polls.md`](./polls.md)) |
+| `editor:presence` | `presentations/editor.socket.ts` (an editor opens or leaves a deck in the builder) | `{ presentationId }` | `presence:update {presentationId, editors}` to `editor:{presentationId}` ([`editor.md`](./editor.md)) |
 
 The `quiz:event` **channel** is gone: deck events are published once, on `live:event`. The
 `quiz:event` **socket event** (the legacy copy to `quiz_*` rooms) is gone too since W2-D phase 2.
 
-Keys: `live:{presentationId}:seq` — the envelope `seq` counter, incremented in the same Lua script
+Keys: `editor:{presentationId}:presence` — builder presence hash (socket id → `{userId, name, since, at}`,
+3-minute TTL refreshed by heartbeats; [`editor.md`](./editor.md)). `live:{presentationId}:seq` — the envelope `seq` counter, incremented in the same Lua script
 that publishes, 7-day sliding TTL. Q&A and reaction coalescing keys (`qna:{<sid>}:*`,
 `reactions:{<sid>}:*`, 6 h TTL): [`../modules/qna.md`](../modules/qna.md#redis-keys).
 

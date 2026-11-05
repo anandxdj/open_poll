@@ -9,10 +9,16 @@ import { ProductLogo } from "@/components/ui/ProductLogo";
 import { ImportButton } from "@/features/imports";
 import { useCreatePollModal } from "@/features/polls/components/CreatePollModalProvider";
 import { useCreatePresentationModal } from "@/features/presentations/components/CreatePresentationModalProvider";
+import { ShareDialog } from "@/features/workspaces/sharing/components/ShareDialog";
+import { useCanShareDecks } from "@/features/workspaces/sharing/useCanShare";
 import { cn } from "@/lib/utils";
+import type { LibraryFolder } from "../folders";
+import { useCanOrganizeLibrary, useFolders } from "../hooks/useFolders";
 import { useLibrary } from "../hooks/useLibrary";
-import { cardKey, emptyStateCopy, filtersToSearch, MAX_SEARCH_LENGTH, parseLibraryFilters } from "../query";
-import type { LibraryCounts, LibraryFilters, LibraryStatus, LibraryType } from "../types";
+import { cardInFolder, cardKey, emptyStateCopy, filtersToSearch, MAX_SEARCH_LENGTH, parseLibraryFilters } from "../query";
+import type { LibraryCard as LibraryCardData, LibraryCounts, LibraryFilters, LibraryStatus, LibraryType } from "../types";
+import { DeleteFolderDialog, FolderNameDialog, MoveToFolderDialog } from "./FolderDialogs";
+import { FolderBar } from "./FolderBar";
 import { LibraryCard } from "./LibraryCard";
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -32,9 +38,9 @@ const STATUS_OPTIONS: { key: LibraryStatus | "all"; label: string }[] = [
 
 /**
  * The unified library at /polls: polls and decks of the current workspace as
- * one list. Filters live in the URL (`?type=&status=&q=`) and are updated with
- * history.replaceState, which keeps useSearchParams in sync without a server
- * round trip.
+ * one list, optionally inside a folder. Filters live in the URL
+ * (`?folder=&type=&status=&q=`) and are updated with history.replaceState,
+ * which keeps useSearchParams in sync without a server round trip.
  */
 export function LibraryView() {
   const pathname = usePathname();
@@ -43,6 +49,14 @@ export function LibraryView() {
   const library = useLibrary(filters);
   const { open: openCreatePollModal } = useCreatePollModal();
   const { open: openCreatePresentationModal } = useCreatePresentationModal();
+  const folders = useFolders();
+  const canOrganize = useCanOrganizeLibrary();
+  const canShare = useCanShareDecks();
+  const [nameDialog, setNameDialog] = useState<{ folder: LibraryFolder | null } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LibraryFolder | null>(null);
+  const [shareTarget, setShareTarget] = useState<LibraryFolder | null>(null);
+  const [moveCard, setMoveCard] = useState<LibraryCardData | null>(null);
+  const folderNames = new Map(folders.folders.map((folder) => [folder.id, folder.name]));
 
   const setFilters = (patch: Partial<LibraryFilters>) => {
     const next = { ...filters, ...patch };
@@ -90,6 +104,15 @@ export function LibraryView() {
 
   const empty = emptyStateCopy(filters);
   const filtered = filters.type !== "all" || filters.status !== "all" || filters.q.trim() !== "";
+  const inFolder = filters.folder !== "all";
+
+  /** A card moved: it stays (with its new folder) where the filter still matches, else leaves the list. */
+  const handleMoved = (card: LibraryCardData, folderId: string | null) => {
+    const moved = { ...card, folderId };
+    if (cardInFolder(moved, filters.folder)) library.replace(moved);
+    else library.remove(moved);
+    folders.refresh();
+  };
 
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 pb-16 pt-8 sm:px-6 md:pt-12 lg:px-8">
@@ -129,7 +152,19 @@ export function LibraryView() {
         ))}
       </dl>
 
-      <div className="mt-8 flex flex-col gap-3 border-b border-border md:flex-row md:items-end md:justify-between">
+      <FolderBar
+        folders={folders.folders}
+        active={filters.folder}
+        onSelect={(folder) => setFilters({ folder })}
+        canOrganize={canOrganize}
+        canShare={canShare}
+        onCreate={() => setNameDialog({ folder: null })}
+        onRename={(folder) => setNameDialog({ folder })}
+        onDelete={setDeleteTarget}
+        onShare={setShareTarget}
+      />
+
+      <div className="mt-6 flex flex-col gap-3 border-b border-border md:flex-row md:items-end md:justify-between">
         <div role="tablist" aria-label="Item type" className="-mb-px flex gap-6">
           {TYPE_TABS.map((tab) => {
             const active = filters.type === tab.key;
@@ -237,6 +272,10 @@ export function LibraryView() {
               >
                 Clear filters
               </Button>
+            ) : inFolder ? (
+              <Button variant="outline" className="mt-6 bg-card" onClick={() => setFilters({ folder: "all" })}>
+                Show all items
+              </Button>
             ) : (
               <div className="mt-6 flex flex-wrap justify-center gap-2">
                 <Button variant="outline" className="bg-card" onClick={() => openCreatePollModal()}>
@@ -257,9 +296,18 @@ export function LibraryView() {
             <LibraryCard
               key={cardKey(card)}
               card={card}
-              onRemoved={library.remove}
+              folderName={!inFolder && card.folderId ? (folderNames.get(card.folderId) ?? null) : null}
+              onRemoved={(removed) => {
+                library.remove(removed);
+                if (removed.folderId) folders.refresh();
+              }}
               onChanged={library.replace}
-              onDuplicated={library.refresh}
+              onDuplicated={() => {
+                library.refresh();
+                if (card.folderId) folders.refresh();
+              }}
+              onMove={canOrganize ? setMoveCard : undefined}
+              canSaveTemplate={canOrganize}
             />
           ))}
         </div>
@@ -271,6 +319,41 @@ export function LibraryView() {
             {library.loadingMore ? "Loading…" : "Load more"}
           </Button>
         </div>
+      ) : null}
+
+      <FolderNameDialog
+        open={nameDialog !== null}
+        folder={nameDialog?.folder ?? null}
+        onOpenChange={(open) => !open && setNameDialog(null)}
+        onSaved={(folder) => {
+          folders.upsert(folder);
+          // A new folder opens, so items can be moved into it from here.
+          if (!nameDialog?.folder) setFilters({ folder: folder.id });
+        }}
+      />
+      <DeleteFolderDialog
+        folder={deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        onDeleted={(folder) => {
+          folders.remove(folder.id);
+          if (filters.folder === folder.id) setFilters({ folder: "all" });
+          else library.reload();
+        }}
+      />
+      <MoveToFolderDialog
+        card={moveCard}
+        folders={folders.folders}
+        onOpenChange={(open) => !open && setMoveCard(null)}
+        onMoved={handleMoved}
+      />
+      {shareTarget ? (
+        <ShareDialog
+          open
+          onOpenChange={(open) => !open && setShareTarget(null)}
+          resourceType="folder"
+          resourceId={shareTarget.id}
+          title={shareTarget.name}
+        />
       ) : null}
     </div>
   );

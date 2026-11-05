@@ -1,4 +1,4 @@
-import { BarChart3, House, LayoutGrid, SlidersHorizontal, Users, type LucideIcon } from "lucide-react";
+import { BarChart3, House, LayoutGrid, LayoutTemplate, SlidersHorizontal, Users, type LucideIcon } from "lucide-react";
 
 import { HOME_PATH } from "@/lib/routes";
 
@@ -15,6 +15,7 @@ export const MAIN_NAV: readonly NavLink[] = [
   { href: HOME_PATH, label: "Home", Icon: House, match: [HOME_PATH] },
   // Builders and a deck's session history are opened from the library.
   { href: "/polls", label: "Library", Icon: LayoutGrid, match: ["/polls", "/presentations", "/create", "/presentation"] },
+  { href: "/templates", label: "Templates", Icon: LayoutTemplate, match: ["/templates"] },
   { href: "/analytics", label: "Analytics", Icon: BarChart3, match: ["/analytics"] },
 ];
 

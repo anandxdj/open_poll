@@ -10,15 +10,20 @@ import type { PresentationSlide, PresentationSlideType } from "../types/deck";
 import { AiPresentationModal } from "./AiPresentationModal";
 import { BuilderHeader } from "./builder/BuilderHeader";
 import { BuilderShell } from "./builder/BuilderShell";
+import { ConflictBanner } from "./builder/ConflictBanner";
 import { isSlideDirty } from "./builder/deckDraft";
 import { Inspector } from "./builder/Inspector";
 import { SlideRail } from "./builder/SlideRail";
 import { SlideStage } from "./builder/SlideStage";
 import { useDeckBuilder } from "./builder/useDeckBuilder";
+import { PresenceAvatars } from "./builder/PresenceAvatars";
+import { useDeckPresence } from "./builder/useDeckPresence";
+import { TemplateNotice } from "@/features/templates/components/TemplateNotice";
 
 export function PresentationBuilder() {
   const builder = useDeckBuilder();
   const [importOpen, setImportOpen] = useState(false);
+  const presence = useDeckPresence(builder.isTemplate ? null : builder.editId);
 
   if (builder.loading) {
     return (
@@ -26,6 +31,11 @@ export function PresentationBuilder() {
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
       </div>
     );
+  }
+
+  // A workspace template (direct link): offered as a template, not edited.
+  if (builder.isTemplate && builder.editId) {
+    return <TemplateNotice templateId={builder.editId} title={builder.title} />;
   }
 
   return (
@@ -45,7 +55,15 @@ export function PresentationBuilder() {
               onSave={() => void builder.handleSave()}
               onSaveDraft={builder.handleSaveDraft}
               onPresent={() => void builder.handleSave("present")}
+              presence={<PresenceAvatars presence={presence} />}
             />
+            {builder.conflict ? (
+              <ConflictBanner
+                busy={builder.resolvingConflict}
+                onReload={() => void builder.reloadLatest()}
+                onSaveCopy={() => void builder.saveMineAsCopy()}
+              />
+            ) : null}
             <AiDeckBanner />
           </>
         }

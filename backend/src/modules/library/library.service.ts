@@ -106,10 +106,12 @@ export class LibraryService {
 
     const now = new Date();
     const scope = scopeFilter({ userId: ctx.user.id, workspace: ctx.workspace });
-    // Soft-deleted decks (trash) never show; polls have no trash, the clause is a no-op there.
+    // Soft-deleted decks (trash) and templates (`/api/templates`) never show; polls have
+    // neither, the clauses are no-ops there.
     const shared = allOf(
       scope,
       { deletedAt: null },
+      { isTemplate: { $ne: true } },
       query.folderId ? folderFilter(query.folderId) : null,
       query.q ? titleFilter(query.q) : null,
     );

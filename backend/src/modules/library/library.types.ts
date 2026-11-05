@@ -18,6 +18,8 @@ interface LibraryCardBase {
   id: string;
   title: string;
   status: LibraryStatus;
+  /** The library folder it is filed in (`/api/folders`), null at the top level. */
+  folderId: string | null;
   createdAt: string;
   updatedAt: string;
 }

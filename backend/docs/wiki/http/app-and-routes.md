@@ -1,7 +1,7 @@
 ---
 summary: App factory, boot order, middleware order, special mounts and the module mount table.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-05
 ---
 
 # App factory and mount table
@@ -82,7 +82,8 @@ One line per entry.
 | `/api/uploads` | `modules/uploads/uploads.route.ts` | W0-D |
 | `/api/workspaces` | `modules/workspaces/workspaces.route.ts` | W1-B |
 
-Pre-parser stubs: `samlAcsRouter` (W3-D), `scim.route.ts` (W3-D). `billingWebhookRouter` is
+`/api/folders` and `/api/templates` are filled (W3-B2, `modules/folders-templates.md`); `/api/embeds`
+and `/api/remote` are still empty stubs. Pre-parser stubs: `samlAcsRouter` (W3-D), `scim.route.ts` (W3-D). `billingWebhookRouter` is
 implemented (W3-C, `modules/billing.md`) and so is `metrics.route.ts` (W2-D,
 `platform/observability.md`).
 

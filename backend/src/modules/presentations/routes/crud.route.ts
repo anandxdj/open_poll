@@ -4,7 +4,13 @@ import { validate } from '../../../common/middlewares/validate.middleware';
 import { workspaceContext } from '../../../common/tenancy/workspaceContext.middleware';
 import { authenticate, type AuthRequest } from '../../auth/auth.middleware';
 import { rateLimit } from '../../../common/middlewares/rateLimit.middleware';
-import { createPresentationSchema, updatePresentationSchema } from '../presentations.schema';
+import {
+  createPresentationSchema,
+  insertSlideSchema,
+  patchSlideSchema,
+  reorderSlidesSchema,
+  updatePresentationSchema,
+} from '../presentations.schema';
 
 const router = Router();
 
@@ -26,6 +32,29 @@ router.patch(
   PresentationCrudController.update
 );
 router.delete('/:id', authenticate(), workspaceContext(), PresentationCrudController.delete);
+// Slide-level edits for co-editing (W3-B2): `If-Match: <revision>` → 409 DECK_CHANGED when stale.
+router.post(
+  '/:id/slides',
+  authenticate(),
+  workspaceContext(),
+  validate(insertSlideSchema),
+  PresentationCrudController.insertSlide
+);
+router.post(
+  '/:id/slides/reorder',
+  authenticate(),
+  workspaceContext(),
+  validate(reorderSlidesSchema),
+  PresentationCrudController.reorderSlides
+);
+router.patch(
+  '/:id/slides/:slideId',
+  authenticate(),
+  workspaceContext(),
+  validate(patchSlideSchema),
+  PresentationCrudController.updateSlide
+);
+router.delete('/:id/slides/:slideId', authenticate(), workspaceContext(), PresentationCrudController.deleteSlide);
 // A copy writes a whole deck from a body-less request: per user, so one account cannot flood the collection.
 router.post(
   '/:id/duplicate',
