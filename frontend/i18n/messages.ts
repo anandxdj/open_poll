@@ -1,6 +1,7 @@
 import type { Locale } from "./config";
 import ai from "@/messages/en/ai.json";
 import billing from "@/messages/en/billing.json";
+import embeds from "@/messages/en/embeds.json";
 import imports from "@/messages/en/imports.json";
 import live from "@/messages/en/live.json";
 import presenter from "@/messages/en/presenter.json";
@@ -16,6 +17,7 @@ import slidesAdvanced from "@/messages/en/slides-advanced.json";
 export const enMessages = {
   ai,
   billing,
+  embeds,
   imports,
   live,
   presenter,

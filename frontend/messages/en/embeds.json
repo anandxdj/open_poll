@@ -1,0 +1,18 @@
+{
+  "notice": {
+    "disabledTitle": "Embedding is turned off",
+    "disabledHint": "The owner of this presentation hasn't allowed it to be shown outside Open Poll.",
+    "notFoundTitle": "This embed isn't available",
+    "notFoundHint": "The link may be mistyped, turned off or expired.",
+    "open": "Open in Open Poll"
+  },
+  "screen": {
+    "loading": "Loading the stage",
+    "loadFailed": "Couldn't load the stage",
+    "retry": "Try again",
+    "reconnecting": "Reconnecting…",
+    "revokedTitle": "This screen link was turned off",
+    "revokedHint": "Ask the presenter for a new link."
+  },
+  "poweredBy": "Made with Open Poll"
+}

@@ -20,6 +20,7 @@
   "ready": {
     "title": "Ready to present",
     "hint": "Start presenting right away, or open the lobby first so people can join with the code before you begin.",
+    "waiting": "Waiting for the presenter to begin.",
     "start": "Start presenting",
     "openLobby": "Open lobby",
     "ended": "Present again"

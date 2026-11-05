@@ -16,6 +16,8 @@ export const LIVE_SOCKET_EVENTS = {
   join: "live:join",
   leave: "live:leave",
   event: "live:event",
+  /** To a screen whose token was revoked (W4-D); it has left the deck's rooms. */
+  screenRevoked: "screen:revoked",
 } as const;
 
 export type PresentationRealtimeEventType =
@@ -150,9 +152,11 @@ export function isRealtimeEvent<T extends PresentationRealtimeEventType>(
 /** Credentials the socket presents to join a deck's rooms. */
 export type LiveSocketAuth =
   | { role: "host" }
-  | { role: "participant"; participantId: string; participantToken: string };
+  | { role: "participant"; participantId: string; participantToken: string }
+  /** A read-only stage (W4-D): a screen token of the deck. */
+  | { role: "screen"; screenToken: string };
 
 /** `live:join` ack. */
 export type LiveJoinAck =
-  | { ok: true; role: "host" | "participant" }
+  | { ok: true; role: "host" | "participant" | "screen" }
   | { ok: false; error: string };

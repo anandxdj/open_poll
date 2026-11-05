@@ -67,7 +67,7 @@ export function Stage({ surface, join, countdown, readyActions, lobbyActions, en
         </>
       )}
 
-      {status === "ended" && <StageEnd actions={endActions} />}
+      {status === "ended" && <StageEnd actions={endActions} slots={surface === "host"} />}
 
       {presentationId && <SlotOutlet name="stageOverlays" props={{ surface, presentationId }} />}
     </main>

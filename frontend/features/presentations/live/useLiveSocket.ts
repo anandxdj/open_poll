@@ -36,6 +36,8 @@ export interface LiveSocketHandlers {
   onForeignSession?: (event: PresentationRealtimeEvent) => void;
   /** The room join was refused (`UNAUTHENTICATED`, `FORBIDDEN`, …). */
   onJoinError?: (error: string) => void;
+  /** Screens only: the screen token was revoked and the socket left the deck's rooms. */
+  onScreenRevoked?: () => void;
 }
 
 /** Retry delay after the join budget (30/min per connection) was exceeded. */
@@ -87,14 +89,17 @@ export function useLiveSocket(
   const handleJoined = useEffectEvent(() => resolved.onResync?.("joined"));
   const handleVisible = useEffectEvent(() => resolved.onResync?.("visible"));
   const handleJoinError = useEffectEvent((error: string) => resolved.onJoinError?.(error));
+  const handleScreenRevoked = useEffectEvent(() => resolved.onScreenRevoked?.());
 
   const role = auth?.role;
   const participantId = auth?.role === "participant" ? auth.participantId : undefined;
   const participantToken = auth?.role === "participant" ? auth.participantToken : undefined;
+  const screenToken = auth?.role === "screen" ? auth.screenToken : undefined;
 
   useEffect(() => {
     if (!presentationId || !role) return;
     if (role === "participant" && (!participantId || !participantToken)) return;
+    if (role === "screen" && !screenToken) return;
 
     const socket = acquireSocket();
     let joined = false;
@@ -109,7 +114,9 @@ export function useLiveSocket(
       const payload =
         role === "host"
           ? { presentationId, role: "host" as const, accessToken: useAuthStore.getState().accessToken ?? undefined }
-          : { presentationId, role: "participant" as const, participantId, participantToken };
+          : role === "screen"
+            ? { presentationId, role: "screen" as const, screenToken }
+            : { presentationId, role: "participant" as const, participantId, participantToken };
       socket.emit(LIVE_SOCKET_EVENTS.join, payload, (ack: LiveJoinAck | undefined) => {
         if (disposed) return;
         if (ack?.ok) {
@@ -137,6 +144,12 @@ export function useLiveSocket(
     const handleVisibility = () => {
       if (document.visibilityState === "visible" && joined) handleVisible();
     };
+    const handleRevoked = (data: { presentationId?: string } | null) => {
+      if (data?.presentationId !== presentationId) return;
+      joined = false;
+      setConnected(false);
+      handleScreenRevoked();
+    };
 
     // The shared socket may already be connected — join now; later (re)connects
     // arrive through the listener below.
@@ -146,6 +159,7 @@ export function useLiveSocket(
     socket.on("disconnect", handleDisconnect);
     socket.on("connect_error", handleDisconnect);
     socket.on(LIVE_SOCKET_EVENTS.event, handleEvent);
+    if (role === "screen") socket.on(LIVE_SOCKET_EVENTS.screenRevoked, handleRevoked);
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
@@ -157,9 +171,10 @@ export function useLiveSocket(
       socket.off("disconnect", handleDisconnect);
       socket.off("connect_error", handleDisconnect);
       socket.off(LIVE_SOCKET_EVENTS.event, handleEvent);
+      socket.off(LIVE_SOCKET_EVENTS.screenRevoked, handleRevoked);
       releaseSocket();
     };
-  }, [store, presentationId, role, participantId, participantToken]);
+  }, [store, presentationId, role, participantId, participantToken, screenToken]);
 
   return { connected };
 }

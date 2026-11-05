@@ -450,3 +450,15 @@
   :root:not(.dark) .text-primary\/50 { color: color-mix(in srgb, var(--accent-ink) 50%, transparent); }
   :root:not(.dark) .text-primary\/40 { color: color-mix(in srgb, var(--accent-ink) 40%, transparent); }
 }
+
+/* ── Embed pages (W4-D) ──────────────────────────────────────────────────────
+   On /embed/live and /embed/results the content decides the height and the
+   host sizes the iframe to it (EmbedFrame reports it). Surfaces drawn for a
+   whole screen keep their look but give up their viewport minimums, or the
+   reported height could only ever grow with the frame. */
+@layer utilities {
+  [data-embed-root="content"] .min-h-screen,
+  [data-embed-root="content"] .min-h-dvh {
+    min-height: 0;
+  }
+}
