@@ -1,5 +1,5 @@
 import type { PresentationDraftInput } from "../../api/crud";
-import { normalizeSlideForDraft, validateSlide } from "../../slides/editor";
+import { blankSlide, normalizeSlideForDraft, validateSlide } from "../../slides/editor";
 import { slideTypeMeta } from "../../slides/meta";
 import type { PresentationSlide } from "../../types/deck";
 import type { DeckThemeRef } from "@/features/themes/types";
@@ -14,12 +14,27 @@ export interface DeckDraft {
   theme?: DeckThemeRef | null;
 }
 
+/**
+ * The first slide of a new deck: a plain poll question (0 points, no correct
+ * option), so a deck can be presented without marking an answer. "Graded" in
+ * the inspector turns it into a quiz question.
+ */
+export const firstSlide = (): PresentationSlide => {
+  const slide = blankSlide("select_answer");
+  return { ...slide, points: 0, options: slide.options.map((o) => ({ ...o, isCorrect: false })) };
+};
+
 // ---------- Local (browser) draft ----------
 
 export const buildDraftStorageKey = (presentationId: string | null) =>
   presentationId ? `openpoll_presentation_draft_${presentationId}` : "openpoll_presentation_draft_new";
 
-export type PersistedPresentationDraft = DeckDraft & { active: number };
+/** `savedAt` (ms) lets a reload tell unsaved local edits from an older copy of the saved deck. */
+export type PersistedPresentationDraft = DeckDraft & { active: number; savedAt?: number };
+
+/** A local draft written after the server copy holds edits not saved yet (a reload, a crash). */
+export const draftIsNewer = (draft: PersistedPresentationDraft | null, serverUpdatedAt: string) =>
+  !!draft?.savedAt && draft.savedAt > Date.parse(serverUpdatedAt);
 
 export function loadDraft(storageKey: string): PersistedPresentationDraft | null {
   if (typeof window === "undefined") return null;
@@ -34,6 +49,7 @@ export function loadDraft(storageKey: string): PersistedPresentationDraft | null
       title: parsed.title,
       slides: parsed.slides,
       active: typeof parsed.active === "number" ? parsed.active : 0,
+      savedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : undefined,
     };
   } catch {
     return null;
@@ -43,7 +59,7 @@ export function loadDraft(storageKey: string): PersistedPresentationDraft | null
 export function saveDraft(storageKey: string, draft: PersistedPresentationDraft) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(storageKey, JSON.stringify(draft));
+    window.localStorage.setItem(storageKey, JSON.stringify({ ...draft, savedAt: Date.now() }));
   } catch {}
 }
 

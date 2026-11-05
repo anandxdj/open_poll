@@ -1,7 +1,7 @@
 ---
 summary: Home (/home), the page a creator lands on: what is live, ways to start, the workspace's numbers, recent work and sessions.
 status: active
-last_updated: 2026-10-30
+last_updated: 2026-11-01
 ---
 
 # Home
@@ -22,7 +22,7 @@ existing endpoints only; nothing here has its own API.
 | Recent sessions, Top decks and polls | `useInsights` | The analytics components, unchanged. |
 
 `features/home/hooks/useHomeLibrary.ts` loads both library slices in parallel, refetches when the workspace
-changes and applies card removals and updates from the card menus. `features/home/greeting.ts` holds the pure
+changes and applies card removals and updates from the card menus; a duplicate reloads the slices in place (`refresh`). `features/home/greeting.ts` holds the pure
 helpers (`greetingFor`, `firstName`, `todayLabel`, `spacedJoinCode`), unit tested in `tests/unit/home.test.ts`
 with the sidebar's `activeNavHref`.
 

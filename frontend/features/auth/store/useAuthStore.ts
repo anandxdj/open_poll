@@ -2,11 +2,16 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import axios from '@/lib/api-client';
 
-interface User {
+/** The signed-in user as GET /api/auth/me (and PATCH /api/me, the login response) sends it. */
+export interface User {
   _id: string;
   email: string;
   name: string;
   picture?: string;
+  /** False for accounts that sign in only with Google or SSO; absent on sessions stored before it existed. */
+  hasPassword?: boolean;
+  /** Linked sign-in providers (`google`, `oidc`, `saml`, `oidc_ws`). */
+  identities?: { provider: string }[];
 }
 
 interface AuthState {
@@ -29,9 +34,12 @@ function setSessionCookie(active: boolean) {
     : 'auth_session=; path=/; max-age=0; samesite=lax';
 }
 
+const hasSessionCookie = () =>
+  typeof document !== 'undefined' && document.cookie.split('; ').includes('auth_session=1');
+
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       accessToken: null,
       isAuthenticated: false,
@@ -55,6 +63,13 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
+        // Never signed in here (no token, no session cookie): skip /auth/me, which would
+        // fail into refresh-token and logout calls. Audiences on shared Wi-Fi share one IP,
+        // and those calls count against the per-IP auth rate limits.
+        if (!get().accessToken && !hasSessionCookie()) {
+          set({ user: null, isAuthenticated: false, isLoading: false });
+          return false;
+        }
         try {
           set({ isLoading: true });
           const response = await axios.get('/auth/me');

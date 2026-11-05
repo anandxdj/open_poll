@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { activeNavHref, MAIN_NAV, WORKSPACE_NAV } from "@/components/layouts/nav";
+import { activeNavHref, isStudioPath, MAIN_NAV, WORKSPACE_NAV } from "@/components/layouts/nav";
 import { firstName, greetingFor, spacedJoinCode } from "@/features/home/greeting";
 
 const ALL = [...MAIN_NAV, ...WORKSPACE_NAV];
@@ -48,5 +48,16 @@ describe("Home header helpers", () => {
   test("groups a six-digit join code in threes and leaves anything else alone", () => {
     expect(spacedJoinCode("482913")).toBe("482 913");
     expect(spacedJoinCode("ABC123")).toBe("ABC123");
+  });
+});
+
+describe("isStudioPath", () => {
+  test("is true in the builders only", () => {
+    expect(isStudioPath("/presentation/create")).toBe(true);
+    expect(isStudioPath("/create")).toBe(true);
+    expect(isStudioPath("/presentation/host/1")).toBe(false);
+    expect(isStudioPath("/polls")).toBe(false);
+    expect(isStudioPath("/creates")).toBe(false);
+    expect(isStudioPath(null)).toBe(false);
   });
 });

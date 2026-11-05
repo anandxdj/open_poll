@@ -202,8 +202,8 @@ export function useHostSession(presentationId: string) {
   const reopen = useCallback(() => run("reopen", () => reopenVoting(presentationId)), [run, presentationId]);
   const reveal = useCallback(() => run("reveal", () => revealResults(presentationId)), [run, presentationId]);
 
+  // Callers confirm first (EndSessionDialog): native confirm() is suppressed in embedded browsers.
   const end = useCallback(async () => {
-    if (!window.confirm(t("toasts.confirmEnd"))) return;
     const response = await run("end", () => endSession(presentationId));
     if (response) toast.success(t("toasts.sessionEnded"));
   }, [run, presentationId, t]);

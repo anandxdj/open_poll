@@ -1,4 +1,11 @@
-import { test as base, expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import {
+  test as base,
+  expect,
+  type Browser,
+  type BrowserContext,
+  type BrowserContextOptions,
+  type Page,
+} from "@playwright/test";
 import { e2eEnv } from "./env";
 
 type ApiOk<T> = { success: boolean; message: string; data: T };
@@ -35,8 +42,11 @@ export interface Host {
   getSessions(id: string): Promise<SessionSummary[]>;
   /** HTTP status of the public code lookup (404 until a session was opened). */
   lookupCodeStatus(joinCode: string): Promise<number>;
-  /** Opens a page signed in as the host (token seeded into the persisted auth store). */
-  open(path: string): Promise<Page>;
+  /**
+   * Opens a page signed in as the host (token seeded into the persisted auth store).
+   * `options` override the project's context options, e.g. a desktop host in a phone-sized spec.
+   */
+  open(path: string, options?: BrowserContextOptions): Promise<Page>;
 }
 
 export interface Participant {
@@ -99,6 +109,24 @@ export async function openLobby(hostPage: Page, joinCode: string) {
   await expect(hostPage.locator("main").getByText(joinCode, { exact: true })).toBeVisible();
 }
 
+/** Host page: End Session, then confirm in the app's dialog. */
+export async function endSession(hostPage: Page) {
+  await hostPage.getByRole("button", { name: "End Session" }).click();
+  await hostPage.getByRole("alertdialog").getByRole("button", { name: "End session" }).click();
+}
+
+/**
+ * Embedded browsers (in-app panes, webviews, sandboxed iframes) suppress
+ * confirm()/alert()/prompt(), which then answer "no". Dismissing them here
+ * makes any flow that still depends on one fail its spec instead of passing.
+ */
+export function dismissNativeDialogs(page: Page) {
+  page.on("dialog", (dialog) => {
+    console.warn(`[e2e] native ${dialog.type()} dismissed: ${dialog.message()}`);
+    void dialog.dismiss();
+  });
+}
+
 interface HostLogin {
   user: Record<string, unknown>;
   accessToken: string;
@@ -141,8 +169,8 @@ export const test = base.extend<{ host: Host; contexts: BrowserContext[] }, { ho
       getSessions: (id) => api(`/presentations/${id}/sessions`, { token: accessToken }),
       lookupCodeStatus: async (joinCode) =>
         (await fetch(`${e2eEnv.apiOrigin}/api/presentations/code/${joinCode}`)).status,
-      open: async (path) => {
-        const context = await browser.newContext();
+      open: async (path, options) => {
+        const context = await browser.newContext(options);
         contexts.push(context);
         // The proxy guards /polls, /settings, ... by this cookie before any script of the page
         // runs, so it is set on the context (the init script below only keeps it fresh).
@@ -169,8 +197,7 @@ export const test = base.extend<{ host: Host; contexts: BrowserContext[] }, { ho
           hideDevOverlay();
         });
         const page = await context.newPage();
-        // The end-session button asks for confirmation.
-        page.on("dialog", (dialog) => void dialog.accept());
+        dismissNativeDialogs(page);
         await page.goto(path);
         return page;
       },

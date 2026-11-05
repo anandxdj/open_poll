@@ -2,6 +2,7 @@ import type { Response, NextFunction } from 'express';
 import { PollService } from './polls.service';
 import { ApiResponse } from '../../common/utils/ApiResponse';
 import { ApiError } from '../../common/utils/ApiError';
+import { audit } from '../../common/audit/audit';
 import { assertCan, can, type PolicyContext } from '../../common/tenancy/policy';
 import type { Action } from '../../common/tenancy/roles';
 import {
@@ -48,6 +49,18 @@ export class PollController {
       return ApiResponse.created(res, "Poll created successfully", poll);
     } catch (error) {
       next(error); // Sends error to your global errorHandler
+    }
+  }
+
+  static async duplicate(req: WorkspaceRequest, res: Response, next: NextFunction) {
+    try {
+      assertCan(req, 'deck:create');
+      const source = await authorizedPoll(req, 'deck:read');
+      const poll = await PollService.duplicatePoll(source, req.user!.id, req.workspace!._id);
+      void audit(req, 'poll.duplicate', { type: 'poll', id: poll._id }, { sourceId: String(source._id), title: poll.title });
+      return ApiResponse.created(res, 'Poll duplicated successfully', poll);
+    } catch (error) {
+      next(error);
     }
   }
 

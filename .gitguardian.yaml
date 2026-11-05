@@ -1,0 +1,7 @@
+# Test suites create throwaway accounts with literal passwords (local test
+# databases only), which the scanner reports as "Generic Password".
+version: 2
+secret:
+  ignored_paths:
+    - "frontend/e2e/**"
+    - "backend/tests/**"

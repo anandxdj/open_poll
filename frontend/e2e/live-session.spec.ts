@@ -1,4 +1,4 @@
-import { expect, joinAsParticipant, joinMidSession, openLobby, test, type Participant } from "./fixtures";
+import { endSession, expect, joinAsParticipant, joinMidSession, openLobby, test, type Participant } from "./fixtures";
 
 /**
  * Session-aware live UI (W1-A2): what the host console and the phones do now
@@ -190,7 +190,7 @@ test("an untimed slide stays open until the host closes voting, and can be reope
   await expect(stage.getByText("Voting open")).toBeVisible();
   await expect(stage.getByText("No time limit")).toBeVisible();
 
-  await hostPage.getByRole("button", { name: "End Session" }).click();
+  await endSession(hostPage);
   await expect(stage.getByRole("heading", { name: "Session ended" })).toBeVisible();
 });
 
@@ -213,7 +213,7 @@ test("presenting twice starts fresh and keeps the first session", async ({ brows
   await expect(ada.page.getByText("Correct!")).toBeVisible();
   await hostPage.getByRole("button", { name: "Next Slide" }).click();
   await expect(ada.page.getByText("Look at the screen")).toBeVisible();
-  await hostPage.getByRole("button", { name: "End Session" }).click();
+  await endSession(hostPage);
   await expect(stage.getByRole("heading", { name: "Session ended" })).toBeVisible();
   await expect(ada.page.getByRole("heading", { name: "That's a wrap!" })).toBeVisible();
   await expect(ada.page.getByText(/You finished\s*#1/)).toBeVisible();
@@ -233,7 +233,7 @@ test("presenting twice starts fresh and keeps the first session", async ({ brows
   await expect(ada.page.getByRole("heading", { name: planets.question })).toBeVisible();
   await expect(ada.page.getByRole("button", { name: "Submit Answer" })).toBeVisible();
   await expect(stage).toContainText(/0\s*\/\s*1\s*answered/);
-  await hostPage.getByRole("button", { name: "End Session" }).click();
+  await endSession(hostPage);
   await expect(stage.getByRole("heading", { name: "Session ended" })).toBeVisible();
 
   // Both runs are on record, the first with what it collected.
@@ -317,7 +317,7 @@ test("a host who returns to a finished deck is offered Present again, not an aut
   const stage = hostPage.locator("main");
   await hostPage.getByRole("button", { name: "Start presenting" }).click();
   await expect(stage.getByText("SLIDE 1 OF 1")).toBeVisible();
-  await hostPage.getByRole("button", { name: "End Session" }).click();
+  await endSession(hostPage);
   await expect(stage.getByRole("heading", { name: "Session ended" })).toBeVisible();
 
   // Opening the page again shows the finished run; nothing is wiped or opened.

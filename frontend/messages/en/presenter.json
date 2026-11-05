@@ -58,6 +58,12 @@
     "reveal": "Reveal",
     "position": "{current} / {total}"
   },
+  "endDialog": {
+    "title": "End this session?",
+    "body": "Answers stop and everyone who joined sees the final screen. The results stay in the session report.",
+    "cancel": "Keep going",
+    "confirm": "End session"
+  },
   "end": {
     "title": "Session ended",
     "presentAgain": "Present again",
@@ -71,7 +77,6 @@
   "toasts": {
     "lobbyOpened": "Lobby opened — code {code}",
     "sessionEnded": "Session ended.",
-    "confirmEnd": "End the session for all participants?",
     "linkCopied": "Join link copied to clipboard!",
     "codeCopied": "Join code copied to clipboard!",
     "linkCopyFailed": "Failed to copy link.",

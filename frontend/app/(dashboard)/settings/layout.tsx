@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { SettingsNav } from "@/features/workspaces/components/SettingsNav";
+
+export const metadata: Metadata = { title: "Settings" };
 
 // Shared shell of every /settings/<section> page. The nav lists every section
 // (features/workspaces/settings/sections.ts); each page renders only its content.

@@ -4,7 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getApiErrorMessage } from "@/lib/api-error";
 import { fetchLibraryPage } from "../api/library";
-import { countsWithout, countsWithStatus, filtersKey, mergeLibraryItems, replaceLibraryItem } from "../query";
+import {
+  countsWithout,
+  countsWithStatus,
+  filtersKey,
+  mergeLibraryItems,
+  replaceLibraryItem,
+  withFreshFirstPage,
+} from "../query";
 import type { LibraryCard, LibraryCounts, LibraryFilters } from "../types";
 
 interface Loaded {
@@ -26,6 +33,8 @@ export interface LibraryState {
   error: string | null;
   loadMore: () => void;
   reload: () => void;
+  /** Fetches the first page again in place (no loading state), e.g. after a duplicate added a card. */
+  refresh: () => void;
   /** Drops a deleted card and adjusts the counts. */
   remove: (card: LibraryCard) => void;
   /** Swaps in an updated card (same entity and id). */
@@ -99,6 +108,25 @@ export function useLibrary(filters: LibraryFilters): LibraryState {
 
   const reload = useCallback(() => setGeneration((value) => value + 1), []);
 
+  const refresh = useCallback(() => {
+    fetchLibraryPage(filtersRef.current).then(
+      (page) =>
+        setLoaded((prev) =>
+          prev && prev.key === key
+            ? {
+                ...prev,
+                items: withFreshFirstPage(prev.items, page.items),
+                counts: page.counts ?? prev.counts,
+                // With more pages loaded, keep loading after the last of them; else follow the fresh page.
+                nextCursor: prev.items.length > page.items.length ? prev.nextCursor : page.nextCursor,
+              }
+            : prev,
+        ),
+      // The cards on screen stay; the next filter change or reload shows any error.
+      () => {},
+    );
+  }, [key]);
+
   const remove = useCallback((card: LibraryCard) => {
     setLoaded((prev) =>
       prev
@@ -132,6 +160,7 @@ export function useLibrary(filters: LibraryFilters): LibraryState {
     error: current?.error ?? null,
     loadMore,
     reload,
+    refresh,
     remove,
     replace,
   };

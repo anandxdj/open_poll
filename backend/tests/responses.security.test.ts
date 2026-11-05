@@ -372,6 +372,34 @@ describe('respondent identity comes only from verified sources', () => {
     expect(created).toHaveLength(1);
     expect(created[0].respondentId).toBe('guest:jane@example.com:Jane');
   });
+
+  it('a guest is their email: another name or letter case is still the same voter', async () => {
+    poll = makePoll({ isAnonymous: false });
+
+    const first = await submitThroughController({
+      pollId: pollId(),
+      ballotToken: await newBallot(),
+      guestToken: ResponseService.issueGuestIdentity({ name: 'Grace Hopper', email: 'grace@example.com' }).guestToken,
+      answers: answer(0),
+    });
+    const otherName = await submitThroughController({
+      pollId: pollId(),
+      ballotToken: await newBallot(),
+      guestToken: ResponseService.issueGuestIdentity({ name: 'G. Hopper', email: 'grace@example.com' }).guestToken,
+      answers: answer(1),
+    });
+    const otherCase = await submitThroughController({
+      pollId: pollId(),
+      ballotToken: await newBallot(),
+      guestToken: ResponseService.issueGuestIdentity({ name: 'Grace', email: 'Grace@Example.com' }).guestToken,
+      answers: answer(1),
+    });
+
+    expect(first.status).toBe(201);
+    expect(otherName.status).toBe(409);
+    expect(otherCase.status).toBe(409);
+    expect(created).toHaveLength(1);
+  });
 });
 
 describe('TRIAL retries still work under single-use ballots', () => {

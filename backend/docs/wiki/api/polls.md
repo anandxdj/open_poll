@@ -1,7 +1,7 @@
 ---
 summary: Poll HTTP endpoints and request/response contracts.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-01
 ---
 
 # Polls API
@@ -15,6 +15,7 @@ Base path: `/api/polls`
 - `POST /:id/close` close poll (`deck:host`)
 - `POST /:id/publish-results` publish results (`session:share`)
 - `DELETE /:id` delete poll (`deck:delete`)
+- `POST /:id/duplicate` copy into an unpublished draft `Copy of <title>`, no responses (`deck:read` on it + `deck:create`; `201` with the new poll; see `modules/polls.md`)
 
 Authenticated routes act in the workspace named by `X-Workspace-Id` (else the caller's
 default); a workspace the caller is not an active member of is `403 WORKSPACE_FORBIDDEN`,

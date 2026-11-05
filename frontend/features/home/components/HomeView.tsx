@@ -140,7 +140,7 @@ function LiveBanner({ decks, insights }: { decks: PresentationLibraryCard[]; ins
       className="dark relative overflow-hidden rounded-2xl border border-border bg-background text-foreground"
     >
       <div aria-hidden="true" className="mk-grid mk-grid-flat pointer-events-none absolute inset-0" />
-      <div className="relative flex flex-col gap-6 p-6 sm:p-7 lg:flex-row lg:items-center lg:gap-10">
+      <div className="relative flex flex-col gap-6 p-6 sm:p-7 xl:flex-row xl:items-center xl:gap-10">
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-medium text-accent-ink">
@@ -149,7 +149,7 @@ function LiveBanner({ decks, insights }: { decks: PresentationLibraryCard[]; ins
             </span>
             {session ? <span className="meta-label">Started {timeAgo(session.startedAt)}</span> : null}
           </p>
-          <h2 id="home-live" className="mt-3 truncate text-2xl font-semibold tracking-[-0.03em]">
+          <h2 id="home-live" className="mt-3 line-clamp-2 break-words text-2xl font-semibold tracking-[-0.03em]">
             {deck.title}
           </h2>
           {others.length > 0 ? (
@@ -297,7 +297,13 @@ function RecentWork({ library }: { library: ReturnType<typeof useHomeLibrary> })
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {library.recent.slice(0, RECENT_LIMIT).map((card) => (
-        <LibraryCard key={cardKey(card)} card={card} onRemoved={library.remove} onChanged={library.replace} />
+        <LibraryCard
+          key={cardKey(card)}
+          card={card}
+          onRemoved={library.remove}
+          onChanged={library.replace}
+          onDuplicated={library.refresh}
+        />
       ))}
     </div>
   );

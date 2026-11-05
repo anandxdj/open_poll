@@ -209,6 +209,8 @@ describe("audit log text", () => {
   test("names known actions and humanizes unknown ones", () => {
     expect(describeAction("member.role.update")).toBe("Changed a member's role");
     expect(describeAction("brand.kit_create")).toBe("Brand kit create");
+    expect(describeAction("presentation.duplicate")).toBe("Duplicated a deck");
+    expect(describeAction("poll.duplicate")).toBe("Duplicated a poll");
   });
 
   test("summarizes what happened without leaking more than the audit meta carries", () => {
@@ -224,6 +226,7 @@ describe("audit log text", () => {
     expect(describeEvent(event("share.revoke", { principalType: "user", previousRole: "editor", title: "Q3" }))).toBe('"Q3" with a member (was Editor)');
     expect(describeEvent(event("workspace.update", { fields: ["name", "settings.retentionDays"] }))).toBe("Changed name, settings.retentionDays");
     expect(describeEvent(event("something.else"))).toBe("user 0000a1");
+    expect(describeEvent(event("presentation.duplicate", { sourceId: "s1", title: "Copy of Q3" }))).toBe('"Copy of Q3"');
   });
 
   test("names the actor, or the kind of automated actor", () => {

@@ -29,7 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { activeNavHref, MAIN_NAV, WORKSPACE_NAV, type NavLink } from "./nav";
+import { activeNavHref, isStudioPath, MAIN_NAV, WORKSPACE_NAV, type NavLink } from "./nav";
 
 const ease = [0.32, 0.72, 0, 1] as const;
 
@@ -231,16 +231,24 @@ function SidebarContent({
   );
 }
 
-/** Desktop rail (md and up): 248px, collapses to 64px. */
+/**
+ * Desktop rail (md and up): 248px, collapses to 64px. In the builders it starts
+ * collapsed to leave room for the slide; that choice is kept apart from the
+ * one made on other pages.
+ */
 export default function Sidebar() {
-  const [open, setOpen] = useState(true);
+  const studio = isStudioPath(usePathname());
+  const [openOnPages, setOpenOnPages] = useState(true);
+  const [openInStudio, setOpenInStudio] = useState(false);
+  const open = studio ? openInStudio : openOnPages;
+  const toggle = () => (studio ? setOpenInStudio : setOpenOnPages)((v) => !v);
   return (
     <motion.aside
       animate={{ width: open ? 248 : 64 }}
       transition={{ duration: 0.32, ease }}
       className="relative z-20 hidden shrink-0 overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:block"
     >
-      <SidebarContent collapsed={!open} onCollapse={() => setOpen((v) => !v)} />
+      <SidebarContent collapsed={!open} onCollapse={toggle} />
     </motion.aside>
   );
 }

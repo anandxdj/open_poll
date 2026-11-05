@@ -13,6 +13,7 @@ import { BuilderShell } from "./builder/BuilderShell";
 import { isSlideDirty } from "./builder/deckDraft";
 import { Inspector } from "./builder/Inspector";
 import { SlideRail } from "./builder/SlideRail";
+import { SlideStage } from "./builder/SlideStage";
 import { useDeckBuilder } from "./builder/useDeckBuilder";
 
 export function PresentationBuilder() {
@@ -41,8 +42,9 @@ export function PresentationBuilder() {
               onImportQuestions={() => setImportOpen(true)}
               saving={builder.saving}
               savingDraft={builder.savingDraft}
-              onSave={builder.handleSave}
+              onSave={() => void builder.handleSave()}
               onSaveDraft={builder.handleSaveDraft}
+              onPresent={() => void builder.handleSave("present")}
             />
             <AiDeckBanner />
           </>
@@ -57,6 +59,9 @@ export function PresentationBuilder() {
             onDuplicate={builder.duplicateSlide}
             onRemove={builder.removeSlide}
           />
+        }
+        stage={
+          <SlideStage slide={builder.slide} index={builder.active} total={builder.slides.length} onChange={builder.updateSlide} />
         }
       >
         <Inspector

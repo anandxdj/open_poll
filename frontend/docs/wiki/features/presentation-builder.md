@@ -1,7 +1,7 @@
 ---
 summary: Deck builder layout, the slide meta and editor registries, inspector tabs, and slide-rail operations.
 status: active
-last_updated: 2026-10-25
+last_updated: 2026-10-30
 ---
 
 # Presentation Builder
@@ -16,11 +16,12 @@ Route `/presentation/create` (`app/(dashboard)/presentation/create/page.tsx`, `?
 | Piece | File | Role |
 | --- | --- | --- |
 | State | `components/builder/useDeckBuilder.ts` | Deck + selected slide, local draft (localStorage), silent backend drafts, explicit save, AI generation. |
-| Frame | `components/builder/BuilderShell.tsx` | A studio frame: the header bar across the top, the rail on the left (on top below `lg`), the inspector centred on graph paper (`max-w-3xl`) in its own scroll area. |
-| Header | `components/builder/BuilderHeader.tsx` | Back to the library, the title edited in place (`Deck title`), AI generate (outline), Import questions (`features/imports`, optional `onImportQuestions`) and Save draft (ghost), Create deck / Save changes (the one ember button). |
+| Frame | `components/builder/BuilderShell.tsx` | A studio frame: the header bar across the top, the rail on the left (on top below `lg`), the stage on graph paper in the middle and the inspector as a 26rem panel on the right from `xl` (below `xl` it sits under the stage as a sheet and both scroll together). The app sidebar starts collapsed on builder routes (`isStudioPath` in `components/layouts/nav.ts`). |
+| Header | `components/builder/BuilderHeader.tsx` | Back to the library, the title edited in place (`Deck title`), AI generate (outline), Import questions (`features/imports`, optional `onImportQuestions`) and Save draft (ghost), then Save changes (outline) and Present (the one ember button: `handleSave("present")` saves, then opens `/presentation/host/[id]`). A new deck shows Create deck as the ember button and no Present. |
+| Stage | `components/builder/SlideStage.tsx` | "Slide N of M" with the type, kind and time limit, the selected slide at full width (the rail's `SlideThumbnail`, the same `StageView`), and its speaker notes (`slide.notes`, host only, up to 5000 characters, saved with the deck). |
 | AI dialog | `components/AiPresentationModal.tsx` | "Whole deck" (default for a new deck; see [`ai-deck.md`](./ai-deck.md): outline review, speaker notes, creates the deck and `handleDeckCreated` switches the builder to it) and "Quick slides" (questions merged into this deck). `AiDeckBanner` shows the mock-data notice under the header for `?aiSource=mock`. |
 | Rail | `components/builder/SlideRail.tsx` | Paper column (`bg-sidebar`), the selected slide a white sheet; thumbnails (`SlideThumbnail`, scoped `dark` so the stage reads in light mode), select, reorder, duplicate, delete, "New slide" picker. |
-| Inspector | `components/builder/Inspector.tsx` | One white sheet: slide type and kind on the left, the `inspectorTabs` registry as underline tabs on the right, the panel below. |
+| Inspector | `components/builder/Inspector.tsx` | Flat (the frame gives it its surface): slide type and kind, the `inspectorTabs` registry as underline tabs under it (scrolling sideways if they don't fit), the panel below. |
 | Pure helpers | `components/builder/{deckDraft,slideRailOps}.ts` | Validation, payloads, local draft, rail operations (unit tested). |
 
 ## Slide registries

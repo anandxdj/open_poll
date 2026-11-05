@@ -96,6 +96,8 @@ export interface PresentationSlide {
   timeLimit: number;
   points: number;
   scoreDependsOnTime: boolean;
+  /** Speaker notes: host only, never in participant payloads. Up to 5000 characters; absent on older slides. */
+  notes?: string;
 }
 
 export interface Presentation {

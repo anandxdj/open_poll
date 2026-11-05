@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { LibraryCardSkeleton, LibraryView } from "@/features/library/components/LibraryView";
+
+export const metadata: Metadata = { title: "Library" };
 
 // The unified library: polls and presentation decks in one list. The URL stays
 // /polls (bookmarks, sign-in redirects); filters are its query string.

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Loader2, Sparkles, Upload } from "lucide-react";
+import { ArrowLeft, Loader2, Play, Sparkles, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,9 +19,15 @@ interface BuilderHeaderProps {
   savingDraft: boolean;
   onSave: () => void;
   onSaveDraft: () => void;
+  /** Saves, then opens the host console. Only for a deck that exists (editing). */
+  onPresent?: () => void;
 }
 
-/** The builder's top bar: back to the library, the deck title (edited in place) and the deck's actions. */
+/**
+ * The builder's top bar: back to the library, the deck title (edited in place)
+ * and the deck's actions. Present (save, then the host console) is the one ember
+ * action on a deck that exists; a new deck's is Create deck.
+ */
 export function BuilderHeader({
   title,
   onTitleChange,
@@ -33,13 +39,15 @@ export function BuilderHeader({
   savingDraft,
   onSave,
   onSaveDraft,
+  onPresent,
 }: BuilderHeaderProps) {
+  const present = isEditing && onPresent;
   return (
     <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-background px-4 py-3 sm:px-6">
       <Link
         href="/polls"
         aria-label="Back to the library"
-        className="flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+        className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
       >
         <ArrowLeft className="size-4" />
       </Link>
@@ -68,14 +76,21 @@ export function BuilderHeader({
             Import questions
           </Button>
         ) : null}
-        <Button variant="ghost" onClick={onSaveDraft} disabled={savingDraft || saving}>
+        <Button variant="ghost" onClick={() => onSaveDraft()} disabled={savingDraft || saving}>
           {savingDraft ? <Loader2 className="animate-spin" /> : null}
           Save draft
         </Button>
-        <Button onClick={onSave} disabled={saving}>
+        <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-border sm:block" />
+        <Button variant={present ? "outline" : "default"} className={cn(present && "bg-card")} onClick={() => onSave()} disabled={saving}>
           {saving ? <Loader2 className="animate-spin" /> : null}
           {isEditing ? "Save changes" : "Create deck"}
         </Button>
+        {present ? (
+          <Button onClick={() => present()} disabled={saving}>
+            <Play aria-hidden className="fill-current" />
+            Present
+          </Button>
+        ) : null}
       </div>
     </header>
   );

@@ -137,10 +137,15 @@ export class ResponseService {
     // Identity: derived server-side only. The verified session wins; a signed
     // guest token is the only other source. Raw client strings never are.
     let respondentId: string | null = context.userId ?? null;
+    // Who votes, for dedup: a guest is their email; the name is display only, so
+    // a new name under the same email is still the same person.
+    let voterKey: string | null = respondentId;
     if (!respondentId && payload.guestToken) {
       const guest = verifyGuestToken(payload.guestToken);
       if (!guest) throw ApiError.unauthorized('Invalid guest token');
-      respondentId = `guest:${guest.email}:${guest.name}`;
+      const email = guest.email.trim().toLowerCase();
+      respondentId = `guest:${email}:${guest.name}`;
+      voterKey = `guest:${email}`;
     }
 
     if (!poll.isAnonymous && !respondentId) {
@@ -171,6 +176,7 @@ export class ResponseService {
       try {
         return await ResponseService.submitTrialAttempt(poll, normalizedAnswers, {
           respondentId,
+          voterKey,
           anonymousId: `anon:${ballotId}`,
           deviceHint: payload.deviceId,
           dedupTtl,
@@ -183,8 +189,8 @@ export class ResponseService {
 
     // Secondary dedup, also atomic: an identity votes once whichever ballot it
     // holds; anonymous ballots are capped per IP.
-    if (respondentId) {
-      if (!(await claimOnce(`poll:${pollId}:voted:id:${respondentId}`, dedupTtl))) {
+    if (voterKey) {
+      if (!(await claimOnce(`poll:${pollId}:voted:id:${voterKey}`, dedupTtl))) {
         throw ApiError.conflict('You have already voted on this poll.');
       }
     } else if (context.clientIp) {
@@ -220,6 +226,8 @@ export class ResponseService {
     normalizedAnswers: NormalizedAnswer[],
     opts: {
       respondentId: string | null;
+      /** The dedup identity: the user id, or `guest:<email>` whatever name the guest typed. */
+      voterKey: string | null;
       anonymousId: string;
       deviceHint?: string;
       dedupTtl: number;
@@ -227,21 +235,25 @@ export class ResponseService {
   ) {
     const pollId = String(poll._id);
     const pollObjectId = new mongoose.Types.ObjectId(pollId);
-    const { respondentId } = opts;
+    const { respondentId, voterKey } = opts;
 
-    const lockKey = respondentId ? `poll:${pollId}:trial:lock:${respondentId}` : null;
+    const lockKey = voterKey ? `poll:${pollId}:trial:lock:${voterKey}` : null;
     if (lockKey && !(await claimOnce(lockKey, TRIAL_ATTEMPT_LOCK_SEC))) {
       throw ApiError.conflict('Another attempt is already being graded.');
     }
 
     try {
       let attemptNumber = 1;
-      if (respondentId) {
-        if (await ResponseModel.exists({ pollId: pollObjectId, respondentId, passed: true })) {
+      if (voterKey) {
+        // A guest's stored id is `guest:<email>:<name>`: match every name under that email.
+        const byVoter = voterKey.startsWith('guest:')
+          ? { $regex: `^${voterKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:`, $options: 'i' }
+          : voterKey;
+        if (await ResponseModel.exists({ pollId: pollObjectId, respondentId: byVoter, passed: true })) {
           throw ApiError.conflict('You have already passed this assessment.');
         }
         attemptNumber =
-          (await ResponseModel.countDocuments({ pollId: pollObjectId, respondentId })) + 1;
+          (await ResponseModel.countDocuments({ pollId: pollObjectId, respondentId: byVoter })) + 1;
       } else if (opts.deviceHint) {
         // Display-only attempt counter for anonymous retries; gates nothing.
         const hintKey = `poll:${pollId}:trial:attempts:${opts.deviceHint}`;

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import axios from 'axios';
 import bcrypt from 'bcryptjs';
 import { UserModel } from './auth.model';
@@ -16,10 +17,34 @@ import {
   sendVerificationEmail,
   sendResetPasswordEmail,
   sendAccountExistsEmail,
+  sendPasswordChangedEmail,
 } from '../../common/config/email';
 import { identityFilter, linkIdentity } from './identities';
 import { audit } from '../../common/audit/audit';
 import { assertSsoNotRequired, SSO_REQUIRED } from '../sso/requireSso';
+import type { AuthRequest } from './auth.middleware';
+
+/** Machine-readable reasons of the /api/me account routes. */
+export const ACCOUNT_ERROR_CODES = {
+  /** 400: the current password does not match (not 401: the client would refresh its token). */
+  wrongPassword: 'WRONG_PASSWORD',
+  /** 409: the account signs in through Google or SSO and has no password to change. */
+  noPassword: 'NO_PASSWORD',
+} as const;
+
+/**
+ * The signed-in user as GET /api/auth/me, PATCH /api/me and the login
+ * response send it: the stored profile without secrets, plus whether a
+ * password is set (never the hash). Pass a document loaded with `+password`.
+ */
+export const toPublicUser = (user: IUser) => {
+  const hasPassword = Boolean(user.password);
+  const data = user.toObject() as Record<string, unknown>;
+  for (const secret of ['password', 'refreshToken', 'verificationToken', 'resetPasswordToken', 'resetPasswordExpires']) {
+    delete data[secret];
+  }
+  return { ...data, hasPassword };
+};
 
 /** The Google userinfo (v3) fields account linking relies on. */
 export interface GoogleProfile {
@@ -90,7 +115,9 @@ export const startSession = async (user: IUser) => {
   if (user.active === false) throw ApiError.forbidden('Your organization turned this account off');
   const authTime = Math.floor(Date.now() / 1000);
   const accessToken = generateAccessToken(accessClaims(user, authTime));
-  const refreshToken = generateRefreshToken({ id: user._id, authTime });
+  // A random id makes every session's token unique: two sign-ins in the same
+  // second (or a password change right after one) must not mint the same token.
+  const refreshToken = generateRefreshToken({ id: user._id, authTime, jti: randomUUID() });
   user.refreshToken = hashToken(refreshToken);
   const restored = Boolean(user.deletionRequestedAt);
   if (restored) user.deletionRequestedAt = null;
@@ -171,11 +198,7 @@ export class AuthService {
     user.lastLogin = new Date();
     const { accessToken, refreshToken, restored } = await startSession(user);
 
-    const userObj = user.toObject();
-    delete userObj.password;
-    delete userObj.refreshToken;
-
-    return { user: userObj, accessToken, refreshToken, restored };
+    return { user: toPublicUser(user), accessToken, refreshToken, restored };
   }
 
   static async refresh(token?: string) {
@@ -282,11 +305,67 @@ export class AuthService {
   }
 
   static async getMe(userId: string) {
-    const user = await UserModel.findById(userId);
+    const user = await UserModel.findById(userId).select('+password');
     if (!user) {
       throw ApiError.notFound('User not found');
     }
-    return user;
+    return toPublicUser(user);
+  }
+
+  /** PATCH /api/me: the display name (already trimmed and 1–80 characters). */
+  static async updateName(req: AuthRequest, name: string) {
+    const user = await UserModel.findById(req.user!.id).select('+password');
+    if (!user) throw ApiError.unauthorized('User no longer exists');
+    if (user.name !== name) {
+      user.name = name;
+      await user.save();
+      // No names in the event: audit meta outlives the account's purge.
+      void audit(req, 'account.name_update', { type: 'user', id: user._id });
+    }
+    return toPublicUser(user);
+  }
+
+  /**
+   * POST /api/me/password. Checks the current password, stores the new one
+   * and starts a fresh session: the stored refresh token is replaced, so every
+   * other device is signed out at its next refresh while the caller gets new
+   * tokens. Accounts without a password get 409 NO_PASSWORD saying how to get one.
+   */
+  static async changePassword(req: AuthRequest, currentPassword: string, newPassword: string) {
+    const user = await UserModel.findById(req.user!.id).select('+password');
+    if (!user) throw ApiError.unauthorized('User no longer exists');
+
+    if (!user.password) {
+      // Forgot password sets a first password for any account, but where the
+      // organization requires single sign-on a password could not sign in anyway.
+      const ssoRequired = await assertSsoNotRequired(user).then(
+        () => false,
+        (error) => error instanceof ApiError && error.code === SSO_REQUIRED,
+      );
+      throw new ApiError(
+        409,
+        ssoRequired
+          ? 'Your organization manages how you sign in, so this account has no password to change.'
+          : 'This account signs in with Google or single sign-on and has no password yet. To add one, use "Forgot password" on the sign-in page.',
+        ACCOUNT_ERROR_CODES.noPassword,
+        { ssoRequired },
+      );
+    }
+
+    if (!(await user.comparePassword(currentPassword))) {
+      throw new ApiError(400, 'Your current password is not right', ACCOUNT_ERROR_CODES.wrongPassword);
+    }
+
+    user.password = newPassword; // hashed by the pre-save hook
+    // A link sent before the change must not set the password back.
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    // Saves the user with a new refresh token: the old one (every other session) stops working.
+    const { accessToken, refreshToken } = await startSession(user);
+
+    void audit(req, 'account.password_change', { type: 'user', id: user._id });
+    sendInBackground('password changed', () => sendPasswordChangedEmail(user.email, new Date()));
+    return { user: toPublicUser(user), accessToken, refreshToken };
   }
 
   /** `state` is bound to this browser by the controller and checked on callback. */
@@ -340,11 +419,14 @@ export class AuthService {
       });
     }
 
-    if (!user.isVerified) resetUnverifiedAccount(user);
+    const wasUnverified = !user.isVerified;
+    if (wasUnverified) resetUnverifiedAccount(user);
     // Google vouches for the address, so a different Google account now holding
     // it replaces the previous Google link (as matching by email always did).
     linkIdentity(user, identity);
-    user.name = name;
+    // A name the person set on /settings/profile survives sign-in; an unverified
+    // account's name may have been chosen by whoever pre-registered the address.
+    if (wasUnverified || !user.name?.trim()) user.name = name;
     user.picture = profile.picture;
     user.isVerified = true;
     user.lastLogin = new Date();

@@ -20,6 +20,8 @@ import type {
 import {
   buildDraftStorageKey,
   clearDraft,
+  draftIsNewer,
+  firstSlide,
   isDeckDirty,
   isSlideDirty,
   loadDraft,
@@ -49,7 +51,7 @@ export function useDeckBuilder() {
   const seedMode = searchParams.get("mode");
 
   const [title, setTitle] = useState(seedName ?? "");
-  const [slides, setSlides] = useState<PresentationSlide[]>([blankSlide()]);
+  const [slides, setSlides] = useState<PresentationSlide[]>([firstSlide()]);
   const [theme, setTheme] = useState<DeckThemeRef | null>(null);
   const [active, setActive] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -83,7 +85,7 @@ export function useDeckBuilder() {
       // and again whenever the draft key changes (e.g. ?id= is set after a save).
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTitle(saved.title);
-      setSlides(saved.slides.length > 0 ? saved.slides : [blankSlide()]);
+      setSlides(saved.slides.length > 0 ? saved.slides : [firstSlide()]);
       setActive(Math.min(saved.active, Math.max(0, saved.slides.length - 1)));
     }
     draftHydratedRef.current = true;
@@ -99,8 +101,12 @@ export function useDeckBuilder() {
     void (async () => {
       try {
         const presentation = await getPresentation(editId);
-        setTitle(presentation.title);
-        setSlides(presentation.slides);
+        // The draft restored on mount wins when it is newer than the saved deck:
+        // overwriting it here lost every unsaved edit on a reload.
+        if (!draftIsNewer(loadDraft(draftStorageKey), presentation.updatedAt)) {
+          setTitle(presentation.title);
+          setSlides(presentation.slides);
+        }
         setTheme(presentation.theme ?? null);
       } catch {
         toast.error("Could not load presentation deck for editing.");
@@ -109,7 +115,7 @@ export function useDeckBuilder() {
         setLoading(false);
       }
     })();
-  }, [editId, router]);
+  }, [editId, router, draftStorageKey]);
 
   useEffect(() => {
     if (seedMode === "ai" && !editId && !aiAutoOpened.current) {
@@ -177,7 +183,7 @@ export function useDeckBuilder() {
     draftStateRef.current = { title: deck.title, slides: deck.slides, editId: deck._id };
     skipNextLoadIdRef.current = deck._id;
     setTitle(deck.title);
-    setSlides(deck.slides.length > 0 ? deck.slides : [blankSlide()]);
+    setSlides(deck.slides.length > 0 ? deck.slides : [firstSlide()]);
     setActive(0);
     setAiOpen(false);
 
@@ -205,6 +211,9 @@ export function useDeckBuilder() {
 
   useEffect(() => {
     if (!draftHydratedRef.current) return;
+    // Until the saved deck has loaded, the state is the blank placeholder: saving it
+    // would make a "newer" empty draft that wins over the deck on the next load.
+    if (loading) return;
     if (editId === null && !title.trim() && slides.length === 1 && !isSlideDirty(slides[0]!)) {
       return;
     }
@@ -215,7 +224,7 @@ export function useDeckBuilder() {
     }, 250);
 
     return () => window.clearTimeout(timeout);
-  }, [title, slides, active, draftStorageKey, editId]);
+  }, [title, slides, active, draftStorageKey, editId, loading]);
 
   useEffect(() => {
     const onBeforeUnload = () => {
@@ -314,7 +323,8 @@ export function useDeckBuilder() {
     };
   }, []);
 
-  const handleSave = async () => {
+  /** Validates and saves the deck, then opens the library, or the host console when `next` is "present". */
+  const handleSave = async (next: "library" | "present" = "library") => {
     const cleaned = slides.map(cleanSlide);
 
     const error = validateDeck(title, cleaned);
@@ -335,7 +345,7 @@ export function useDeckBuilder() {
         toast.success("Presentation deck created!");
       }
       clearDraft(draftStorageKey);
-      router.push("/polls");
+      router.push(next === "present" && editId ? `/presentation/host/${editId}` : "/polls");
     } catch (err) {
       isExplicitSaveRef.current = false;
       toast.error(getApiErrorMessage(err) || "Failed to save presentation deck.");

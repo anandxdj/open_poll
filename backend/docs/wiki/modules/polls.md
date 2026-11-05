@@ -1,7 +1,7 @@
 ---
 summary: Poll module responsibilities, lifecycle states, graded assessments (TRIAL), and key rules.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-01
 ---
 
 # Polls Module
@@ -74,3 +74,22 @@ The MCP tools are stricter and require answers on every assessment write.
 
 AI generation (`modules/ai`) creates assessments against `generatedTrialSchema`, which
 also requires `correctOptionIndices`, and always saves them as drafts.
+
+## Duplicate (`POST /api/polls/:id/duplicate`)
+
+`authenticate()` → per-user rate limit (30/min) → `workspaceContext()` → `assertCan('deck:create')`
+and `deck:read` on the source (`authorizedPoll`), so the source must be in the selected workspace
+(pre-020 polls: their creator only). `PollService.duplicatePoll` creates the copy through
+`createPoll` in the current workspace, with the caller as creator:
+
+- kept: questions (text, options, type, `correctOptionIndices`, `explanation`, `points`,
+  `isMandatory`; new question ids), `pollType`, `passingScorePercentage`, `isAnonymous`;
+- title `Copy of <title>` (`common/utils/copyTitle.ts`);
+- an unpublished draft: `isPublished`, `isClosed`, `isResultsPublished` false, no
+  `convertedPresentationId`, zeroed analytics; responses are never copied;
+- `expiresAt` (`duplicateExpiresAt`): the source's while at least a day away, else a week from
+  now (the builder's default for a new poll), so it is always in the future.
+
+`201` with the poll document (as create). Audit action `poll.duplicate`
+(`meta: {sourceId, title}`). Tests: `tests/duplicate.unit.test.ts`,
+`tests/integration/duplicate.test.ts`.

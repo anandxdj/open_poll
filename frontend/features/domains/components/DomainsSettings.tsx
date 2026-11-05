@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCapabilities, useCurrentWorkspace } from "@/features/workspaces/hooks/useWorkspaces";
 import { CopyValue } from "@/features/workspaces/settings/CopyValue";
+import { ConfirmDialog } from "@/features/workspaces/members/components/ConfirmDialog";
 import { SettingsFailed, SettingsHeading, SettingsLoading, settingsCard } from "@/features/workspaces/settings/blocks";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,21 @@ const STATUS: Record<CustomDomain["status"], { label: string; className: string 
 
 function DomainRow({ workspaceId, domain, onChange, onRemoved }: { workspaceId: string; domain: CustomDomain; onChange: (d: CustomDomain) => void; onRemoved: () => void }) {
   const [busy, setBusy] = useState<"verify" | "remove" | null>(null);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+
+  const remove = async () => {
+    setBusy("remove");
+    try {
+      await removeDomain(workspaceId, domain.id);
+      onRemoved();
+      toast.success(`${domain.hostname} removed`);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) ?? "The domain could not be removed.");
+      setBusy(null);
+    } finally {
+      setConfirmingRemove(false);
+    }
+  };
   const status = STATUS[domain.status];
   return (
     <li className="space-y-4 px-5 py-4 sm:px-6">
@@ -65,23 +81,22 @@ function DomainRow({ workspaceId, domain, onChange, onRemoved }: { workspaceId: 
             size="icon-sm"
             aria-label={`Remove ${domain.hostname}`}
             disabled={busy !== null}
-            onClick={async () => {
-              if (!window.confirm(`Remove ${domain.hostname}? Links on it stop working.`)) return;
-              setBusy("remove");
-              try {
-                await removeDomain(workspaceId, domain.id);
-                onRemoved();
-                toast.success(`${domain.hostname} removed`);
-              } catch (err) {
-                toast.error(getApiErrorMessage(err) ?? "The domain could not be removed.");
-                setBusy(null);
-              }
-            }}
+            onClick={() => setConfirmingRemove(true)}
           >
             <Trash2 className="size-4" />
           </Button>
         </span>
       </div>
+      <ConfirmDialog
+        open={confirmingRemove}
+        title={`Remove ${domain.hostname}?`}
+        description="Links on it stop working."
+        confirmLabel="Remove"
+        destructive
+        busy={busy === "remove"}
+        onCancel={() => setConfirmingRemove(false)}
+        onConfirm={() => void remove()}
+      />
       {domain.status !== "active" ? (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">Add these records at your DNS provider, then check again. Changes can take a while to show.</p>
