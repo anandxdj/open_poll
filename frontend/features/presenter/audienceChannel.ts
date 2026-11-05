@@ -13,7 +13,7 @@ import type { LiveState } from "@/features/presentations/live/reducer";
  *
  * Messages:
  * - audience → presenter `hello`: "send me the state" (on load, then every 2 s
- *   until one arrives);
+ *   until one arrives); `leave` when the audience window closes;
  * - presenter → audience `state`: the live state's data (no functions), sent on
  *   every change (at most every 50 ms) and every 2 s as a heartbeat;
  * - presenter → audience `ui`: presenter-side display choices (sound cues,
@@ -40,6 +40,7 @@ export type LiveStateData = LiveState;
 
 export type AudienceMessage =
   | { type: "hello" }
+  | { type: "leave" }
   | { type: "state"; state: LiveStateData; ui: AudienceUi; sentAt: number }
   | { type: "bye" };
 
@@ -104,6 +105,10 @@ export function useAudienceBroadcast(presentationId: string, store: LiveStoreApi
     sendRef.current = schedule;
 
     channel.onmessage = (event: MessageEvent<AudienceMessage>) => {
+      if (event.data?.type === "leave") {
+        setAudienceSeen(false);
+        return;
+      }
       if (event.data?.type !== "hello") return;
       setAudienceSeen(true);
       send();
@@ -164,9 +169,12 @@ export function useAudienceMirror(presentationId: string, store: LiveStoreApi): 
         setLink("closed");
       }
     };
+    const onLeave = () => post(channel, { type: "leave" });
+    window.addEventListener("pagehide", onLeave);
     hello();
 
     return () => {
+      window.removeEventListener("pagehide", onLeave);
       clearInterval(retry);
       channel.close();
     };
