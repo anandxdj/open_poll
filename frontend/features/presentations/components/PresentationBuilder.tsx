@@ -16,10 +16,13 @@ import { Inspector } from "./builder/Inspector";
 import { SlideRail } from "./builder/SlideRail";
 import { SlideStage } from "./builder/SlideStage";
 import { useDeckBuilder } from "./builder/useDeckBuilder";
+import { PresenceAvatars } from "./builder/PresenceAvatars";
+import { useDeckPresence } from "./builder/useDeckPresence";
 
 export function PresentationBuilder() {
   const builder = useDeckBuilder();
   const [importOpen, setImportOpen] = useState(false);
+  const presence = useDeckPresence(builder.editId);
 
   if (builder.loading) {
     return (
@@ -46,6 +49,7 @@ export function PresentationBuilder() {
               onSave={() => void builder.handleSave()}
               onSaveDraft={builder.handleSaveDraft}
               onPresent={() => void builder.handleSave("present")}
+              presence={<PresenceAvatars presence={presence} />}
             />
             {builder.conflict ? (
               <ConflictBanner

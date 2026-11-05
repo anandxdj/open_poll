@@ -4,7 +4,9 @@ import { expect, test } from "./fixtures";
  * W3-B2 co-editing safety: two builders open on the same deck. The first save
  * wins; the second is refused (409 DECK_CHANGED) and the builder says so
  * instead of overwriting, then either reloads the saved version or keeps its
- * own edits as a separate deck.
+ * own edits as a separate deck. Presence: a builder shows when the deck is open
+ * elsewhere (the shared e2e host is the same user in both pages, so it is the
+ * "another tab" note; other people show as avatars with the same socket path).
  */
 
 const heading = (title: string) => ({ type: "heading", content: { title, subtitle: "" } });
@@ -77,4 +79,24 @@ test("after a conflict an editor can keep their own version as a separate deck",
   const original = await host.getDeck(deck._id);
   expect(original.title).toBe(`${title} (theirs)`);
   expect(original.slides).toHaveLength(2);
+});
+
+test("the builder shows when the same deck is open in another tab, and stops when that tab closes", async ({ host, contexts }) => {
+  const title = `E2E presence ${Date.now()}`;
+  const deck = await host.createDeck(title, [heading("Hello")]);
+  const first = await host.open(`/presentation/create?id=${deck._id}`);
+  await expect(first.getByLabel("Deck title")).toHaveValue(title);
+  const elsewhere = (page: import("@playwright/test").Page) =>
+    page.getByRole("status", { name: "You have this deck open in another tab" });
+  await expect(elsewhere(first)).toHaveCount(0);
+
+  const second = await host.open(`/presentation/create?id=${deck._id}`);
+  await expect(second.getByLabel("Deck title")).toHaveValue(title);
+  await expect(elsewhere(second)).toBeVisible();
+  await expect(elsewhere(first)).toBeVisible();
+
+  // Closing the second builder tells the first at once (disconnect, then presence:update).
+  const secondContext = contexts[contexts.length - 1]!;
+  await secondContext.close();
+  await expect(elsewhere(first)).toHaveCount(0);
 });

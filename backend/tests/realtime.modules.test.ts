@@ -47,13 +47,13 @@ function connect(user: { id: string } | null = null) {
 }
 
 describe('socket module registry', () => {
-  it('registers the polls, presentations and reactions modules', () => {
-    expect(getSocketModules().map((m) => m.name)).toEqual(['polls', 'presentations', 'reactions']);
+  it('registers the polls, editor (builder presence), presentations and reactions modules', () => {
+    expect(getSocketModules().map((m) => m.name)).toEqual(['polls', 'editor', 'presentations', 'reactions']);
   });
 
   it('refuses a second module with the same name', () => {
     expect(() => registerSocketModule({ name: 'polls' })).toThrow('registered twice');
-    expect(getSocketModules()).toHaveLength(3);
+    expect(getSocketModules()).toHaveLength(4);
   });
 });
 
