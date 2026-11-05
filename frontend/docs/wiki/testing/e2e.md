@@ -114,6 +114,25 @@ lookup's HTTP status (404 until a session was opened).
   with both slides and the notes, and the originals (and the deck's empty session list) are
   unchanged through the API. ~6 s.
 
+- `e2e/folders.spec.ts` — W3-B2 library folders: New folder (the folder opens empty; a second folder of
+  the same name is refused in the dialog), Move to folder… on a deck and a poll card, the "In folder"
+  label, filtering by the folder chip and by Not in a folder (kept across a reload through `?folder=`),
+  Rename folder and Delete folder from the folder menu (the app's AlertDialog; the items stay at the
+  top level, checked through the API). ~10 s.
+
+- `e2e/templates.spec.ts` — W3-B2 templates: the four starter templates on `/templates`, Use template
+  on Team retro opens the builder with its nine slides; Save as template… from a library card (hidden
+  from the library), the template under "Saved in this workspace", Use template opens it with its two
+  slides, Delete template through the app's dialog (the deck made from it stays). ~10 s.
+
+- `e2e/coediting.spec.ts` — W3-B2 co-editing safety: two builders (two browser contexts) on one deck;
+  the first saves, the second's save shows the conflict banner and the deck keeps the first save; Save
+  draft while it is up sends nothing; Reload latest version loads the first save and a later save
+  works. Second test: Save mine as a copy opens a new "(my version)" deck with the local edits and leaves
+  the other save untouched. Third test: presence, the same deck open in two pages of the (one) e2e host
+  shows "You have this deck open in another tab" in both, and closing one removes it from the other.
+  ~10 s.
+
 - `e2e/members.spec.ts` — teams and sharing: owner invites a second (seeded) account from
   `/settings/members`, the invite link is read from the form (no mail provider in e2e), the invitee
   signs in through `/login?next=…`, joins as editor, sees the deck and is refused member

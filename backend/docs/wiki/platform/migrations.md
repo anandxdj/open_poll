@@ -1,7 +1,7 @@
 ---
 summary: Numbered idempotent migrations (bun run migrate), the migrations collection and lock, number ranges, and index ownership.
 status: active
-last_updated: 2026-11-01
+last_updated: 2026-11-05
 ---
 
 # Migrations (`src/migrations/`)
@@ -61,6 +61,13 @@ export default migration;
 Moves each deck's stored run into legacy session #1, backfills `sessionId`/`slideId`, ends
 decks left live, swaps the per-deck unique indexes for session-scoped ones. Details and the
 deploy runbook (no live sessions during the deploy): `modules/presentations-live.md`.
+
+## 210-folders
+
+`FolderModel.syncIndexes()` for the new `folders` collection (`folder_name_per_parent`, unique
+`{workspaceId, parentId, nameKey}`) and `polls_workspace_folder_updated`
+`{workspaceId, folderId, updatedAt:-1}` on `polls` (createIndex). Idempotent, no backfill. See
+`modules/folders-templates.md`.
 
 ## 200-session-activity
 
