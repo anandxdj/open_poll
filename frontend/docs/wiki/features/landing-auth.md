@@ -57,15 +57,17 @@ Result states (sent, verified, expired, invalid) are the same shell with `icon` 
 | --- | --- |
 | `/login`, `/signup` | `features/auth/components/LoginForm.tsx`, `SignupForm.tsx` |
 | `/forgot-password`, `/reset-password/[token]`, `/verify-email/[token]` | `app/(auth)/**` |
-| `/auth/complete` | `app/auth/complete/page.tsx` (loading state only) |
+| `/auth/complete` | `app/auth/complete/page.tsx` (loading state; then a remembered invitation or `/settings/privacy`, else `/polls`) |
 | `/invites/[token]` | `features/workspaces/invites/components/AcceptInvite.tsx` (only its `Shell` and class names changed) |
-| `/privacy`, `/terms` | `app/privacy`, `app/terms` via `features/landing/components/legal/LegalPage.tsx` (header, footer, placeholder notice) |
+| `/privacy`, `/terms` | `app/privacy`, `app/terms` via `features/landing/components/legal/LegalPage.tsx` (header, footer, placeholder notice). `/privacy` keeps the owner's placeholder paragraph and adds what the product does with data (export, account deletion, participants removing their answers, retention), which stays accurate as written. |
 
 Behaviour notes: errors still surface as toasts; the signup and reset hints state the API's real
 password rule (8+ characters, one uppercase letter, one digit) and the reset page checks 8 instead of
 the old 6. Playwright's `getByLabel("Password")` matches the toggle too, so specs use `{ exact: true }`.
 The landing header's "Log in" goes to `/login` (the SSO button is on that page); it used to start the
-SSO redirect directly.
+SSO redirect directly. `/login?deleted=<date>` (after deleting an account) shows a note above the form
+saying when the account goes; a sign-in that cancels a pending deletion (`restored` in the response)
+toasts "Welcome back. Your account will not be deleted."
 
 ## Tests
 

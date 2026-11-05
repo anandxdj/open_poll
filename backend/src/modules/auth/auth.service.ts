@@ -18,6 +18,7 @@ import {
   sendAccountExistsEmail,
 } from '../../common/config/email';
 import { identityFilter, linkIdentity } from './identities';
+import { audit } from '../../common/audit/audit';
 
 /** The Google userinfo (v3) fields account linking relies on. */
 export interface GoogleProfile {
@@ -59,6 +60,38 @@ export const resetUnverifiedAccount = (user: IUser) => {
   user.set('resetPasswordExpires', undefined);
   user.set('refreshToken', undefined);
   user.role = 'user';
+};
+
+/** Claims every access token carries. */
+const accessClaims = (user: IUser, authTime?: number) => ({
+  id: user._id,
+  email: user.email,
+  name: user.name,
+  role: user.role,
+  ...(authTime ? { authTime } : {}),
+});
+
+/** False once the account asked to be deleted (or was): its tokens and sign-ins stop working. */
+export const isAccountUsable = (user: Pick<IUser, 'deletionRequestedAt' | 'deletedAt'>) =>
+  !user.deletionRequestedAt && !user.deletedAt;
+
+/**
+ * Starts a session for a user who just proved who they are: an access token
+ * and a refresh token that both carry the sign-in time (`authTime`, seconds),
+ * which refreshes keep and DELETE /api/me checks. Signing in during the 30
+ * days after an account deletion request cancels it (`restored`). Saves the user.
+ */
+export const startSession = async (user: IUser) => {
+  if (user.deletedAt) throw ApiError.unauthorized('This account was deleted');
+  const authTime = Math.floor(Date.now() / 1000);
+  const accessToken = generateAccessToken(accessClaims(user, authTime));
+  const refreshToken = generateRefreshToken({ id: user._id, authTime });
+  user.refreshToken = hashToken(refreshToken);
+  const restored = Boolean(user.deletionRequestedAt);
+  if (restored) user.deletionRequestedAt = null;
+  await user.save();
+  if (restored) void audit({ actorType: 'user', actorId: user._id }, 'account.deletion_cancel', { type: 'user', id: user._id });
+  return { accessToken, refreshToken, restored };
 };
 
 export class AuthService {
@@ -129,24 +162,14 @@ export class AuthService {
       throw ApiError.forbidden('Please verify your email before logging in');
     }
 
-    const accessToken = generateAccessToken({
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      role: user.role
-    });
-    const refreshToken = generateRefreshToken({ id: user._id });
-
-    // Store hashed refresh token in DB
-    user.refreshToken = hashToken(refreshToken);
     user.lastLogin = new Date();
-    await user.save();
+    const { accessToken, refreshToken, restored } = await startSession(user);
 
     const userObj = user.toObject();
     delete userObj.password;
     delete userObj.refreshToken;
 
-    return { user: userObj, accessToken, refreshToken };
+    return { user: userObj, accessToken, refreshToken, restored };
   }
 
   static async refresh(token?: string) {
@@ -158,16 +181,13 @@ export class AuthService {
       const decoded = verifyRefreshToken(token) as any;
       const user = await UserModel.findById(decoded.id).select('+refreshToken');
 
-      if (!user || user.refreshToken !== hashToken(token)) {
+      if (!user || user.refreshToken !== hashToken(token) || !isAccountUsable(user)) {
         throw ApiError.unauthorized('Invalid refresh token — please log in again');
       }
 
-      const accessToken = generateAccessToken({
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      });
+      // The sign-in time stays the one of the original sign-in.
+      const authTime = typeof decoded.authTime === 'number' ? decoded.authTime : undefined;
+      const accessToken = generateAccessToken(accessClaims(user, authTime));
       return { accessToken };
     } catch (error) {
       throw ApiError.unauthorized('Invalid or expired refresh token');
@@ -356,19 +376,9 @@ export class AuthService {
       );
 
       const user = await AuthService.findOrLinkGoogleUser(googleUserRes.data);
+      const { accessToken, refreshToken, restored } = await startSession(user);
 
-      const accessToken = generateAccessToken({
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      });
-      const refreshToken = generateRefreshToken({ id: user._id });
-
-      user.refreshToken = hashToken(refreshToken);
-      await user.save();
-
-      return { user, accessToken, refreshToken };
+      return { user, accessToken, refreshToken, restored };
     } catch (error: any) {
       const detail = error.response?.data?.error_description || error.response?.data?.error || error.message;
       console.error('Google OAuth Error:', detail);

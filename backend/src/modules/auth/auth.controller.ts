@@ -8,7 +8,7 @@ import { env } from '../../common/config/env';
 import type { AuthRequest } from './auth.middleware';
 import { OidcService, type OidcTransaction } from './oidc.service';
 
-const sessionCookieOptions = {
+export const sessionCookieOptions = {
   httpOnly: true,
   secure: env.isProduction,
   sameSite: (env.isProduction ? 'none' : 'lax') as 'none' | 'lax',
@@ -160,12 +160,13 @@ export class AuthController {
 
   static async login(req: Request, res: Response, next: NextFunction) {
     try {
-      const { user, accessToken, refreshToken } = await AuthService.login(req.body);
+      const { user, accessToken, refreshToken, restored } = await AuthService.login(req.body);
 
       // Set refresh token in httpOnly cookie
       res.cookie('refreshToken', refreshToken, sessionCookieOptions);
 
-      return ApiResponse.ok(res, 'Login successful', { user, accessToken });
+      // `restored`: this sign-in cancelled a pending account deletion.
+      return ApiResponse.ok(res, 'Login successful', { user, accessToken, ...(restored ? { restored } : {}) });
     } catch (error) {
       next(error);
     }

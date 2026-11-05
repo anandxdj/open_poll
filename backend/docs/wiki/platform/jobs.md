@@ -28,6 +28,9 @@ await stopScheduler();     // stops timers, aborts `signal`, waits for running j
 - `new Scheduler({ jobs, store, instanceId, now, log })` + `runTick(job, tick)` drive it
   deterministically in tests; `redisLockStore(client)` adapts any node-redis client.
 
+Registered jobs: `billing-seat-sync` (`modules/billing/seatSync.ts`), `privacy-account-purge` and
+`privacy-retention-purge` (`modules/privacy/privacy.purge.ts`, see `modules/privacy.md`).
+
 Needs a long-lived process (not serverless). `startJobs()` (`common/jobs/start.ts`, called by
 `app.ts` after Redis connects) calls `startScheduler()`, so a job only has to be registered by a
 module that `app.ts` imports (directly or through the route table). Tests never start it.

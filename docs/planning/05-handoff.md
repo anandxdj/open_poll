@@ -233,8 +233,10 @@ tests green (the frontend checks ran in a clean worktree of that commit that als
   OIDC / SCIM, **W3-B2** folders/templates/duplicate/co-editing, **W3-A** themes/brand kits.
   (**W3-G** workspace insights is built: `GET /api/insights` and the `/analytics` overview, see
   `backend/docs/wiki/modules/insights.md`.)
-- **Wave 4:** W4-A accessibility, W4-B locales (`es`), W4-C GDPR/retention (enforce `retentionDays`),
-  W4-D embeds/oEmbed/add-in panes, W4-E custom domains/white-label.
+- **Wave 4:** W4-A accessibility, W4-B locales (`es`), W4-D embeds/oEmbed/add-in panes, W4-E custom
+  domains/white-label. (**W4-C** GDPR/retention is built: `/api/me` export and deletion, the account
+  and retention purge jobs, participant self-removal, `/settings/privacy`, see
+  `backend/docs/wiki/modules/privacy.md` and `docs/compliance/`.)
 - **Close-out:** refresh `01-competitive-roadmap.md` status tables, README "What's next",
   `backend/docs/wiki/quiz-roadmap.md`; push the branch and open a PR (ask the owner first).
 
@@ -284,7 +286,7 @@ Wave 4 A → B → C → D → E; then the close-out.
   `ai_deck`, W3-E consumes `import`, W3-B1 enforces `seats` on invites): W3-A `brand_kits`; W3-D `sso` /
   `scim` and seats (`assertSeats` from `workspaces/members.service.ts`, plus
   `syncSeatsAfterMembershipChange` after provisioning a member); W4-E `custom_domains` /
-  `white_label`; W4-C retention.
+  `white_label`. (W4-C retention is enforced by the `privacy-retention-purge` job.)
 - **W3-B2 must delete a folder's `ResourceShare` rows when it deletes a folder** (sharing reads the raw
   `folders` collection).
 - **Proxy protected prefixes:** add `/presentations` and `/presentation/create` (signed-out visitors

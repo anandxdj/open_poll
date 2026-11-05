@@ -152,6 +152,10 @@ ROUTER /api/library
 GET /api/library
 POST /api/library/convert/poll/:pollId
 ROUTER /api/me
+GET /api/me/privacy
+POST /api/me/export
+POST /api/me/reauth
+DELETE /api/me
 ROUTER /api/oembed
 ROUTER /api/plans
 GET /api/plans
@@ -162,6 +166,7 @@ ROUTER /api/remote
 ROUTER /api/sessions
 GET /api/sessions
 GET /api/sessions/:sessionId/me
+DELETE /api/sessions/:sessionId/participants/me
 GET /api/sessions/:sessionId/export.csv
 GET /api/sessions/:sessionId/export.xlsx
 GET /api/sessions/:sessionId/export.pdf

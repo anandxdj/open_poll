@@ -39,6 +39,10 @@ Read this file first in every new chat. Then load only the mapped docs for the c
 ### Workspace insights (the analytics overview's data: activity over a date range)
 - `backend/docs/wiki/modules/insights.md`
 
+### Privacy: data export, account deletion and purge, session retention, participant self-removal (W4-C)
+- `backend/docs/wiki/modules/privacy.md`
+- Add `backend/docs/wiki/modules/sessions.md` only if touching session deletion or the take-home.
+
 ### Session history, reports, exports, public results links, participant take-home
 - `backend/docs/wiki/modules/sessions.md`
 - Add `backend/docs/wiki/modules/presentations-live.md` only if touching what the engine stores per session.

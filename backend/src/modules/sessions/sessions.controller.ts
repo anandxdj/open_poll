@@ -7,7 +7,7 @@ import type { WorkspaceRequest } from '../../common/tenancy/workspaceContext.mid
 import { streamSessionExport, type ExportFormat } from './export';
 import { authorizeSession } from './sessions.access';
 import { listSessionsQuerySchema, takeHomeQuerySchema } from './sessions.schema';
-import { deleteSession, getReport, getTakeHome, listSessions } from './sessions.service';
+import { deleteSession, eraseParticipant, getReport, getTakeHome, listSessions } from './sessions.service';
 import { disableShare, enableShare, getPublicResults } from './share.service';
 
 const parseQuery = <T>(schema: ZodType<T>, query: unknown): T => {
@@ -73,6 +73,13 @@ export const SessionsController = {
     const { participantId, token } = parseQuery(takeHomeQuerySchema, req.query);
     res.setHeader('Cache-Control', 'no-store');
     ApiResponse.ok(res, 'Your results', await getTakeHome(sessionIdOf(req), participantId, token));
+  }),
+
+  /** Body validated by eraseParticipantSchema on the route. */
+  eraseParticipant: handle(async (req, res) => {
+    const { participantId, token } = req.body as { participantId: string; token: string };
+    res.setHeader('Cache-Control', 'no-store');
+    ApiResponse.ok(res, 'Your answers were removed', await eraseParticipant(sessionIdOf(req), participantId, token));
   }),
 
   publicResults: handle(async (req, res) => {

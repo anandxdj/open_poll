@@ -62,7 +62,7 @@ export interface SettingsSection {
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { id: "profile", label: "Profile", href: "/settings/profile", icon: User, group: "account", ready: true },
   { id: "mcp", label: "MCP", href: "/settings/mcp", icon: Plug, group: "account", ready: true },
-  { id: "privacy", label: "Privacy", href: "/settings/privacy", icon: ShieldCheck, group: "account", ready: false },
+  { id: "privacy", label: "Privacy", href: "/settings/privacy", icon: ShieldCheck, group: "account", ready: true },
   { id: "workspace", label: "Workspace", href: "/settings/workspace", icon: Building2, group: "workspace", ready: true },
   { id: "members", label: "Members", href: "/settings/members", icon: Users, group: "workspace", ready: true, teamOnly: true },
   {
@@ -133,6 +133,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
 
 export const SETTINGS_HOME = "/settings/profile";
 
+/** Reason line of a team-only section in a personal workspace; the nav adds a "Create a team workspace" button under it. */
+export const TEAM_ONLY_REASON = "Only team workspaces have this.";
+
 export interface SectionGateInput {
   /** null while GET /api/capabilities is loading. */
   capabilities: Capabilities | null;
@@ -153,7 +156,7 @@ export function resolveSection(section: SettingsSection, { capabilities, workspa
   if (section.teamOnly || section.feature || section.action) {
     if (!workspace) return PENDING;
     if (section.teamOnly && workspace.workspace.type !== "team") {
-      return { available: false, reason: "Only team workspaces have this. Create one from the workspace menu." };
+      return { available: false, reason: TEAM_ONLY_REASON };
     }
     if (section.feature && !workspace.entitlements.features[section.feature]) {
       return { available: false, reason: `Not included in the ${PLAN_NAMES[workspace.entitlements.plan]} plan.` };

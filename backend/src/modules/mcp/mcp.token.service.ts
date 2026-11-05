@@ -10,6 +10,7 @@ import {
 } from './mcp.constants';
 import { McpTokenModel } from './mcp.token.model';
 import { UserModel } from '../auth/auth.model';
+import { isAccountUsable } from '../auth/auth.service';
 
 function generateRawToken(): string {
   const random = crypto.randomBytes(32).toString('base64url');
@@ -98,7 +99,7 @@ export class McpTokenService {
     }
 
     const user = await UserModel.findById(doc.userId);
-    if (!user) {
+    if (!user || !isAccountUsable(user)) {
       throw ApiError.unauthorized('User no longer exists');
     }
 

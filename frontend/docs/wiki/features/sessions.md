@@ -32,7 +32,7 @@ and from the host end screen.
 | `types.ts` | Wire types (report, list, share, public results, take-home). |
 | `query.ts` | Pure logic, unit tested in `tests/unit/sessions.query.test.ts`: formatting, paths and the public link, export options by plan, share expiry choices, report slide to StageView data (`toStageSlide`), participant search and paging, take-home tones. |
 | `credentials.ts` | Reads the participant's stored identity: `openpoll_participant_{code}_{sessionId}` (W1-A2), newest session when `?sid=` is missing, and the older per-code key as a fallback. |
-| `api/sessions.ts` | Host calls through `lib/api-client` (bearer + workspace header); `downloadExport` (blob + `Content-Disposition` name), `readBlobError`; public and take-home calls through a plain axios client with no credentials. |
+| `api/sessions.ts` | Host calls through `lib/api-client` (bearer + workspace header); `downloadExport` (blob + `Content-Disposition` name), `readBlobError`; public, take-home and `eraseMyAnswers` calls through a plain axios client with no credentials. |
 | `hooks/` | `useSessionList` (cursor pages), `useSessionReport` (refreshes every 5 s while the session is live), `usePublicResults`, `useTakeHome` (refreshes every 8 s while live; resolves a legacy per-code entry to its session through `/presentations/code/:code` and `/me`). |
 | `components/` | `SessionsList`, `SessionReportView` (+ `ReportContent`), `SlideResultCard`, `LeaderboardPanel`, `ParticipantsTable`, `ExportMenu`, `ShareDialog`, `DeleteSessionDialog`, `PublicResultsView` (+ `PublicResultsContent`), `ParticipantSummary` (+ `TakeHomeContent`), `EndScreenLink`, `ui.tsx`. |
 | `register.ts` | Registers the `endScreen` slot entry `sessions:end-link`; imported by `features/registrations.ts`. |
@@ -83,6 +83,11 @@ this browser's storage and sent to `GET /api/sessions/:sid/me` (the server compa
 time). While the session runs, correctness appears per slide once that slide closed and the correct
 answer once it was revealed; the page refreshes itself until the session ends. Without stored
 credentials it says so and links to `/live`.
+
+Once the session ended, "Remove my answers" (W4-C) asks to confirm, then calls
+`DELETE /api/sessions/:sid/participants/me` (`eraseMyAnswers`) with the stored credentials, forgets
+them on this device and shows "Your answers were removed". `TakeHomeContent` only offers it when the
+page passes `onRemove`.
 
 The end screens link here through the `endScreen` slot: participants get "See my results"
 (`summaryPath(joinCode, sessionId)`; the session id is read defensively from the participant state

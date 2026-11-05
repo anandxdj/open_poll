@@ -36,7 +36,7 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Audience Q&A (ask, upvote, moderation, highlight, the Q&A slide), emoji reactions, or the builder's Audience tab.
 - **Action**: Read `frontend/docs/wiki/features/qna.md` (add `features/live-surfaces.md` only for the store/slot internals)
 
-- **Task**: Workspaces (switcher, selected workspace, `X-Workspace-Id`), any `/settings` page or section, members and roles, invitations (`/invites/[token]`), the ShareDialog, or the audit log.
+- **Task**: Workspaces (switcher, selected workspace, `X-Workspace-Id`), any `/settings` page or section (including Privacy: data export, account deletion, data retention), members and roles, invitations (`/invites/[token]`), the ShareDialog, or the audit log.
 - **Action**: Read `frontend/docs/wiki/features/workspaces.md`
 
 - **Task**: The landing page (hero, sections, navbar and mobile menu, FAQ, footer), the sign-in pages (login, signup, forgot/reset password, verify email, OAuth complete, invitation accept), Privacy and Terms.

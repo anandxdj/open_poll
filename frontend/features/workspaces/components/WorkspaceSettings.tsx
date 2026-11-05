@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getApiErrorMessage } from "@/lib/api-error";
-import { SettingsHeading, settingsCard } from "../settings/blocks";
+import { SettingsHeading, SettingsRow, settingsCard, settingsList } from "../settings/blocks";
+import { retentionOptions, retentionText } from "../settings/retention";
+import { selectClass } from "../members/components/RoleSelect";
 import { updateWorkspace } from "../api/workspaces.api";
 import { useCapabilities, useCurrentWorkspace, useSwitchWorkspace } from "../hooks/useWorkspaces";
 import { useWorkspaceStore } from "../store/useWorkspaceStore";
@@ -157,6 +159,67 @@ function PlanSection({ detail }: { detail: WorkspaceDetail }) {
   );
 }
 
+function RetentionSection({ detail }: { detail: WorkspaceDetail }) {
+  const canManage = detail.permissions.includes("workspace:manage");
+  const planLimit = detail.entitlements.limits.retentionDays;
+  const current = detail.workspace.settings.retentionDays;
+  const [saving, setSaving] = useState(false);
+
+  const save = async (value: string) => {
+    setSaving(true);
+    try {
+      const updated = await updateWorkspace(detail.workspace._id, {
+        settings: { retentionDays: value === "plan" ? null : Number(value) },
+      });
+      useWorkspaceStore.getState().setCurrent(updated);
+      toast.success("Data retention saved");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error) ?? "Could not save data retention");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section id="retention" aria-labelledby="retention-title" className="scroll-mt-20 space-y-6">
+      <SettingsHeading
+        id="retention-title"
+        title="Data retention"
+        description="How long session results are kept after a session ends. Then the session is deleted with its participants and answers."
+      />
+      <div className={settingsList}>
+        <SettingsRow
+          label="Keep session results"
+          htmlFor={canManage ? "retention-days" : undefined}
+          description={
+            canManage
+              ? "Applies to sessions that end from now on. Polls and decks are not affected."
+              : "Only owners and admins can change this."
+          }
+        >
+          {canManage ? (
+            <select
+              id="retention-days"
+              value={current === null ? "plan" : String(current)}
+              disabled={saving}
+              onChange={(event) => void save(event.target.value)}
+              className={selectClass}
+            >
+              {retentionOptions(planLimit, current).map((option) => (
+                <option key={option.days ?? "plan"} value={option.days === null ? "plan" : String(option.days)}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-sm text-muted-foreground">{retentionText(planLimit, current)}</span>
+          )}
+        </SettingsRow>
+      </div>
+    </section>
+  );
+}
+
 function TeamWorkspacesSection() {
   const [open, setOpen] = useState(false);
   const { switchTo } = useSwitchWorkspace();
@@ -207,6 +270,7 @@ export function WorkspaceSettings() {
       {/* Keyed so the name field resets when the workspace changes. */}
       <GeneralSection key={detail.workspace._id} detail={detail} />
       <PlanSection detail={detail} />
+      <RetentionSection detail={detail} />
       <TeamWorkspacesSection />
     </div>
   );

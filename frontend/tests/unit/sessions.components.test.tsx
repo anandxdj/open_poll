@@ -344,6 +344,14 @@ describe("take-home", () => {
     const live = takeHome({ session: { ...takeHome().session, status: "active", endedAt: null } });
     expect(html(<TakeHomeContent data={live} />)).toContain("still running");
   });
+
+  test("an ended session offers to remove the participant's answers; a running one does not", () => {
+    const remove = async () => {};
+    expect(html(<TakeHomeContent data={takeHome()} onRemove={remove} />)).toContain("Remove my answers");
+    expect(html(<TakeHomeContent data={takeHome()} />)).not.toContain("Remove my answers");
+    const live = takeHome({ session: { ...takeHome().session, status: "active", endedAt: null } });
+    expect(html(<TakeHomeContent data={live} onRemove={remove} />)).not.toContain("Remove my answers");
+  });
 });
 
 describe("end-screen links (slot)", () => {

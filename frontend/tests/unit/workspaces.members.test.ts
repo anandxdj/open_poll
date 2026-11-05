@@ -106,6 +106,13 @@ describe("carrying an invitation through sign-in", () => {
     expect(takeInviteRedirect(null)).toBeNull();
   });
 
+  test("the privacy page is the one other page a sign-in may return to", () => {
+    expect(takeInviteRedirect("/settings/privacy")).toBe("/settings/privacy");
+    rememberInvite("/settings/privacy", 1_000);
+    expect(takeInviteRedirect(null, 2_000)).toBe("/settings/privacy");
+    expect(takeInviteRedirect("/settings/privacy/../billing")).toBeNull();
+  });
+
   test("rememberInvite refuses anything but an invite path, and forgetInvite clears it", () => {
     rememberInvite("/polls");
     expect(localStorage.getItem("openpoll_pending_invite")).toBeNull();

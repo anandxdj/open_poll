@@ -86,3 +86,10 @@ export const getTakeHome = async (sessionId: string, participantId: string, toke
       params: { participantId, token },
     })
   ).data.data;
+
+/** A participant deletes their own answers from an ended session (participant token, no account). */
+export const eraseMyAnswers = async (sessionId: string, participantId: string, token: string) => {
+  await publicClient.delete(`/sessions/${encodeURIComponent(sessionId)}/participants/me`, {
+    data: { participantId, token },
+  });
+};

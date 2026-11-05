@@ -29,3 +29,9 @@ export const takeHomeQuerySchema = z.object({
   participantId: objectId('participantId'),
   token: z.string().min(1).max(200),
 });
+
+/** `DELETE /api/sessions/:sid/participants/me` body: the participant removes their own answers. */
+export const eraseParticipantSchema = z.object({
+  participantId: objectId('participantId'),
+  token: z.string().min(1).max(200),
+});

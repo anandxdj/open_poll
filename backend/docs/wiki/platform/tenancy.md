@@ -143,6 +143,15 @@ All new schemas use `autoIndex: !isProduction`; production indexes come from mig
 `{identities.provider, identities.subject}`), `scim{externalId, workspaceId}`,
 `deletionRequestedAt`, `deletedAt`. `sub` is kept but no longer written.
 
+### Sessions (`modules/auth/auth.service.ts`)
+
+Every sign-in (password, Google, OIDC) ends in `startSession(user)`: an access token and a refresh
+token that both carry `authTime` (seconds, the sign-in's time; refreshes copy it), the refresh
+token's hash stored on the user. `req.user.authTime` exposes it; `DELETE /api/me` uses it as
+re-authentication (`modules/privacy.md`). An account with `deletionRequestedAt` or `deletedAt` set
+is not usable (`isAccountUsable`): `authenticate()`, refresh and MCP tokens reject it, and a new
+sign-in during the grace period cancels the deletion (`restored`).
+
 ### Provider identities (`modules/auth/identities.ts`)
 
 Google and OIDC used to both write `user.sub`, so a Google sign-in made a later OIDC sign-in

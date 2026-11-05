@@ -2,13 +2,8 @@ import * as oidc from 'openid-client';
 import { UserModel } from './auth.model';
 import { ApiError } from '../../common/utils/ApiError';
 import { env } from '../../common/config/env';
-import { resetUnverifiedAccount } from './auth.service';
+import { resetUnverifiedAccount, startSession } from './auth.service';
 import { identityFilter, linkedIdentity, linkIdentity } from './identities';
-import {
-  generateAccessToken,
-  generateRefreshToken,
-  hashToken,
-} from '../../common/utils/jwt.utils';
 
 export interface OidcTransaction {
   codeVerifier: string;
@@ -102,17 +97,9 @@ export class OidcService {
     // plus iss, aud, exp, iat, and nonce.
     const user = await OidcService.findOrLinkUser(tokens.claims() ?? {});
 
-    const accessToken = generateAccessToken({
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-    });
-    const refreshToken = generateRefreshToken({ id: user._id });
-    user.refreshToken = hashToken(refreshToken);
-    await user.save();
+    const { accessToken, refreshToken, restored } = await startSession(user);
 
-    return { user, accessToken, refreshToken };
+    return { user, accessToken, refreshToken, restored };
   }
 
   /**
