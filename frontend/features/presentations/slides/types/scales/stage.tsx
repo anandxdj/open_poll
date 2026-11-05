@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import type { RevealDistribution } from "../../../types";
 import type { StageViewProps } from "../../runtime";
-import { ease } from "../../shared";
+import { ease, stageScrollProps } from "../../shared";
 
 /** Average rating per statement as a bar out of the scale maximum. */
 export function ScalesStage({ slide, live, reveal, mode }: StageViewProps) {
@@ -19,7 +19,7 @@ export function ScalesStage({ slide, live, reveal, mode }: StageViewProps) {
       : (live.distribution ?? reveal?.distribution ?? null);
   if (dist?.kind !== "scales") return null;
   return (
-    <div className="pt-2 max-h-[55vh] overflow-y-auto">
+    <div className="pt-2 max-h-[55vh] overflow-y-auto" {...stageScrollProps(mode, slide.question)}>
       <div className="space-y-3.5 w-full font-sans">
         {dist.statements.map((s, i) => {
           const pct = Math.round((s.average / dist.scaleMax) * 100);
@@ -42,7 +42,7 @@ export function ScalesStage({ slide, live, reveal, mode }: StageViewProps) {
                   />
                 </div>
                 <span className="text-sm font-mono font-bold text-deck-accent shrink-0 min-w-[50px] text-right">
-                  {s.average.toFixed(1)} <span className="text-deck-stage-fg/40 font-normal">/ {dist.scaleMax}</span>
+                  {s.average.toFixed(1)} <span className="text-deck-stage-muted font-normal">/ {dist.scaleMax}</span>
                 </span>
               </div>
             </div>

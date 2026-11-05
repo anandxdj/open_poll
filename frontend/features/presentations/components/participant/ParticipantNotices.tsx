@@ -11,13 +11,13 @@ const centered = "min-h-screen bg-deck-bg text-deck-fg flex items-center justify
 export function ParticipantNotFound() {
   const t = useTranslations("live.participant");
   return (
-    <div className={centered}>
+    <main className={centered}>
       <div className="space-y-3">
         <PresentationIcon className="size-10 text-deck-muted-fg/40 mx-auto" />
         <h1 className="text-2xl font-semibold tracking-[-0.03em]">{t("notFoundTitle")}</h1>
         <p className="text-sm text-deck-muted-fg">{t("notFoundHint")}</p>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -25,13 +25,13 @@ export function ParticipantNotFound() {
 export function ParticipantKicked() {
   const t = useTranslations("live.participant");
   return (
-    <div className={centered}>
+    <main className={centered}>
       <div className="space-y-3 max-w-sm">
         <Ban className="size-10 text-deck-wrong mx-auto" />
         <h1 className="text-2xl font-semibold tracking-[-0.03em]">{t("kickedTitle")}</h1>
         <p className="text-sm text-deck-muted-fg">{t("kickedHint")}</p>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -39,13 +39,13 @@ export function ParticipantKicked() {
 export function ParticipantSessionClosed() {
   const t = useTranslations("live.participant");
   return (
-    <div className={centered}>
+    <main className={centered}>
       <div className="space-y-3 max-w-sm">
         <PartyPopper className="size-10 text-deck-muted-fg/40 mx-auto" />
         <h1 className="text-2xl font-semibold tracking-[-0.03em]">{t("endedTitle")}</h1>
         <p className="text-sm text-deck-muted-fg">{t("endedHint")}</p>
       </div>
-    </div>
+    </main>
   );
 }
 

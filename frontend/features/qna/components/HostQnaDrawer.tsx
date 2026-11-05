@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { MessageCircleQuestion, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -21,6 +21,9 @@ export function HostQnaDrawer() {
   const pending = useLive((s) => questionsWithStatus(selectQna(s), "pending").length);
   const [open, setOpen] = useState(false);
   const panelId = useId();
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const wasOpen = useRef(false);
 
   useEffect(() => {
     if (!open) return;
@@ -31,9 +34,18 @@ export function HostQnaDrawer() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  // Keyboard focus follows the drawer (W4-A): into its title when it opens, back to the
+  // header button when it closes (Escape, Close or the button itself).
+  useEffect(() => {
+    if (open) titleRef.current?.focus();
+    else if (wasOpen.current) toggleRef.current?.focus();
+    wasOpen.current = open;
+  }, [open]);
+
   return (
     <>
       <button
+        ref={toggleRef}
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
@@ -70,12 +82,14 @@ export function HostQnaDrawer() {
           className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[26rem] flex-col gap-3 border-l border-deck-stage-fg/10 bg-deck-stage-chrome p-4 pt-5 text-deck-stage-fg shadow-2xl"
         >
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold">{t("host.title")}</h2>
+            <h2 ref={titleRef} tabIndex={-1} className="text-sm font-bold">
+              {t("host.title")}
+            </h2>
             <button
               type="button"
               onClick={() => setOpen(false)}
               aria-label={t("host.close")}
-              className="rounded-full p-1.5 text-deck-stage-fg/60 hover:bg-deck-stage-fg/10 hover:text-deck-stage-fg"
+              className="flex size-9 items-center justify-center rounded-full text-deck-stage-muted hover:bg-deck-stage-fg/10 hover:text-deck-stage-fg"
             >
               <X className="size-4" aria-hidden />
             </button>

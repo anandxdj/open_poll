@@ -101,7 +101,11 @@ describe("slide runtime registry", () => {
       leaderboard: [],
     };
     const render = (mode: "live" | "reveal" | "report") =>
-      renderToStaticMarkup(<StageView slide={slide} mode={mode} live={live} />);
+      renderToStaticMarkup(
+        <LiveIntlProvider>
+          <StageView slide={slide} mode={mode} live={live} />
+        </LiveIntlProvider>
+      );
     expect(render("live")).not.toContain("bg-deck-correct ");
     expect(render("reveal")).toContain("bg-deck-correct ");
     expect(render("report")).toContain("bg-deck-correct ");
@@ -121,8 +125,13 @@ describe("slide runtime registry", () => {
       answeredCount,
       leaderboard: [],
     });
+    // Stage views read their labels from next-intl ("Multiple answers allowed", "Explanation"), like every view.
     const stage = (s: PresentationSlide, mode: "live" | "reveal" | "report", counts = [2, 1, 1], answered = 2) =>
-      renderToStaticMarkup(<StageView slide={s} mode={mode} live={liveData(s, counts, answered)} />);
+      renderToStaticMarkup(
+        <LiveIntlProvider>
+          <StageView slide={s} mode={mode} live={liveData(s, counts, answered)} />
+        </LiveIntlProvider>
+      );
     const highlighted = (html: string) => html.match(/bg-deck-correct /g)?.length ?? 0;
     const participant = (s: PresentationSlide, allowMultiple?: boolean) =>
       renderToStaticMarkup(
@@ -181,7 +190,13 @@ describe("slide runtime registry", () => {
       expect(stage(s, "live")).not.toContain("Mars is red");
       expect(stage(s, "reveal")).toContain("Mars is red; Earth is home.");
       expect(stage(s, "report")).toContain("Explanation");
-      expect(renderToStaticMarkup(<StageView slide={s} mode="thumbnail" />)).not.toContain("Mars is red");
+      expect(
+        renderToStaticMarkup(
+          <LiveIntlProvider>
+            <StageView slide={s} mode="thumbnail" />
+          </LiveIntlProvider>
+        )
+      ).not.toContain("Mars is red");
       expect(stage(deckSlide({}), "reveal")).not.toContain("Explanation");
     });
 

@@ -37,14 +37,14 @@ export function StageAudience({ join }: { join: JoinLinkControls }) {
         {!closed ? (
           <div className="flex flex-col items-center gap-5 sm:flex-row lg:items-center">
             <div className="rounded-2xl border border-deck-stage-fg/15 bg-deck-stage-panel px-8 py-6 text-center">
-              <p className="text-sm font-medium text-deck-stage-fg/60">
+              <p className="text-sm font-medium text-deck-stage-muted">
                 {playUrl ? t("joinAt", { url: playUrl.replace(/^https?:\/\//, "").replace(/\/[^/]*$/, "") }) : null}
               </p>
               <p className="font-mono text-5xl font-semibold tracking-[0.12em] text-deck-accent tabular-nums">{joinCode}</p>
             </div>
             {playUrl ? (
               <div className="rounded-2xl bg-deck-qr-bg p-4">
-                <QRCodeSVG value={playUrl} size={132} aria-label={playUrl} />
+                <QRCodeSVG value={playUrl} size={132} aria-label={t("qrLabel", { url: playUrl })} />
               </div>
             ) : null}
           </div>
@@ -74,7 +74,7 @@ export function StageAudience({ join }: { join: JoinLinkControls }) {
                 <li key={slide.slideId} className="space-y-1">
                   <div className="flex items-baseline justify-between gap-3 text-sm">
                     <span className="min-w-0 truncate">
-                      <span className="mr-2 font-mono text-deck-stage-fg/50">{i + 1}</span>
+                      <span className="mr-2 font-mono text-deck-stage-muted">{i + 1}</span>
                       {slide.label}
                     </span>
                     <span className="shrink-0 font-mono text-xs tabular-nums text-deck-stage-fg/70">

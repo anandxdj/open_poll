@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 import type { RevealDistribution } from "../../../types";
 import type { StageViewProps } from "../../runtime";
-import { ease, isRevealMode } from "../../shared";
+import { ease, isRevealMode, stageScrollProps } from "../../shared";
 
 type TextDistribution = Extract<RevealDistribution, { kind: "text" }>;
 
@@ -20,7 +20,7 @@ export function TypeAnswerStage({ slide, live, reveal, participants, mode }: Sta
       : (live.distribution ?? reveal?.distribution ?? null);
   if (dist?.kind !== "text") return null;
   return (
-    <div className="pt-2 max-h-[55vh] overflow-y-auto">
+    <div className="pt-2 max-h-[55vh] overflow-y-auto" {...stageScrollProps(mode, slide.question)}>
       <AnswerBars dist={dist} isReveal={isRevealMode(mode)} totalParticipants={participants.length} />
     </div>
   );
@@ -73,7 +73,7 @@ function AnswerBars({
                   />
                 )}
               </div>
-              <span className="font-mono text-xs font-semibold text-deck-stage-fg/60 shrink-0 min-w-[48px] text-right">
+              <span className="font-mono text-xs font-semibold text-deck-stage-muted shrink-0 min-w-[48px] text-right">
                 {a.count} {a.count === 1 ? "vote" : "votes"}
               </span>
             </div>

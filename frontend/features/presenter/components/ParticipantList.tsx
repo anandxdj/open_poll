@@ -52,17 +52,17 @@ export function ParticipantList({ onKick }: ParticipantListProps) {
   return (
     <section aria-labelledby="presenter-participants-title" className="flex min-h-0 flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 id="presenter-participants-title" className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-deck-stage-fg/50">
+        <h2 id="presenter-participants-title" className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-deck-stage-muted">
           <Users className="size-3.5" aria-hidden="true" /> {t("participants")}
         </h2>
-        <span className="font-mono text-xs tabular-nums text-deck-stage-fg/50" data-testid="participant-count">
+        <span className="font-mono text-xs tabular-nums text-deck-stage-muted" data-testid="participant-count">
           {t("participantsCount", { count: participants.length })}
         </span>
       </div>
       {participants.length === 0 ? (
-        <p className="text-sm text-deck-stage-fg/50">{t("noParticipants")}</p>
+        <p className="text-sm text-deck-stage-muted">{t("noParticipants")}</p>
       ) : (
-        <ul className="max-h-72 space-y-1 overflow-y-auto pr-1" aria-label={t("participants")}>
+        <ul className="max-h-72 space-y-1 overflow-y-auto pr-1" aria-label={t("participants")} tabIndex={0}>
           {participants.map((p) => (
             <li
               key={p.participantId}
@@ -71,7 +71,7 @@ export function ParticipantList({ onKick }: ParticipantListProps) {
               <span className="min-w-0 truncate text-sm text-deck-stage-fg">{p.name}</span>
               <span className="flex shrink-0 items-center gap-2">
                 {scoreOf.has(p.participantId) && (
-                  <span className="font-mono text-xs tabular-nums text-deck-stage-fg/50">{scoreOf.get(p.participantId)}</span>
+                  <span className="font-mono text-xs tabular-nums text-deck-stage-muted">{scoreOf.get(p.participantId)}</span>
                 )}
                 {live && (
                   <button

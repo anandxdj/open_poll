@@ -297,6 +297,31 @@
   --primary-foreground: var(--deck-primary-fg);
 }
 
+/* Reduced motion (W4-A): inside a deck scope, and in the dialogs live surfaces
+   open, CSS animations and transitions (entrance fades and slides, pulsing
+   dots, bars growing, the urgent timer) jump to their end state. Spinners keep
+   turning: they say "busy". framer-motion: `MotionConfig` in LiveIntlProvider. */
+@media (prefers-reduced-motion: reduce) {
+  [data-deck-theme] *:not(.animate-spin),
+  [data-deck-theme] *::before,
+  [data-deck-theme] *::after,
+  [data-slot^="dialog"],
+  [data-slot^="alert-dialog"] {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* A heading that receives focus when its screen changes (a new slide on the
+   phone, W4-A) is not a control: no focus ring around it. */
+h1[tabindex="-1"]:focus,
+h2[tabindex="-1"]:focus,
+h3[tabindex="-1"]:focus {
+  outline: none;
+}
+
 /* A theme's heading font (W3-A); without one, headings keep the inherited font. */
 [data-deck-theme] :is(h1, h2, h3) {
   font-family: var(--theme-font-heading, inherit);

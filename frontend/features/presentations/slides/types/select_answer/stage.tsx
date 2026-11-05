@@ -2,9 +2,10 @@
 
 import { motion } from "framer-motion";
 import { Lightbulb } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { RevealDistribution } from "../../../types";
 import type { StageViewProps } from "../../runtime";
-import { ease, isRevealMode } from "../../shared";
+import { ease, isRevealMode, stageScrollProps } from "../../shared";
 import { isGradedSelectAnswer, selectAnswerConfig } from "./config";
 
 type OptionsDistribution = Extract<RevealDistribution, { kind: "options" }>;
@@ -14,6 +15,7 @@ type OptionsDistribution = Extract<RevealDistribution, { kind: "options" }>;
  * only: an ungraded one just shows its results) and the explanation appears.
  */
 export function SelectAnswerStage({ slide, live, reveal, participants, mode }: StageViewProps) {
+  const t = useTranslations("live.slides.selectAnswer");
   const dist =
     mode === "thumbnail"
       ? ({ kind: "options", counts: slide.options.map(() => 0), options: slide.options } as const)
@@ -22,10 +24,10 @@ export function SelectAnswerStage({ slide, live, reveal, participants, mode }: S
   const { allowMultiple, explanation } = selectAnswerConfig(slide);
   const isReveal = isRevealMode(mode);
   return (
-    <div className="pt-2 max-h-[55vh] overflow-y-auto">
+    <div className="pt-2 max-h-[55vh] overflow-y-auto" {...stageScrollProps(mode, slide.question)}>
       {allowMultiple && (
-        <p className="text-center text-sm font-medium text-deck-stage-fg/60">
-          Multiple answers allowed
+        <p className="text-center text-sm font-medium text-deck-stage-muted">
+          {t("multipleAllowed")}
         </p>
       )}
       <OptionColumns
@@ -43,12 +45,12 @@ export function SelectAnswerStage({ slide, live, reveal, participants, mode }: S
           transition={{ duration: 0.4, ease }}
           className="mx-auto mt-4 flex max-w-2xl items-start gap-3 rounded-2xl border border-deck-stage-fg/10 bg-deck-stage-fg/[0.03] px-5 py-4 text-left"
         >
-          <Lightbulb className="mt-0.5 size-4 shrink-0 text-deck-accent" />
+          <Lightbulb className="mt-0.5 size-4 shrink-0 text-deck-accent" aria-hidden="true" />
           <div className="space-y-1 min-w-0">
-            <p className="text-sm font-medium text-deck-stage-fg/60">
-              Explanation
+            <p className="text-sm font-medium text-deck-stage-muted">
+              {t("explanation")}
             </p>
-            <p className="text-sm sm:text-base leading-relaxed text-deck-stage-fg/80whitespace-pre-line break-words">
+            <p className="text-sm sm:text-base leading-relaxed text-deck-stage-fg/80 whitespace-pre-line break-words">
               {explanation.trim()}
             </p>
           </div>
@@ -104,7 +106,7 @@ function OptionColumns({
                   <span className="text-base sm:text-lg font-bold text-deck-stage-fg leading-none">
                     {count}
                   </span>
-                  <span className="block text-sm font-medium text-deck-stage-fg/60 leading-none mt-0.5">
+                  <span className="block text-sm font-medium text-deck-stage-muted leading-none mt-0.5">
                     {sharePct}%
                   </span>
                 </div>

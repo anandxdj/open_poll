@@ -59,8 +59,8 @@ export function QuestionCard({
               <Check className="size-3" aria-hidden /> {t("list.answered")}
             </span>
           )}
-          {onStage && <span className="font-semibold text-deck-accent">{t("list.onScreen")}</span>}
-          {pending && <span className="font-semibold text-deck-accent">{t("list.pending")}</span>}
+          {onStage && <span className="font-semibold text-deck-primary-ink">{t("list.onScreen")}</span>}
+          {pending && <span className="font-semibold text-deck-primary-ink">{t("list.pending")}</span>}
         </div>
       </div>
 
@@ -73,9 +73,9 @@ export function QuestionCard({
           aria-label={t("list.upvote", { text: item.text })}
           title={own ? t("list.ownQuestion") : undefined}
           className={cn(
-            "flex shrink-0 flex-col items-center gap-0.5 rounded-xl border px-2.5 py-1.5 text-xs font-bold tabular-nums transition-colors",
+            "flex min-h-11 min-w-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-2.5 py-1.5 text-xs font-bold tabular-nums transition-colors",
             item.upvoted
-              ? "border-deck-primary/50 bg-deck-primary/15 text-deck-primary"
+              ? "border-deck-primary/50 bg-deck-primary/15 text-deck-primary-ink"
               : "border-deck-border/60 text-deck-muted-fg hover:text-deck-fg",
             (!canUpvote || own) && "opacity-60"
           )}

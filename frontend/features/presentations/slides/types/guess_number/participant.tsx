@@ -1,13 +1,14 @@
 "use client";
 
 import { useId, useState } from "react";
-import { Loader2, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { formatNumber } from "../../advanced/read";
 import type { ParticipantViewProps } from "../../runtime";
 import { guessNumberConfig, snapGuess } from "./config";
+import { SendingSpinner } from "../../SendingSpinner";
 
 /** A slider and a number field for one guess, starting mid-range. */
 export function GuessNumberParticipant({ slide, mode, onSubmit, submitting }: ParticipantViewProps) {
@@ -28,7 +29,7 @@ export function GuessNumberParticipant({ slide, mode, onSubmit, submitting }: Pa
       <div className="rounded-2xl border border-deck-border/60 bg-deck-surface/60 p-5 space-y-5 shadow-sm">
         <p
           aria-hidden
-          className="text-center text-5xl font-black tabular-nums text-deck-primary"
+          className="text-center text-5xl font-black tabular-nums text-deck-primary-ink"
           data-testid="guess-value"
         >
           {formatNumber(value, 4)}
@@ -92,10 +93,10 @@ export function GuessNumberParticipant({ slide, mode, onSubmit, submitting }: Pa
         className="w-full h-12 rounded-2xl bg-deck-primary text-deck-primary-fg font-bold text-base shadow-md transition-all"
       >
         {submitting ? (
-          <Loader2 className="size-5 animate-spin" />
+          <SendingSpinner />
         ) : (
           <span className="flex items-center gap-2">
-            {t("submit")} <Send className="size-4" />
+            {t("submit")} <Send className="size-4" aria-hidden="true" />
           </span>
         )}
       </Button>

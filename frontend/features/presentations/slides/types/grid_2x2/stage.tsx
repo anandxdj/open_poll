@@ -6,6 +6,7 @@ import { formatNumber } from "../../advanced/read";
 import type { StageViewProps } from "../../runtime";
 import { GridBoard, type BoardMarker } from "./Board";
 import { emptyGridDistribution, gridConfig, parseGridDistribution } from "./config";
+import { stageScrollProps } from "../../shared";
 
 /**
  * A 2x2 scatter: each item sits at the average position the audience gave it,
@@ -25,7 +26,7 @@ export function Grid2x2Stage({ slide, live, reveal, mode }: StageViewProps) {
   const quadrants = thumbnail ? config.quadrants : dist.quadrants;
 
   return (
-    <div className={`pt-2 font-sans ${thumbnail ? "" : "max-h-[55vh] overflow-y-auto"}`}>
+    <div className={`pt-2 font-sans ${thumbnail ? "" : "max-h-[55vh] overflow-y-auto"}`} {...stageScrollProps(mode, slide.question)}>
       <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-5 sm:flex-row sm:items-start">
         <div className={`w-full shrink-0 ${thumbnail ? "max-w-[300px]" : "max-w-[min(28rem,50vh)]"}`}>
           <GridBoard x={dist.x} y={dist.y} tone="stage" markers={markers} quadrants={quadrants} dots={dots} />
@@ -42,7 +43,7 @@ export function Grid2x2Stage({ slide, live, reveal, mode }: StageViewProps) {
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold text-deck-stage-fg">{item.text}</span>
                 {!thumbnail && item.x !== null && item.y !== null && (
-                  <span className="shrink-0 font-mono text-xs tabular-nums text-deck-stage-fg/60">
+                  <span className="shrink-0 font-mono text-xs tabular-nums text-deck-stage-muted">
                     {formatNumber(item.x)}, {formatNumber(item.y)}
                   </span>
                 )}
@@ -50,7 +51,7 @@ export function Grid2x2Stage({ slide, live, reveal, mode }: StageViewProps) {
             ))}
           </ol>
           {!thumbnail && (
-            <p className="text-center font-mono text-xs text-deck-stage-fg/50">{t("voters", { count: dist.voters })}</p>
+            <p className="text-center font-mono text-xs text-deck-stage-muted">{t("voters", { count: dist.voters })}</p>
           )}
         </div>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { ImageOff, Loader2, MapPin, Send } from "lucide-react";
+import { ImageOff, MapPin, Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ import { MediaPlaceholder } from "../../content/ContentViews";
 import type { ParticipantViewProps } from "../../runtime";
 import { PinImage } from "./PinImage";
 import { moveCursor, percentText, pinAt, pinImageOf, type CursorDirection, type Pin } from "./config";
+import { SendingSpinner } from "../../SendingSpinner";
 
 const ARROWS: Record<string, CursorDirection> = {
   ArrowLeft: "left",
@@ -141,10 +142,10 @@ export function PinOnImageParticipant({ slide, mode, onSubmit, submitting }: Par
         className="w-full h-12 rounded-2xl bg-deck-primary text-deck-primary-fg font-bold text-base shadow-md transition-all"
       >
         {submitting ? (
-          <Loader2 className="size-5 animate-spin" />
+          <SendingSpinner />
         ) : (
           <span className="flex items-center gap-2">
-            {t("submit")} <Send className="size-4" />
+            {t("submit")} <Send className="size-4" aria-hidden="true" />
           </span>
         )}
       </Button>

@@ -39,6 +39,7 @@ function AudienceScreen({ presentationId }: { presentationId: string }) {
   const { link, ui } = useAudienceMirror(presentationId, store);
   const fullscreen = useFullscreen();
   const joinCode = useLive((s) => s.joinCode);
+  const title = useLive((s) => s.title);
   const timing = useLive((s) => s.timing);
   const timeLimit = useLive((s) => s.deck?.slides[s.currentSlideIndex]?.timeLimit ?? 30);
   const countdown = useCountdown(timing, timeLimit);
@@ -66,15 +67,24 @@ function AudienceScreen({ presentationId }: { presentationId: string }) {
   if (link === "waiting") {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-deck-stage-bg px-6 text-center text-deck-stage-fg">
-        <MonitorUp className="size-10 text-deck-stage-fg/40" aria-hidden="true" />
+        <MonitorUp className="size-10 text-deck-stage-muted" aria-hidden="true" />
         <h1 className="text-2xl font-semibold tracking-[-0.03em]">{t("waitingTitle")}</h1>
-        <p className="max-w-md text-sm text-deck-stage-fg/60">{t("waitingHint")}</p>
+        <p className="max-w-md text-sm text-deck-stage-muted">{t("waitingHint")}</p>
       </div>
     );
   }
 
   return (
     <div className="group relative flex h-screen flex-col overflow-hidden bg-deck-stage-bg font-sans text-deck-stage-fg" data-testid="audience-stage">
+      {/* The page's title for screen readers, and the fullscreen hint, in a banner landmark (no box of its own). */}
+      <header>
+        <h1 className="sr-only">{title}</h1>
+        {fullscreen.supported && !fullscreen.isFullscreen && hintVisible && (
+          <p className="pointer-events-none absolute bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-full bg-deck-stage-chrome/90 px-4 py-1.5 text-sm text-deck-stage-fg/70">
+            {t("fullscreenHint")}
+          </p>
+        )}
+      </header>
       <Stage surface="screen" join={join} countdown={countdown} />
       <CountdownOverlay secondsLeft={ui.countdown} />
 
@@ -93,11 +103,6 @@ function AudienceScreen({ presentationId }: { presentationId: string }) {
         >
           {fullscreen.isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
         </button>
-      )}
-      {fullscreen.supported && !fullscreen.isFullscreen && hintVisible && (
-        <p className="pointer-events-none absolute bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-full bg-deck-stage-chrome/90 px-4 py-1.5 text-sm text-deck-stage-fg/70">
-          {t("fullscreenHint")}
-        </p>
       )}
     </div>
   );

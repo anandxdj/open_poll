@@ -71,7 +71,7 @@ export function HostHeader({
               className="flex cursor-pointer items-center gap-1.5 rounded-full border border-deck-stage-fg/15 px-3 py-1 font-mono text-sm tracking-[0.12em] text-deck-stage-fg transition-colors hover:bg-deck-stage-fg/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-deck-accent/50"
             >
               <span>{joinCode}</span>
-              {copiedUrl ? <Check className="size-3.5 text-deck-correct-soft" /> : <Copy className="size-3.5 text-deck-stage-fg/60" />}
+              {copiedUrl ? <Check className="size-3.5 text-deck-correct-soft" /> : <Copy className="size-3.5 text-deck-stage-muted" />}
             </button>
           </>
         )}
@@ -80,7 +80,8 @@ export function HostHeader({
           size="sm"
           onClick={onToggleLeaderboard}
           title={t("toggleLeaderboard")}
-          aria-pressed={showLeaderboard}
+          aria-haspopup="dialog"
+          aria-expanded={showLeaderboard}
           className={`flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors ${
             showLeaderboard
               ? "border-deck-stage-fg bg-deck-stage-fg text-deck-stage-bg hover:bg-deck-stage-fg/90"
@@ -95,7 +96,7 @@ export function HostHeader({
           size="icon"
           onClick={onToggleFullscreen}
           title={t("toggleFullscreen")}
-          className="size-8 text-deck-stage-fg/60 hover:text-deck-stage-fg hover:bg-deck-stage-fg/10"
+          className="size-8 text-deck-stage-muted hover:text-deck-stage-fg hover:bg-deck-stage-fg/10"
         >
           {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
         </Button>
