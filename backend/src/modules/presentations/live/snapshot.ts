@@ -25,9 +25,10 @@ export interface SessionSnapshot {
   slideStats: ISessionSlideStat[];
 }
 
+/** Every failure of a bulk insert is a duplicate key (the driver puts the code on the item or on its `err`). */
 const isDuplicateKeyOnly = (error: unknown) => {
-  const e = error as { code?: number; writeErrors?: { code?: number }[] } | null;
-  if (e?.writeErrors?.length) return e.writeErrors.every((w) => w.code === 11000);
+  const e = error as { code?: number; writeErrors?: { code?: number; err?: { code?: number } }[] } | null;
+  if (e?.writeErrors?.length) return e.writeErrors.every((w) => (w.code ?? w.err?.code) === 11000);
   return e?.code === 11000;
 };
 
