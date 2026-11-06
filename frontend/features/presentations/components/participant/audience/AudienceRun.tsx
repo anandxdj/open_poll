@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Clock, Hourglass, Loader2, Lock } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
+import { useAnnounceOnChange, useFocusHeadingOnChange } from "@/components/a11y/live-announcer";
 import { Button } from "@/components/ui/button";
 import { SlotOutlet } from "../../../live/slots";
 import { useLive } from "../../../live/store";
@@ -42,6 +43,7 @@ function useClosingLabel(audienceWindow: AudienceWindowView | null, closed: bool
  */
 export function AudienceRun() {
   const t = useTranslations("live.audience");
+  const tAnnounce = useTranslations("live.announce");
   const status = useLive((s) => s.status);
   const presentationId = useLive((s) => s.presentationId);
   const run = useLive((s) => audienceSliceOf(s).participant);
@@ -60,6 +62,17 @@ export function AudienceRun() {
     setPage(run?.attempt.submitted ? (run.slides.length ?? 0) : 0);
   }
 
+  // Each page (a slide or the summary) puts focus on its heading and says where the participant is (W4-A).
+  const pageRef = useRef<HTMLDivElement>(null);
+  const slideCount = run?.slides.length ?? 0;
+  const pageIndex = run ? Math.min(page ?? (run.attempt.submitted ? slideCount : 0), slideCount) : null;
+  const pageKey = pageIndex === null ? null : `${run?.attempt.number}:${pageIndex}`;
+  useFocusHeadingOnChange(pageRef, pageKey);
+  useAnnounceOnChange(
+    pageKey,
+    pageIndex === null || pageIndex >= slideCount ? null : tAnnounce("slide", { current: pageIndex + 1, total: slideCount })
+  );
+
   const answered = useMemo(() => {
     const set = new Set<string>();
     for (const slide of run?.slides ?? []) if (slide.answered || answeredLocally[slide.slideId]) set.add(slide.slideId);
@@ -69,7 +82,7 @@ export function AudienceRun() {
   if (status === "lobby" || run?.status === "waiting") {
     return (
       <div className="space-y-4 text-center">
-        <Hourglass className="mx-auto size-10 text-deck-primary motion-safe:animate-pulse" aria-hidden="true" />
+        <Hourglass className="mx-auto size-10 text-deck-primary-ink motion-safe:animate-pulse" aria-hidden="true" />
         <h2 className="text-2xl font-semibold tracking-[-0.03em]">{t("waitingTitle")}</h2>
         <p className="text-sm text-deck-muted-fg">{t("waitingHint")}</p>
       </div>
@@ -116,7 +129,7 @@ export function AudienceRun() {
         })}
       </nav>
 
-      <div className="min-h-[240px]">
+      <div className="min-h-[240px]" ref={pageRef}>
         {onSummary ? (
           <AudienceSummary run={run} answered={answered} onJump={go} onReview={() => go(0)} />
         ) : (

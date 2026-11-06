@@ -53,7 +53,7 @@ function ScreenStageView({ presentationId, screenToken }: { presentationId: stri
   if (loading || (!hasDeck && problem === null)) {
     return (
       <div className="flex flex-1 items-center justify-center bg-deck-stage-bg" role="status" aria-label={t("loading")}>
-        <Loader2 className="size-8 animate-spin text-deck-stage-fg/50" />
+        <Loader2 className="size-8 animate-spin text-deck-stage-muted" />
       </div>
     );
   }

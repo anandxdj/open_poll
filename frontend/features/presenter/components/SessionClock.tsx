@@ -47,7 +47,7 @@ export function SessionClock() {
   return (
     <section aria-label={t("clock")} className="flex items-center justify-between gap-3">
       <div>
-        <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-deck-stage-fg/50">
+        <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-deck-stage-muted">
           <Clock className="size-3.5" aria-hidden="true" /> {t("elapsed")}
         </p>
         <p className="font-mono text-2xl font-semibold tabular-nums text-deck-stage-fg" data-testid="session-elapsed">
@@ -55,7 +55,7 @@ export function SessionClock() {
         </p>
       </div>
       <div className="text-right">
-        <p className="text-xs font-medium uppercase tracking-wider text-deck-stage-fg/50">{t("localTime")}</p>
+        <p className="text-xs font-medium uppercase tracking-wider text-deck-stage-muted">{t("localTime")}</p>
         <p className="font-mono text-lg tabular-nums text-deck-stage-fg/80">{local}</p>
       </div>
     </section>

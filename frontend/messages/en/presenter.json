@@ -43,7 +43,7 @@
     "copyCode": "Click to copy join code",
     "copiedCode": "Copied code!",
     "clickToCopy": "Click to copy code",
-    "qrLabel": "Join at {url}",
+    "qrLabel": "QR code to join at {url}",
     "joined": "{count} joined",
     "waiting": "Waiting for players to enter code...",
     "start": "Start",
@@ -71,7 +71,7 @@
     "pause": "Pause timer",
     "resume": "Resume timer",
     "extend": "+30 s",
-    "extendLabel": "Add 30 seconds",
+    "extendLabel": "+30 s, add 30 seconds",
     "skip": "Skip timer",
     "skipLabel": "Time's up now"
   },
@@ -251,6 +251,11 @@
     "stageClosedTitle": "Answers are closed",
     "stageClosedHint": "Thanks for taking part.",
     "stageParticipants": "{count, plural, one {# participant} other {# participants}}",
-    "stageFinished": "{done} of {total} finished"
+    "stageFinished": "{done} of {total} finished",
+    "qrLabel": "QR code to join at {url}"
+  },
+  "meta": {
+    "hostTitle": "Host console",
+    "presenterTitle": "Presenter view"
   }
 }

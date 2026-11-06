@@ -184,7 +184,8 @@ export function LiveRoomPreview({ className }: { className?: string }) {
 export function JoinCodeTile({ size = 96 }: { size?: number }) {
   return (
     <div className="rounded-lg bg-white p-2">
-      <QRCodeSVG value="Open Poll sample session" size={size} level="M" />
+      {/* A sample, part of the illustration: nothing to scan or announce. */}
+      <QRCodeSVG value="Open Poll sample session" size={size} level="M" aria-hidden="true" />
     </div>
   );
 }

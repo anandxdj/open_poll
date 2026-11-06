@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import type { RevealDistribution } from "../../../types";
 import type { StageViewProps } from "../../runtime";
-import { ease } from "../../shared";
+import { ease, stageScrollProps } from "../../shared";
 
 /** Combined ranking: items by points, with a bar each. */
 export function RankingStage({ slide, live, reveal, participants, mode }: StageViewProps) {
@@ -21,7 +21,7 @@ export function RankingStage({ slide, live, reveal, participants, mode }: StageV
   const maxScale = Math.max(participants.length * dist.items.length, maxPoints, 10);
 
   return (
-    <div className="pt-2 max-h-[55vh] overflow-y-auto">
+    <div className="pt-2 max-h-[55vh] overflow-y-auto" {...stageScrollProps(mode, slide.question)}>
       <div className="space-y-2.5 w-full font-sans">
         {dist.items.map((it, i) => {
           const barWidthPct = maxPoints > 0 ? Math.min(100, Math.round((it.points / maxScale) * 100)) : 0;
@@ -49,7 +49,7 @@ export function RankingStage({ slide, live, reveal, participants, mode }: StageV
                     />
                   )}
                 </div>
-                <span className="font-mono text-xs font-semibold text-deck-stage-fg/60 shrink-0 min-w-[44px] text-right">
+                <span className="font-mono text-xs font-semibold text-deck-stage-muted shrink-0 min-w-[44px] text-right">
                   {it.points} pts
                 </span>
               </div>

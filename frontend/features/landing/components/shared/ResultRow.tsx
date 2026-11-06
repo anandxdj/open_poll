@@ -73,9 +73,11 @@ export function ResultRow({
               <motion.span
                 key={bump}
                 aria-hidden="true"
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: [0, 1, 1, 0], y: -18 }}
-                exit={{ opacity: 0 }}
+                // Pops in and out by scale, never by fading: a half-transparent badge is low-contrast
+                // text while it fades (W4-A). Hidden once it has shrunk away.
+                initial={{ scale: 0, y: 4 }}
+                animate={{ scale: [0, 1.1, 1, 1, 0], y: -18, transitionEnd: { visibility: "hidden" } }}
+                exit={{ scale: 0 }}
                 transition={{ duration: 1.1, ease: "easeOut" }}
                 className="absolute -top-1 right-0 rounded-full bg-primary px-1.5 font-mono text-xs font-medium text-primary-foreground"
               >

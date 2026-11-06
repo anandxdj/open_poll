@@ -24,8 +24,8 @@ export function ResponseCounter() {
   if (!isResponse) {
     return (
       <section aria-label={t("responses")}>
-        <p className="text-xs font-medium uppercase tracking-wider text-deck-stage-fg/50">{t("responses")}</p>
-        <p className="mt-1 text-sm text-deck-stage-fg/60">{t("noResponses")}</p>
+        <p className="text-xs font-medium uppercase tracking-wider text-deck-stage-muted">{t("responses")}</p>
+        <p className="mt-1 text-sm text-deck-stage-muted">{t("noResponses")}</p>
       </section>
     );
   }
@@ -45,8 +45,8 @@ export function ResponseCounter() {
   return (
     <section aria-label={t("responses")} className="space-y-2">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-xs font-medium uppercase tracking-wider text-deck-stage-fg/50">{t("responses")}</p>
-        <p className="text-xs text-deck-stage-fg/60" data-testid="presenter-timer">{timer}</p>
+        <p className="text-xs font-medium uppercase tracking-wider text-deck-stage-muted">{t("responses")}</p>
+        <p className="text-xs text-deck-stage-muted" data-testid="presenter-timer">{timer}</p>
       </div>
       <p className="font-mono text-2xl font-semibold tabular-nums text-deck-stage-fg" data-testid="presenter-responses">
         {t("responsesOf", { answered, total })}

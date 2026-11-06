@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import type { ParticipantViewProps } from "../../runtime";
+import { SendingSpinner } from "../../SendingSpinner";
 
 export function ScalesParticipant({ slide, mode, onSubmit, submitting }: ParticipantViewProps) {
   const t = useTranslations("live.slides.scales");
@@ -32,7 +33,10 @@ export function ScalesParticipant({ slide, mode, onSubmit, submitting }: Partici
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold leading-snug">{statement}</p>
-                <div className="size-7 rounded-xl bg-deck-primary/15 border border-deck-primary/30 flex items-center justify-center text-deck-primary text-xs font-extrabold shrink-0 tabular-nums">
+                <div
+                  aria-hidden="true"
+                  className="size-7 rounded-xl bg-deck-primary/15 border border-deck-primary/30 flex items-center justify-center text-deck-primary-ink text-xs font-extrabold shrink-0 tabular-nums"
+                >
                   {currentVal}
                 </div>
               </div>
@@ -45,6 +49,13 @@ export function ScalesParticipant({ slide, mode, onSubmit, submitting }: Partici
                 value={currentVal}
                 disabled={locked}
                 aria-label={statement}
+                // "4 of 5 (Disagree 1, Agree 5)": the value with what the ends mean (W4-A).
+                aria-valuetext={t("valueText", {
+                  value: currentVal,
+                  max: scaleMax,
+                  minLabel: minLabel || t("minLabel"),
+                  maxLabel: maxLabel || t("maxLabel"),
+                })}
                 onChange={(e) => {
                   const value = Number(e.target.value);
                   setRatings((prev) => prev.map((r, j) => (j === i ? value : r)));
@@ -68,10 +79,10 @@ export function ScalesParticipant({ slide, mode, onSubmit, submitting }: Partici
         className="w-full h-12 rounded-2xl bg-deck-primary text-deck-primary-fg font-bold text-base shadow-md transition-all"
       >
         {submitting ? (
-          <Loader2 className="size-5 animate-spin" />
+          <SendingSpinner />
         ) : (
           <span className="flex items-center gap-2">
-            {t("submit")} <Send className="size-4" />
+            {t("submit")} <Send className="size-4" aria-hidden="true" />
           </span>
         )}
       </Button>

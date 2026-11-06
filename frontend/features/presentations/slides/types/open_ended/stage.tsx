@@ -1,16 +1,17 @@
 "use client";
 
 import type { StageViewProps } from "../../runtime";
+import { stageScrollProps } from "../../shared";
 
 /** Card wall of free-form responses; repeats show a ×N badge. */
-export function OpenEndedStage({ live, reveal, mode }: StageViewProps) {
+export function OpenEndedStage({ slide, live, reveal, mode }: StageViewProps) {
   const dist =
     mode === "thumbnail"
       ? ({ kind: "responses", responses: [] } as const)
       : (live.distribution ?? reveal?.distribution ?? null);
   if (dist?.kind !== "responses") return null;
   return (
-    <div className="pt-2 max-h-[55vh] overflow-y-auto">
+    <div className="pt-2 max-h-[55vh] overflow-y-auto" {...stageScrollProps(mode, slide.question)}>
       <div className="flex flex-wrap gap-2.5 justify-center font-sans">
         {dist.responses.map((r, i) => (
           <span

@@ -73,8 +73,13 @@ export interface SlotEntry<P> {
   id: string;
   /** Ascending; default 100. */
   order?: number;
-  /** Tab slots: the tab label. */
+  /** Tab slots: the tab label (a fallback when there is no `labelKey`). */
   label?: string;
+  /**
+   * Tab slots: the label's message key, a full path such as `qna.tab` (W4-A: every string of
+   * the live surfaces comes from the message files). Wins over `label`.
+   */
+  labelKey?: string;
   /** Tab slots: optional icon. */
   icon?: ComponentType<{ className?: string }>;
   /** Render only when this returns true. */

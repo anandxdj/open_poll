@@ -131,7 +131,7 @@ export function AudienceDashboard({ presentationId, session }: { presentationId:
   }[state];
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 text-deck-stage-fg" data-testid="audience-dashboard">
+    <main className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 text-deck-stage-fg" data-testid="audience-dashboard">
       <div className={`${panel} flex flex-wrap items-start justify-between gap-6`}>
         <div className="min-w-0 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -145,7 +145,7 @@ export function AudienceDashboard({ presentationId, session }: { presentationId:
           <p className="max-w-xl text-sm text-deck-stage-fg/70">{t("intro")}</p>
           {view ? <SettingsLine view={view} /> : null}
           <p className="flex items-center gap-1.5 text-sm" data-testid="audience-closing">
-            <Clock className="size-4 text-deck-stage-fg/60" aria-hidden="true" />
+            <Clock className="size-4 text-deck-stage-muted" aria-hidden="true" />
             {closed && windowState?.closedAt
               ? windowState.closeReason === "schedule"
                 ? `${t("closedBySchedule")} · ${formatTime(windowState.closedAt)}`
@@ -176,7 +176,7 @@ export function AudienceDashboard({ presentationId, session }: { presentationId:
             </div>
             {join.playUrl ? (
               <div className="rounded-lg bg-deck-qr-bg p-2">
-                <QRCodeSVG value={join.playUrl} size={88} aria-label={join.playUrl} />
+                <QRCodeSVG value={join.playUrl} size={88} aria-label={t("qrLabel", { url: join.playUrl })} />
               </div>
             ) : null}
           </div>
@@ -196,7 +196,7 @@ export function AudienceDashboard({ presentationId, session }: { presentationId:
               }}
               className="h-11 rounded-lg border border-deck-stage-fg/20 bg-deck-stage-bg px-3 text-deck-stage-fg"
             />
-            <span className="text-xs text-deck-stage-fg/60">
+            <span className="text-xs text-deck-stage-muted">
               {state !== "open" && closeAfterMinutes ? t("closesAtDefault", { minutes: closeAfterMinutes }) : t("closesAtHint")}
             </span>
           </label>
@@ -270,7 +270,7 @@ export function AudienceDashboard({ presentationId, session }: { presentationId:
         </AlertDialogContent>
       </AlertDialog>
       <EndSessionDialog open={confirmingEnd} onOpenChange={setConfirmingEnd} onConfirm={() => void session.end()} />
-    </div>
+    </main>
   );
 }
 
@@ -289,7 +289,7 @@ function SettingsLine({ view }: { view: HostAudienceView }) {
 function Stat({ label, value, testId }: { label: string; value: string; testId: string }) {
   return (
     <div className={panel}>
-      <p className="text-xs font-medium uppercase tracking-wider text-deck-stage-fg/60">{label}</p>
+      <p className="text-xs font-medium uppercase tracking-wider text-deck-stage-muted">{label}</p>
       <p className="mt-1 font-mono text-2xl font-semibold tabular-nums" data-testid={testId}>
         {value}
       </p>
@@ -333,7 +333,7 @@ function ProgressPanel({ view }: { view: HostAudienceView }) {
             <li key={slide.slideId} className="space-y-1" data-testid="audience-slide-progress">
               <div className="flex items-baseline justify-between gap-3 text-sm">
                 <span className="min-w-0 truncate">
-                  <span className="mr-2 font-mono text-deck-stage-fg/50">{i + 1}</span>
+                  <span className="mr-2 font-mono text-deck-stage-muted">{i + 1}</span>
                   {slide.label}
                 </span>
                 <span className="shrink-0 font-mono text-xs tabular-nums text-deck-stage-fg/70">
@@ -353,14 +353,14 @@ function ProgressPanel({ view }: { view: HostAudienceView }) {
 
 function ParticipantStatus({ participant }: { participant: AudienceParticipantProgress }) {
   const t = useTranslations("presenter.audiencePace");
-  if (participant.kicked) return <span className="text-deck-stage-fg/50">{t("removed")}</span>;
+  if (participant.kicked) return <span className="text-deck-stage-muted">{t("removed")}</span>;
   const result = participant.lastResult;
   if (participant.submitted && result) {
     if (result.passed === true) return <span className="font-semibold text-deck-correct-soft">{t("passedWith", { percentage: result.percentage ?? 0 })}</span>;
     if (result.passed === false) return <span className="font-semibold text-deck-danger-soft">{t("failedWith", { percentage: result.percentage ?? 0 })}</span>;
     return <span className="font-semibold">{result.percentage !== null ? t("scoreWith", { percentage: result.percentage }) : t("submitted")}</span>;
   }
-  if (participant.answeredCount === 0 && !result) return <span className="text-deck-stage-fg/60">{t("notStarted")}</span>;
+  if (participant.answeredCount === 0 && !result) return <span className="text-deck-stage-muted">{t("notStarted")}</span>;
   return <span>{t("inProgress")}</span>;
 }
 
@@ -372,11 +372,11 @@ function ParticipantsPanel({ view }: { view: HostAudienceView }) {
         <Users className="size-4" aria-hidden="true" /> {t("whoTitle")}
       </h2>
       {view.participants.length === 0 ? (
-        <p className="text-sm text-deck-stage-fg/60">{t("noParticipants")}</p>
+        <p className="text-sm text-deck-stage-muted">{t("noParticipants")}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wider text-deck-stage-fg/60">
+            <thead className="text-xs uppercase tracking-wider text-deck-stage-muted">
               <tr>
                 <th scope="col" className="py-2 pr-3 font-medium">{t("colName")}</th>
                 <th scope="col" className="py-2 pr-3 font-medium">{t("colProgress")}</th>

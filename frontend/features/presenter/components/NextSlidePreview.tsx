@@ -18,10 +18,10 @@ export function NextSlidePreview() {
   return (
     <section aria-labelledby="presenter-next-title" className="space-y-2">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 id="presenter-next-title" className="text-xs font-medium uppercase tracking-wider text-deck-stage-fg/50">
+        <h2 id="presenter-next-title" className="text-xs font-medium uppercase tracking-wider text-deck-stage-muted">
           {t("nextSlide")}
         </h2>
-        {slide && <span className="font-mono text-xs tabular-nums text-deck-stage-fg/40">{index + 1} / {total}</span>}
+        {slide && <span className="font-mono text-xs tabular-nums text-deck-stage-muted">{index + 1} / {total}</span>}
       </div>
       {slide ? (
         <div data-testid="next-slide-preview" title={slide.question || slide.type}>
@@ -29,7 +29,7 @@ export function NextSlidePreview() {
           <p className="mt-1.5 truncate text-sm text-deck-stage-fg/70">{slide.question || " "}</p>
         </div>
       ) : (
-        <p data-testid="next-slide-preview" className="flex aspect-video items-center justify-center rounded-md border border-dashed border-deck-stage-fg/15 text-sm text-deck-stage-fg/50">
+        <p data-testid="next-slide-preview" className="flex aspect-video items-center justify-center rounded-md border border-dashed border-deck-stage-fg/15 text-sm text-deck-stage-muted">
           {t("noNextSlide")}
         </p>
       )}

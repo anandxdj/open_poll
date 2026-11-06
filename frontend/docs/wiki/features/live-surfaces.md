@@ -1,5 +1,5 @@
 ---
-summary: Live deck surfaces — host console, presenter view and audience window, phone remote, participant shell, stage, audience pace (participant run, host dashboard) — their session-aware flows, and their extension points: live store/reducer, slots, slide runtime registry, deck theme tokens, live i18n.
+summary: Live deck surfaces — host console, presenter view and audience window, phone remote, participant shell, stage, audience pace (participant run, host dashboard) — their session-aware flows, and their extension points: live store/reducer, slots, slide runtime registry, deck theme tokens, accessibility (W4-A), live i18n.
 status: active
 last_updated: 2026-11-05
 ---
@@ -543,6 +543,9 @@ has a runtime.
   scope and not in a light deck drawn on a dark page.
 - Outside any deck scope `:root` keeps the look from before modes (a dark stage, audience tokens
   following the app): what the landing samples use.
+- Text tokens added for W4-A: `stage-muted` (secondary text on the stage and its panels, 4.5:1) and
+  `primary-ink` (the phone's primary as text and icons, 4.5:1 on the background and its primary tints);
+  see [Accessibility](#accessibility-w4-a).
 - `.stage-grid` draws the graph paper in the stage's own ink behind the ready, lobby and end screens;
   a running slide has a plain stage. `qr-bg` / `qr-fg` keep QR codes dark on white in both modes.
 - Stage chrome (host header and controls, lobby, ready, end, response counter, leaderboard) uses
@@ -577,6 +580,57 @@ has a runtime.
   3:1, cloud words, text on the accent). `tests/unit/themes.test.tsx` covers `deckThemeFrom`, the
   provider's `data-deck-mode` and the library card mapping.
 
+## Accessibility (W4-A)
+
+WCAG 2.2 AA on every live surface; what was checked, how, and the known gaps:
+[`docs/compliance/a11y-checklist.md`](../../../../docs/compliance/a11y-checklist.md). The rules for new
+live UI:
+
+- **Contrast from tokens.** Secondary text on the stage is `text-deck-stage-muted` (4.5:1 on the stage
+  and its panels in both modes), never `text-deck-stage-fg/40…60`; the primary as text or icon on the
+  phone is `text-deck-primary-ink` (4.5:1 on the background and on a 15 % primary tint), never
+  `text-deck-primary`. Coloured status text sits on a plain surface or an outline, not a tint (green on
+  a green tint drops under 4.5:1). Custom themes map both tokens (`deckThemeFrom`: `stage-muted` is the
+  palette's muted text, `primary-ink` the accent pulled toward the text). `theme.tokens.test.ts` checks
+  them. Toasts keep ink on the popover; their type is the icon's colour and shape (`components/ui/sonner.tsx`,
+  no `richColors`).
+- **Right / wrong** is always an icon and a word ("Correct!" with a check, "Not quite…" with a cross,
+  Passed / Not passed with a check or a cross), never colour alone.
+- **Announcements.** The participant shell wraps itself in `components/a11y/live-announcer.tsx`
+  (`LiveAnnouncer`: a polite and an assertive region that exist before anything is said;
+  `useAnnounce()`, `useAnnounceOnChange(key, message)`). It says each new slide ("New slide, 2 of 5"),
+  each answer state (locked in, received, saved offline, refused, voting ended, time is up) and the
+  result with points and rank; the own-pace run says the same per card and per page. The sentences are
+  `live.announce.*`, worded apart from the visible labels (a live region repeating "Correct!" would also
+  sit next to the visible "Correct!", and e2e `getByText` would find both; `tests/unit/a11y.test.tsx`
+  checks it). The stage's counter + question block and its phase line ("Results revealed") are
+  `role="status"`; the phone remote's state lines and phase too, its ticking timer is not.
+- **Timer.** `Timer` is `role="timer"` named "Time left" (silent while it ticks, `aria-live="off"`) with
+  a separate polite region that says the milestones (60, 30, 10 seconds left: `TIMER_MILESTONES`) and the
+  host pausing or resuming; never every second.
+- **Focus.** `useFocusHeadingOnChange(ref, key)` moves focus to the first heading of a new screen: the
+  participant `main` on each status, slide and tab (the lobby's "You're in!", the slide question, "Look at
+  the screen", the end), the own-pace run on each page. Headings get `tabindex="-1"` and no ring
+  (`tokens.css`). When an answer form disappears under the participant's focus (submit), focus moves onto
+  the new state (`participant-slide-state`, `audience-slide-state`) instead of the body, and that read-out
+  replaces the announcement. Dialogs are Radix (trap, Escape, focus back): the leaderboard is a real
+  `Dialog` rendered in place (keeps the deck tokens); the host's Q&A drawer takes focus into its title and
+  gives it back to its button.
+- **Keyboard.** Every control is a button, link or input. Select-answer letter / number shortcuts work
+  while focus is in the option list only (WCAG 2.1.4); single-select options are `aria-pressed`, the list
+  a named group. Ranking: "Move X up / down" buttons (44 px), focus stays with the moved item (on its
+  other button at an end), a polite region says "X is now number 2". Scroll boxes that can overflow
+  without a focusable child are focusable and named (`stageScrollProps(mode, question)` for the stage
+  results, the notes, the participant list, the lobby chips, the host Q&A list).
+- **Motion.** `LiveIntlProvider` and `EmbedIntlProvider` set `<MotionConfig reducedMotion="user">`;
+  `tokens.css` stops CSS animations and transitions inside a deck scope and in dialogs under
+  `prefers-reduced-motion` (spinners keep turning).
+- **Size and reflow.** Phone controls are at least 44×44 px (tabs, Q&A sort and upvote, the
+  word-cloud chip's remove, ranking moves, the remote's notes toggle); the phone, the remote and the join
+  page reflow at 320 px; the host console and presenter view at 200 % zoom (640×360).
+- Inputs have names (`aria-label` from the messages; placeholders are hints only); a submitting button
+  keeps its name (`slides/SendingSpinner.tsx`); decorative icons and letter badges are `aria-hidden`.
+
 ## i18n (live routes only)
 
 - `next-intl`, client-side only: `app/live/layout.tsx`, `app/presentation/host/layout.tsx`,
@@ -596,6 +650,17 @@ has a runtime.
   (`slidesAdvanced.guessNumber|hundredPoints|grid2x2|pinOnImage`). `LiveIntlProvider` ships `live`,
   `presenter`, `qna`, `remote` and `slidesAdvanced`: a package that adds a namespace used on live
   surfaces appends it there.
+- **Every user-facing string of the participant, stage, presenter, remote and audience-pace surfaces is
+  in these files (W4-A string extraction)**, so a locale is one more `messages/<locale>/` folder plus a
+  line in `i18n/config.ts` and `i18n/messages.ts`. That includes screen-reader-only text (`live.announce.*`,
+  `live.timer.milestone|pausedAnnouncement|resumedAnnouncement|pausedLabel`, input names such as
+  `live.slides.*.inputLabel`, `live.join.codeLabel`, ranking's `moveUp|moveDown|moved`), the participant
+  tab bar (`live.participant.sectionsNav`; a module's tab names its key with `labelKey`, e.g. `qna.tab`),
+  stage labels that used to be inline (`live.slides.selectAnswer.multipleAllowed|explanation`,
+  `live.slides.wordcloud.waiting`, `live.slides.paragraph.empty`) and the page titles (`live.meta`,
+  `presenter.meta`, `remote.meta`; metadata is built on the server before a locale is known, so it reads
+  `enMessages`). `WordCloud` itself takes `emptyText` (the landing sample renders it without a provider).
+  Not extracted: the builder, library and settings (plain English, out of W4-A's scope), the add-in panes.
 
 ## Tests
 
@@ -613,9 +678,13 @@ has a runtime.
   `participant:kicked` in the reducer, paused countdowns, `SLIDE_PAUSED` retried, the remote presence
   slice, the audience snapshot, presenter view and paused phone markup), `audience.test.tsx` (W2-F: the
   audience slice, targeted answers with ticket and attempt, the Pace tab helpers, the multi-select form in
-  audience mode, the phone run / result and the dashboard markup). Shared fixtures:
+  audience mode, the phone run / result and the dashboard markup), `a11y.test.tsx` (W4-A: timer milestones
+  and its silent `role="timer"`, the announcer's regions, announcement wording apart from visible labels,
+  option and ranking names, a submitting button's name, `stageScrollProps`). Shared fixtures:
   `tests/unit/live.fixtures.ts`.
 - E2E (`bun run test:e2e`): `e2e/live-flow.spec.ts`, `e2e/live-session.spec.ts`, `e2e/offline-answers.spec.ts`,
   `e2e/presenter.spec.ts`, `e2e/audience-pace.spec.ts`, `e2e/deck-themes.spec.ts`,
-  `e2e/content-slides.spec.ts`, `e2e/select-answer.spec.ts`, `e2e/advanced-slides.spec.ts` — see
+  `e2e/content-slides.spec.ts`, `e2e/select-answer.spec.ts`, `e2e/advanced-slides.spec.ts`, and the W4-A
+  accessibility specs `e2e/a11y-{live,audience-pace,public,keyboard}.spec.ts` (axe scans of every surface
+  in a light and a dark deck; keyboard, focus, announcements, reduced motion, reflow, target size) — see
   [`../testing/e2e.md`](../testing/e2e.md).

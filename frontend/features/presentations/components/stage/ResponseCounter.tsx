@@ -13,9 +13,9 @@ export function ResponseCounter() {
     <div className="absolute bottom-5 left-6 z-10 hidden items-center gap-2 rounded-full border border-deck-stage-fg/15 bg-deck-stage-chrome px-3.5 py-1.5 text-sm text-deck-stage-fg/80 sm:flex">
       <span className="size-2 shrink-0 rounded-full bg-deck-live motion-safe:animate-pulse" />
       <span className="font-mono font-medium tabular-nums text-deck-stage-fg">{answeredCount}</span>
-      <span className="font-mono text-deck-stage-fg/40">/</span>
-      <span className="font-mono tabular-nums text-deck-stage-fg/60">{participantCount}</span>
-      <span className="ml-0.5 text-deck-stage-fg/60">{t("answered")}</span>
+      <span className="font-mono text-deck-stage-muted">/</span>
+      <span className="font-mono tabular-nums text-deck-stage-muted">{participantCount}</span>
+      <span className="ml-0.5 text-deck-stage-muted">{t("answered")}</span>
     </div>
   );
 }

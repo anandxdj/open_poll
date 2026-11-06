@@ -43,7 +43,7 @@ export function StageLobby({ join, actions }: { join: JoinLinkControls; actions?
             {copiedUrl ? (
               <Check className="size-3.5 text-deck-correct-soft shrink-0" />
             ) : (
-              <Copy className="size-3.5 shrink-0 text-deck-stage-fg/50 transition-colors group-hover:text-deck-stage-fg" />
+              <Copy className="size-3.5 shrink-0 text-deck-stage-muted transition-colors group-hover:text-deck-stage-fg" />
             )}
           </button>
           <span>{t("withCode")}</span>
@@ -58,7 +58,7 @@ export function StageLobby({ join, actions }: { join: JoinLinkControls; actions?
           title={t("copyCode")}
           className="group flex min-h-[200px] min-w-[300px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-deck-stage-fg/15 bg-deck-stage-panel px-10 py-8 text-center shadow-[0_32px_64px_-24px_rgb(0_0_0/0.6)] transition-colors hover:border-deck-stage-fg/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-deck-accent/50"
         >
-          <span className="mb-3 flex items-center gap-1.5 text-sm font-medium text-deck-stage-fg/60">
+          <span className="mb-3 flex items-center gap-1.5 text-sm font-medium text-deck-stage-muted">
             {t("joinCode")}
             {copiedCode ? (
               <Check className="size-3 text-deck-correct-soft" />
@@ -69,7 +69,7 @@ export function StageLobby({ join, actions }: { join: JoinLinkControls; actions?
           <span className="font-mono text-6xl font-semibold tracking-[0.12em] text-deck-accent tabular-nums">
             {joinCode}
           </span>
-          <span className="mt-3 text-sm text-deck-stage-fg/50">
+          <span className="mt-3 text-sm text-deck-stage-muted">
             {copiedCode ? t("copiedCode") : t("clickToCopy")}
           </span>
         </button>
@@ -87,18 +87,22 @@ export function StageLobby({ join, actions }: { join: JoinLinkControls; actions?
           <Users className="size-5 text-deck-accent" /> {t("joined", { count: participants.length })}
         </div>
         {participants.length > 0 ? (
-          <div className="flex flex-wrap justify-center gap-2 max-h-36 overflow-y-auto p-2">
+          <ul
+            className="flex flex-wrap justify-center gap-2 max-h-36 overflow-y-auto p-2"
+            aria-label={t("joined", { count: participants.length })}
+            tabIndex={0}
+          >
             {participants.map((p) => (
-              <span
+              <li
                 key={p.participantId}
                 className="rounded-full border border-deck-stage-fg/15 bg-deck-stage-fg/5 px-3.5 py-1.5 text-sm font-medium text-deck-stage-fg animate-in fade-in zoom-in-95 duration-300"
               >
                 {p.name}
-              </span>
+              </li>
             ))}
-          </div>
+          </ul>
         ) : (
-          <p className="text-sm text-deck-stage-fg/50">{t("waiting")}</p>
+          <p className="text-sm text-deck-stage-muted">{t("waiting")}</p>
         )}
       </div>
 

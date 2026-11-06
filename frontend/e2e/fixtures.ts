@@ -35,7 +35,8 @@ export interface SessionSummary {
 
 export interface Host {
   accessToken: string;
-  createDeck(title: string, slides: DeckSlideInput[]): Promise<CreatedDeck>;
+  /** `extra` adds other create fields, e.g. `{ pace: "audience", theme: { mode: "dark" } }`. */
+  createDeck(title: string, slides: DeckSlideInput[], extra?: Record<string, unknown>): Promise<CreatedDeck>;
   /** The deck as the API stores it (slides with answer keys and settings). */
   getDeck(id: string): Promise<CreatedDeck & { slides: Record<string, unknown>[] }>;
   /** Every run of the deck, newest first (`GET /:id/sessions`). */
@@ -132,6 +133,34 @@ interface HostLogin {
   accessToken: string;
 }
 
+/**
+ * Clicks the presenter view's "Open audience window" and opens the window it asks for as a second
+ * tab of the same browser context (same BroadcastChannel as the real popup). window.open is
+ * recorded, not followed: GitHub's headless Chromium crashes the renderer on this popup (CI only;
+ * locally both Chromium builds are fine). Checks the URL and the popup features it was asked for.
+ */
+export async function openAudienceWindow(presenter: Page, presentationId: string): Promise<Page> {
+  await presenter.evaluate(() => {
+    const calls: Array<[string, string, string]> = [];
+    (window as unknown as { __openCalls: typeof calls }).__openCalls = calls;
+    window.open = ((url?: string | URL, target?: string, features?: string) => {
+      calls.push([String(url), String(target), String(features)]);
+      return { closed: false, focus: () => {} } as unknown as Window;
+    }) as typeof window.open;
+  });
+  await presenter.getByRole("button", { name: "Open audience window" }).click();
+  const calls = await presenter.evaluate(
+    () => (window as unknown as { __openCalls: Array<[string, string, string]> }).__openCalls,
+  );
+  expect(calls).toHaveLength(1);
+  const [url, , features] = calls[0];
+  expect(url).toContain(`/presentation/${presentationId}/present`);
+  expect(features).toContain("popup");
+  const audience = await presenter.context().newPage();
+  await audience.goto(url);
+  return audience;
+}
+
 export const test = base.extend<{ host: Host; contexts: BrowserContext[] }, { hostLogin: HostLogin }>({
   // One login per worker: the login endpoint allows 10 per 5 minutes per IP, and the
   // suite has more tests than that. (`provide` is Playwright's `use`, renamed so the
@@ -159,11 +188,11 @@ export const test = base.extend<{ host: Host; contexts: BrowserContext[] }, { ho
 
     const host: Host = {
       accessToken,
-      createDeck: (title, slides) =>
+      createDeck: (title, slides, extra = {}) =>
         api<CreatedDeck>("/presentations", {
           method: "POST",
           token: accessToken,
-          body: JSON.stringify({ title, slides }),
+          body: JSON.stringify({ title, slides, ...extra }),
         }),
       getDeck: (id) => api(`/presentations/${id}`, { token: accessToken }),
       getSessions: (id) => api(`/presentations/${id}/sessions`, { token: accessToken }),

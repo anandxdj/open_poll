@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { percentOf } from "../../advanced/read";
 import type { StageViewProps } from "../../runtime";
-import { ease, isRevealMode } from "../../shared";
+import { ease, isRevealMode, stageScrollProps } from "../../shared";
 import {
   emptyHundredPointsDistribution,
   formatAverage,
@@ -29,7 +29,7 @@ export function HundredPointsStage({ slide, live, reveal, mode }: StageViewProps
   const maxAverage = Math.max(0, ...rows.map((row) => row.average));
 
   return (
-    <div className={`pt-2 font-sans ${thumbnail ? "" : "max-h-[55vh] overflow-y-auto"}`}>
+    <div className={`pt-2 font-sans ${thumbnail ? "" : "max-h-[55vh] overflow-y-auto"}`} {...stageScrollProps(mode, slide.question)}>
       <div className="mx-auto w-full max-w-2xl space-y-2.5">
         {rows.map((row, position) => {
           const width = percentOf(row.average, maxAverage);
@@ -59,14 +59,14 @@ export function HundredPointsStage({ slide, live, reveal, mode }: StageViewProps
                 </div>
                 <span className="min-w-[64px] shrink-0 text-right font-mono text-sm font-bold text-deck-accent">
                   {formatAverage(row.average)}
-                  <span className="ml-1 text-xs font-normal text-deck-stage-fg/40">{t("avg")}</span>
+                  <span className="ml-1 text-xs font-normal text-deck-stage-muted">{t("avg")}</span>
                 </span>
               </div>
             </div>
           );
         })}
         {!thumbnail && (
-          <p className="pt-1 text-center font-mono text-xs text-deck-stage-fg/50">
+          <p className="pt-1 text-center font-mono text-xs text-deck-stage-muted">
             {t("voters", { count: dist.voters })}
           </p>
         )}

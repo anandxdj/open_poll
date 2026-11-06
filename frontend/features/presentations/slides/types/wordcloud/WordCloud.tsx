@@ -15,6 +15,8 @@ interface WordCloudProps {
    * over with its top words. `fit`: every word at once, shrunk to fit (reports).
    */
   mode?: CloudMode;
+  /** Shown while there are no words yet (the stage passes its localized "Waiting for responses…"). */
+  emptyText?: string;
 }
 
 // Deck theme cloud colours (theme/tokens.css), full class names so Tailwind
@@ -77,7 +79,7 @@ interface Laid {
   measure: Measure | null;
 }
 
-export function WordCloud({ words, showCounts = false, className, mode = "live" }: WordCloudProps) {
+export function WordCloud({ words, showCounts = false, className, mode = "live", emptyText = "" }: WordCloudProps) {
   const root = useRef<HTMLDivElement>(null);
   const [frame, setFrame] = useState<(Frame & { font: string }) | null>(null);
   const [fontsLoaded, setFontsLoaded] = useState(0);
@@ -123,8 +125,8 @@ export function WordCloud({ words, showCounts = false, className, mode = "live" 
 
   if (!hasWords) {
     return (
-      <p className="text-center text-sm text-deck-muted-fg/50 py-12">
-        Waiting for responses…
+      <p className="text-center text-sm text-deck-stage-muted py-12">
+        {emptyText}
       </p>
     );
   }

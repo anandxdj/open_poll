@@ -36,9 +36,9 @@ export function InstructionsStage({ slide, mode }: StageViewProps) {
         <div className="flex w-full flex-wrap items-center justify-center gap-[6cqw]">
           {showCode && (
             <div className="space-y-[1.2cqw]">
-              <p className="text-[clamp(1rem,2.8cqw,1.75rem)] font-semibold text-deck-stage-fg/60">{t("goTo")}</p>
+              <p className="text-[clamp(1rem,2.8cqw,1.75rem)] font-semibold text-deck-stage-muted">{t("goTo")}</p>
               <p className="font-mono text-[clamp(1.25rem,4.2cqw,2.6rem)] font-extrabold text-deck-stage-fg">{address}</p>
-              <p className="text-[clamp(1rem,2.8cqw,1.75rem)] font-semibold text-deck-stage-fg/60">{t("useCode")}</p>
+              <p className="text-[clamp(1rem,2.8cqw,1.75rem)] font-semibold text-deck-stage-muted">{t("useCode")}</p>
               <p
                 className="font-mono text-[clamp(2.5rem,11cqw,6.5rem)] font-black leading-none tracking-[0.15em] text-deck-accent tabular-nums"
                 aria-label={`${t("code")}: ${live ? joinCode : ""}`}
@@ -62,7 +62,7 @@ export function InstructionsStage({ slide, mode }: StageViewProps) {
                   <QrCode className="size-[24cqw] min-h-28 min-w-28 text-deck-qr-fg" aria-hidden />
                 )}
               </div>
-              <p className="text-[clamp(0.85rem,2.2cqw,1.3rem)] font-semibold text-deck-stage-fg/60">{t("scan")}</p>
+              <p className="text-[clamp(0.85rem,2.2cqw,1.3rem)] font-semibold text-deck-stage-muted">{t("scan")}</p>
             </div>
           )}
         </div>

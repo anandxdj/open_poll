@@ -33,6 +33,9 @@ Before generating any code, identify your task type and read the corresponding s
 - **Task**: Changing the live host console, presenter view, audience window, phone remote, participant view, stage, slide runtime views, the live store/slots, deck theme tokens, live i18n, or audience pace (the participant's own run, the host's audience dashboard).
 - **Action**: Read `frontend/docs/wiki/features/live-surfaces.md`
 
+- **Task**: Accessibility of the live surfaces (W4-A): keyboard and focus, screen-reader announcements (`LiveAnnouncer`), the timer's `role="timer"`, contrast tokens (`stage-muted`, `primary-ink`), reduced motion, reflow and touch targets, the axe specs.
+- **Action**: Read `frontend/docs/wiki/features/live-surfaces.md` (section "Accessibility (W4-A)") and `docs/compliance/a11y-checklist.md`; for the specs, `frontend/docs/wiki/testing/e2e.md`.
+
 - **Task**: Audience Q&A (ask, upvote, moderation, highlight, the Q&A slide), emoji reactions, or the builder's Audience tab.
 - **Action**: Read `frontend/docs/wiki/features/qna.md` (add `features/live-surfaces.md` only for the store/slot internals)
 

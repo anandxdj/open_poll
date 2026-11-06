@@ -102,7 +102,7 @@ export function RemotePairing({ presentationId }: { presentationId: string }) {
   return (
     <section aria-labelledby="presenter-remote-title" className="space-y-3">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 id="presenter-remote-title" className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-deck-stage-fg/50">
+        <h2 id="presenter-remote-title" className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-deck-stage-muted">
           <Smartphone className="size-3.5" aria-hidden="true" /> {t("title")}
         </h2>
         <span role="status" data-testid="remote-status" className="flex items-center gap-1.5 text-xs text-deck-stage-fg/70">
@@ -119,11 +119,11 @@ export function RemotePairing({ presentationId }: { presentationId: string }) {
           <div className="mx-auto w-fit rounded-lg bg-deck-qr-bg p-2.5">
             <QRCodeSVG value={url} size={148} level="M" aria-label={t("qrLabel")} role="img" />
           </div>
-          <p className="break-all text-center font-mono text-[11px] text-deck-stage-fg/50" data-testid="remote-link">{url}</p>
-          <p className="text-xs text-deck-stage-fg/50">{t("oneDevice")}</p>
+          <p className="break-all text-center font-mono text-[11px] text-deck-stage-muted" data-testid="remote-link">{url}</p>
+          <p className="text-xs text-deck-stage-muted">{t("oneDevice")}</p>
         </div>
       ) : connected ? null : (
-        <p className="text-sm text-deck-stage-fg/60">{paired && !url ? t("codeHidden") : t("hint")}</p>
+        <p className="text-sm text-deck-stage-muted">{paired && !url ? t("codeHidden") : t("hint")}</p>
       )}
 
       <div className="flex flex-wrap gap-2">

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { useCountdown } from "@/features/presentations/live/useCountdown";
 import type { RemoteCommand, RemoteState } from "@/features/presentations/types";
 import { DeckThemeProvider } from "@/features/presentations/theme/DeckThemeProvider";
@@ -67,7 +68,7 @@ function RemoteBody({
   if (!state) {
     return (
       <Shell>
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-deck-stage-fg/60">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-deck-stage-muted">
           <Loader2 className="size-8 animate-spin" aria-hidden="true" />
           <p className="text-sm">{t("connecting")}</p>
         </div>
@@ -79,7 +80,7 @@ function RemoteBody({
 
 function Shell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-deck-stage-bg px-4 pb-6 pt-4 font-sans text-deck-stage-fg">{children}</div>
+    <main className="flex min-h-dvh flex-col bg-deck-stage-bg px-4 pb-6 pt-4 font-sans text-deck-stage-fg">{children}</main>
   );
 }
 
@@ -93,7 +94,7 @@ function RemoteRefusal({ link }: { link: RemoteLink }) {
       <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
         <Ban className="size-10 text-deck-danger-soft" aria-hidden="true" />
         <h1 className="text-2xl font-semibold tracking-[-0.03em]">{title}</h1>
-        {hint && <p className="max-w-sm text-sm text-deck-stage-fg/60">{hint}</p>}
+        {hint && <p className="max-w-sm text-sm text-deck-stage-muted">{hint}</p>}
         {link === "failed" && (
           <button type="button" onClick={() => window.location.reload()} className={`${button} mt-2 min-h-12 px-6`}>
             {t("retry")}
@@ -144,10 +145,10 @@ function RemoteControls({ state, link, serverOffsetMs, pending, onCommand }: Rem
     <Shell>
       <header className="flex items-center justify-between gap-3 pb-3">
         <span className="flex min-w-0 items-center gap-2">
-          <Smartphone className="size-4 shrink-0 text-deck-stage-fg/50" aria-hidden="true" />
-          <span className="truncate text-sm font-semibold">{state.title}</span>
+          <Smartphone className="size-4 shrink-0 text-deck-stage-muted" aria-hidden="true" />
+          <h1 className="truncate text-sm font-semibold">{state.title}</h1>
         </span>
-        <span role="status" data-testid="remote-link-status" className="flex shrink-0 items-center gap-1.5 text-xs text-deck-stage-fg/60">
+        <span role="status" data-testid="remote-link-status" className="flex shrink-0 items-center gap-1.5 text-xs text-deck-stage-muted">
           {link === "live" ? (
             <>
               <span className="size-1.5 rounded-full bg-deck-live" aria-hidden="true" /> {t("connected")}
@@ -160,37 +161,45 @@ function RemoteControls({ state, link, serverOffsetMs, pending, onCommand }: Rem
         </span>
       </header>
 
-      <section className="space-y-2 rounded-2xl border border-deck-stage-fg/10 bg-deck-stage-chrome p-4" aria-live="polite">
-        {state.status === "draft" && <p className="text-sm text-deck-stage-fg/70">{t("draft")}</p>}
-        {state.status === "lobby" && (
-          <p className="flex items-center gap-2 text-sm text-deck-stage-fg/80">
-            <Radio className="size-4 text-deck-live" aria-hidden="true" /> {t("lobby", { count: state.participantCount })}
-          </p>
-        )}
-        {state.status === "ended" && <p className="text-sm text-deck-stage-fg/70">{t("ended")}</p>}
-        {active && slide && (
-          <>
-            <p className="font-mono text-xs tabular-nums text-deck-stage-fg/50" data-testid="remote-slide-position">
-              {t("slideOf", { current: slide.slideIndex + 1, total: state.totalSlides })}
+      {/* The status card. Its state lines are live regions (a screen reader hears the lobby, each slide and
+          its phase); the ticking timer is a silent role="timer" outside them (W4-A). */}
+      <section className="space-y-2 rounded-2xl border border-deck-stage-fg/10 bg-deck-stage-chrome p-4" aria-label={t("statusLabel")}>
+        <div role="status" className="space-y-2">
+          {state.status === "draft" && <p className="text-sm text-deck-stage-fg/70">{t("draft")}</p>}
+          {state.status === "lobby" && (
+            <p className="flex items-center gap-2 text-sm text-deck-stage-fg/80">
+              <Radio className="size-4 text-deck-live" aria-hidden="true" /> {t("lobby", { count: state.participantCount })}
             </p>
-            <h1 className="text-balance text-xl font-semibold leading-snug tracking-[-0.02em]" data-testid="remote-slide-title">
-              {slide.title}
-            </h1>
-            {response && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-deck-stage-fg/70">
-                {phaseLabel && <span data-testid="remote-phase">{phaseLabel}</span>}
-                {timerLabel && (
-                  <span className="font-mono tabular-nums" data-testid="remote-timer">
-                    {timerLabel}
-                  </span>
-                )}
-                <span>{t("answered", { answered: slide.answeredCount, total: state.participantCount })}</span>
-              </div>
+          )}
+          {state.status === "ended" && <p className="text-sm text-deck-stage-fg/70">{t("ended")}</p>}
+          {active && slide && (
+            <>
+              <p className="font-mono text-xs tabular-nums text-deck-stage-muted" data-testid="remote-slide-position">
+                {t("slideOf", { current: slide.slideIndex + 1, total: state.totalSlides })}
+              </p>
+              <h2 className="text-balance text-xl font-semibold leading-snug tracking-[-0.02em]" data-testid="remote-slide-title">
+                {slide.title}
+              </h2>
+            </>
+          )}
+        </div>
+        {active && slide && response && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-deck-stage-fg/70">
+            {phaseLabel && (
+              <span role="status" data-testid="remote-phase">
+                {phaseLabel}
+              </span>
             )}
-          </>
+            {timerLabel && (
+              <span className="font-mono tabular-nums" data-testid="remote-timer" role="timer" aria-label={t("timerLabel")}>
+                {timerLabel}
+              </span>
+            )}
+            <span>{t("answered", { answered: slide.answeredCount, total: state.participantCount })}</span>
+          </div>
         )}
         {state.next && state.status !== "ended" && (
-          <p className="truncate pt-1 text-xs text-deck-stage-fg/50">
+          <p className="truncate pt-1 text-xs text-deck-stage-muted">
             {t("upNext")}: {state.next.title}
           </p>
         )}
@@ -204,7 +213,7 @@ function RemoteControls({ state, link, serverOffsetMs, pending, onCommand }: Rem
           type="button"
           onClick={() => onCommand("next")}
           disabled={busy || !canNext}
-          className={`${button} border-transparent bg-deck-accent text-deck-stage-ink active:bg-deck-accent-soft`}
+          className={cn(button, "border-transparent bg-deck-accent text-deck-stage-ink active:bg-deck-accent-soft")}
         >
           {t("next")} <ArrowRight className="size-5" aria-hidden="true" />
         </button>
@@ -234,7 +243,7 @@ function RemoteControls({ state, link, serverOffsetMs, pending, onCommand }: Rem
             type="button"
             onClick={() => setShowNotes((v) => !v)}
             aria-expanded={showNotes}
-            className="flex w-full items-center justify-between text-xs font-medium uppercase tracking-wider text-deck-stage-fg/50"
+            className="flex min-h-11 w-full items-center justify-between text-xs font-medium uppercase tracking-wider text-deck-stage-muted"
           >
             {t("notes")} <span aria-hidden="true">{showNotes ? "−" : "+"}</span>
           </button>

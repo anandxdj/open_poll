@@ -1,7 +1,7 @@
 ---
 summary: State of the backlog + roadmap work on branch chore/backlog-and-roadmap, and what is left.
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-11-05
 ---
 
 # Handoff — backlog and roadmap work
@@ -284,6 +284,41 @@ Owner request: decks were all dark while the app is light-first.
   `frontend/features/presentations/theme/tokens.css`, `backend/src/modules/presentations/crud.service.ts`,
   migration ids.
 
+**Wave 4 — W4-A accessibility + string extraction** (branch `feat/accessibility` from
+`feat/light-deck-themes`, i.e. main + release PR #22; not pushed, no PR yet). Target WCAG 2.2 AA; what was
+checked, how, the results and the gaps: [`docs/compliance/a11y-checklist.md`](../compliance/a11y-checklist.md).
+- **Acceptance met:** zero serious or critical axe findings on the participant and presenter core flows,
+  in a light and a dark deck (250 scans: 102 failed before — colour contrast, unnamed ranking buttons, unfocusable scroll boxes, unnamed QR codes, a label/name mismatch — 0 after; per-surface table in the checklist).
+- Specs: `frontend/e2e/a11y-{live,audience-pace,public,keyboard}.spec.ts` with `e2e/axe.ts`
+  (`@axe-core/playwright`, every finding to `test-results/axe/findings.jsonl`); unit
+  `tests/unit/a11y.test.tsx`.
+- Contrast from tokens: new deck tokens `stage-muted` and `primary-ink` (light and dark blocks, custom themes
+  in `deckThemeFrom`, the token contrast test), no coloured text on tints, toasts without `richColors`, the
+  destructive button tint lighter. Right / wrong is icon + word everywhere.
+- Keyboard and focus: focus to the new screen's heading on the phone (`useFocusHeadingOnChange`), onto the
+  answer state after submitting; dialogs give focus back even without a Trigger (`useRestoreFocus` in the
+  shared `Dialog` and `AlertDialog`); the leaderboard overlay is a real dialog; the host Q&A drawer moves
+  focus; select-answer shortcuts only inside the option list (WCAG 2.1.4); ranking moves named, 44 px,
+  focus kept; scroll boxes focusable.
+- Announcements: `components/a11y/live-announcer.tsx` on the phone (new slide, answer outcome, result),
+  `role="timer"` + milestone region (60 / 30 / 10 s), stage heading and phase as status, the remote's
+  status without the ticking timer.
+- Reduced motion on every live surface (`MotionConfig` in the live and embed providers, CSS in
+  `tokens.css`); 44 px phone targets; 320 px reflow and 200 % zoom checked.
+- Strings: everything user-facing on the participant, stage, presenter, remote and audience-pace surfaces
+  is in `frontend/messages/en/*.json` (new: `live.announce`, `live.meta`, `presenter.meta`, `remote.meta`,
+  input names, ranking, timer announcements, stage labels, the Q&A tab via the slot's `labelKey`).
+  Builder, library and settings strings were not extracted (time).
+- **W4-B (Spanish) was dropped by the owner on 2026-11-05.** The strings are extracted so a locale can be
+  added later in a day: translate `messages/en/*.json` into `messages/<locale>/`, add the locale to
+  `i18n/config.ts` and `i18n/messages.ts`, and pick it in `LiveIntlProvider` (browser language or
+  `settings.audienceLocale`).
+- Checks: frontend typecheck clean, lint 0 problems, 844 unit tests; Playwright against a production build
+  (`E2E_FRONTEND_MODE=start`): the full suite 124 passed, the a11y specs again after the last fixes, and
+  the a11y specs in WebKit (Docker Playwright server) 13 of 13. Backend untouched.
+- Likely merge conflicts: `frontend/features/presentations/theme/tokens.css`,
+  `frontend/messages/en/live.json`, `frontend/features/presentations/components/participant/*`.
+
 ## Left to do (nothing is half-merged)
 
 - (**W2-D phase 2** offline answers is built, branch `feat/offline-answers`: `submitAnswer` in
@@ -347,7 +382,8 @@ Owner request: decks were all dark while the app is light-first.
   `backend/docs/wiki/modules/themes.md`.)
   (**W3-G** workspace insights is built: `GET /api/insights` and the `/analytics` overview, see
   `backend/docs/wiki/modules/insights.md`.)
-- **Wave 4:** W4-A accessibility, W4-B locales (`es`). (**W4-D** embeds/oEmbed/add-in panes is built on
+- **Wave 4:** (**W4-A** accessibility and string extraction is built, branch `feat/accessibility`, see above.)
+  (**W4-B** locales (`es`) was dropped by the owner on 2026-11-05; the live strings are extracted.) (**W4-D** embeds/oEmbed/add-in panes is built on
   `feat/embeds`, waiting for its PR: merge after `feat/launch-basics`; then try the add-ins inside
   PowerPoint, Teams and Zoom, which could not be done here.) (**W4-E**
   custom domains and white-label are built: `backend/docs/wiki/modules/domains.md`,

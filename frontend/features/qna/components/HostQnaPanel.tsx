@@ -104,7 +104,7 @@ export function HostQnaPanel({ className }: { className?: string }) {
 
   return (
     <section className={cn("flex min-h-0 flex-col gap-3", className)} aria-label={t("host.title")}>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-deck-stage-fg/60">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-deck-stage-muted">
         <span>{qna.settings?.moderation ? t("host.moderationOn") : t("host.moderationOff")}</span>
         {qna.loaded && !qna.settings?.open && <span className="text-deck-accent-soft">{t("host.closed")}</span>}
       </div>
@@ -120,8 +120,8 @@ export function HostQnaPanel({ className }: { className?: string }) {
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors",
               filter === value
-                ? "bg-deck-primary/20 text-deck-primary"
-                : "text-deck-stage-fg/60 hover:bg-deck-stage-fg/10 hover:text-deck-stage-fg"
+                ? "bg-deck-primary/20 text-deck-primary-ink"
+                : "text-deck-stage-muted hover:bg-deck-stage-fg/10 hover:text-deck-stage-fg"
             )}
           >
             {t(`host.filters.${value}`)}
@@ -132,7 +132,7 @@ export function HostQnaPanel({ className }: { className?: string }) {
         ))}
       </div>
 
-      <div className="flex items-center justify-end gap-2 text-xs text-deck-stage-fg/60">
+      <div className="flex items-center justify-end gap-2 text-xs text-deck-stage-muted">
         <label htmlFor="qna-host-sort" className="font-semibold">
           {t("host.sortLabel")}
         </label>
@@ -153,9 +153,10 @@ export function HostQnaPanel({ className }: { className?: string }) {
         </p>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+      {/* Focusable and named: keyboard users scroll a long list with the arrow keys (WCAG 2.1.1). */}
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1" tabIndex={0} role="group" aria-label={t("list.label")}>
         {!qna.loaded ? (
-          <div className="py-8 text-center text-xs text-deck-stage-fg/50" role="status">
+          <div className="py-8 text-center text-xs text-deck-stage-muted" role="status">
             {failed ? (
               <button type="button" onClick={retry} className="underline underline-offset-2">
                 {t("retry")}
@@ -165,7 +166,7 @@ export function HostQnaPanel({ className }: { className?: string }) {
             )}
           </div>
         ) : shown.length === 0 ? (
-          <p className="py-8 text-center text-xs text-deck-stage-fg/50">{t(`host.empty.${filter}`)}</p>
+          <p className="py-8 text-center text-xs text-deck-stage-muted">{t(`host.empty.${filter}`)}</p>
         ) : (
           <ul className="space-y-2">
             {shown.map((item) => {
@@ -179,7 +180,7 @@ export function HostQnaPanel({ className }: { className?: string }) {
                   )}
                 >
                   <p className="text-sm font-medium leading-snug break-words text-deck-stage-fg">{item.text}</p>
-                  <div className="flex flex-wrap items-center gap-x-2 text-xs text-deck-stage-fg/60">
+                  <div className="flex flex-wrap items-center gap-x-2 text-xs text-deck-stage-muted">
                     <span className="font-semibold">{item.authorName ?? t("host.anonymousAuthor")}</span>
                     <span className="tabular-nums">{t("list.votes", { count: item.upvoteCount })}</span>
                     {item.pinned && (
@@ -199,7 +200,7 @@ export function HostQnaPanel({ className }: { className?: string }) {
                         aria-label={`${def.label}: ${item.text}`}
                         className={cn(
                           "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors disabled:opacity-50",
-                          def.tone === "primary" && "border-deck-primary/40 bg-deck-primary/15 text-deck-primary hover:bg-deck-primary/25",
+                          def.tone === "primary" && "border-deck-primary/40 bg-deck-primary/15 text-deck-primary-ink hover:bg-deck-primary/25",
                           def.tone === "danger" && "border-deck-danger/30 text-deck-danger-soft hover:bg-deck-danger/10",
                           !def.tone && "border-deck-stage-fg/15 text-deck-stage-fg/80 hover:bg-deck-stage-fg/10"
                         )}

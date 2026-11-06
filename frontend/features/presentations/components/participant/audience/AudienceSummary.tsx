@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Award, CircleAlert, CloudUpload, Loader2, RotateCcw } from "lucide-react";
+import { Award, Check, CircleAlert, CloudUpload, Loader2, RotateCcw, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
@@ -162,9 +162,11 @@ export function AudienceSummary({
         )}
         {assessment ? (
           <div className="flex items-center justify-center gap-2">
+            {/* Icon and word, in an outline without a tint: the coloured text keeps 4.5:1 on the deck (W4-A). */}
             <span
-              className={`rounded-full px-3 py-1 text-sm font-semibold ${passed ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"}`}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-semibold ${passed ? "border-success/50 text-success" : "border-destructive/50 text-destructive"}`}
             >
+              {passed ? <Check className="size-4" aria-hidden="true" /> : <X className="size-4" aria-hidden="true" />}
               {passed ? t("passed") : t("failed")}
             </span>
             <span className="text-sm text-deck-muted-fg">{t("passMark", { percentage: run.assessment.passingScorePercentage })}</span>

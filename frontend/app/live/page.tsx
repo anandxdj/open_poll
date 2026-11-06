@@ -62,7 +62,7 @@ export default function LiveJoinPage() {
                 <img src={brand.logo.url} alt={brand.logo.alt || domain!.workspace.name} className="mx-auto h-14 max-w-[240px] object-contain" />
               ) : (
                 <div className="mx-auto flex size-12 items-center justify-center rounded-xl border border-deck-border bg-deck-surface">
-                  <PresentationIcon className="size-6 text-deck-primary" />
+                  <PresentationIcon className="size-6 text-deck-primary-ink" />
                 </div>
               )}
               {domain ? <p className="text-sm font-medium text-deck-muted-fg">{domain.workspace.name}</p> : null}
@@ -75,9 +75,11 @@ export default function LiveJoinPage() {
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 placeholder={t("codePlaceholder")}
+                aria-label={t("codeLabel")}
+                autoComplete="off"
                 inputMode="numeric"
                 autoFocus
-                className="h-16 rounded-xl bg-deck-surface text-center font-mono text-3xl font-semibold tracking-[0.3em] tabular-nums placeholder:text-deck-muted-fg/40 md:text-3xl"
+                className="h-16 rounded-xl bg-deck-surface text-center font-mono text-3xl font-semibold tracking-[0.3em] tabular-nums placeholder:text-deck-muted-fg md:text-3xl"
               />
               <Button
                 type="submit"
@@ -86,10 +88,13 @@ export default function LiveJoinPage() {
                 className="h-12 w-full rounded-lg bg-deck-primary text-base font-semibold text-deck-primary-fg"
               >
                 {checking ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <>
+                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                    <span className="sr-only">{t("checking")}</span>
+                  </>
                 ) : (
                   <>
-                    {t("submit")} <ArrowRight className="size-4 ml-2" />
+                    {t("submit")} <ArrowRight className="size-4 ml-2" aria-hidden="true" />
                   </>
                 )}
               </Button>

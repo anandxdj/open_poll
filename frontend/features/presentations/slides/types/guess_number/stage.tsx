@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 
 import { formatNumber, percentOf } from "../../advanced/read";
 import type { StageViewProps } from "../../runtime";
-import { ease, isRevealMode } from "../../shared";
+import { ease, isRevealMode, stageScrollProps } from "../../shared";
 import { guessNumberConfig } from "./config";
 import {
   emptyGuessDistribution,
@@ -41,7 +41,7 @@ export function GuessNumberStage({ slide, live, reveal, mode }: StageViewProps) 
   const tolerance = dist.tolerance > 0 ? ` ± ${formatNumber(dist.tolerance, 4)}` : "";
 
   return (
-    <div className={`pt-2 font-sans ${thumbnail ? "" : "max-h-[55vh] overflow-y-auto"}`}>
+    <div className={`pt-2 font-sans ${thumbnail ? "" : "max-h-[55vh] overflow-y-auto"}`} {...stageScrollProps(mode, slide.question)}>
       <div className="mx-auto w-full max-w-2xl space-y-3">
         <div className="flex h-44 items-end gap-1.5 rounded-2xl border border-deck-stage-fg/10 bg-deck-stage-fg/5 px-3 pt-4 pb-1 sm:gap-2">
           {dist.buckets.map((bucket, i) => {
@@ -74,7 +74,7 @@ export function GuessNumberStage({ slide, live, reveal, mode }: StageViewProps) 
                 </div>
                 <span
                   className={`h-4 w-full truncate text-center font-mono text-[10px] tabular-nums ${
-                    correct ? "font-bold text-deck-correct-soft" : "text-deck-stage-fg/50"
+                    correct ? "font-bold text-deck-correct-soft" : "text-deck-stage-muted"
                   }`}
                 >
                   {i % labelEvery === 0 ? bucketLabel(bucket) : ""}
@@ -114,7 +114,7 @@ export function GuessNumberStage({ slide, live, reveal, mode }: StageViewProps) 
               {tolerance}
             </p>
             {dist.correctCount !== null && dist.count > 0 && (
-              <p className="text-xs text-deck-stage-fg/60">
+              <p className="text-xs text-deck-stage-muted">
                 {t("correctCount", { correct: dist.correctCount, total: dist.count })}
               </p>
             )}
@@ -128,7 +128,7 @@ export function GuessNumberStage({ slide, live, reveal, mode }: StageViewProps) 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-24 rounded-2xl border border-deck-stage-fg/10 bg-deck-stage-fg/5 px-4 py-1.5">
-      <dt className="text-sm font-medium text-deck-stage-fg/60">{label}</dt>
+      <dt className="text-sm font-medium text-deck-stage-muted">{label}</dt>
       <dd className="text-lg font-extrabold tabular-nums text-deck-stage-fg">{value}</dd>
     </div>
   );

@@ -19,6 +19,7 @@ export function registerQnaModule(): () => void {
       id: "qna",
       order: 20,
       label: "Q&A",
+      labelKey: "qna.tab",
       when: ({ presentationId }) => qnaTabAvailable(presentationId),
       Component: QnaTab,
     }),

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Minus, Plus, Send } from "lucide-react";
+import { Minus, Plus, Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
   withPoints,
   withPointsWithinTotal,
 } from "./config";
+import { SendingSpinner } from "../../SendingSpinner";
 
 /** Points moved by the − and + buttons. */
 const NUDGE = 5;
@@ -105,10 +106,10 @@ export function HundredPointsParticipant({ slide, mode, onSubmit, submitting }: 
         className="w-full h-12 rounded-2xl bg-deck-primary text-deck-primary-fg font-bold text-base shadow-md transition-all"
       >
         {submitting ? (
-          <Loader2 className="size-5 animate-spin" />
+          <SendingSpinner />
         ) : (
           <span className="flex items-center gap-2">
-            {t("submit")} <Send className="size-4" />
+            {t("submit")} <Send className="size-4" aria-hidden="true" />
           </span>
         )}
       </Button>

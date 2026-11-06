@@ -18,7 +18,7 @@ export function ParagraphParticipant({ slide, mode }: ParticipantViewProps) {
         classes={{
           strong: "font-bold text-deck-fg",
           em: "italic",
-          link: "text-deck-primary underline underline-offset-4",
+          link: "text-deck-primary-ink underline underline-offset-4",
         }}
       />
     </ContentCard>

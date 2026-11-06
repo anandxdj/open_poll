@@ -62,7 +62,7 @@ export function JoinGate({ code, rejoin = false }: { code: string; rejoin?: bool
   };
 
   return (
-    <div className="min-h-screen bg-deck-bg text-deck-fg flex flex-col justify-center items-center p-6">
+    <main className="min-h-screen bg-deck-bg text-deck-fg flex flex-col justify-center items-center p-6">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -99,10 +99,17 @@ export function JoinGate({ code, rejoin = false }: { code: string; rejoin?: bool
             disabled={joining || (nickname === "required" && !nameInput.trim())}
             className="h-12 w-full rounded-lg bg-deck-primary text-base font-semibold text-deck-primary-fg"
           >
-            {joining ? <Loader2 className="size-4 animate-spin" /> : t("joinSubmit")}
+            {joining ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                <span className="sr-only">{t("joining")}</span>
+              </>
+            ) : (
+              t("joinSubmit")
+            )}
           </Button>
         </form>
       </motion.div>
-    </div>
+    </main>
   );
 }

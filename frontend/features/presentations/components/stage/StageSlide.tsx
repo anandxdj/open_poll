@@ -46,13 +46,17 @@ export function StageSlide({ slide, countdown }: { slide: PresentationSlide; cou
 
   return (
     <div className="my-auto w-full max-w-4xl space-y-5 font-sans animate-in fade-in slide-in-from-bottom-4 duration-500 sm:space-y-7">
-      <div className="space-y-3 text-center">
-        <span className="text-sm tabular-nums text-deck-stage-fg/60">
+      {/* A live region that stays mounted across slides: the presenter's screen reader hears each new
+          slide's position and question (W4-A). */}
+      <div className="space-y-3 text-center" role="status" data-testid="stage-slide-heading">
+        <span className="text-sm tabular-nums text-deck-stage-muted">
           {t("counter", { current: slideIndex + 1, total: totalSlides })}
         </span>
-        <h2 className="text-balance px-4 text-3xl font-semibold leading-tight tracking-[-0.035em] text-deck-stage-fg sm:text-5xl">
-          {slide.question}
-        </h2>
+        {slide.question ? (
+          <h2 className="text-balance px-4 text-3xl font-semibold leading-tight tracking-[-0.035em] text-deck-stage-fg sm:text-5xl">
+            {slide.question}
+          </h2>
+        ) : null}
       </div>
 
       {isResponse ? (
@@ -61,17 +65,17 @@ export function StageSlide({ slide, countdown }: { slide: PresentationSlide; cou
             <Timer secondsLeft={countdown.secondsLeft} progress={countdown.progress} paused={countdown.paused} tone="stage" />
           )}
           {phase && phase !== "shown" && (
-            <p className="text-center text-sm font-medium text-deck-stage-fg/70">
+            <p role="status" className="text-center text-sm font-medium text-deck-stage-fg/70">
               {t(`phase.${phase}`)}
               {phase === "open" && !countdown.timed && (
-                <span className="mt-1 block font-normal text-deck-stage-fg/50">
+                <span className="mt-1 block font-normal text-deck-stage-muted">
                   {t("untimed")}
                 </span>
               )}
             </p>
           )}
           {stageView}
-          <p className="text-center font-mono text-xs text-deck-stage-fg/50 sm:hidden">
+          <p className="text-center font-mono text-xs text-deck-stage-muted sm:hidden">
             {t("answeredOf", { answered: answeredCount, total: participants.length })}
           </p>
         </>

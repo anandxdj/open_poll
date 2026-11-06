@@ -25,9 +25,10 @@ import { PublicPageShell } from "@/features/landing/components/shared/PublicPage
 import { LiveNotice, MessageCard, SectionTitle, Skeleton, StatStrip } from "./ui";
 
 const toneStyle: Record<AnswerTone, string> = {
-  correct: "border-success/30 bg-success/10 text-success",
-  wrong: "border-destructive/30 bg-destructive/10 text-destructive",
-  pending: "border-warning/30 bg-warning/10 text-warning",
+  // No tint behind the coloured text: success green keeps 4.5:1 only on the plain card (W4-A).
+  correct: "border-success/40 bg-card text-success",
+  wrong: "border-destructive/40 bg-card text-destructive",
+  pending: "border-warning/40 bg-card text-warning",
   unscored: "border-border bg-secondary text-muted-foreground",
   skipped: "border-border bg-background text-muted-foreground",
 };

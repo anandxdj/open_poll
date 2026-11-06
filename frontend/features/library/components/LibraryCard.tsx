@@ -518,7 +518,7 @@ function DeckThumb({ deck }: { deck: PresentationLibraryCard }) {
         <span className="block h-1.5 w-1/2 rounded-full bg-deck-stage-fg/70" />
         <div className="mt-2.5 flex items-center gap-1.5">
           {types.length === 0 ? (
-            <Presentation className="size-5 text-deck-stage-fg/60" />
+            <Presentation className="size-5 text-deck-stage-muted" />
           ) : (
             types.map((type) => {
               const { Icon } = slideTypeMeta(type as PresentationSlideType);
@@ -532,7 +532,7 @@ function DeckThumb({ deck }: { deck: PresentationLibraryCard }) {
               );
             })
           )}
-          {more > 0 ? <span className="font-mono text-xs text-deck-stage-fg/60">+{more}</span> : null}
+          {more > 0 ? <span className="font-mono text-xs text-deck-stage-muted">+{more}</span> : null}
         </div>
       </div>
     </DeckThemeProvider>

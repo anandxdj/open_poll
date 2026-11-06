@@ -36,6 +36,7 @@ export function deckThemeFrom(tokens: ThemeTokens | null | undefined): DeckTheme
       "stage-chrome": c.surface,
       "stage-panel": c.surface,
       "stage-fg": c.text,
+      "stage-muted": c.mutedText,
       "stage-ink": c.accentText,
       // Phones and the app primitives inside the deck
       bg: c.background,
@@ -62,6 +63,8 @@ export function deckThemeFrom(tokens: ThemeTokens | null | undefined): DeckTheme
       "danger-strong": c.incorrect,
       primary: c.accent,
       "primary-fg": c.accentText,
+      // The accent as text on the phones: pulled toward the text colour like `accent-soft`.
+      "primary-ink": `color-mix(in srgb, ${c.accent} 75%, ${c.text})`,
       ring: c.accent,
       ...cloud,
     },
@@ -82,6 +85,7 @@ export function deckThemeFromCard(card: DeckCardTheme | null | undefined): DeckT
       "stage-chrome": card.surface,
       "stage-panel": card.surface,
       "stage-fg": card.text,
+      "stage-muted": card.mutedText,
       "stage-ink": card.accentText,
       accent: card.accent,
     },

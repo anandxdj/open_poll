@@ -22,12 +22,12 @@ export const showsSlideOnDevice = (mode: ParticipantMode) => mode !== "live";
 export function LookAtScreen({ slide }: { slide: LiveSlide }) {
   const t = useTranslations("live");
   return (
-    <div className="w-full text-center space-y-4 py-10" role="status">
-      <span className="text-[10px] font-bold uppercase tracking-widest text-deck-primary/60">
+    <div className="w-full text-center space-y-4 py-10">
+      <span className="text-sm tabular-nums text-deck-muted-fg">
         {t("participant.slideCounter", { current: slide.slideIndex + 1, total: slide.totalSlides })}
       </span>
       <div className="mx-auto flex size-20 items-center justify-center rounded-3xl border border-deck-primary/20 bg-deck-primary/10">
-        <MonitorPlay className="size-10 text-deck-primary" aria-hidden />
+        <MonitorPlay className="size-10 text-deck-primary-ink" aria-hidden />
       </div>
       <h2 className="text-2xl font-bold">{t("slides.content.lookAtScreen")}</h2>
       <p className="text-sm text-deck-muted-fg">{t("slides.content.lookAtScreenHint")}</p>
@@ -84,7 +84,7 @@ export function MediaPlaceholder({
       className={cn(
         "flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed text-center",
         tone === "stage"
-          ? "border-deck-stage-fg/20 bg-deck-stage-fg/5 text-deck-stage-fg/50"
+          ? "border-deck-stage-fg/20 bg-deck-stage-fg/5 text-deck-stage-muted"
           : "border-deck-border bg-deck-surface text-deck-muted-fg",
         className
       )}

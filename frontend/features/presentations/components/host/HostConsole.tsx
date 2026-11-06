@@ -95,7 +95,7 @@ function HostConsoleView({ presentationId }: { presentationId: string }) {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-deck-stage-bg">
-        <Loader2 className="size-8 animate-spin text-deck-stage-fg/50" />
+        <Loader2 className="size-8 animate-spin text-deck-stage-muted" />
       </div>
     );
   }

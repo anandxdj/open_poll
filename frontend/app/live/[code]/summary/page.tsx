@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
 import { SessionsIntlProvider } from "@/features/sessions/SessionsIntlProvider";
 import { ParticipantSummary } from "@/features/sessions/components/ParticipantSummary";
+import { enMessages } from "@/i18n/messages";
+import { SITE_NAME } from "@/lib/seo/site";
+
+const title = enMessages.live.meta.resultsTitle;
 
 export const metadata: Metadata = {
-  title: "Your results",
+  title,
   robots: { index: false, follow: false },
   // Not the parent's "Join the live session" card: this page is one participant's results.
-  openGraph: { title: "Your results | Open Poll", url: null },
-  twitter: { title: "Your results | Open Poll" },
+  openGraph: { title: `${title} | ${SITE_NAME}`, url: null },
+  twitter: { title: `${title} | ${SITE_NAME}` },
 };
 
 // A participant's own results: `?sid=` pins the session (the end screen links it),

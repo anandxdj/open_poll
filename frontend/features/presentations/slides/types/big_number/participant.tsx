@@ -16,7 +16,7 @@ export function BigNumberParticipant({ slide, mode }: ParticipantViewProps) {
 
   return (
     <ContentCard className="py-6 text-center">
-      <p className="flex flex-wrap items-baseline justify-center text-6xl font-black leading-none tracking-tight text-deck-primary tabular-nums">
+      <p className="flex flex-wrap items-baseline justify-center text-6xl font-black leading-none tracking-tight text-deck-primary-ink tabular-nums">
         {prefix && <span className="mr-1 text-3xl">{prefix}</span>}
         <span>{format.number(target, { minimumFractionDigits: digits, maximumFractionDigits: digits })}</span>
         {suffix && <span className="ml-1 text-3xl">{suffix}</span>}

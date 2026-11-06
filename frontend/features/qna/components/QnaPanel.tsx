@@ -110,7 +110,7 @@ export function QnaPanel({ className }: { className?: string }) {
             </Button>
           </div>
         ) : (
-          <Loader2 className="mx-auto size-6 animate-spin text-deck-primary/60" aria-label={t("title")} />
+          <Loader2 className="mx-auto size-6 animate-spin text-deck-primary-ink" aria-label={t("title")} />
         )}
       </div>
     );
@@ -118,9 +118,10 @@ export function QnaPanel({ className }: { className?: string }) {
 
   return (
     <section className={cn("w-full space-y-4", className)} aria-label={t("title")}>
-      <header className="flex items-center gap-2 text-sm font-bold text-deck-primary">
+      {/* A heading: the Q&A tab's title, where focus lands when the tab opens (W4-A). */}
+      <h2 className="flex items-center gap-2 text-sm font-bold text-deck-primary-ink">
         <MessageCircleQuestion className="size-4" aria-hidden /> {t("title")}
-      </header>
+      </h2>
 
       {open ? (
         <form onSubmit={submit} className="space-y-2.5">
@@ -138,7 +139,7 @@ export function QnaPanel({ className }: { className?: string }) {
           />
           <div className="flex items-center justify-between gap-3 text-xs text-deck-muted-fg">
             {canAskAnonymously ? (
-              <label className="flex cursor-pointer items-center gap-2 font-medium">
+              <label className="flex min-h-11 cursor-pointer items-center gap-2 font-medium">
                 <input
                   type="checkbox"
                   checked={anonymous}
@@ -195,8 +196,8 @@ export function QnaPanel({ className }: { className?: string }) {
               onClick={() => setSort(value)}
               aria-pressed={sort === value}
               className={cn(
-                "rounded-full px-2.5 py-1 transition-colors",
-                sort === value ? "bg-deck-primary/15 text-deck-primary" : "text-deck-muted-fg hover:text-deck-fg"
+                "min-h-11 rounded-full px-3.5 transition-colors",
+                sort === value ? "bg-deck-primary/15 text-deck-primary-ink" : "text-deck-muted-fg hover:text-deck-fg"
               )}
             >
               {value === "top" ? t("list.sortTop") : t("list.sortNew")}

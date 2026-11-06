@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { Check, Loader2, Send } from "lucide-react";
+import { Check, Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ import {
   type Direction,
   type GridPosition,
 } from "./config";
+import { SendingSpinner } from "../../SendingSpinner";
 
 const ARROWS: Record<string, Direction> = {
   ArrowLeft: "left",
@@ -206,10 +207,10 @@ export function Grid2x2Participant({ slide, mode, onSubmit, submitting }: Partic
         className="w-full h-12 rounded-2xl bg-deck-primary text-deck-primary-fg font-bold text-base shadow-md transition-all"
       >
         {submitting ? (
-          <Loader2 className="size-5 animate-spin" />
+          <SendingSpinner />
         ) : (
           <span className="flex items-center gap-2">
-            {t("submit")} <Send className="size-4" />
+            {t("submit")} <Send className="size-4" aria-hidden="true" />
           </span>
         )}
       </Button>
